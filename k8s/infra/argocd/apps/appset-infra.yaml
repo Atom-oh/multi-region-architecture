@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: infra
+  namespace: argocd
+spec:
+  generators:
+    - matrix:
+        generators:
+          - clusters: {}
+          - list:
+              elements:
+                - component: karpenter
+                  path: k8s/infra/karpenter
+                  namespace: kube-system
+                - component: fluent-bit
+                  path: k8s/infra/fluent-bit
+                  namespace: logging
+                - component: external-secrets
+                  path: k8s/infra/external-secrets
+                  namespace: external-secrets
+                - component: prometheus-stack
+                  path: k8s/infra/prometheus-stack
+                  namespace: monitoring
+  template:
+    metadata:
+      name: 'infra-{{component}}-{{name}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/Atom-oh/multi-region-architecture.git
+        targetRevision: main
+        path: '{{path}}'
+      destination:
+        server: '{{server}}'
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: core-services
+  namespace: argocd
+spec:
+  generators:
+    - clusters: {}
+  template:
+    metadata:
+      name: 'core-{{name}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/Atom-oh/multi-region-architecture.git
+        targetRevision: main
+        path: k8s/services/core
+      destination:
+        server: '{{server}}'
+        namespace: core-services
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

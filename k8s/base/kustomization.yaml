@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces.yaml
+  - network-policies/default-deny.yaml
+  - network-policies/allow-dns.yaml
+  - network-policies/allow-alb-ingress.yaml
+  - network-policies/allow-inter-namespace.yaml
+  - resource-quotas/core-services.yaml
+  - resource-quotas/user-services.yaml
+  - resource-quotas/fulfillment.yaml
+  - resource-quotas/business-services.yaml
+  - resource-quotas/platform.yaml
+
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize

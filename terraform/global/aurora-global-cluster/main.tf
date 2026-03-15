@@ -1,0 +1,19 @@
+terraform {
+  required_version = ">= 1.5"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+  }
+}
+
+resource "aws_rds_global_cluster" "main" {
+  global_cluster_identifier = var.global_cluster_identifier
+  engine                    = "aurora-postgresql"
+  engine_version            = "15.4"
+  database_name             = var.database_name
+  storage_encrypted         = true
+  deletion_protection       = true
+}

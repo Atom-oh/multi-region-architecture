@@ -1,0 +1,1126 @@
+<mxfile host="app.diagrams.net" agent="Claude Code" version="21.0.0" type="device">
+  <diagram name="Multi-Region Shopping Mall Architecture" id="multi-region-1">
+    <mxGraphModel dx="2800" dy="1800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2800" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ==================== GLOBAL/EDGE LAYER (TOP) ==================== -->
+
+        <!-- Users -->
+        <mxCell id="users" value="Users"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3E;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.users;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1350" y="30" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Route 53 -->
+        <mxCell id="route53" value="Route 53&#xa;(Latency-based)"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.route_53;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1351" y="120" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- CloudFront -->
+        <mxCell id="cloudfront" value="CloudFront&#xa;(CDN)"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudfront;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1241" y="120" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Origin Shield -->
+        <mxCell id="origin-shield" value="Origin Shield&#xa;(us-east-1)"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudfront;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1131" y="120" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- WAF -->
+        <mxCell id="waf" value="WAF"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.waf;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1461" y="120" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Global Layer Box -->
+        <mxCell id="global-layer" value="Global / Edge Layer"
+                style="rounded=1;arcSize=5;fillColor=none;strokeColor=#5A30B5;strokeWidth=2;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontFamily=Amazon Ember;fontSize=12;fontStyle=1;fontColor=#5A30B5;"
+                vertex="1" parent="1">
+          <mxGeometry x="1100" y="20" width="430" height="185" as="geometry" />
+        </mxCell>
+
+        <!-- User to Route53 -->
+        <mxCell id="user-r53" value=""
+                style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#545B64;"
+                edge="1" parent="1" source="users" target="route53">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- CloudFront to Origin Shield -->
+        <mxCell id="cf-os" value=""
+                style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#5A30B5;"
+                edge="1" parent="1" source="cloudfront" target="origin-shield">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- WAF to CloudFront -->
+        <mxCell id="waf-cf" value=""
+                style="endArrow=classic;startArrow=classic;html=1;strokeWidth=1;strokeColor=#C7131F;"
+                edge="1" parent="1" source="waf" target="cloudfront">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== US-EAST-1 PRIMARY REGION (LEFT) ==================== -->
+
+        <!-- us-east-1 AWS Cloud -->
+        <mxCell id="east-cloud" value="AWS Cloud"
+                style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=14;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="30" y="220" width="1300" height="1550" as="geometry" />
+        </mxCell>
+
+        <!-- us-east-1 Region -->
+        <mxCell id="east-region" value="us-east-1 (N. Virginia) - PRIMARY WRITE REGION"
+                style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_region;strokeColor=#147EBA;fillColor=#E6F2FF;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;fontFamily=Amazon Ember;dashed=1;fillOpacity=30;"
+                vertex="1" parent="1">
+          <mxGeometry x="50" y="260" width="1260" height="1490" as="geometry" />
+        </mxCell>
+
+        <!-- us-east-1 VPC -->
+        <mxCell id="east-vpc" value="VPC (10.0.0.0/16)"
+                style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;strokeColor=#879196;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#879196;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="70" y="300" width="1220" height="1430" as="geometry" />
+        </mxCell>
+
+        <!-- us-east-1 Public Subnet -->
+        <mxCell id="east-public" value="Public Subnet (10.0.1.0/24)"
+                style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=10;fontStyle=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;grStroke=0;strokeColor=#7AA116;fillColor=#F2F6E8;verticalAlign=top;align=left;spacingLeft=30;fontColor=#248814;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="90" y="340" width="1180" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- us-east-1 ALB -->
+        <mxCell id="east-alb" value="ALB"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.application_load_balancer;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="620" y="370" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- us-east-1 NAT Gateway -->
+        <mxCell id="east-nat" value="NAT GW"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.nat_gateway;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="150" y="375" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- us-east-1 Internet Gateway -->
+        <mxCell id="east-igw" value="IGW"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.internet_gateway;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1180" y="375" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- us-east-1 Private Subnet (EKS) -->
+        <mxCell id="east-private" value="Private Subnet (10.0.10.0/24) - Application Tier"
+                style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=10;fontStyle=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;grStroke=0;strokeColor=#00A4A6;fillColor=#E6F6F7;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="90" y="480" width="1180" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- us-east-1 EKS Cluster -->
+        <mxCell id="east-eks-cluster" value="EKS Cluster"
+                style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_eks_cluster;strokeColor=#D05C17;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#D05C17;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="110" y="520" width="1140" height="660" as="geometry" />
+        </mxCell>
+
+        <!-- Node Pool Labels -->
+        <mxCell id="east-ondemand-label" value="Critical Node Pool (On-Demand)"
+                style="text;html=1;strokeColor=none;fillColor=#FFF3E0;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=9;fontColor=#E65100;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="130" y="555" width="180" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-spot-label" value="General Node Pool (Spot)"
+                style="text;html=1;strokeColor=none;fillColor=#E3F2FD;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=9;fontColor=#1565C0;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="130" y="790" width="150" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ===== CORE SERVICES ===== -->
+        <mxCell id="east-core-label" value="Core Services"
+                style="text;html=1;strokeColor=none;fillColor=#FFECB3;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#FF6F00;fontStyle=1;spacingLeft=5;"
+                vertex="1" parent="1">
+          <mxGeometry x="130" y="585" width="100" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-product" value="Product&#xa;Catalog"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="150" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-search" value="Search"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="220" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-cart" value="Cart"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="290" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-order" value="Order"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="360" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-payment" value="Payment"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="430" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-inventory" value="Inventory"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="500" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== USER SERVICES ===== -->
+        <mxCell id="east-user-label" value="User Services"
+                style="text;html=1;strokeColor=none;fillColor=#E8F5E9;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#2E7D32;fontStyle=1;spacingLeft=5;"
+                vertex="1" parent="1">
+          <mxGeometry x="580" y="585" width="100" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-useracct" value="User&#xa;Account"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="590" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-profile" value="User&#xa;Profile"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="660" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-wishlist" value="Wishlist"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="730" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-review" value="Review"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="800" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== FULFILLMENT SERVICES ===== -->
+        <mxCell id="east-fulfill-label" value="Fulfillment"
+                style="text;html=1;strokeColor=none;fillColor=#E3F2FD;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#1565C0;fontStyle=1;spacingLeft=5;"
+                vertex="1" parent="1">
+          <mxGeometry x="880" y="585" width="80" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-shipping" value="Shipping"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="890" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-warehouse" value="Warehouse"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="960" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-returns" value="Returns"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1030" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== BUSINESS SERVICES (Spot) ===== -->
+        <mxCell id="east-biz-label" value="Business Services"
+                style="text;html=1;strokeColor=none;fillColor=#FCE4EC;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#C2185B;fontStyle=1;spacingLeft=5;"
+                vertex="1" parent="1">
+          <mxGeometry x="130" y="820" width="120" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-pricing" value="Pricing"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="150" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-recommend" value="Recommend"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="220" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-notify" value="Notification"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="290" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-seller" value="Seller"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="360" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== PLATFORM SERVICES (Spot) ===== -->
+        <mxCell id="east-platform-label" value="Platform Services"
+                style="text;html=1;strokeColor=none;fillColor=#F3E5F5;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#7B1FA2;fontStyle=1;spacingLeft=5;"
+                vertex="1" parent="1">
+          <mxGeometry x="460" y="820" width="120" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-apigw" value="API&#xa;Gateway"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="480" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-eventbus" value="Event&#xa;Bus"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="550" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-analytics-svc" value="Analytics"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="620" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- EKS Icon -->
+        <mxCell id="east-eks-icon" value="EKS"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eks;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1160" y="560" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Horizontal divider line between node pools -->
+        <mxCell id="east-divider" value=""
+                style="endArrow=none;html=1;strokeWidth=1;strokeColor=#90A4AE;dashed=1;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="130" y="780" as="sourcePoint" />
+            <mxPoint x="1200" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- us-east-1 Data Subnet -->
+        <mxCell id="east-data" value="Data Subnet (10.0.20.0/24) - Data Tier"
+                style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=10;fontStyle=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;grStroke=0;strokeColor=#00A4A6;fillColor=#E6F6F7;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="90" y="1220" width="1180" height="490" as="geometry" />
+        </mxCell>
+
+        <!-- Aurora PostgreSQL PRIMARY -->
+        <mxCell id="east-aurora" value="Aurora PostgreSQL&#xa;PRIMARY (Writer)"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.aurora;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="150" y="1280" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- DocumentDB PRIMARY -->
+        <mxCell id="east-docdb" value="DocumentDB&#xa;PRIMARY"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.documentdb_with_mongodb_compatibility;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="280" y="1280" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ElastiCache Valkey PRIMARY -->
+        <mxCell id="east-cache" value="ElastiCache Valkey&#xa;PRIMARY"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticache;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="410" y="1280" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Amazon MSK -->
+        <mxCell id="east-msk-box" value="Amazon MSK (6 Brokers)"
+                style="rounded=1;arcSize=5;fillColor=none;strokeColor=#5A30B5;strokeWidth=1;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontFamily=Amazon Ember;fontSize=9;fontColor=#5A30B5;"
+                vertex="1" parent="1">
+          <mxGeometry x="530" y="1260" width="340" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-msk1" value="Broker 1"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="550" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-msk2" value="Broker 2"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="610" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-msk3" value="Broker 3"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="670" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-msk4" value="Broker 4"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="730" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-msk5" value="Broker 5"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="790" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="east-msk6" value="Broker 6"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="850" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- OpenSearch -->
+        <mxCell id="east-opensearch" value="OpenSearch"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticsearch_service;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="950" y="1280" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- S3 Static Assets -->
+        <mxCell id="east-s3-static" value="S3 Static Assets&#xa;(CRR Enabled)"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#60A337;gradientDirection=north;fillColor=#277116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="150" y="1420" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- S3 Analytics Data Lake -->
+        <mxCell id="east-s3-lake" value="S3 Analytics&#xa;Data Lake"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#60A337;gradientDirection=north;fillColor=#277116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="280" y="1420" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Secrets Manager -->
+        <mxCell id="east-secrets" value="Secrets&#xa;Manager"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="410" y="1420" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- KMS -->
+        <mxCell id="east-kms" value="KMS"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.key_management_service;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="540" y="1420" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Transit Gateway us-east-1 -->
+        <mxCell id="east-tgw" value="Transit&#xa;Gateway"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.transit_gateway;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1100" y="1420" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== US-WEST-2 SECONDARY REGION (RIGHT) ==================== -->
+
+        <!-- us-west-2 AWS Cloud -->
+        <mxCell id="west-cloud" value="AWS Cloud"
+                style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=14;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="1470" y="220" width="1300" height="1550" as="geometry" />
+        </mxCell>
+
+        <!-- us-west-2 Region -->
+        <mxCell id="west-region" value="us-west-2 (Oregon) - SECONDARY READ REGION"
+                style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_region;strokeColor=#FF9800;fillColor=#FFF3E0;verticalAlign=top;align=left;spacingLeft=30;fontColor=#E65100;fontFamily=Amazon Ember;dashed=1;fillOpacity=30;"
+                vertex="1" parent="1">
+          <mxGeometry x="1490" y="260" width="1260" height="1490" as="geometry" />
+        </mxCell>
+
+        <!-- us-west-2 VPC -->
+        <mxCell id="west-vpc" value="VPC (10.1.0.0/16)"
+                style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;strokeColor=#879196;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#879196;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="1510" y="300" width="1220" height="1430" as="geometry" />
+        </mxCell>
+
+        <!-- us-west-2 Public Subnet -->
+        <mxCell id="west-public" value="Public Subnet (10.1.1.0/24)"
+                style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=10;fontStyle=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;grStroke=0;strokeColor=#7AA116;fillColor=#F2F6E8;verticalAlign=top;align=left;spacingLeft=30;fontColor=#248814;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="1530" y="340" width="1180" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- us-west-2 ALB -->
+        <mxCell id="west-alb" value="ALB"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.application_load_balancer;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2060" y="370" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- us-west-2 NAT Gateway -->
+        <mxCell id="west-nat" value="NAT GW"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.nat_gateway;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1590" y="375" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- us-west-2 Internet Gateway -->
+        <mxCell id="west-igw" value="IGW"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.internet_gateway;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2620" y="375" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- us-west-2 Private Subnet (EKS) -->
+        <mxCell id="west-private" value="Private Subnet (10.1.10.0/24) - Application Tier"
+                style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=10;fontStyle=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;grStroke=0;strokeColor=#00A4A6;fillColor=#E6F6F7;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="1530" y="480" width="1180" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- us-west-2 EKS Cluster -->
+        <mxCell id="west-eks-cluster" value="EKS Cluster"
+                style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_eks_cluster;strokeColor=#D05C17;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#D05C17;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="1550" y="520" width="1140" height="660" as="geometry" />
+        </mxCell>
+
+        <!-- Node Pool Labels -->
+        <mxCell id="west-ondemand-label" value="Critical Node Pool (On-Demand)"
+                style="text;html=1;strokeColor=none;fillColor=#FFF3E0;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=9;fontColor=#E65100;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1570" y="555" width="180" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-spot-label" value="General Node Pool (Spot)"
+                style="text;html=1;strokeColor=none;fillColor=#E3F2FD;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=9;fontColor=#1565C0;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1570" y="790" width="150" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ===== CORE SERVICES (WEST) ===== -->
+        <mxCell id="west-core-label" value="Core Services"
+                style="text;html=1;strokeColor=none;fillColor=#FFECB3;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#FF6F00;fontStyle=1;spacingLeft=5;"
+                vertex="1" parent="1">
+          <mxGeometry x="1570" y="585" width="100" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-product" value="Product&#xa;Catalog"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1590" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-search" value="Search"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1660" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-cart" value="Cart"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1730" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-order" value="Order"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1800" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-payment" value="Payment"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1870" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-inventory" value="Inventory"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1940" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== USER SERVICES (WEST) ===== -->
+        <mxCell id="west-user-label" value="User Services"
+                style="text;html=1;strokeColor=none;fillColor=#E8F5E9;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#2E7D32;fontStyle=1;spacingLeft=5;"
+                vertex="1" parent="1">
+          <mxGeometry x="2020" y="585" width="100" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-useracct" value="User&#xa;Account"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2030" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-profile" value="User&#xa;Profile"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2100" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-wishlist" value="Wishlist"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2170" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-review" value="Review"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2240" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== FULFILLMENT SERVICES (WEST) ===== -->
+        <mxCell id="west-fulfill-label" value="Fulfillment"
+                style="text;html=1;strokeColor=none;fillColor=#E3F2FD;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#1565C0;fontStyle=1;spacingLeft=5;"
+                vertex="1" parent="1">
+          <mxGeometry x="2320" y="585" width="80" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-shipping" value="Shipping"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2330" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-warehouse" value="Warehouse"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2400" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-returns" value="Returns"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2470" y="615" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== BUSINESS SERVICES (WEST - Spot) ===== -->
+        <mxCell id="west-biz-label" value="Business Services"
+                style="text;html=1;strokeColor=none;fillColor=#FCE4EC;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#C2185B;fontStyle=1;spacingLeft=5;"
+                vertex="1" parent="1">
+          <mxGeometry x="1570" y="820" width="120" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-pricing" value="Pricing"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1590" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-recommend" value="Recommend"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1660" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-notify" value="Notification"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1730" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-seller" value="Seller"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1800" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== PLATFORM SERVICES (WEST - Spot) ===== -->
+        <mxCell id="west-platform-label" value="Platform Services"
+                style="text;html=1;strokeColor=none;fillColor=#F3E5F5;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#7B1FA2;fontStyle=1;spacingLeft=5;"
+                vertex="1" parent="1">
+          <mxGeometry x="1900" y="820" width="120" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-apigw" value="API&#xa;Gateway"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1920" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-eventbus" value="Event&#xa;Bus"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1990" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-analytics-svc" value="Analytics"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2060" y="850" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- EKS Icon (West) -->
+        <mxCell id="west-eks-icon" value="EKS"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eks;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2600" y="560" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Horizontal divider line between node pools (West) -->
+        <mxCell id="west-divider" value=""
+                style="endArrow=none;html=1;strokeWidth=1;strokeColor=#90A4AE;dashed=1;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1570" y="780" as="sourcePoint" />
+            <mxPoint x="2640" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- us-west-2 Data Subnet -->
+        <mxCell id="west-data" value="Data Subnet (10.1.20.0/24) - Data Tier"
+                style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=10;fontStyle=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;grStroke=0;strokeColor=#00A4A6;fillColor=#E6F6F7;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;fontFamily=Amazon Ember;dashed=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="1530" y="1220" width="1180" height="490" as="geometry" />
+        </mxCell>
+
+        <!-- Aurora PostgreSQL SECONDARY -->
+        <mxCell id="west-aurora" value="Aurora PostgreSQL&#xa;SECONDARY (Reader)&#xa;+ Write Forwarding"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.aurora;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1590" y="1280" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- DocumentDB SECONDARY -->
+        <mxCell id="west-docdb" value="DocumentDB&#xa;SECONDARY (Reader)"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.documentdb_with_mongodb_compatibility;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1720" y="1280" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ElastiCache Valkey SECONDARY -->
+        <mxCell id="west-cache" value="ElastiCache Valkey&#xa;SECONDARY (Read-only)"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticache;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1850" y="1280" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Amazon MSK (West) -->
+        <mxCell id="west-msk-box" value="Amazon MSK (6 Brokers)"
+                style="rounded=1;arcSize=5;fillColor=none;strokeColor=#5A30B5;strokeWidth=1;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontFamily=Amazon Ember;fontSize=9;fontColor=#5A30B5;"
+                vertex="1" parent="1">
+          <mxGeometry x="1970" y="1260" width="340" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-msk1" value="Broker 1"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1990" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-msk2" value="Broker 2"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2050" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-msk3" value="Broker 3"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2110" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-msk4" value="Broker 4"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2170" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-msk5" value="Broker 5"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2230" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="west-msk6" value="Broker 6"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=7;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2290" y="1290" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- OpenSearch (West) -->
+        <mxCell id="west-opensearch" value="OpenSearch"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticsearch_service;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2390" y="1280" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- S3 Static Assets (West) -->
+        <mxCell id="west-s3-static" value="S3 Static Assets&#xa;(CRR Replica)"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#60A337;gradientDirection=north;fillColor=#277116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1590" y="1420" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- S3 Analytics Data Lake (West) -->
+        <mxCell id="west-s3-lake" value="S3 Analytics&#xa;Data Lake"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#60A337;gradientDirection=north;fillColor=#277116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1720" y="1420" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Secrets Manager (West) -->
+        <mxCell id="west-secrets" value="Secrets&#xa;Manager"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1850" y="1420" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- KMS (West) -->
+        <mxCell id="west-kms" value="KMS"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.key_management_service;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="1980" y="1420" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Transit Gateway us-west-2 -->
+        <mxCell id="west-tgw" value="Transit&#xa;Gateway"
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.transit_gateway;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="2540" y="1420" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== CROSS-REGION CONNECTIONS ==================== -->
+
+        <!-- Cross-Region Connection Box -->
+        <mxCell id="cross-region-box" value="Cross-Region Connections"
+                style="rounded=1;arcSize=5;fillColor=#FFF8E1;strokeColor=#FF6F00;strokeWidth=2;dashed=0;verticalAlign=top;align=center;spacingTop=5;fontFamily=Amazon Ember;fontSize=12;fontStyle=1;fontColor=#E65100;"
+                vertex="1" parent="1">
+          <mxGeometry x="1340" y="980" width="120" height="400" as="geometry" />
+        </mxCell>
+
+        <!-- Transit Gateway Peering -->
+        <mxCell id="tgw-peering" value=""
+                style="endArrow=classic;startArrow=classic;html=1;strokeWidth=3;strokeColor=#5A30B5;edgeStyle=orthogonalEdgeStyle;"
+                edge="1" parent="1" source="east-tgw" target="west-tgw">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1400" y="1450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="tgw-peering-label" value="TGW Peering"
+                style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=8;fontColor=#5A30B5;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1355" y="1000" width="90" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Aurora Global Database Replication -->
+        <mxCell id="aurora-repl" value=""
+                style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#3334B9;edgeStyle=orthogonalEdgeStyle;dashed=1;"
+                edge="1" parent="1" source="east-aurora" target="west-aurora">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="1600" />
+              <mxPoint x="1400" y="1600" />
+              <mxPoint x="1400" y="1310" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="aurora-repl-label" value="Aurora Global DB&#xa;(&lt;1s replication)"
+                style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=8;fontColor=#3334B9;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1350" y="1030" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- DocumentDB Global Cluster -->
+        <mxCell id="docdb-repl-label" value="DocumentDB&#xa;Global Cluster"
+                style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=8;fontColor=#3334B9;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1350" y="1070" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ElastiCache Global Datastore -->
+        <mxCell id="cache-repl-label" value="ElastiCache&#xa;Global Datastore"
+                style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=8;fontColor=#3334B9;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1350" y="1110" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- MSK Replicator -->
+        <mxCell id="msk-repl-label" value="MSK Replicator&#xa;(bidirectional)"
+                style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=8;fontColor=#5A30B5;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1350" y="1150" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="msk-topics-label" value="Topics:&#xa;orders.*, payments.*&#xa;catalog.*, user.*"
+                style="text;html=1;strokeColor=none;fillColor=#E8EAF6;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=7;fontColor=#5A30B5;fontStyle=0;"
+                vertex="1" parent="1">
+          <mxGeometry x="1350" y="1185" width="100" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- S3 CRR -->
+        <mxCell id="s3-crr-label" value="S3 Cross-Region&#xa;Replication"
+                style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=8;fontColor=#277116;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1350" y="1240" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Write Forwarding -->
+        <mxCell id="write-fwd-label" value="Write Forwarding&#xa;(us-west-2 writes&#xa;-> us-east-1)"
+                style="text;html=1;strokeColor=none;fillColor=#FFEBEE;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=7;fontColor=#C62828;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1350" y="1280" width="100" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== TRAFFIC FLOW ARROWS ==================== -->
+
+        <!-- Route53 to East ALB -->
+        <mxCell id="r53-east" value=""
+                style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#147EBA;edgeStyle=orthogonalEdgeStyle;"
+                edge="1" parent="1" source="route53" target="east-alb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1375" y="250" />
+              <mxPoint x="644" y="250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Route53 to West ALB -->
+        <mxCell id="r53-west" value=""
+                style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#E65100;edgeStyle=orthogonalEdgeStyle;"
+                edge="1" parent="1" source="route53" target="west-alb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1375" y="250" />
+              <mxPoint x="2084" y="250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- CloudFront to S3 (East) -->
+        <mxCell id="cf-s3-east" value=""
+                style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#277116;dashed=1;edgeStyle=orthogonalEdgeStyle;"
+                edge="1" parent="1" source="origin-shield" target="east-s3-static">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1155" y="200" />
+              <mxPoint x="180" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- East ALB to EKS -->
+        <mxCell id="east-alb-eks" value=""
+                style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#D05C17;"
+                edge="1" parent="1" source="east-alb" target="east-eks-cluster">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- West ALB to EKS -->
+        <mxCell id="west-alb-eks" value=""
+                style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#D05C17;"
+                edge="1" parent="1" source="west-alb" target="west-eks-cluster">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== LEGEND ==================== -->
+
+        <mxCell id="legend-box" value="Legend"
+                style="rounded=1;arcSize=5;fillColor=#FAFAFA;strokeColor=#BDBDBD;strokeWidth=1;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontFamily=Amazon Ember;fontSize=11;fontStyle=1;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="30" y="1790" width="800" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- Legend Row 1 -->
+        <mxCell id="leg-compute" value=""
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="50" y="1830" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-compute-txt" value="Microservice (Container)"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="80" y="1830" width="120" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-db" value=""
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.aurora;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="210" y="1830" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-db-txt" value="Database"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="240" y="1830" width="70" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-storage" value=""
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#60A337;gradientDirection=north;fillColor=#277116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="320" y="1830" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-storage-txt" value="Storage"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="350" y="1830" width="60" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-security" value=""
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.waf;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="420" y="1830" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-security-txt" value="Security"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="450" y="1830" width="60" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-network" value=""
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.transit_gateway;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="520" y="1830" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-network-txt" value="Networking"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="550" y="1830" width="70" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-streaming" value=""
+                style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;"
+                vertex="1" parent="1">
+          <mxGeometry x="630" y="1830" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-streaming-txt" value="Streaming"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="660" y="1830" width="60" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- Legend Row 2 -->
+        <mxCell id="leg-primary" value=""
+                style="rounded=1;fillColor=#E6F2FF;strokeColor=#147EBA;strokeWidth=2;"
+                vertex="1" parent="1">
+          <mxGeometry x="50" y="1870" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-primary-txt" value="Primary Region (us-east-1 / Write)"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="80" y="1870" width="170" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-secondary" value=""
+                style="rounded=1;fillColor=#FFF3E0;strokeColor=#FF9800;strokeWidth=2;"
+                vertex="1" parent="1">
+          <mxGeometry x="260" y="1870" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-secondary-txt" value="Secondary Region (us-west-2 / Read)"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="290" y="1870" width="180" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-ondemand" value=""
+                style="rounded=1;fillColor=#FFF3E0;strokeColor=#E65100;strokeWidth=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="480" y="1870" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-ondemand-txt" value="Critical (On-Demand)"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="510" y="1870" width="110" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-spot" value=""
+                style="rounded=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="630" y="1870" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-spot-txt" value="General (Spot)"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="660" y="1870" width="80" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- Legend Row 3 - Arrows -->
+        <mxCell id="leg-arrow1" value=""
+                style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#147EBA;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="50" y="1922" as="sourcePoint" />
+            <mxPoint x="100" y="1922" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg-arrow1-txt" value="Traffic Flow (East)"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="110" y="1910" width="90" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-arrow2" value=""
+                style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#E65100;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="210" y="1922" as="sourcePoint" />
+            <mxPoint x="260" y="1922" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg-arrow2-txt" value="Traffic Flow (West)"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="270" y="1910" width="100" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-arrow3" value=""
+                style="endArrow=classic;startArrow=classic;html=1;strokeWidth=3;strokeColor=#5A30B5;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="380" y="1922" as="sourcePoint" />
+            <mxPoint x="430" y="1922" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg-arrow3-txt" value="Cross-Region Replication"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="440" y="1910" width="130" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg-arrow4" value=""
+                style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#3334B9;dashed=1;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="1922" as="sourcePoint" />
+            <mxPoint x="630" y="1922" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg-arrow4-txt" value="Data Replication"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;"
+                vertex="1" parent="1">
+          <mxGeometry x="640" y="1910" width="100" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- Legend Row 4 - Traffic Flow Description -->
+        <mxCell id="leg-flow-title" value="Traffic Flow:"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="50" y="1950" width="70" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-flow-desc" value="User -> CloudFront -> Route53 (Latency-based) -> Nearest ALB -> EKS | Static Content: CloudFront -> S3 | Write in us-west-2: Write Forwarding -> us-east-1 Aurora Primary"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=8;fontColor=#616161;"
+                vertex="1" parent="1">
+          <mxGeometry x="120" y="1950" width="700" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

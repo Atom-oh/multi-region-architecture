@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - user-account/deployment.yaml
+  - user-profile/deployment.yaml
+  - wishlist/deployment.yaml
+  - review/deployment.yaml
+
+commonLabels:
+  tier: user

@@ -1,0 +1,49 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - ../../services/core
+  - ../../services/user
+  - ../../services/fulfillment
+  - ../../services/business
+  - ../../services/platform
+  - ../../infra/karpenter
+
+namespace: ""
+
+patches:
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: REGION_ROLE
+          value: "PRIMARY"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: AWS_REGION
+          value: "us-east-1"
+
+configMapGenerator:
+  - name: region-config
+    namespace: platform
+    literals:
+      - REGION=us-east-1
+      - REGION_ROLE=PRIMARY
+      - AURORA_ENDPOINT=mall-primary.cluster-xxx.us-east-1.rds.amazonaws.com
+      - AURORA_READER_ENDPOINT=mall-primary.cluster-ro-xxx.us-east-1.rds.amazonaws.com
+      - DOCUMENTDB_ENDPOINT=mall-docdb-primary.cluster-xxx.us-east-1.docdb.amazonaws.com
+      - VALKEY_ENDPOINT=mall-valkey.xxx.use1.cache.amazonaws.com
+      - MSK_BROKERS=b-1.mall-msk.xxx.kafka.us-east-1.amazonaws.com:9094
+      - OPENSEARCH_ENDPOINT=https://mall-search.us-east-1.es.amazonaws.com
+
+commonLabels:
+  region: us-east-1
+  region-role: primary
+
+commonAnnotations:
+  region.kubernetes.io/name: us-east-1
+  region.kubernetes.io/role: primary

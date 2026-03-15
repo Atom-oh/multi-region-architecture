@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - karpenter
+  - fluent-bit
+  - external-secrets
+  - prometheus-stack
+  # NOTE: argocd is NOT included here because it is bootstrapped separately
+  # via: kubectl apply -k k8s/infra/argocd/
+  # ArgoCD should not manage itself to avoid recursive loops
