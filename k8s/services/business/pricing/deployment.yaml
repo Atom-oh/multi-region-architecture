@@ -4,7 +4,7 @@ metadata:
   name: pricing
   namespace: business-services
   annotations:
-    eks.amazonaws.com/role-arn: ${IRSA_ROLE_ARN}
+    eks.amazonaws.com/role-arn: arn:aws:iam::180294183052:role/placeholder
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -28,15 +28,15 @@ spec:
       serviceAccountName: pricing
       containers:
         - name: pricing
-          image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/pricing:latest
+          image: nginx:alpine
           ports:
             - containerPort: 8080
               name: http
           env:
             - name: AWS_REGION
-              value: ${AWS_REGION}
+              value: us-east-1
             - name: REGION_ROLE
-              value: ${REGION_ROLE}
+              value: PRIMARY
             # DB_HOST: Aurora PostgreSQL endpoint via ExternalSecret
             # CACHE_HOST: Valkey endpoint via ExternalSecret (TTL: 5m)
             # KAFKA_BROKERS: MSK bootstrap via ExternalSecret
