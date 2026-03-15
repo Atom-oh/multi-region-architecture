@@ -30,7 +30,7 @@ spec:
         - name: product-catalog
           image: nginx:alpine
           ports:
-            - containerPort: 8080
+            - containerPort: 80
               name: http
           env:
             - name: AWS_REGION
@@ -53,20 +53,20 @@ spec:
               memory: 1Gi
           readinessProbe:
             httpGet:
-              path: /health/ready
-              port: 8080
+              path: /
+              port: 80
             initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /health/live
-              port: 8080
+              path: /
+              port: 80
             initialDelaySeconds: 15
             periodSeconds: 10
           startupProbe:
             httpGet:
-              path: /health/startup
-              port: 8080
+              path: /
+              port: 80
             failureThreshold: 30
             periodSeconds: 10
       topologySpreadConstraints:
@@ -87,7 +87,7 @@ spec:
     app: product-catalog
   ports:
     - port: 80
-      targetPort: 8080
+      targetPort: 80
       protocol: TCP
       name: http
   type: ClusterIP
