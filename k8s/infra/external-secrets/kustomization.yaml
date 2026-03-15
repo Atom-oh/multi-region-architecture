@@ -4,3 +4,9 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - cluster-secret-store.yaml
+  - secrets/core-services.yaml
+  - secrets/user-services.yaml
+  - secrets/fulfillment-services.yaml
+  - secrets/business-services.yaml
+  - secrets/platform-services.yaml
+  - secrets/shared-secrets.yaml

@@ -5,3 +5,7 @@ resources:
   - ec2nodeclass.yaml
   - general-nodepool.yaml
   - critical-nodepool.yaml
+  - nodepools/api-nodepool.yaml
+  - nodepools/worker-nodepool.yaml
+  - nodepools/memory-nodepool.yaml
+  - nodepools/batch-nodepool.yaml
