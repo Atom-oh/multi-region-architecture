@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -61,10 +62,27 @@ func main() {
 	healthChecker := health.New()
 	healthChecker.SetStarted(true)
 
-	// Initialize Kafka consumer
+	// Initialize Kafka consumer (all regions - handles local Kafka events)
 	catalogConsumer := consumer.NewCatalogConsumer(cfg.KafkaBrokers, searchService, logger)
 	consumerCtx, cancelConsumer := context.WithCancel(context.Background())
 	catalogConsumer.Start(consumerCtx)
+
+	// In SECONDARY regions, also watch DocumentDB change stream
+	// DocumentDB Global Cluster replicates data from primary, and the
+	// change stream captures those replicated changes for local OpenSearch indexing
+	var csConsumer *consumer.ChangeStreamConsumer
+	if !cfg.IsPrimary() {
+		mongoURI := fmt.Sprintf("mongodb://%s:%d/?tls=true&replicaSet=rs0&readPreference=secondaryPreferred",
+			cfg.DocumentDBHost, cfg.DocumentDBPort)
+		cs, err := consumer.NewChangeStreamConsumer(mongoURI, "mall", searchService, logger)
+		if err != nil {
+			logger.Warn("failed to start change stream consumer", zap.Error(err))
+		} else {
+			csConsumer = cs
+			csConsumer.Start(consumerCtx)
+			logger.Info("started DocumentDB change stream consumer for OpenSearch sync")
+		}
+	}
 
 	// Setup Gin router
 	gin.SetMode(gin.ReleaseMode)
@@ -106,6 +124,9 @@ func main() {
 
 	cancelConsumer()
 	catalogConsumer.Close()
+	if csConsumer != nil {
+		csConsumer.Close()
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

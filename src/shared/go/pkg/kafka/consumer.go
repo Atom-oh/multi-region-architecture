@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/multi-region-mall/shared/pkg/tracing"
 	kafkago "github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
@@ -42,7 +43,8 @@ func (c *Consumer) Start(ctx context.Context) {
 				c.logger.Error("read message failed", zap.Error(err))
 				continue
 			}
-			if err := c.handler(ctx, msg); err != nil {
+			msgCtx := tracing.ExtractKafkaHeaders(ctx, msg.Headers)
+			if err := c.handler(msgCtx, msg); err != nil {
 				c.logger.Error("handle message failed",
 					zap.String("key", string(msg.Key)),
 					zap.Error(err))

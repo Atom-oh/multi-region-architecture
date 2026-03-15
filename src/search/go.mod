@@ -8,6 +8,7 @@ require (
 	github.com/opensearch-project/opensearch-go/v2 v2.3.0
 	github.com/redis/go-redis/v9 v9.4.0
 	github.com/segmentio/kafka-go v0.4.47
+	go.mongodb.org/mongo-driver v1.16.0
 	go.uber.org/zap v1.27.0
 	go.opentelemetry.io/otel v1.28.0
 	go.opentelemetry.io/otel/trace v1.28.0

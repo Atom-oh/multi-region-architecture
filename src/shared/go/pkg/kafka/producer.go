@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/multi-region-mall/shared/pkg/tracing"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
@@ -32,10 +33,14 @@ func (p *Producer) Publish(ctx context.Context, key string, value interface{}) e
 		return err
 	}
 
+	var headers []kafka.Header
+	tracing.InjectKafkaHeaders(ctx, &headers)
+
 	msg := kafka.Message{
-		Key:   []byte(key),
-		Value: data,
-		Time:  time.Now(),
+		Key:     []byte(key),
+		Value:   data,
+		Time:    time.Now(),
+		Headers: headers,
 	}
 
 	if err := p.writer.WriteMessages(ctx, msg); err != nil {

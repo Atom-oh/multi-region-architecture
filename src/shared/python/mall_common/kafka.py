@@ -7,6 +7,8 @@ from typing import Any
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
+from mall_common.tracing import KafkaTraceExtractor, KafkaTraceInjector
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,7 +27,8 @@ class Producer:
         await self._producer.stop()
 
     async def publish(self, topic: str, key: str, value: Any) -> None:
-        await self._producer.send_and_wait(topic, value=value, key=key)
+        headers = KafkaTraceInjector.inject_headers()
+        await self._producer.send_and_wait(topic, value=value, key=key, headers=headers)
         logger.debug("Published to %s key=%s", topic, key)
 
 
@@ -54,9 +57,16 @@ class Consumer:
         await self._consumer.stop()
 
     async def consume(self) -> None:
+        from opentelemetry import context as otel_context
+
         async for msg in self._consumer:
             try:
-                key = msg.key.decode() if msg.key else ""
-                await self._handler(key, msg.value)
+                ctx = KafkaTraceExtractor.extract_context(msg.headers)
+                token = otel_context.attach(ctx)
+                try:
+                    key = msg.key.decode() if msg.key else ""
+                    await self._handler(key, msg.value)
+                finally:
+                    otel_context.detach(token)
             except Exception:
                 logger.exception("Failed to handle message key=%s", msg.key)

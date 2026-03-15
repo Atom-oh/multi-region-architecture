@@ -7,10 +7,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/multi-region-mall/shared/pkg/config"
+	"github.com/multi-region-mall/shared/pkg/tracing"
 )
 
 func WriteForwardMiddleware(cfg *config.Config) gin.HandlerFunc {
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := tracing.HTTPClient()
+	client.Timeout = 30 * time.Second
 
 	return func(c *gin.Context) {
 		if cfg.IsPrimary() {
