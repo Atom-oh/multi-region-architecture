@@ -34,5 +34,3 @@ terraform/environments/production/us-east-1/tfplan
 terraform/environments/production/us-west-2/tfplan
 *.tfplan
 webpage/node_modules/
-webpage/.docusaurus/
-webpage/build/
