@@ -86,6 +86,12 @@ variable "master_password" {
   default     = null
 }
 
+variable "source_region" {
+  description = "Source region for secondary cluster (required for cross-region replication)"
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

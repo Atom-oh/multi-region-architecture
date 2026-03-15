@@ -163,6 +163,7 @@ module "aurora" {
   region                    = var.region
   is_primary                = false
   global_cluster_identifier = var.aurora_global_cluster_identifier
+  source_region             = "us-east-1"
   vpc_id                    = module.vpc.vpc_id
   data_subnet_ids           = module.vpc.data_subnet_ids
   security_group_id         = module.security_groups.aurora_security_group_id
@@ -180,6 +181,7 @@ module "documentdb" {
   region                    = var.region
   is_primary                = false
   global_cluster_identifier = var.docdb_global_cluster_identifier
+  source_region             = "us-east-1"
   vpc_id                    = module.vpc.vpc_id
   data_subnet_ids           = module.vpc.data_subnet_ids
   security_group_id         = module.security_groups.documentdb_security_group_id
@@ -218,9 +220,9 @@ module "msk" {
   broker_instance_type   = "kafka.m5.2xlarge"
   number_of_broker_nodes = 6
   ebs_volume_size        = 1000
-  enable_replicator      = true
+  enable_replicator      = false # Disabled: MSK clusters need IAM Auth enabled first
   source_cluster_arn     = data.terraform_remote_state.primary.outputs.msk_cluster_arn
-  target_cluster_arn     = module.msk.cluster_arn
+  target_cluster_arn     = ""
   tags                   = var.tags
 }
 

@@ -35,8 +35,8 @@ resource "aws_cloudwatch_metric_alarm" "high_error_rate" {
   alarm_description   = "High 5XX error rate detected (>1% for 5 minutes)"
   treat_missing_data  = "notBreaching"
 
-  alarm_actions = [var.sns_topic_arn]
-  ok_actions    = [var.sns_topic_arn]
+  alarm_actions = var.sns_topic_arn != "" ? [var.sns_topic_arn] : []
+  ok_actions    = var.sns_topic_arn != "" ? [var.sns_topic_arn] : []
 
   tags = merge(var.tags, {
     Name        = "${var.environment}-high-error-rate"
@@ -57,8 +57,8 @@ resource "aws_cloudwatch_metric_alarm" "high_latency" {
   alarm_description   = "High latency detected (>2s for 5 minutes)"
   treat_missing_data  = "notBreaching"
 
-  alarm_actions = [var.sns_topic_arn]
-  ok_actions    = [var.sns_topic_arn]
+  alarm_actions = var.sns_topic_arn != "" ? [var.sns_topic_arn] : []
+  ok_actions    = var.sns_topic_arn != "" ? [var.sns_topic_arn] : []
 
   tags = merge(var.tags, {
     Name        = "${var.environment}-high-latency"
@@ -79,8 +79,8 @@ resource "aws_cloudwatch_metric_alarm" "replication_lag" {
   alarm_description   = "Aurora replication lag >1000ms"
   treat_missing_data  = "notBreaching"
 
-  alarm_actions = [var.sns_topic_arn]
-  ok_actions    = [var.sns_topic_arn]
+  alarm_actions = var.sns_topic_arn != "" ? [var.sns_topic_arn] : []
+  ok_actions    = var.sns_topic_arn != "" ? [var.sns_topic_arn] : []
 
   tags = merge(var.tags, {
     Name        = "${var.environment}-aurora-replication-lag"
@@ -101,8 +101,8 @@ resource "aws_cloudwatch_metric_alarm" "kafka_under_replicated" {
   alarm_description   = "MSK has under-replicated partitions"
   treat_missing_data  = "notBreaching"
 
-  alarm_actions = [var.sns_topic_arn]
-  ok_actions    = [var.sns_topic_arn]
+  alarm_actions = var.sns_topic_arn != "" ? [var.sns_topic_arn] : []
+  ok_actions    = var.sns_topic_arn != "" ? [var.sns_topic_arn] : []
 
   tags = merge(var.tags, {
     Name        = "${var.environment}-msk-under-replicated"

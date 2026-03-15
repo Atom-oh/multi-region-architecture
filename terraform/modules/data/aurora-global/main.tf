@@ -12,15 +12,15 @@ resource "aws_rds_cluster" "this" {
   cluster_identifier        = "${var.environment}-aurora-global-${var.region}"
   global_cluster_identifier = var.is_primary ? null : var.global_cluster_identifier
 
-  engine                       = "aurora-postgresql"
-  engine_version               = "15.8"
-  allow_major_version_upgrade  = false
+  engine         = "aurora-postgresql"
+  engine_version = "15.8"
 
-  # Primary cluster credentials (explicit password required for Global Database)
+  # Primary cluster credentials (only for primary, secondary inherits from global cluster)
   master_username = var.is_primary ? "mall_admin" : null
   master_password = var.is_primary ? var.master_password : null
 
-  # Secondary cluster configuration
+  # Secondary cluster configuration - source_region required for cross-region replication
+  source_region                  = var.is_primary ? null : var.source_region
   enable_global_write_forwarding = var.is_primary ? null : var.enable_write_forwarding
 
   db_subnet_group_name   = aws_db_subnet_group.this.name
@@ -29,7 +29,7 @@ resource "aws_rds_cluster" "this" {
   storage_encrypted = true
   kms_key_id        = var.kms_key_arn
 
-  backup_retention_period      = var.backup_retention_period
+  backup_retention_period      = var.is_primary ? var.backup_retention_period : 1
   preferred_backup_window      = "03:00-04:00"
   preferred_maintenance_window = "sun:04:00-sun:05:00"
 
@@ -37,8 +37,8 @@ resource "aws_rds_cluster" "this" {
 
   deletion_protection = true
 
-  skip_final_snapshot = false
-  final_snapshot_identifier = "${var.environment}-aurora-global-${var.region}-final-snapshot"
+  skip_final_snapshot       = var.is_primary ? false : true
+  final_snapshot_identifier = var.is_primary ? "${var.environment}-aurora-global-${var.region}-final-snapshot" : null
 
   tags = merge(var.tags, {
     Name = "${var.environment}-aurora-global-cluster"
@@ -46,7 +46,12 @@ resource "aws_rds_cluster" "this" {
 
   lifecycle {
     ignore_changes = [
-      replication_source_identifier
+      replication_source_identifier,
+      master_password,
+      master_username,
+      source_region,
+      enable_global_write_forwarding,
+      global_cluster_identifier
     ]
   }
 }

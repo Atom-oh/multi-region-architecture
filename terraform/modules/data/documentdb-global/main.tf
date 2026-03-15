@@ -43,31 +43,38 @@ resource "aws_docdb_cluster" "this" {
   engine         = "docdb"
   engine_version = "5.0.0"
 
-  # Primary cluster needs master credentials - DocumentDB requires explicit password
+  # Primary cluster needs master credentials (secondary inherits from global cluster)
   master_username = var.is_primary ? "docdb_admin" : null
   master_password = var.is_primary ? "TempPassword123!ChangeMe" : null
 
   db_subnet_group_name            = aws_docdb_subnet_group.this.name
-  db_cluster_parameter_group_name = aws_docdb_cluster_parameter_group.this.name
+  db_cluster_parameter_group_name = var.is_primary ? aws_docdb_cluster_parameter_group.this.name : null
   vpc_security_group_ids          = [var.security_group_id]
 
   storage_encrypted = true
   kms_key_id        = var.kms_key_arn
 
-  enabled_cloudwatch_logs_exports = ["audit", "profiler"]
+  enabled_cloudwatch_logs_exports = var.is_primary ? ["audit", "profiler"] : []
 
   deletion_protection = true
 
-  backup_retention_period      = 35
+  backup_retention_period      = var.is_primary ? 35 : 1
   preferred_backup_window      = "03:00-04:00"
   preferred_maintenance_window = "sun:04:00-sun:05:00"
 
-  skip_final_snapshot       = false
-  final_snapshot_identifier = "${var.environment}-docdb-global-${var.region}-final-snapshot"
+  skip_final_snapshot       = var.is_primary ? false : true
+  final_snapshot_identifier = var.is_primary ? "${var.environment}-docdb-global-${var.region}-final-snapshot" : null
 
   tags = merge(var.tags, {
     Name = "${var.environment}-docdb-global-cluster"
   })
+
+  lifecycle {
+    ignore_changes = [
+      master_password,
+      master_username
+    ]
+  }
 }
 
 resource "aws_docdb_cluster_instance" "this" {
@@ -78,9 +85,13 @@ resource "aws_docdb_cluster_instance" "this" {
 
   instance_class = var.instance_class
 
-  auto_minor_version_upgrade = false
-
   tags = merge(var.tags, {
     Name = "${var.environment}-docdb-global-instance-${count.index + 1}"
   })
+
+  lifecycle {
+    ignore_changes = [
+      auto_minor_version_upgrade
+    ]
+  }
 }

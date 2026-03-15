@@ -47,7 +47,7 @@ resource "aws_kms_alias" "eks_secrets" {
 
 # IAM role for EKS cluster
 resource "aws_iam_role" "eks_cluster" {
-  name = "${var.cluster_name}-cluster-role"
+  name = "${var.cluster_name}-cluster-role-${var.region}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -133,7 +133,7 @@ resource "aws_iam_openid_connect_provider" "eks" {
 
 # IAM role for VPC CNI addon
 resource "aws_iam_role" "vpc_cni" {
-  name = "${var.cluster_name}-vpc-cni"
+  name = "${var.cluster_name}-vpc-cni-${var.region}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -211,7 +211,7 @@ resource "aws_eks_addon" "aws_efs_csi_driver" {
 
 # Karpenter IAM Role
 resource "aws_iam_role" "karpenter_controller" {
-  name = "${var.cluster_name}-karpenter-controller"
+  name = "${var.cluster_name}-karpenter-controller-${var.region}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -236,7 +236,7 @@ resource "aws_iam_role" "karpenter_controller" {
 }
 
 resource "aws_iam_role_policy" "karpenter_controller" {
-  name = "${var.cluster_name}-karpenter-controller-policy"
+  name = "${var.cluster_name}-karpenter-controller-policy-${var.region}"
   role = aws_iam_role.karpenter_controller.id
 
   policy = jsonencode({
@@ -301,7 +301,7 @@ resource "aws_iam_role_policy" "karpenter_controller" {
 resource "aws_iam_role" "service_account" {
   for_each = local.services
 
-  name = "${var.cluster_name}-${each.key}-sa"
+  name = "${var.cluster_name}-${each.key}-sa-${var.region}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
