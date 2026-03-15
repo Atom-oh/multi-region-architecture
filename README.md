@@ -4,38 +4,43 @@ AWS 기반 멀티 리전 쇼핑몰 플랫폼. Amazon.com 규모의 글로벌 커
 
 ## Architecture Overview
 
-```
-                    ┌───────────────────────┐
-                    │     Route 53 (DNS)    │  mall.atomai.click
-                    └───────────┬───────────┘
-                                │ CNAME
-                         ┌──────┴───────┐
-                         │  CloudFront  │  CDN + Cache
-                         │   + WAF      │  DDoS Protection
-                         └──────┬───────┘
-                                │ Origin: api.atomai.click
-                    ┌───────────┴───────────┐
-                    │     Route 53          │  Latency-based Routing
-                    │  (Latency Routing)    │  → nearest ALB
-                    └───────┬───────┬───────┘
-                            │       │
-              ┌─────────────┘       └─────────────┐
-              ▼                                   ▼
-    ┌─────────────────┐                 ┌─────────────────┐
-    │   us-east-1     │                 │   us-west-2     │
-    │   (Primary)     │                 │   (Secondary)   │
-    │                 │                 │                 │
-    │  ┌───────────┐  │  Transit GW    │  ┌───────────┐  │
-    │  │    EKS    │◄─┼────Peering────►│  │    EKS    │  │
-    │  │ 20 Services│  │                │  │ 20 Services│  │
-    │  └───────────┘  │                │  └───────────┘  │
-    │                 │                 │                 │
-    │  Aurora (W/R)   │──── Global ────│  Aurora (R)     │
-    │  DocumentDB(W/R)│──── Global ────│  DocumentDB(R)  │
-    │  ElastiCache    │──── Global ────│  ElastiCache    │
-    │  MSK            │── Replicator──│  MSK            │
-    │  OpenSearch     │                │  OpenSearch     │
-    └─────────────────┘                 └─────────────────┘
+```mermaid
+graph TB
+    Users((Users)):::user --> R53_CF[Route 53<br/>mall.atomai.click]
+    R53_CF --> CF[CloudFront + WAF<br/>CDN · DDoS Protection]
+    CF --> R53_LBR[Route 53<br/>Latency-based Routing]
+
+    R53_LBR --> ALB_E[ALB<br/>us-east-1]
+    R53_LBR --> ALB_W[ALB<br/>us-west-2]
+
+    subgraph east [us-east-1 — Primary]
+        ALB_E --> EKS_E[EKS Cluster<br/>20 Services · Karpenter]
+        EKS_E --> AURORA_E[(Aurora PostgreSQL<br/>Writer / Reader)]
+        EKS_E --> DOCDB_E[(DocumentDB<br/>Writer / Reader)]
+        EKS_E --> CACHE_E[(ElastiCache Valkey)]
+        EKS_E --> MSK_E[MSK Kafka]
+        EKS_E --> OS_E[(OpenSearch)]
+    end
+
+    subgraph west [us-west-2 — Secondary]
+        ALB_W --> EKS_W[EKS Cluster<br/>20 Services · Karpenter]
+        EKS_W --> AURORA_W[(Aurora PostgreSQL<br/>Reader)]
+        EKS_W --> DOCDB_W[(DocumentDB<br/>Reader)]
+        EKS_W --> CACHE_W[(ElastiCache Valkey)]
+        EKS_W --> MSK_W[MSK Kafka]
+        EKS_W --> OS_W[(OpenSearch)]
+    end
+
+    AURORA_E -. "Global DB<br/>Replication" .-> AURORA_W
+    DOCDB_E -. "Global Cluster<br/>Replication" .-> DOCDB_W
+    CACHE_E -. "Global Datastore" .-> CACHE_W
+    MSK_E -. "MSK Replicator" .-> MSK_W
+    EKS_E <-. "Transit Gateway<br/>Peering" .-> EKS_W
+
+    classDef user fill:#f9f,stroke:#333,color:#000
+    classDef default fill:#232F3E,stroke:#545B64,color:#fff
+    style east fill:#147EBA15,stroke:#147EBA,color:#000
+    style west fill:#D05C1715,stroke:#D05C17,color:#000
 ```
 
 ### Design Pattern: Write-Primary / Read-Local
@@ -64,6 +69,54 @@ AWS 기반 멀티 리전 쇼핑몰 플랫폼. Amazon.com 규모의 글로벌 커
 ## Microservices (20 Services)
 
 5개 도메인 그룹으로 구성된 20개의 마이크로서비스:
+
+```mermaid
+graph TB
+    GW[API Gateway] --> Core
+    GW --> User
+    GW --> Fulfill
+    GW --> Biz
+
+    subgraph Core [Core Services]
+        PC[Product Catalog] --> Search[Search]
+        Cart --> Order --> Payment
+        Order --> Inventory
+    end
+
+    subgraph User [User Services]
+        UA[User Account] --> UP[User Profile]
+        UA --> WL[Wishlist]
+        UA --> RV[Review]
+    end
+
+    subgraph Fulfill [Fulfillment]
+        Ship[Shipping] --> WH[Warehouse]
+        Ret[Returns] --> Ship
+    end
+
+    subgraph Biz [Business Services]
+        Price[Pricing]
+        Rec[Recommendation]
+        Notif[Notification]
+        Seller
+    end
+
+    subgraph Platform [Platform]
+        EB[Event Bus<br/>MSK] --> Analytics
+    end
+
+    Order -- events --> EB
+    Payment -- events --> EB
+    Inventory -- events --> EB
+    EB -- events --> Notif
+    EB -- events --> Analytics
+
+    style Core fill:#147EBA15,stroke:#147EBA
+    style User fill:#27711615,stroke:#277116
+    style Fulfill fill:#D05C1715,stroke:#D05C17
+    style Biz fill:#5A30B515,stroke:#5A30B5
+    style Platform fill:#BC135615,stroke:#BC1356
+```
 
 ### Core Services (7)
 | Service | DB | Description |
@@ -219,13 +272,20 @@ bash run-seed.sh
 
 ### Distributed Tracing (OTel + Tempo)
 
-```
-[App Pods] ──OTLP──> [OTel Collector DaemonSet] ──> [Grafana Tempo] ──> [S3]
-                              │                            │
-                         tail-based                   Grafana UI
-                         sampling                    (TraceQL)
-                              │
-                         [AWS X-Ray]
+```mermaid
+graph LR
+    Pods[App Pods] -- OTLP --> OTel[OTel Collector<br/>DaemonSet]
+    OTel -- "tail-based<br/>sampling" --> Tempo[Grafana Tempo]
+    OTel -- "tail-based<br/>sampling" --> XRay[AWS X-Ray]
+    Tempo --> S3[(S3<br/>Long-term Storage)]
+    Tempo --> Grafana[Grafana UI<br/>TraceQL]
+
+    style Pods fill:#D05C17,stroke:#F78E04,color:#fff
+    style OTel fill:#5A30B5,stroke:#945DF2,color:#fff
+    style Tempo fill:#3334B9,stroke:#4D72F3,color:#fff
+    style XRay fill:#BC1356,stroke:#F34482,color:#fff
+    style S3 fill:#277116,stroke:#60A337,color:#fff
+    style Grafana fill:#3334B9,stroke:#4D72F3,color:#fff
 ```
 
 - **Tail-based Sampling**: 에러 100%, 지연(>500ms) 100%, 기본 10%
