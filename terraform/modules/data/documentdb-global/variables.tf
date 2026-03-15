@@ -61,6 +61,12 @@ variable "instance_count" {
   default     = 3
 }
 
+variable "cluster_identifier_override" {
+  description = "Override the auto-generated cluster identifier (e.g., for imported clusters with different naming)"
+  type        = string
+  default     = null
+}
+
 variable "master_password" {
   description = "Master password for the primary DocumentDB cluster"
   type        = string

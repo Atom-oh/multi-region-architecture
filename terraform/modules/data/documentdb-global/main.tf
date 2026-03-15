@@ -36,8 +36,12 @@ resource "aws_docdb_cluster_parameter_group" "this" {
   tags = var.tags
 }
 
+locals {
+  cluster_identifier = coalesce(var.cluster_identifier_override, "${var.environment}-docdb-global-${var.region}")
+}
+
 resource "aws_docdb_cluster" "this" {
-  cluster_identifier        = "${var.environment}-docdb-global-${var.region}"
+  cluster_identifier        = local.cluster_identifier
   global_cluster_identifier = var.is_primary ? null : var.global_cluster_identifier
 
   engine         = "docdb"
@@ -80,7 +84,7 @@ resource "aws_docdb_cluster" "this" {
 resource "aws_docdb_cluster_instance" "this" {
   count = var.instance_count
 
-  identifier         = "${var.environment}-docdb-global-${var.region}-${count.index + 1}"
+  identifier         = "${local.cluster_identifier}-${count.index + 1}"
   cluster_identifier = aws_docdb_cluster.this.id
 
   instance_class = var.instance_class

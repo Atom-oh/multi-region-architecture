@@ -44,3 +44,27 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "bootstrap_node_instance_types" {
+  description = "Instance types for bootstrap node group"
+  type        = list(string)
+  default     = ["m5.large", "m5a.large"]
+}
+
+variable "bootstrap_node_desired_size" {
+  description = "Desired number of bootstrap nodes"
+  type        = number
+  default     = 2
+}
+
+variable "bootstrap_node_min_size" {
+  description = "Minimum number of bootstrap nodes"
+  type        = number
+  default     = 2
+}
+
+variable "bootstrap_node_max_size" {
+  description = "Maximum number of bootstrap nodes"
+  type        = number
+  default     = 3
+}

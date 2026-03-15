@@ -209,6 +209,81 @@ resource "aws_eks_addon" "aws_efs_csi_driver" {
   depends_on = [aws_eks_addon.vpc_cni]
 }
 
+# Bootstrap node group IAM role
+resource "aws_iam_role" "node_group" {
+  name = "${var.cluster_name}-node-group-${var.region}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "node_group_worker" {
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.node_group.name
+}
+
+resource "aws_iam_role_policy_attachment" "node_group_cni" {
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.node_group.name
+}
+
+resource "aws_iam_role_policy_attachment" "node_group_ecr" {
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.node_group.name
+}
+
+resource "aws_iam_role_policy_attachment" "node_group_ssm" {
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  role       = aws_iam_role.node_group.name
+}
+
+# Bootstrap managed node group
+resource "aws_eks_node_group" "bootstrap" {
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "${var.cluster_name}-bootstrap"
+  node_role_arn   = aws_iam_role.node_group.arn
+  subnet_ids      = var.private_subnet_ids
+
+  instance_types = var.bootstrap_node_instance_types
+
+  scaling_config {
+    desired_size = var.bootstrap_node_desired_size
+    min_size     = var.bootstrap_node_min_size
+    max_size     = var.bootstrap_node_max_size
+  }
+
+  labels = {
+    role = "system"
+  }
+
+  taint {
+    key    = "CriticalAddonsOnly"
+    value  = "true"
+    effect = "PREFER_NO_SCHEDULE"
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-bootstrap-node"
+  })
+
+  depends_on = [
+    aws_iam_role_policy_attachment.node_group_worker,
+    aws_iam_role_policy_attachment.node_group_cni,
+    aws_iam_role_policy_attachment.node_group_ecr,
+    aws_iam_role_policy_attachment.node_group_ssm
+  ]
+}
+
 # Karpenter IAM Role
 resource "aws_iam_role" "karpenter_controller" {
   name = "${var.cluster_name}-karpenter-controller-${var.region}"
