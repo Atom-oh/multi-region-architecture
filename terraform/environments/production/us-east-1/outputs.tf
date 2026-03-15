@@ -33,6 +33,11 @@ output "elasticache_endpoint" {
   value       = module.elasticache.configuration_endpoint_address
 }
 
+output "elasticache_global_replication_group_id" {
+  description = "The ID of the ElastiCache global replication group"
+  value       = module.elasticache.global_replication_group_id
+}
+
 output "msk_bootstrap_brokers" {
   description = "The MSK bootstrap brokers TLS connection string"
   value       = module.msk.bootstrap_brokers_tls

@@ -1,0 +1,62 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: recommendation-scaler
+  namespace: business-services
+spec:
+  scaleTargetRef:
+    name: recommendation
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: recommendation-service
+        topic: user-activity
+        lagThreshold: "500"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: notification-scaler
+  namespace: business-services
+spec:
+  scaleTargetRef:
+    name: notification
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: notification-service
+        topic: notifications
+        lagThreshold: "200"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: notification-service
+        topic: orders
+        lagThreshold: "100"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "60"

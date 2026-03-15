@@ -1,0 +1,85 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: api-gateway-scaler
+  namespace: platform
+spec:
+  scaleTargetRef:
+    name: api-gateway
+  pollingInterval: 15
+  cooldownPeriod: 120
+  minReplicaCount: 3
+  maxReplicaCount: 30
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "60"
+    - type: memory
+      metricType: Utilization
+      metadata:
+        value: "70"
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-server.monitoring.svc.cluster.local:9090
+        metricName: http_requests_per_second
+        query: sum(rate(nginx_ingress_controller_requests{namespace="platform",service="api-gateway"}[1m]))
+        threshold: "1000"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: event-bus-scaler
+  namespace: platform
+spec:
+  scaleTargetRef:
+    name: event-bus
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 15
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
+    - type: memory
+      metricType: Utilization
+      metadata:
+        value: "75"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: analytics-scaler
+  namespace: platform
+spec:
+  scaleTargetRef:
+    name: analytics
+  pollingInterval: 60
+  cooldownPeriod: 600
+  minReplicaCount: 2
+  maxReplicaCount: 8
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: analytics-service
+        topic: orders
+        lagThreshold: "1000"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: analytics-service
+        topic: user-activity
+        lagThreshold: "2000"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"

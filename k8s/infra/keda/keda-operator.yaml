@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keda-operator
+  namespace: keda
+  annotations:
+    eks.amazonaws.com/role-arn: ${KEDA_ROLE_ARN}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ClusterTriggerAuthentication
+metadata:
+  name: keda-aws-msk
+spec:
+  podIdentity:
+    provider: aws-eks
+---
+apiVersion: keda.sh/v1alpha1
+kind: ClusterTriggerAuthentication
+metadata:
+  name: keda-aws-cloudwatch
+spec:
+  podIdentity:
+    provider: aws-eks

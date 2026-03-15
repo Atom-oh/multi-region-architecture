@@ -5,11 +5,11 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 @Component
-public class HealthController {
+public class WarehouseHealthController {
 
     private final com.mall.common.health.HealthController healthController;
 
-    public HealthController(com.mall.common.health.HealthController healthController) {
+    public WarehouseHealthController(com.mall.common.health.HealthController healthController) {
         this.healthController = healthController;
     }
 

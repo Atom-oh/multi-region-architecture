@@ -66,6 +66,7 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
+            <version>10.10.0</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

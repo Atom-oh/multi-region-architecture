@@ -4,7 +4,8 @@ data "aws_partition" "current" {}
 
 # IAM role for S3 replication
 resource "aws_iam_role" "s3_replication" {
-  name = "${var.environment}-s3-replication-role"
+  count = var.create_s3_replication_role ? 1 : 0
+  name  = "${var.environment}-s3-replication-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -26,8 +27,9 @@ resource "aws_iam_role" "s3_replication" {
 }
 
 resource "aws_iam_role_policy" "s3_replication" {
-  name = "${var.environment}-s3-replication-policy"
-  role = aws_iam_role.s3_replication.id
+  count = var.create_s3_replication_role ? 1 : 0
+  name  = "${var.environment}-s3-replication-policy"
+  role  = aws_iam_role.s3_replication[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"

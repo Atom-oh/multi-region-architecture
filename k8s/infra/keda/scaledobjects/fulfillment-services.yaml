@@ -1,0 +1,80 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: shipping-scaler
+  namespace: fulfillment
+spec:
+  scaleTargetRef:
+    name: shipping
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 15
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: shipping-service
+        topic: orders
+        lagThreshold: "100"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: warehouse-scaler
+  namespace: fulfillment
+spec:
+  scaleTargetRef:
+    name: warehouse
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: warehouse-service
+        topic: orders
+        lagThreshold: "150"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: returns-scaler
+  namespace: fulfillment
+spec:
+  scaleTargetRef:
+    name: returns
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 1
+  maxReplicaCount: 8
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: returns-service
+        topic: returns
+        lagThreshold: "100"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"

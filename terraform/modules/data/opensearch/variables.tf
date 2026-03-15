@@ -93,3 +93,9 @@ variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
 }
+
+variable "create_service_linked_role" {
+  description = "Whether to create the OpenSearch service-linked role (only needed once per account)"
+  type        = bool
+  default     = true
+}

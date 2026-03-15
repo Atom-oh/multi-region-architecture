@@ -121,8 +121,9 @@ module "secrets_manager" {
 module "iam" {
   source = "../../../modules/security/iam"
 
-  environment = var.environment
-  tags        = var.tags
+  environment                = var.environment
+  create_s3_replication_role = false # Already created in us-east-1 (global role)
+  tags                       = var.tags
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -194,7 +195,7 @@ module "elasticache" {
   environment                 = var.environment
   region                      = var.region
   is_primary                  = false
-  global_replication_group_id = data.terraform_remote_state.primary.outputs.elasticache_endpoint
+  global_replication_group_id = data.terraform_remote_state.primary.outputs.elasticache_global_replication_group_id
   vpc_id                      = module.vpc.vpc_id
   data_subnet_ids             = module.vpc.data_subnet_ids
   security_group_id           = module.security_groups.elasticache_security_group_id
@@ -226,18 +227,19 @@ module "msk" {
 module "opensearch" {
   source = "../../../modules/data/opensearch"
 
-  environment           = var.environment
-  region                = var.region
-  vpc_id                = module.vpc.vpc_id
-  data_subnet_ids       = module.vpc.data_subnet_ids
-  security_group_id     = module.security_groups.opensearch_security_group_id
-  master_instance_type  = "r6g.large.search"
-  master_instance_count = 3
-  data_instance_type    = "r6g.xlarge.search"
-  data_instance_count   = 6
-  ebs_volume_size       = 500
-  enable_ultrawarm      = true
-  tags                  = var.tags
+  environment                = var.environment
+  region                     = var.region
+  vpc_id                     = module.vpc.vpc_id
+  data_subnet_ids            = module.vpc.data_subnet_ids
+  security_group_id          = module.security_groups.opensearch_security_group_id
+  master_instance_type       = "r6g.large.search"
+  master_instance_count      = 3
+  data_instance_type         = "r6g.xlarge.search"
+  data_instance_count        = 6
+  ebs_volume_size            = 500
+  enable_ultrawarm           = true
+  create_service_linked_role = false # Already created in us-east-1
+  tags                       = var.tags
 }
 
 module "s3" {

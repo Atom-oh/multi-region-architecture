@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: keda
+
+resources:
+  - namespace.yaml
+  - keda-operator.yaml
+  - scaledobjects/core-services.yaml
+  - scaledobjects/fulfillment-services.yaml
+  - scaledobjects/business-services.yaml
+  - scaledobjects/platform-services.yaml

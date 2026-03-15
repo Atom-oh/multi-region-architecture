@@ -29,9 +29,6 @@ spec:
                 - component: otel-collector
                   path: k8s/infra/otel-collector
                   namespace: platform
-                - component: tempo
-                  path: k8s/infra/tempo
-                  namespace: observability
   template:
     metadata:
       name: 'infra-{{component}}-{{metadata.labels.region}}'

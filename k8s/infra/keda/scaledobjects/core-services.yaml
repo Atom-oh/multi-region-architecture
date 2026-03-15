@@ -1,0 +1,111 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: order-scaler
+  namespace: core-services
+spec:
+  scaleTargetRef:
+    name: order
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: order-service
+        topic: orders
+        lagThreshold: "100"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
+    - type: memory
+      metricType: Utilization
+      metadata:
+        value: "80"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: payment-scaler
+  namespace: core-services
+spec:
+  scaleTargetRef:
+    name: payment
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 15
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: payment-service
+        topic: payments
+        lagThreshold: "50"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: inventory-scaler
+  namespace: core-services
+spec:
+  scaleTargetRef:
+    name: inventory
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 12
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: inventory-service
+        topic: inventory
+        lagThreshold: "200"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: search-scaler
+  namespace: core-services
+spec:
+  scaleTargetRef:
+    name: search
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: ${MSK_BROKERS}
+        consumerGroup: search-service
+        topic: products
+        lagThreshold: "500"
+      authenticationRef:
+        name: keda-aws-msk
+        kind: ClusterTriggerAuthentication
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "60"

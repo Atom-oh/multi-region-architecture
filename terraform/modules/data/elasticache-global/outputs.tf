@@ -17,3 +17,8 @@ output "configuration_endpoint_address" {
   description = "The configuration endpoint address for cluster mode"
   value       = aws_elasticache_replication_group.this.configuration_endpoint_address
 }
+
+output "global_replication_group_id" {
+  description = "The ID of the global replication group (only for primary region)"
+  value       = var.is_primary ? aws_elasticache_global_replication_group.this[0].global_replication_group_id : null
+}

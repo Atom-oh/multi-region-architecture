@@ -30,3 +30,9 @@ variable "destination_bucket_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "create_s3_replication_role" {
+  description = "Whether to create the S3 replication role (set to false for secondary regions)"
+  type        = bool
+  default     = true
+}

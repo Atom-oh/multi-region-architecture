@@ -1,0 +1,135 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-data
+  namespace: platform
+  labels:
+    app: seed-data
+    component: data-initialization
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: seed-data
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: default
+      containers:
+        - name: seed-data
+          image: amazonlinux:2023
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              echo "Installing dependencies..."
+              yum install -y postgresql16 nodejs npm redis6 python3 openssl --quiet
+
+              # Download DocumentDB CA bundle
+              curl -sS -o /tmp/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+
+              echo "Running seed scripts..."
+              cd /seed-data
+              chmod +x *.sh
+              bash run-seed.sh
+          env:
+            # Aurora PostgreSQL
+            - name: AURORA_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: aurora-credentials
+                  key: endpoint
+                  optional: true
+            - name: AURORA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: aurora-credentials
+                  key: username
+                  optional: true
+            - name: AURORA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: aurora-credentials
+                  key: password
+                  optional: true
+            - name: AURORA_DB
+              value: "mall"
+            # DocumentDB
+            - name: DOCUMENTDB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: documentdb-credentials
+                  key: uri
+                  optional: true
+            - name: TLS_CA_FILE
+              value: "/tmp/global-bundle.pem"
+            # OpenSearch
+            - name: OPENSEARCH_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: opensearch-credentials
+                  key: endpoint
+                  optional: true
+            - name: OPENSEARCH_USER
+              valueFrom:
+                secretKeyRef:
+                  name: opensearch-credentials
+                  key: username
+                  optional: true
+            - name: OPENSEARCH_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: opensearch-credentials
+                  key: password
+                  optional: true
+            # MSK
+            - name: MSK_BOOTSTRAP
+              valueFrom:
+                secretKeyRef:
+                  name: msk-credentials
+                  key: bootstrap-servers
+                  optional: true
+            - name: KAFKA_HOME
+              value: "/opt/kafka"
+            # ElastiCache
+            - name: ELASTICACHE_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: elasticache-credentials
+                  key: endpoint
+                  optional: true
+            - name: ELASTICACHE_PORT
+              value: "6379"
+            # Region
+            - name: AWS_REGION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['topology.kubernetes.io/region']
+          volumeMounts:
+            - name: seed-scripts
+              mountPath: /seed-data
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: seed-scripts
+          configMap:
+            name: seed-data-scripts
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seed-data-scripts
+  namespace: platform
+data:
+  run-seed.sh: |
+    # This ConfigMap is a placeholder.
+    # In practice, use a container image with scripts baked in,
+    # or mount from a Git sync sidecar.
+    echo "Seed scripts should be baked into a custom container image."
+    echo "See: scripts/seed-data/Dockerfile for building the seed image."

@@ -16,10 +16,9 @@ resource "aws_rds_cluster" "this" {
   engine_version               = "15.8"
   allow_major_version_upgrade  = false
 
-  # Primary cluster uses RDS-managed secrets
-  master_username                 = var.is_primary ? "mall_admin" : null
-  manage_master_user_password     = var.is_primary ? true : null
-  master_user_secret_kms_key_id   = var.is_primary ? var.kms_key_arn : null
+  # Primary cluster credentials (explicit password required for Global Database)
+  master_username = var.is_primary ? "mall_admin" : null
+  master_password = var.is_primary ? var.master_password : null
 
   # Secondary cluster configuration
   enable_global_write_forwarding = var.is_primary ? null : var.enable_write_forwarding

@@ -64,7 +64,7 @@ metadata:
   name: tempo
   namespace: observability
   annotations:
-    eks.amazonaws.com/role-arn: ${TEMPO_ROLE_ARN}
+    eks.amazonaws.com/role-arn: "arn:aws:iam::180294183052:role/production-tempo-us-east-1"
 ---
 apiVersion: apps/v1
 kind: Deployment
