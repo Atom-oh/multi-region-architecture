@@ -17,7 +17,7 @@ spec:
       project: default
       source:
         chart: karpenter
-        repoURL: oci://public.ecr.aws/karpenter
+        repoURL: public.ecr.aws/karpenter
         targetRevision: 1.9.0
         helm:
           valuesObject:

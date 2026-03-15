@@ -248,6 +248,11 @@ resource "aws_iam_role_policy_attachment" "node_group_ssm" {
   role       = aws_iam_role.node_group.name
 }
 
+resource "aws_iam_role_policy_attachment" "node_group_ebs_csi" {
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.node_group.name
+}
+
 # Bootstrap managed node group
 resource "aws_eks_node_group" "bootstrap" {
   cluster_name    = aws_eks_cluster.main.name
@@ -281,7 +286,8 @@ resource "aws_eks_node_group" "bootstrap" {
     aws_iam_role_policy_attachment.node_group_worker,
     aws_iam_role_policy_attachment.node_group_cni,
     aws_iam_role_policy_attachment.node_group_ecr,
-    aws_iam_role_policy_attachment.node_group_ssm
+    aws_iam_role_policy_attachment.node_group_ssm,
+    aws_iam_role_policy_attachment.node_group_ebs_csi
   ]
 }
 
