@@ -1,0 +1,304 @@
+<mxfile host="65bd71144e">
+    <diagram name="Cross-Region Replication Architecture" id="replication-1">
+        <mxGraphModel dx="1580" dy="616" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Multi-Region Data Replication Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=20;fontColor=#232F3E;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="400" y="10" width="500" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="subtitle" value="us-east-1 (Primary Write) ↔ us-west-2 (Secondary Read + Write Forwarding)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=12;fontColor=#616161;" parent="1" vertex="1">
+                    <mxGeometry x="350" y="45" width="600" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-region" value="us-east-1 (N. Virginia) — PRIMARY" style="rounded=1;arcSize=5;fillColor=#E6F2FF;strokeColor=#147EBA;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=15;spacingTop=8;fontFamily=Amazon Ember;fontSize=14;fontStyle=1;fontColor=#147EBA;fillOpacity=40;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="90" width="410" height="1060" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-region" value="us-west-2 (Oregon) — SECONDARY" style="rounded=1;arcSize=5;fillColor=#FFF3E0;strokeColor=#E65100;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=15;spacingTop=8;fontFamily=Amazon Ember;fontSize=14;fontStyle=1;fontColor=#E65100;fillOpacity=40;" parent="1" vertex="1">
+                    <mxGeometry x="662.5" y="90" width="427.5" height="1060" as="geometry"/>
+                </mxCell>
+                <mxCell id="repl-channel" value="" style="rounded=1;arcSize=5;fillColor=#F5F5F5;strokeColor=#BDBDBD;strokeWidth=1;dashed=1;" parent="1" vertex="1">
+                    <mxGeometry x="471" y="90" width="169" height="1060" as="geometry"/>
+                </mxCell>
+                <mxCell id="repl-channel-label" value="Cross-Region&#10;Replication" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=11;fontColor=#757575;fontStyle=1;rotation=-90;" parent="1" vertex="1">
+                    <mxGeometry x="505.5" y="552" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="section1-label" value="1. Aurora PostgreSQL" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=12;fontColor=#232F3E;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="120" width="150" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-aurora" value="Aurora PostgreSQL&#10;PRIMARY (Writer)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.aurora;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="209" y="150" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-aurora-rw" value="Read + Write" style="text;html=1;strokeColor=none;fillColor=#E8F5E9;align=center;verticalAlign=middle;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#2E7D32;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="204" y="140" width="70" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-aurora" value="Aurora PostgreSQL&#10;SECONDARY (Reader)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.aurora;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="852.5" y="150" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-aurora-ro" value="Read + Write Fwd" style="text;html=1;strokeColor=none;fillColor=#E8F5E9;align=center;verticalAlign=middle;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#2E7D32;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="844.5" y="140" width="76" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="aurora-repl" value="" style="endArrow=classic;html=1;strokeWidth=3;strokeColor=#3334B9;edgeStyle=orthogonalEdgeStyle;" parent="1" source="east-aurora" target="west-aurora" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="aurora-repl-label" value="Aurora Global Database&#10;&amp;lt;1s async replication" style="text;html=1;strokeColor=none;fillColor=#E8EAF6;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=11;fontColor=#3334B9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="481" y="155" width="149" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="aurora-writefwd" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#C62828;dashed=1;dashPattern=12 4;edgeStyle=orthogonalEdgeStyle;" parent="1" source="west-aurora" target="east-aurora" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="770" y="200"/>
+                            <mxPoint x="770" y="200"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="aurora-writefwd-label" value="Native Write Forwarding&#10;(AWS managed)" style="text;html=1;strokeColor=none;fillColor=#FFEBEE;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#C62828;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="481" y="192" width="149" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="section2-label" value="2. DocumentDB" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=12;fontColor=#232F3E;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="250" width="150" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-docdb" value="DocumentDB&#10;PRIMARY (Writer)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.documentdb_with_mongodb_compatibility;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="209" y="280" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-docdb-rw" value="Read + Write" style="text;html=1;strokeColor=none;fillColor=#E8F5E9;align=center;verticalAlign=middle;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#2E7D32;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="204" y="270" width="70" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-docdb" value="DocumentDB&#10;SECONDARY (Reader)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.documentdb_with_mongodb_compatibility;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="852.5" y="280" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-docdb-ro" value="Read Only" style="text;html=1;strokeColor=none;fillColor=#FFCDD2;align=center;verticalAlign=middle;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#C62828;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="855.5" y="270" width="55" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="docdb-repl" value="" style="endArrow=classic;html=1;strokeWidth=3;strokeColor=#3334B9;edgeStyle=orthogonalEdgeStyle;" parent="1" source="east-docdb" target="west-docdb" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="docdb-repl-label" value="DocumentDB Global Cluster&#10;async replication" style="text;html=1;strokeColor=none;fillColor=#E8EAF6;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=11;fontColor=#3334B9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="481" y="270" width="149" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="docdb-writefwd" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#C62828;dashed=1;dashPattern=12 4;edgeStyle=orthogonalEdgeStyle;" parent="1" source="west-docdb" target="east-docdb" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="770" y="330"/>
+                            <mxPoint x="770" y="330"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="docdb-writefwd-label" value="App-Level Forward&#10;(RegionWriteMiddleware)" style="text;html=1;strokeColor=none;fillColor=#FFEBEE;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=11;fontColor=#C62828;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="481" y="322" width="149" height="38" as="geometry"/>
+                </mxCell>
+                <mxCell id="docdb-no-native-note" value="No native Write Forwarding.&#10;Writes from us-west-2 are forwarded&#10;by app middleware to us-east-1 Primary." style="text;html=1;strokeColor=none;fillColor=#FFF9C4;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=13;fontColor=#F57F17;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="478.5" y="370" width="154" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="section3-label" value="3. OpenSearch Sync" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=12;fontColor=#232F3E;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="405" width="160" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-catalog" value="product-catalog&#10;(Python)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="69" y="440" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-opensearch" value="OpenSearch" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticsearch_service;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="359" y="440" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-kafka" value="MSK&#10;Kafka" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="209" y="440" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-search" value="search&#10;(Go)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="289" y="520" width="40" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-cat-kafka" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#545B64;" parent="1" source="east-catalog" target="east-kafka" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-cat-kafka-label" value="publish&#10;product.updated" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Amazon Ember;fontSize=7;fontColor=#545B64;" parent="1" vertex="1">
+                    <mxGeometry x="117" y="428" width="80" height="22" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-kafka-search" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#545B64;" parent="1" source="east-kafka" target="east-search" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-kafka-search-label" value="consume" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=7;fontColor=#545B64;" parent="1" vertex="1">
+                    <mxGeometry x="227" y="508" width="45" height="14" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-search-os" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#545B64;" parent="1" source="east-search" target="east-opensearch" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-search-os-label" value="index" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=7;fontColor=#545B64;" parent="1" vertex="1">
+                    <mxGeometry x="334" y="508" width="30" height="14" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-os-flow-box" value="" style="rounded=1;arcSize=8;fillColor=none;strokeColor=#9E9E9E;strokeWidth=1;dashed=1;" parent="1" vertex="1">
+                    <mxGeometry x="49" y="425" width="380" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-os-flow-label" value="Primary: Kafka Event → Search → OpenSearch" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=8;fontColor=#9E9E9E;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="69" y="568" width="230" height="14" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-docdb2" value="DocumentDB&#10;(Replica)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.documentdb_with_mongodb_compatibility;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="698.5" y="440" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-search" value="search&#10;(Go)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.containers;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="848.5" y="440" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-opensearch" value="OpenSearch" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticsearch_service;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="998.5" y="440" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-docdb-search" value="" style="endArrow=classic;html=1;strokeWidth=3;strokeColor=#FF6D00;dashed=1;dashPattern=8 4;" parent="1" source="west-docdb2" target="west-search" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-docdb-search-label" value="Change&#10;Stream" style="text;html=1;strokeColor=none;fillColor=#FFF3E0;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#E65100;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="763.5" y="428" width="55" height="22" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-search-os" value="" style="endArrow=classic;html=1;strokeWidth=3;strokeColor=#FF6D00;dashed=1;dashPattern=8 4;" parent="1" source="west-search" target="west-opensearch" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-search-os-label" value="Index&#10;Sync" style="text;html=1;strokeColor=none;fillColor=#FFF3E0;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#E65100;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="923.5" y="428" width="45" height="22" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-os-flow-box" value="" style="rounded=1;arcSize=8;fillColor=none;strokeColor=#FF6D00;strokeWidth=2;dashed=1;" parent="1" vertex="1">
+                    <mxGeometry x="678.5" y="425" width="390" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-os-flow-label" value="Secondary: DocumentDB Change Stream → Search → OpenSearch" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=8;fontColor=#E65100;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="698.5" y="568" width="310" height="14" as="geometry"/>
+                </mxCell>
+                <mxCell id="docdb-to-west-docdb2" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#3334B9;dashed=1;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="west-docdb" target="west-docdb2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="docdb-same-label" value="same&#10;instance" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=7;fontColor=#757575;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="752.5" y="380" width="40" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="section4-label" value="4. ElastiCache (Valkey)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=12;fontColor=#232F3E;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="610" width="170" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-cache" value="ElastiCache Valkey&#10;PRIMARY" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticache;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="209" y="640" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-cache-rw" value="Read + Write" style="text;html=1;strokeColor=none;fillColor=#E8F5E9;align=center;verticalAlign=middle;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#2E7D32;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="204" y="630" width="70" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-cache" value="ElastiCache Valkey&#10;SECONDARY (Read-only)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticache;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="852.5" y="640" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-cache-ro" value="Read Only" style="text;html=1;strokeColor=none;fillColor=#FFCDD2;align=center;verticalAlign=middle;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#C62828;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="855.5" y="630" width="55" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-repl" value="" style="endArrow=classic;html=1;strokeWidth=3;strokeColor=#3334B9;edgeStyle=orthogonalEdgeStyle;" parent="1" source="east-cache" target="west-cache" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-repl-label" value="ElastiCache&#10;Global Datastore" style="text;html=1;strokeColor=none;fillColor=#E8EAF6;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=11;fontColor=#3334B9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="481" y="645" width="149" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-writefwd" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#C62828;dashed=1;dashPattern=12 4;edgeStyle=orthogonalEdgeStyle;" parent="1" source="west-cache" target="east-cache" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="770" y="690"/>
+                            <mxPoint x="770" y="690"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="cache-writefwd-label" value="App-Level Forward&#10;(writes must go to Primary)" style="text;html=1;strokeColor=none;fillColor=#FFEBEE;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=11;fontColor=#C62828;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="476" y="682" width="154" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-no-write-note" value="No Write Forwarding.&#10;Secondary is strictly read-only.&#10;us-west-2 services write to us-east-1." style="text;html=1;strokeColor=none;fillColor=#FFF9C4;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=13;fontColor=#F57F17;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="476" y="710" width="154" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="section5-label" value="5. S3 Storage" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=12;fontColor=#232F3E;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="770" width="150" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-s3" value="S3 Static Assets" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#60A337;gradientDirection=north;fillColor=#277116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="209" y="800" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-s3" value="S3 Static Assets&#10;(CRR Replica)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#60A337;gradientDirection=north;fillColor=#277116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="852.5" y="800" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="s3-crr" value="" style="endArrow=classic;html=1;strokeWidth=3;strokeColor=#277116;edgeStyle=orthogonalEdgeStyle;" parent="1" source="east-s3" target="west-s3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="s3-crr-label" value="S3 Cross-Region&#10;Replication (CRR)" style="text;html=1;strokeColor=none;fillColor=#E8F5E9;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=11;fontColor=#277116;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="481" y="810" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="section6-label" value="6. Secrets Manager" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=12;fontColor=#232F3E;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="890" width="150" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-secrets" value="Secrets Manager&#10;(Source)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="209" y="920" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-secrets" value="Secrets Manager&#10;(Replica)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="852.5" y="920" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="secrets-repl" value="" style="endArrow=classic;html=1;strokeWidth=3;strokeColor=#C7131F;edgeStyle=orthogonalEdgeStyle;" parent="1" source="east-secrets" target="west-secrets" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="secrets-repl-label" value="Secrets Manager&#10;Auto Replica" style="text;html=1;strokeColor=none;fillColor=#FFEBEE;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=11;fontColor=#C7131F;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="481" y="935" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="secrets-note" value="Secrets auto-replicated.&#10;us-west-2 reads local replica.&#10;Updates only in us-east-1." style="text;html=1;strokeColor=none;fillColor=#FFF9C4;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=13;fontColor=#F57F17;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="481" y="968" width="149" height="82" as="geometry"/>
+                </mxCell>
+                <mxCell id="section7-label" value="7. KMS" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=12;fontColor=#232F3E;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="1010" width="150" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="east-kms" value="KMS&#10;(us-east-1 Key)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.key_management_service;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="209" y="1040" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="west-kms" value="KMS&#10;(us-west-2 Key)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.key_management_service;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="852.5" y="1040" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="kms-independent" value="KMS keys are region-bound.&#10;Each region has independent keys.&#10;No cross-region replication." style="text;html=1;strokeColor=none;fillColor=#FFF9C4;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontFamily=Amazon Ember;fontSize=10;fontColor=#F57F17;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="478.5" y="1090" width="154" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="kms-no-repl-line" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#BDBDBD;dashed=1;dashPattern=4 4;edgeStyle=orthogonalEdgeStyle;startArrow=none;" parent="1" source="kms-no-repl-x" target="west-kms" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-box" value="" style="rounded=1;arcSize=8;fillColor=#FAFAFA;strokeColor=#E0E0E0;strokeWidth=1;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="1160" width="1050" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-title" value="Legend:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=10;fontColor=#232F3E;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="1165" width="50" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg1-line" value="" style="endArrow=classic;html=1;strokeWidth=3;strokeColor=#3334B9;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="115" y="1175" as="sourcePoint"/>
+                        <mxPoint x="155" y="1175" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="leg1-txt" value="AWS Managed Replication" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;" parent="1" vertex="1">
+                    <mxGeometry x="160" y="1167" width="140" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg2-line" value="" style="endArrow=classic;html=1;strokeWidth=3;strokeColor=#FF6D00;dashed=1;dashPattern=8 4;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="310" y="1175" as="sourcePoint"/>
+                        <mxPoint x="350" y="1175" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="leg2-txt" value="App-Level Change Stream Sync" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;" parent="1" vertex="1">
+                    <mxGeometry x="355" y="1167" width="170" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg3-line" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#C62828;dashed=1;dashPattern=12 4;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="540" y="1175" as="sourcePoint"/>
+                        <mxPoint x="580" y="1175" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="leg3-txt" value="Write Forwarding (Native or App-Level)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=9;fontColor=#424242;" parent="1" vertex="1">
+                    <mxGeometry x="585" y="1167" width="200" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg4-rw" value="Read + Write" style="text;html=1;strokeColor=none;fillColor=#E8F5E9;align=center;verticalAlign=middle;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#2E7D32;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="800" y="1168" width="70" height="14" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg5-ro" value="Read Only" style="text;html=1;strokeColor=none;fillColor=#FFCDD2;align=center;verticalAlign=middle;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#C62828;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="880" y="1168" width="55" height="14" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg6-no" value="X No Replication" style="text;html=1;strokeColor=none;fillColor=#FFF9C4;align=center;verticalAlign=middle;rounded=1;fontFamily=Amazon Ember;fontSize=8;fontColor=#F57F17;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="945" y="1168" width="85" height="14" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg-note" value="MSK (Kafka): Independent per region — no cross-region replication. OpenSearch synced via DocumentDB Change Stream." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Amazon Ember;fontSize=8;fontColor=#757575;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="1188" width="600" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#BDBDBD;dashed=1;dashPattern=4 4;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="east-kms" target="kms-no-repl-x">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="269" y="1070" as="sourcePoint"/>
+                        <mxPoint x="852.5" y="1070" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="kms-no-repl-x" value="X" style="text;html=1;strokeColor=none;fillColor=#FFCDD2;align=center;verticalAlign=middle;rounded=1;fontFamily=Amazon Ember;fontSize=12;fontColor=#C62828;fontStyle=1;arcSize=0;" parent="1" vertex="1">
+                    <mxGeometry x="545.5" y="1060" width="20" height="20" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

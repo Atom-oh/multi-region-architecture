@@ -44,12 +44,12 @@ configMapGenerator:
     literals:
       - REGION=us-west-2
       - REGION_ROLE=SECONDARY
-      - AURORA_ENDPOINT=mall-secondary.cluster-xxx.us-west-2.rds.amazonaws.com
-      - AURORA_READER_ENDPOINT=mall-secondary.cluster-ro-xxx.us-west-2.rds.amazonaws.com
-      - DOCUMENTDB_ENDPOINT=mall-docdb-secondary.cluster-xxx.us-west-2.docdb.amazonaws.com
-      - VALKEY_ENDPOINT=mall-valkey.xxx.usw2.cache.amazonaws.com
-      - MSK_BROKERS=b-1.mall-msk.xxx.kafka.us-west-2.amazonaws.com:9094
-      - OPENSEARCH_ENDPOINT=https://mall-search.us-west-2.es.amazonaws.com
+      - AURORA_ENDPOINT=production-aurora-global-us-west-2.cluster-cj00m0aai7ry.us-west-2.rds.amazonaws.com
+      - AURORA_READER_ENDPOINT=production-aurora-global-us-west-2.cluster-ro-cj00m0aai7ry.us-west-2.rds.amazonaws.com
+      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-west-2.cluster-cj00m0aai7ry.us-west-2.docdb.amazonaws.com
+      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-west-2.0udeym.usw2.cache.amazonaws.com
+      - MSK_BROKERS=b-1.productionmskuswest2.nckvxn.c3.kafka.us-west-2.amazonaws.com:9096
+      - OPENSEARCH_ENDPOINT=https://vpc-production-os-usw2-pgtswpgymfnk6lsxmn7oxn3gzi.us-west-2.es.amazonaws.com
   - name: tempo-region-config
     namespace: observability
     literals:
