@@ -76,7 +76,8 @@ resource "aws_docdb_cluster" "this" {
   lifecycle {
     ignore_changes = [
       master_password,
-      master_username
+      master_username,
+      global_cluster_identifier
     ]
   }
 }
