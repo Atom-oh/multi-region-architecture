@@ -1,9 +1,9 @@
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.9"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0"
+      version = "~> 5.82"
     }
     random = {
       source  = "hashicorp/random"
@@ -128,6 +128,7 @@ module "eks" {
   cluster_name       = var.eks_cluster_name
   vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
+  role_name_suffix   = ""
   tags               = var.tags
 }
 

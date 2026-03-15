@@ -54,7 +54,7 @@ locals {
 
 resource "aws_opensearch_domain" "this" {
   domain_name    = local.domain_name
-  engine_version = "OpenSearch_2.11"
+  engine_version = "OpenSearch_2.17"
 
   cluster_config {
     dedicated_master_enabled = true

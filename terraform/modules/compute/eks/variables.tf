@@ -1,9 +1,9 @@
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.9"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0"
+      version = "~> 5.82"
     }
   }
 }
@@ -26,7 +26,7 @@ variable "cluster_name" {
 variable "cluster_version" {
   description = "Kubernetes version for the EKS cluster"
   type        = string
-  default     = "1.29"
+  default     = "1.35"
 }
 
 variable "vpc_id" {
@@ -43,6 +43,12 @@ variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default     = {}
+}
+
+variable "role_name_suffix" {
+  description = "Suffix for IAM role names. Defaults to '-{region}'. Set to empty string for roles without region suffix."
+  type        = string
+  default     = null
 }
 
 variable "bootstrap_node_instance_types" {

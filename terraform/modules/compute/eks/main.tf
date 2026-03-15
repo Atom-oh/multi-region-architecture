@@ -27,6 +27,7 @@ locals {
   }
 
   oidc_provider_url = replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")
+  role_name_suffix  = var.role_name_suffix != null ? var.role_name_suffix : "-${var.region}"
 }
 
 # KMS key for EKS secrets encryption
@@ -47,7 +48,7 @@ resource "aws_kms_alias" "eks_secrets" {
 
 # IAM role for EKS cluster
 resource "aws_iam_role" "eks_cluster" {
-  name = "${var.cluster_name}-cluster-role-${var.region}"
+  name = "${var.cluster_name}-cluster-role${local.role_name_suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -133,7 +134,7 @@ resource "aws_iam_openid_connect_provider" "eks" {
 
 # IAM role for VPC CNI addon
 resource "aws_iam_role" "vpc_cni" {
-  name = "${var.cluster_name}-vpc-cni-${var.region}"
+  name = "${var.cluster_name}-vpc-cni${local.role_name_suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -211,7 +212,7 @@ resource "aws_eks_addon" "aws_efs_csi_driver" {
 
 # Bootstrap node group IAM role
 resource "aws_iam_role" "node_group" {
-  name = "${var.cluster_name}-node-group-${var.region}"
+  name = "${var.cluster_name}-node-group${local.role_name_suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -286,7 +287,7 @@ resource "aws_eks_node_group" "bootstrap" {
 
 # Karpenter IAM Role
 resource "aws_iam_role" "karpenter_controller" {
-  name = "${var.cluster_name}-karpenter-controller-${var.region}"
+  name = "${var.cluster_name}-karpenter-controller${local.role_name_suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -311,7 +312,7 @@ resource "aws_iam_role" "karpenter_controller" {
 }
 
 resource "aws_iam_role_policy" "karpenter_controller" {
-  name = "${var.cluster_name}-karpenter-controller-policy-${var.region}"
+  name = "${var.cluster_name}-karpenter-controller-policy${local.role_name_suffix}"
   role = aws_iam_role.karpenter_controller.id
 
   policy = jsonencode({
@@ -376,7 +377,7 @@ resource "aws_iam_role_policy" "karpenter_controller" {
 resource "aws_iam_role" "service_account" {
   for_each = local.services
 
-  name = "${var.cluster_name}-${each.key}-sa-${var.region}"
+  name = "${var.cluster_name}-${each.key}-sa${local.role_name_suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
