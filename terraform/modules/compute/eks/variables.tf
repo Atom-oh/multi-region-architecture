@@ -3,7 +3,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.82"
+      version = ">= 5.0"
     }
   }
 }
@@ -26,7 +26,7 @@ variable "cluster_name" {
 variable "cluster_version" {
   description = "Kubernetes version for the EKS cluster"
   type        = string
-  default     = "1.35"
+  default     = "1.29"
 }
 
 variable "vpc_id" {

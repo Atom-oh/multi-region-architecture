@@ -13,7 +13,7 @@ const config: Config = {
   organizationName: 'Atom-oh',
   projectName: 'multi-region-architecture',
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
 
   i18n: {

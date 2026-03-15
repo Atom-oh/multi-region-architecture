@@ -1,0 +1,18 @@
+{
+  "title": {
+    "message": "Multi-Region Mall",
+    "description": "The title in the navbar"
+  },
+  "item.label.문서": {
+    "message": "Docs",
+    "description": "Navbar item with label 문서"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Navbar item with label GitHub"
+  },
+  "logo.alt": {
+    "message": "Multi-Region Mall Logo",
+    "description": "The alt text of navbar logo"
+  }
+}

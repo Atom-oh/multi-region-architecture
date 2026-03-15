@@ -1,0 +1,8 @@
+{
+  "label": "인프라",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "description": "멀티 리전 쇼핑몰 플랫폼의 AWS 인프라 구성"
+  }
+}
