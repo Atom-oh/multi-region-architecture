@@ -5,17 +5,12 @@ namespace: argocd
 
 resources:
   - namespace.yaml
-  - https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.3/manifests/ha/install.yaml
   - apps/
 
-patches:
-  - target:
-      kind: ConfigMap
-      name: argocd-cmd-params-cm
-    patch: |-
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: argocd-cmd-params-cm
-      data:
-        server.insecure: "true"
+helmCharts:
+  - name: argo-cd
+    repo: https://argoproj.github.io/argo-helm
+    version: 7.8.13
+    releaseName: argocd
+    namespace: argocd
+    valuesFile: values.yaml

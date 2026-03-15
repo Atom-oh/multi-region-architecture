@@ -1,0 +1,85 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-otel-collector
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: region
+              operator: Exists
+  template:
+    metadata:
+      name: 'otel-collector-{{metadata.labels.region}}'
+    spec:
+      project: default
+      source:
+        chart: opentelemetry-collector
+        repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+        targetRevision: 0.115.0
+        helm:
+          valuesObject:
+            mode: daemonset
+            presets:
+              kubernetesAttributes:
+                enabled: true
+            config:
+              receivers:
+                otlp:
+                  protocols:
+                    grpc:
+                      endpoint: 0.0.0.0:4317
+                    http:
+                      endpoint: 0.0.0.0:4318
+              processors:
+                tail_sampling:
+                  policies:
+                    - name: errors
+                      type: status_code
+                      status_code:
+                        status_codes: [ERROR]
+                    - name: slow-traces
+                      type: latency
+                      latency:
+                        threshold_ms: 500
+                    - name: default-sampling
+                      type: probabilistic
+                      probabilistic:
+                        sampling_percentage: 10
+                batch:
+                  send_batch_size: 1024
+                  timeout: 5s
+              exporters:
+                otlp/tempo:
+                  endpoint: tempo.observability:4317
+                  tls:
+                    insecure: true
+                awsxray:
+                  region: '{{metadata.labels.region}}'
+              service:
+                pipelines:
+                  traces:
+                    receivers: [otlp]
+                    processors: [tail_sampling, batch]
+                    exporters: [otlp/tempo, awsxray]
+                  metrics:
+                    receivers: [otlp]
+                    processors: [batch]
+                    exporters: [otlp/tempo]
+      destination:
+        server: '{{server}}'
+        namespace: platform
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

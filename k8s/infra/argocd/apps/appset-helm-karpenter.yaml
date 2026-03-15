@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: infra-karpenter-crds
+  name: helm-karpenter
   namespace: argocd
 spec:
   generators:
@@ -12,13 +12,22 @@ spec:
               operator: Exists
   template:
     metadata:
-      name: 'karpenter-crds-{{metadata.labels.region}}'
+      name: 'karpenter-{{metadata.labels.region}}'
     spec:
       project: default
       source:
-        repoURL: https://github.com/Atom-oh/multi-region-architecture.git
-        targetRevision: main
-        path: k8s/infra/karpenter
+        chart: karpenter
+        repoURL: oci://public.ecr.aws/karpenter
+        targetRevision: 1.9.0
+        helm:
+          valuesObject:
+            settings:
+              clusterName: multi-region-mall
+              interruptionQueue: multi-region-mall-karpenter
+            serviceAccount:
+              annotations:
+                eks.amazonaws.com/role-arn: arn:aws:iam::180294183052:role/multi-region-mall-karpenter-controller-{{metadata.labels.region}}
+            replicas: 2
       destination:
         server: '{{server}}'
         namespace: kube-system
