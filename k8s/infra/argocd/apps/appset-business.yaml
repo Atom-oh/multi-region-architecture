@@ -5,16 +5,20 @@ metadata:
   namespace: argocd
 spec:
   generators:
-    - clusters: {}
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: region
+              operator: Exists
   template:
     metadata:
-      name: 'business-{{name}}'
+      name: 'business-{{metadata.labels.region}}'
     spec:
       project: default
       source:
         repoURL: https://github.com/Atom-oh/multi-region-architecture.git
         targetRevision: main
-        path: k8s/services/business
+        path: 'k8s/overlays/{{metadata.labels.region}}/business'
       destination:
         server: '{{server}}'
         namespace: business-services

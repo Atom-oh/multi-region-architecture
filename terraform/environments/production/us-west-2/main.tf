@@ -30,14 +30,16 @@ data "terraform_remote_state" "primary" {
   }
 }
 
-data "terraform_remote_state" "global" {
-  backend = "s3"
-  config = {
-    bucket = "multi-region-mall-terraform-state"
-    key    = "global/terraform.tfstate"
-    region = "us-east-1"
-  }
-}
+# Global state not used - global resources (Aurora/DocDB global clusters)
+# are referenced via variables instead
+# data "terraform_remote_state" "global" {
+#   backend = "s3"
+#   config = {
+#     bucket = "multi-region-mall-terraform-state"
+#     key    = "global/terraform.tfstate"
+#     region = "us-east-1"
+#   }
+# }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Networking
@@ -215,10 +217,10 @@ module "msk" {
   broker_instance_type   = "kafka.m5.2xlarge"
   number_of_broker_nodes = 6
   ebs_volume_size        = 1000
-  enable_replicator  = true
-  source_cluster_arn = data.terraform_remote_state.primary.outputs.msk_cluster_arn
-  target_cluster_arn = module.msk.cluster_arn
-  tags               = var.tags
+  enable_replicator      = true
+  source_cluster_arn     = data.terraform_remote_state.primary.outputs.msk_cluster_arn
+  target_cluster_arn     = module.msk.cluster_arn
+  tags                   = var.tags
 }
 
 module "opensearch" {
@@ -247,7 +249,7 @@ module "s3" {
   static_assets_bucket_name          = "${var.environment}-mall-static-assets-${var.region}"
   analytics_bucket_name              = "${var.environment}-mall-analytics-${var.region}"
   replication_destination_bucket_arn = ""
-  replication_role_arn               = data.terraform_remote_state.primary.outputs.s3_replication_role_arn
+  replication_role_arn               = ""
   kms_key_arn                        = module.kms.key_arns["s3"]
   tags                               = var.tags
 }
@@ -259,15 +261,11 @@ module "s3" {
 module "route53" {
   source = "../../../modules/edge/route53"
 
-  environment = var.environment
-  zone_id     = var.route53_zone_id
-  alb_dns_names = {
-    "us-west-2" = module.alb.alb_controller_role_arn # Replace with actual ALB DNS
-  }
-  alb_zone_ids = {
-    "us-west-2" = "" # Replace with actual ALB zone ID
-  }
-  tags = var.tags
+  environment   = var.environment
+  zone_id       = var.route53_zone_id
+  alb_dns_names = {} # ALB DNS not available until ALB controller deploys in EKS
+  alb_zone_ids  = {}
+  tags          = var.tags
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -289,4 +287,15 @@ module "xray" {
 
   environment = var.environment
   tags        = var.tags
+}
+
+module "tempo_storage" {
+  source = "../../../modules/observability/tempo-storage"
+
+  environment       = var.environment
+  region            = var.region
+  kms_key_arn       = module.kms.key_arns["s3"]
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+  tags              = var.tags
 }

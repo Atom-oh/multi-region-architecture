@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.0"
+    }
   }
 }
 
@@ -20,15 +24,15 @@ provider "aws" {
   }
 }
 
-# Remote state for global resources
-data "terraform_remote_state" "global" {
-  backend = "s3"
-  config = {
-    bucket = "multi-region-mall-terraform-state"
-    key    = "global/terraform.tfstate"
-    region = "us-east-1"
-  }
-}
+# Remote state for global resources (optional - may not exist on initial deploy)
+# data "terraform_remote_state" "global" {
+#   backend = "s3"
+#   config = {
+#     bucket = "multi-region-mall-terraform-state"
+#     key    = "global/terraform.tfstate"
+#     region = "us-east-1"
+#   }
+# }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Networking
@@ -142,6 +146,18 @@ module "alb" {
 # Data
 # ─────────────────────────────────────────────────────────────────────────────
 
+resource "random_password" "aurora" {
+  length           = 32
+  special          = true
+  override_special = "!#$%^&*()-_=+"
+}
+
+resource "random_password" "documentdb" {
+  length           = 32
+  special          = true
+  override_special = "!#$%^&*()-_=+"
+}
+
 module "aurora" {
   source = "../../../modules/data/aurora-global"
 
@@ -153,6 +169,7 @@ module "aurora" {
   data_subnet_ids           = module.vpc.data_subnet_ids
   security_group_id         = module.security_groups.aurora_security_group_id
   kms_key_arn               = module.kms.key_arns["aurora"]
+  master_password           = random_password.aurora.result
   writer_instance_class     = "db.r6g.2xlarge"
   reader_instance_class     = "db.r6g.xlarge"
   reader_count              = 2
@@ -170,6 +187,7 @@ module "documentdb" {
   data_subnet_ids           = module.vpc.data_subnet_ids
   security_group_id         = module.security_groups.documentdb_security_group_id
   kms_key_arn               = module.kms.key_arns["documentdb"]
+  master_password           = random_password.documentdb.result
   instance_class            = "db.r6g.2xlarge"
   instance_count            = 3
   tags                      = var.tags
@@ -233,7 +251,7 @@ module "s3" {
   is_primary                         = true
   static_assets_bucket_name          = "${var.environment}-mall-static-assets-${var.region}"
   analytics_bucket_name              = "${var.environment}-mall-analytics-${var.region}"
-  replication_destination_bucket_arn = "" # Set after west bucket exists
+  replication_destination_bucket_arn = null # Set after west bucket exists
   replication_role_arn               = ""
   kms_key_arn                        = module.kms.key_arns["s3"]
   tags                               = var.tags
@@ -253,15 +271,11 @@ module "waf" {
 module "route53" {
   source = "../../../modules/edge/route53"
 
-  environment = var.environment
-  zone_id     = var.route53_zone_id
-  alb_dns_names = {
-    "us-east-1" = module.alb.alb_controller_role_arn # Replace with actual ALB DNS
-  }
-  alb_zone_ids = {
-    "us-east-1" = "" # Replace with actual ALB zone ID
-  }
-  tags = var.tags
+  environment   = var.environment
+  zone_id       = var.route53_zone_id
+  alb_dns_names = {} # ALB DNS not available until ALB controller deploys in EKS
+  alb_zone_ids  = {}
+  tags          = var.tags
 }
 
 module "cloudfront" {
@@ -296,4 +310,15 @@ module "xray" {
 
   environment = var.environment
   tags        = var.tags
+}
+
+module "tempo_storage" {
+  source = "../../../modules/observability/tempo-storage"
+
+  environment       = var.environment
+  region            = var.region
+  kms_key_arn       = module.kms.key_arns["s3"]
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+  tags              = var.tags
 }

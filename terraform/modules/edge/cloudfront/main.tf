@@ -29,7 +29,7 @@ resource "aws_cloudfront_distribution" "main" {
   price_class         = "PriceClass_100"
   http_version        = "http2and3"
   web_acl_id          = var.waf_web_acl_id
-  aliases             = [var.domain_name, "www.${var.domain_name}"]
+  aliases             = ["www.${var.domain_name}", "mall.${var.domain_name}"]
 
   # S3 Origin for static assets
   origin {

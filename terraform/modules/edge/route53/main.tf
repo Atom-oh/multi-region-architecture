@@ -2,9 +2,9 @@ data "aws_route53_zone" "main" {
   zone_id = var.zone_id
 }
 
-# Health checks per region
+# Health checks per region - only create when we have valid ALB DNS names
 resource "aws_route53_health_check" "regional" {
-  for_each = var.alb_dns_names
+  for_each = { for k, v in var.alb_dns_names : k => v if v != "" && !startswith(v, "arn:") }
 
   fqdn              = each.value
   port              = 443
@@ -20,9 +20,9 @@ resource "aws_route53_health_check" "regional" {
   })
 }
 
-# Latency-based routing records per region
+# Latency-based routing records per region - only create when we have valid ALB DNS names
 resource "aws_route53_record" "api_latency" {
-  for_each = var.alb_dns_names
+  for_each = { for k, v in var.alb_dns_names : k => v if v != "" && !startswith(v, "arn:") && lookup(var.alb_zone_ids, k, "") != "" }
 
   zone_id = var.zone_id
   name    = "api-internal.${data.aws_route53_zone.main.name}"
@@ -45,7 +45,7 @@ resource "aws_route53_record" "api_latency" {
 
 # CloudWatch alarms for health checks
 resource "aws_cloudwatch_metric_alarm" "health_check" {
-  for_each = var.alb_dns_names
+  for_each = { for k, v in var.alb_dns_names : k => v if v != "" && !startswith(v, "arn:") }
 
   alarm_name          = "${var.environment}-${each.key}-health-check-alarm"
   comparison_operator = "LessThanThreshold"

@@ -82,6 +82,13 @@ variable "warm_count" {
   default     = 2
 }
 
+variable "master_password" {
+  description = "Master password for OpenSearch admin user"
+  type        = string
+  sensitive   = true
+  default     = "Admin@SecurePass123!"
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

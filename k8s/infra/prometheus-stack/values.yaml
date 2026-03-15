@@ -25,6 +25,34 @@ grafana:
     enabled: true
     size: 10Gi
     storageClassName: gp3
+  additionalDataSources:
+    - name: Tempo
+      type: tempo
+      url: http://tempo.observability:3200
+      access: proxy
+      isDefault: false
+      jsonData:
+        tracesToLogsV2:
+          datasourceUid: loki
+          filterByTraceID: true
+          filterBySpanID: true
+        tracesToMetrics:
+          datasourceUid: prometheus
+          spanStartTimeShift: '-1h'
+          spanEndTimeShift: '1h'
+          tags:
+            - key: service.name
+              value: service
+        serviceMap:
+          datasourceUid: prometheus
+        nodeGraph:
+          enabled: true
+        search:
+          hide: false
+        traceQuery:
+          timeShiftEnabled: true
+          spanStartTimeShift: '-30m'
+          spanEndTimeShift: '30m'
   dashboardProviders:
     dashboardproviders.yaml:
       apiVersion: 1

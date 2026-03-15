@@ -61,6 +61,13 @@ variable "instance_count" {
   default     = 3
 }
 
+variable "master_password" {
+  description = "Master password for the primary DocumentDB cluster"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

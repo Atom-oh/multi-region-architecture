@@ -131,18 +131,48 @@ resource "aws_iam_openid_connect_provider" "eks" {
   })
 }
 
-# EKS Addons
-resource "aws_eks_addon" "vpc_cni" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "vpc-cni"
+# IAM role for VPC CNI addon
+resource "aws_iam_role" "vpc_cni" {
+  name = "${var.cluster_name}-vpc-cni"
 
-  configuration_values = jsonencode({
-    env = {
-      ENABLE_NETWORK_POLICY = "true"
-    }
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.eks.arn
+        }
+        Condition = {
+          StringEquals = {
+            "${local.oidc_provider_url}:aud" = "sts.amazonaws.com"
+            "${local.oidc_provider_url}:sub" = "system:serviceaccount:kube-system:aws-node"
+          }
+        }
+      }
+    ]
   })
 
   tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "vpc_cni" {
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.vpc_cni.name
+}
+
+# EKS Addons
+resource "aws_eks_addon" "vpc_cni" {
+  cluster_name             = aws_eks_cluster.main.name
+  addon_name               = "vpc-cni"
+  service_account_role_arn = aws_iam_role.vpc_cni.arn
+
+  # Note: ENABLE_NETWORK_POLICY removed - not supported in this VPC-CNI version
+
+  tags = var.tags
+
+  depends_on = [aws_iam_role_policy_attachment.vpc_cni]
 }
 
 resource "aws_eks_addon" "coredns" {

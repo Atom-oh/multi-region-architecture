@@ -38,10 +38,14 @@ resource "aws_docdb_cluster_parameter_group" "this" {
 
 resource "aws_docdb_cluster" "this" {
   cluster_identifier        = "${var.environment}-docdb-global-${var.region}"
-  global_cluster_identifier = var.global_cluster_identifier
+  global_cluster_identifier = var.is_primary ? null : var.global_cluster_identifier
 
   engine         = "docdb"
   engine_version = "5.0.0"
+
+  # Primary cluster needs master credentials - DocumentDB requires explicit password
+  master_username = var.is_primary ? "docdb_admin" : null
+  master_password = var.is_primary ? "TempPassword123!ChangeMe" : null
 
   db_subnet_group_name            = aws_docdb_subnet_group.this.name
   db_cluster_parameter_group_name = aws_docdb_cluster_parameter_group.this.name

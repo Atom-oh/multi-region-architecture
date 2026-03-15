@@ -37,7 +37,7 @@ resource "aws_elasticache_replication_group" "this" {
   # For secondary regions, join the global replication group
   global_replication_group_id = var.is_primary ? null : var.global_replication_group_id
 
-  engine         = "valkey"
+  engine         = var.is_primary ? "valkey" : null
   engine_version = var.is_primary ? "7.2" : null
 
   node_type = var.is_primary ? var.node_type : null
@@ -53,9 +53,9 @@ resource "aws_elasticache_replication_group" "this" {
 
   parameter_group_name = var.is_primary ? aws_elasticache_parameter_group.this.name : null
 
-  at_rest_encryption_enabled = true
-  kms_key_id                 = var.kms_key_arn
-  transit_encryption_enabled = true
+  at_rest_encryption_enabled = var.is_primary ? true : null
+  kms_key_id                 = var.is_primary ? var.kms_key_arn : null
+  transit_encryption_enabled = var.is_primary ? true : null
 
   snapshot_retention_limit = 7
   snapshot_window          = "03:00-04:00"

@@ -9,6 +9,7 @@ resources:
   - ../../services/business
   - ../../services/platform
   - ../../infra/karpenter
+  - ../../infra/otel-collector
 
 namespace: ""
 
@@ -26,6 +27,16 @@ patches:
         value:
           name: AWS_REGION
           value: "us-east-1"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector.platform.svc.cluster.local:4317"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: OTEL_RESOURCE_ATTRIBUTES
+          value: "deployment.environment=production,aws.region=us-east-1"
 
 configMapGenerator:
   - name: region-config

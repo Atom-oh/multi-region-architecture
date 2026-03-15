@@ -1,0 +1,118 @@
+package main
+
+import (
+	"context"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+
+	"github.com/multi-region-mall/search/internal/config"
+	"github.com/multi-region-mall/search/internal/consumer"
+	"github.com/multi-region-mall/search/internal/handler"
+	"github.com/multi-region-mall/search/internal/middleware"
+	"github.com/multi-region-mall/search/internal/repository"
+	"github.com/multi-region-mall/search/internal/service"
+	"github.com/multi-region-mall/shared/pkg/health"
+	"github.com/multi-region-mall/shared/pkg/tracing"
+	"github.com/multi-region-mall/shared/pkg/valkey"
+)
+
+func main() {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+
+	cfg := config.Load()
+	logger.Info("starting search service", zap.String("region", cfg.AWSRegion))
+
+	tp, err := tracing.InitTracer(context.Background(), "search")
+	if err != nil {
+		logger.Warn("failed to init tracer", zap.Error(err))
+	} else {
+		defer tp.Shutdown(context.Background())
+	}
+
+	// Initialize OpenSearch
+	osRepo, err := repository.NewOpenSearchRepo(cfg.OpenSearchURL)
+	if err != nil {
+		logger.Fatal("failed to connect to opensearch", zap.Error(err))
+	}
+
+	ctx := context.Background()
+	if err := osRepo.EnsureIndex(ctx); err != nil {
+		logger.Warn("failed to ensure index", zap.Error(err))
+	}
+
+	// Initialize Valkey
+	valkeyClient, err := valkey.New(cfg.CacheHost, cfg.CachePort)
+	if err != nil {
+		logger.Fatal("failed to connect to valkey", zap.Error(err))
+	}
+	defer valkeyClient.Close()
+
+	// Initialize service
+	searchService := service.NewSearchService(osRepo, valkeyClient)
+
+	// Initialize health checker
+	healthChecker := health.New()
+	healthChecker.SetStarted(true)
+
+	// Initialize Kafka consumer
+	catalogConsumer := consumer.NewCatalogConsumer(cfg.KafkaBrokers, searchService, logger)
+	consumerCtx, cancelConsumer := context.WithCancel(context.Background())
+	catalogConsumer.Start(consumerCtx)
+
+	// Setup Gin router
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(tracing.GinMiddleware("search"))
+	r.Use(middleware.RegionWriteMiddleware(cfg))
+
+	// Register handlers
+	healthHandler := handler.NewHealthHandler(healthChecker)
+	healthHandler.RegisterRoutes(r)
+
+	searchHandler := handler.NewSearchHandler(searchService)
+	searchHandler.RegisterRoutes(r)
+
+	// Set ready
+	healthChecker.SetReady(true)
+
+	// Start server
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: r,
+	}
+
+	go func() {
+		logger.Info("server listening", zap.String("port", cfg.Port))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("server error", zap.Error(err))
+		}
+	}()
+
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("shutting down server")
+	healthChecker.SetReady(false)
+
+	cancelConsumer()
+	catalogConsumer.Close()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Error("server shutdown error", zap.Error(err))
+	}
+
+	logger.Info("server stopped")
+}

@@ -5,16 +5,20 @@ metadata:
   namespace: argocd
 spec:
   generators:
-    - clusters: {}
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: region
+              operator: Exists
   template:
     metadata:
-      name: 'user-{{name}}'
+      name: 'user-{{metadata.labels.region}}'
     spec:
       project: default
       source:
         repoURL: https://github.com/Atom-oh/multi-region-architecture.git
         targetRevision: main
-        path: k8s/services/user
+        path: 'k8s/overlays/{{metadata.labels.region}}/user'
       destination:
         server: '{{server}}'
         namespace: user-services

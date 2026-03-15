@@ -6,6 +6,8 @@ resources:
   - fluent-bit
   - external-secrets
   - prometheus-stack
+  - otel-collector
+  - tempo
   # NOTE: argocd is NOT included here because it is bootstrapped separately
   # via: kubectl apply -k k8s/infra/argocd/
   # ArgoCD should not manage itself to avoid recursive loops

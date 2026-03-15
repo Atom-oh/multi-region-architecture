@@ -79,6 +79,13 @@ variable "enable_write_forwarding" {
   default     = true
 }
 
+variable "master_password" {
+  description = "Master password for the primary Aurora cluster"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

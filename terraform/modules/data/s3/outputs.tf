@@ -25,5 +25,5 @@ output "analytics_bucket_arn" {
 
 output "replication_role_arn" {
   description = "The ARN of the S3 replication IAM role"
-  value       = var.is_primary ? aws_iam_role.replication[0].arn : null
+  value       = length(aws_iam_role.replication) > 0 ? aws_iam_role.replication[0].arn : null
 }

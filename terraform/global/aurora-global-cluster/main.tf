@@ -12,7 +12,7 @@ terraform {
 resource "aws_rds_global_cluster" "main" {
   global_cluster_identifier = var.global_cluster_identifier
   engine                    = "aurora-postgresql"
-  engine_version            = "15.4"
+  engine_version            = "15.8"
   database_name             = var.database_name
   storage_encrypted         = true
   deletion_protection       = true

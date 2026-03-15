@@ -7,7 +7,11 @@ spec:
   generators:
     - matrix:
         generators:
-          - clusters: {}
+          - clusters:
+              selector:
+                matchExpressions:
+                  - key: region
+                    operator: Exists
           - list:
               elements:
                 - component: karpenter
@@ -22,9 +26,15 @@ spec:
                 - component: prometheus-stack
                   path: k8s/infra/prometheus-stack
                   namespace: monitoring
+                - component: otel-collector
+                  path: k8s/infra/otel-collector
+                  namespace: platform
+                - component: tempo
+                  path: k8s/infra/tempo
+                  namespace: observability
   template:
     metadata:
-      name: 'infra-{{component}}-{{name}}'
+      name: 'infra-{{component}}-{{metadata.labels.region}}'
     spec:
       project: default
       source:

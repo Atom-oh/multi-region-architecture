@@ -45,8 +45,15 @@ resource "aws_cloudwatch_log_resource_policy" "opensearch" {
   })
 }
 
+locals {
+  # OpenSearch domain name must be <= 28 chars
+  # Use shortened region: us-east-1 -> use1, us-west-2 -> usw2
+  short_region = replace(replace(var.region, "us-east-", "use"), "us-west-", "usw")
+  domain_name  = "${var.environment}-os-${local.short_region}"
+}
+
 resource "aws_opensearch_domain" "this" {
-  domain_name    = "${var.environment}-opensearch-${var.region}"
+  domain_name    = local.domain_name
   engine_version = "OpenSearch_2.11"
 
   cluster_config {
@@ -73,7 +80,7 @@ resource "aws_opensearch_domain" "this" {
     volume_type = "gp3"
     volume_size = var.ebs_volume_size
     iops        = 3000
-    throughput  = 125
+    throughput  = 250
   }
 
   vpc_options {
@@ -100,7 +107,7 @@ resource "aws_opensearch_domain" "this" {
 
     master_user_options {
       master_user_name     = "admin"
-      master_user_password = "CHANGE_ME_INITIAL_PASSWORD_123!" # Should be replaced with Secrets Manager
+      master_user_password = "Admin@SecurePass123!" # Should be replaced with Secrets Manager
     }
   }
 
@@ -123,5 +130,12 @@ resource "aws_opensearch_domain" "this" {
     Name = "${var.environment}-opensearch-domain"
   })
 
-  depends_on = [aws_cloudwatch_log_resource_policy.opensearch]
+  depends_on = [
+    aws_cloudwatch_log_resource_policy.opensearch,
+    aws_iam_service_linked_role.opensearch
+  ]
+}
+
+resource "aws_iam_service_linked_role" "opensearch" {
+  aws_service_name = "opensearchservice.amazonaws.com"
 }

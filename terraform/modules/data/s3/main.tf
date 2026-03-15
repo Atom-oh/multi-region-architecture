@@ -1,3 +1,8 @@
+# Local to determine if replication should be enabled
+locals {
+  enable_replication = var.is_primary && var.replication_destination_bucket_arn != null && var.replication_destination_bucket_arn != "" && length(coalesce(var.replication_destination_bucket_arn, "")) > 0 && var.replication_role_arn != null && var.replication_role_arn != ""
+}
+
 # Static Assets Bucket
 resource "aws_s3_bucket" "static_assets" {
   bucket = var.static_assets_bucket_name
@@ -49,7 +54,7 @@ resource "aws_s3_bucket_cors_configuration" "static_assets" {
 }
 
 resource "aws_s3_bucket_replication_configuration" "static_assets" {
-  count = var.is_primary && var.replication_destination_bucket_arn != null ? 1 : 0
+  count = local.enable_replication ? 1 : 0
 
   bucket = aws_s3_bucket.static_assets.id
   role   = aws_iam_role.replication[0].arn
@@ -159,9 +164,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "analytics" {
   }
 }
 
-# IAM role for S3 replication (primary region only)
+# IAM role for S3 replication (primary region only, when destination exists)
 resource "aws_iam_role" "replication" {
-  count = var.is_primary ? 1 : 0
+  count = local.enable_replication ? 1 : 0
 
   name = "${var.environment}-s3-replication-${var.region}"
 
@@ -182,7 +187,7 @@ resource "aws_iam_role" "replication" {
 }
 
 resource "aws_iam_role_policy" "replication" {
-  count = var.is_primary ? 1 : 0
+  count = local.enable_replication ? 1 : 0
 
   name = "${var.environment}-s3-replication-policy"
   role = aws_iam_role.replication[0].id
@@ -214,7 +219,7 @@ resource "aws_iam_role_policy" "replication" {
           "s3:ReplicateDelete",
           "s3:ReplicateTags"
         ]
-        Resource = var.replication_destination_bucket_arn != null ? "${var.replication_destination_bucket_arn}/*" : "*"
+        Resource = local.enable_replication ? "${var.replication_destination_bucket_arn}/*" : "*"
       },
       {
         Effect = "Allow"
