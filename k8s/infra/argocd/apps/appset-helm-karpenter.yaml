@@ -7,9 +7,16 @@ spec:
   generators:
     - clusters:
         selector:
-          matchExpressions:
-            - key: region
-              operator: Exists
+          matchLabels:
+            region: us-east-1
+        values:
+          roleSuffix: ""
+    - clusters:
+        selector:
+          matchLabels:
+            region: us-west-2
+        values:
+          roleSuffix: "-us-west-2"
   template:
     metadata:
       name: 'karpenter-{{metadata.labels.region}}'
@@ -25,12 +32,13 @@ spec:
               clusterName: multi-region-mall
               interruptionQueue: multi-region-mall-karpenter
             serviceAccount:
+              name: karpenter
               annotations:
-                eks.amazonaws.com/role-arn: arn:aws:iam::180294183052:role/multi-region-mall-karpenter-controller-{{metadata.labels.region}}
+                eks.amazonaws.com/role-arn: 'arn:aws:iam::180294183052:role/multi-region-mall-karpenter-controller{{values.roleSuffix}}'
             replicas: 2
       destination:
         server: '{{server}}'
-        namespace: kube-system
+        namespace: karpenter
       syncPolicy:
         automated:
           prune: true
