@@ -39,3 +39,13 @@ output "service_account_role_arns" {
     for service, role in aws_iam_role.service_account : service => role.arn
   }
 }
+
+output "bootstrap_node_group_name" {
+  description = "The name of the bootstrap node group"
+  value       = aws_eks_node_group.bootstrap.node_group_name
+}
+
+output "node_group_role_arn" {
+  description = "The ARN of the node group IAM role"
+  value       = aws_iam_role.node_group.arn
+}

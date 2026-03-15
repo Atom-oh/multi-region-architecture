@@ -67,7 +67,7 @@ resource "aws_docdb_cluster" "this" {
   preferred_maintenance_window = "sun:04:00-sun:05:00"
 
   skip_final_snapshot       = var.is_primary ? false : true
-  final_snapshot_identifier = var.is_primary ? "${var.environment}-docdb-global-${var.region}-final-snapshot" : null
+  final_snapshot_identifier = var.is_primary ? "${local.cluster_identifier}-final-snapshot" : null
 
   tags = merge(var.tags, {
     Name = "${var.environment}-docdb-global-cluster"

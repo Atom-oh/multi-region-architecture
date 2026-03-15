@@ -179,18 +179,19 @@ module "aurora" {
 module "documentdb" {
   source = "../../../modules/data/documentdb-global"
 
-  environment               = var.environment
-  region                    = var.region
-  is_primary                = true
-  global_cluster_identifier = var.docdb_global_cluster_identifier
-  vpc_id                    = module.vpc.vpc_id
-  data_subnet_ids           = module.vpc.data_subnet_ids
-  security_group_id         = module.security_groups.documentdb_security_group_id
-  kms_key_arn               = module.kms.key_arns["documentdb"]
-  master_password           = random_password.documentdb.result
-  instance_class            = "db.r6g.2xlarge"
-  instance_count            = 3
-  tags                      = var.tags
+  environment                 = var.environment
+  region                      = var.region
+  is_primary                  = true
+  global_cluster_identifier   = var.docdb_global_cluster_identifier
+  cluster_identifier_override = "production-docdb-global-primary"
+  vpc_id                      = module.vpc.vpc_id
+  data_subnet_ids             = module.vpc.data_subnet_ids
+  security_group_id           = module.security_groups.documentdb_security_group_id
+  kms_key_arn                 = module.kms.key_arns["documentdb"]
+  master_password             = random_password.documentdb.result
+  instance_class              = "db.r6g.2xlarge"
+  instance_count              = 3
+  tags                        = var.tags
 }
 
 module "elasticache" {

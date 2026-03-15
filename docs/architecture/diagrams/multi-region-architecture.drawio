@@ -10,8 +10,11 @@
                 <mxCell id="route53" value="Route 53&#10;(Latency-based)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.route_53;fontFamily=Amazon Ember;" parent="1" vertex="1">
                     <mxGeometry x="1291" y="120" width="48" height="48" as="geometry"/>
                 </mxCell>
+                <mxCell id="route53_dns" value="Route 53&#10;(DNS CNAME)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.route_53;fontFamily=Amazon Ember;" parent="1" vertex="1">
+                    <mxGeometry x="1080" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
                 <mxCell id="cloudfront" value="CloudFront&#10;(CDN)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=9;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudfront;fontFamily=Amazon Ember;" parent="1" vertex="1">
-                    <mxGeometry x="1172" y="30" width="48" height="48" as="geometry"/>
+                    <mxGeometry x="1200" y="30" width="48" height="48" as="geometry"/>
                 </mxCell>
                 <mxCell id="origin-shield" value="Origin Shield&#10;(us-east-1)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=#945DF2;gradientDirection=north;fillColor=#5A30B5;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=8;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudfront;fontFamily=Amazon Ember;" parent="1" vertex="1">
                     <mxGeometry x="1071" y="120" width="48" height="48" as="geometry"/>
@@ -22,10 +25,13 @@
                 <mxCell id="global-layer" value="Global / Edge Layer" style="rounded=1;arcSize=5;fillColor=none;strokeColor=#5A30B5;strokeWidth=2;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontFamily=Amazon Ember;fontSize=12;fontStyle=1;fontColor=#5A30B5;" parent="1" vertex="1">
                     <mxGeometry x="840" y="20" width="571" height="185" as="geometry"/>
                 </mxCell>
-                <mxCell id="user-r53" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#545B64;" parent="1" source="users" edge="1">
+                <mxCell id="user-r53" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#545B64;" parent="1" source="users" target="route53_dns" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <mxPoint x="1170" y="55" as="targetPoint"/>
+                        <mxPoint x="1080" y="55" as="targetPoint"/>
                     </mxGeometry>
+                </mxCell>
+                <mxCell id="r53dns-cf" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#545B64;" parent="1" source="route53_dns" target="cloudfront" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="cf-os" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#5A30B5;edgeStyle=orthogonalEdgeStyle;" parent="1" source="cloudfront" target="origin-shield" edge="1">
                     <mxGeometry relative="1" as="geometry">
