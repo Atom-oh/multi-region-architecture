@@ -354,7 +354,7 @@ resource "aws_iam_role_policy" "karpenter_controller" {
         Resource = "*"
         Condition = {
           StringLike = {
-            "ec2:ResourceTag/karpenter.sh/provisioner-name" = "*"
+            "ec2:ResourceTag/karpenter.sh/nodepool" = "*"
           }
         }
       },
@@ -374,6 +374,31 @@ resource "aws_iam_role_policy" "karpenter_controller" {
         Effect = "Allow"
         Action = "eks:DescribeCluster"
         Resource = aws_eks_cluster.main.arn
+      },
+      {
+        Sid    = "KarpenterInstanceProfiles"
+        Effect = "Allow"
+        Action = [
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:GetInstanceProfile",
+          "iam:ListInstanceProfiles",
+          "iam:TagInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "KarpenterSQS"
+        Effect = "Allow"
+        Action = [
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl",
+          "sqs:ReceiveMessage"
+        ]
+        Resource = "arn:${data.aws_partition.current.partition}:sqs:${var.region}:${data.aws_caller_identity.current.account_id}:${var.cluster_name}-karpenter"
       }
     ]
   })

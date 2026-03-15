@@ -65,13 +65,13 @@ spec:
         throughput: 125
         encrypted: true
         deleteOnTermination: true
-  role: KarpenterNodeRole-${CLUSTER_NAME}
+  role: multi-region-mall-node-group
   subnetSelectorTerms:
     - tags:
         Tier: private
   securityGroupSelectorTerms:
     - tags:
-        karpenter.sh/discovery: ${CLUSTER_NAME}
+        karpenter.sh/discovery: multi-region-mall
   tags:
     Environment: production
     ManagedBy: karpenter

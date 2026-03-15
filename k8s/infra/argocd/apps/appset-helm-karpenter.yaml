@@ -30,7 +30,6 @@ spec:
           valuesObject:
             settings:
               clusterName: multi-region-mall
-              interruptionQueue: multi-region-mall-karpenter
             serviceAccount:
               name: karpenter
               annotations:
