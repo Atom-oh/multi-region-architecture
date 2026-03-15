@@ -1,197 +1,199 @@
-name: Application Deployment
-
-on:
-  push:
-    branches: [main]
-    paths:
-    - 'k8s/**'
-    - 'src/**'
-  workflow_dispatch:
-    inputs:
-      service:
-        description: 'Service to deploy (or "all")'
-        required: true
-        default: 'all'
-      region:
-        description: 'Target region (or "all")'
-        required: true
-        default: 'all'
-        type: choice
-        options: ['all', 'us-east-1', 'us-west-2']
-
-permissions:
-  contents: read
-  id-token: write
-
-env:
-  AWS_PRIMARY_REGION: 'us-east-1'
-  AWS_SECONDARY_REGION: 'us-west-2'
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr
-  EKS_CLUSTER_NAME: 'multi-region-mall'
-
-jobs:
-  detect-changes:
-    name: Detect Changed Services
-    runs-on: ubuntu-latest
-    outputs:
-      services: ${{ steps.changes.outputs.services }}
-      matrix: ${{ steps.matrix.outputs.matrix }}
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 2
-    - name: Detect changed services
-      id: changes
-      run: |
-        if [ "${{ github.event.inputs.service }}" = "all" ] || [ -z "${{ github.event.inputs.service }}" ]; then
-          SERVICES=$(git diff --name-only HEAD~1 HEAD | grep -oP 'k8s/services/\w+/[\w-]+' | sed 's|k8s/services/\w*/||' | sort -u | jq -R -s 'split("\n") | map(select(length > 0))' )
-          if [ "$SERVICES" = "[]" ] || [ -z "$SERVICES" ]; then
-            SERVICES='["all"]'
-          fi
-        else
-          SERVICES='["${{ github.event.inputs.service }}"]'
-        fi
-        echo "services=$SERVICES" >> $GITHUB_OUTPUT
-    - name: Build matrix
-      id: matrix
-      run: echo 'matrix={"service":${{ steps.changes.outputs.services }}}' >> $GITHUB_OUTPUT
-
-  build-and-push:
-    name: Build & Push to ECR
-    needs: detect-changes
-    runs-on: ubuntu-latest
-    strategy:
-      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Configure AWS Credentials (Primary)
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: ${{ env.AWS_PRIMARY_REGION }}
-
-    - name: Login to ECR (Primary)
-      uses: aws-actions/amazon-ecr-login@v2
-
-    - name: Build and Push Docker Image
-      run: |
-        IMAGE_TAG="${{ github.sha }}"
-        SERVICE="${{ matrix.service }}"
-
-        # Build
-        docker build -t ${ECR_REGISTRY}.${{ env.AWS_PRIMARY_REGION }}.amazonaws.com/${SERVICE}:${IMAGE_TAG} \
-                     -t ${ECR_REGISTRY}.${{ env.AWS_PRIMARY_REGION }}.amazonaws.com/${SERVICE}:latest \
-                     -f src/${SERVICE}/Dockerfile src/${SERVICE}/
-
-        # Push to primary region ECR
-        docker push ${ECR_REGISTRY}.${{ env.AWS_PRIMARY_REGION }}.amazonaws.com/${SERVICE} --all-tags
-
-    - name: Configure AWS Credentials (Secondary)
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: ${{ env.AWS_SECONDARY_REGION }}
-
-    - name: Login to ECR (Secondary)
-      uses: aws-actions/amazon-ecr-login@v2
-
-    - name: Push to Secondary Region ECR
-      run: |
-        IMAGE_TAG="${{ github.sha }}"
-        SERVICE="${{ matrix.service }}"
-
-        docker tag ${ECR_REGISTRY}.${{ env.AWS_PRIMARY_REGION }}.amazonaws.com/${SERVICE}:${IMAGE_TAG} \
-                   ${ECR_REGISTRY}.${{ env.AWS_SECONDARY_REGION }}.amazonaws.com/${SERVICE}:${IMAGE_TAG}
-        docker tag ${ECR_REGISTRY}.${{ env.AWS_PRIMARY_REGION }}.amazonaws.com/${SERVICE}:latest \
-                   ${ECR_REGISTRY}.${{ env.AWS_SECONDARY_REGION }}.amazonaws.com/${SERVICE}:latest
-
-        docker push ${ECR_REGISTRY}.${{ env.AWS_SECONDARY_REGION }}.amazonaws.com/${SERVICE} --all-tags
-
-  deploy-primary:
-    name: Deploy to Primary (us-east-1)
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: production-us-east-1
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: ${{ env.AWS_PRIMARY_REGION }}
-
-    - name: Update kubeconfig
-      run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_PRIMARY_REGION }}
-
-    - name: Deploy with Kustomize
-      run: |
-        kubectl apply -k k8s/overlays/us-east-1/
-
-    - name: Wait for rollout
-      run: |
-        for ns in core-services user-services fulfillment business-services platform; do
-          for deploy in $(kubectl get deployments -n $ns -o name); do
-            kubectl rollout status $deploy -n $ns --timeout=300s
-          done
-        done
-
-    - name: Health Check
-      run: |
-        # Wait for services to stabilize
-        sleep 30
-        # Check all pods are running
-        FAILED=$(kubectl get pods --all-namespaces -l app.kubernetes.io/part-of=shopping-mall --field-selector=status.phase!=Running,status.phase!=Succeeded 2>/dev/null | grep -v "^NAMESPACE" | wc -l)
-        if [ "$FAILED" -gt 0 ]; then
-          echo "::error::$FAILED pods not in Running state in us-east-1"
-          kubectl get pods --all-namespaces -l app.kubernetes.io/part-of=shopping-mall --field-selector=status.phase!=Running,status.phase!=Succeeded
-          exit 1
-        fi
-        echo "All pods healthy in us-east-1"
-
-  deploy-secondary:
-    name: Deploy to Secondary (us-west-2)
-    needs: deploy-primary
-    runs-on: ubuntu-latest
-    environment: production-us-west-2
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: ${{ env.AWS_SECONDARY_REGION }}
-
-    - name: Update kubeconfig
-      run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_SECONDARY_REGION }}
-
-    - name: Deploy with Kustomize
-      run: |
-        kubectl apply -k k8s/overlays/us-west-2/
-
-    - name: Wait for rollout
-      run: |
-        for ns in core-services user-services fulfillment business-services platform; do
-          for deploy in $(kubectl get deployments -n $ns -o name); do
-            kubectl rollout status $deploy -n $ns --timeout=300s
-          done
-        done
-
-    - name: Smoke Test
-      run: |
-        # Wait for services to stabilize
-        sleep 30
-        # Check all pods are running
-        FAILED=$(kubectl get pods --all-namespaces -l app.kubernetes.io/part-of=shopping-mall --field-selector=status.phase!=Running,status.phase!=Succeeded 2>/dev/null | grep -v "^NAMESPACE" | wc -l)
-        if [ "$FAILED" -gt 0 ]; then
-          echo "::error::$FAILED pods not in Running state in us-west-2"
-          kubectl get pods --all-namespaces -l app.kubernetes.io/part-of=shopping-mall --field-selector=status.phase!=Running,status.phase!=Succeeded
-          exit 1
-        fi
-
-        # Cross-region connectivity check
-        echo "Smoke test: Verify cross-region data replication"
-        echo "All pods healthy in us-west-2"
-        echo "Deployment complete across both regions"
+# =============================================================================
+# DISABLED: Application Deployment workflow (Docker build + ECR push + EKS deploy)
+# Reason: Cost optimization - Docker builds consume CI minutes, ECR push
+#         requires AWS credentials, and EKS deploy creates real workloads.
+#         Re-enable when ready for production deployment.
+# =============================================================================
+#
+# name: Application Deployment
+#
+# on:
+#   push:
+#     branches: [main]
+#     paths:
+#     - 'k8s/**'
+#     - 'src/**'
+#   workflow_dispatch:
+#     inputs:
+#       service:
+#         description: 'Service to deploy (or "all")'
+#         required: true
+#         default: 'all'
+#       region:
+#         description: 'Target region (or "all")'
+#         required: true
+#         default: 'all'
+#         type: choice
+#         options: ['all', 'us-east-1', 'us-west-2']
+#
+# permissions:
+#   contents: read
+#   id-token: write
+#
+# env:
+#   AWS_PRIMARY_REGION: 'us-east-1'
+#   AWS_SECONDARY_REGION: 'us-west-2'
+#   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr
+#   EKS_CLUSTER_NAME: 'multi-region-mall'
+#
+# jobs:
+#   detect-changes:
+#     name: Detect Changed Services
+#     runs-on: ubuntu-latest
+#     outputs:
+#       services: ${{ steps.changes.outputs.services }}
+#       matrix: ${{ steps.matrix.outputs.matrix }}
+#     steps:
+#     - uses: actions/checkout@v4
+#       with:
+#         fetch-depth: 2
+#     - name: Detect changed services
+#       id: changes
+#       run: |
+#         if [ "${{ github.event.inputs.service }}" = "all" ] || [ -z "${{ github.event.inputs.service }}" ]; then
+#           SERVICES=$(git diff --name-only HEAD~1 HEAD | grep -oP 'k8s/services/\w+/[\w-]+' | sed 's|k8s/services/\w*/||' | sort -u | jq -R -s 'split("\n") | map(select(length > 0))' )
+#           if [ "$SERVICES" = "[]" ] || [ -z "$SERVICES" ]; then
+#             SERVICES='["all"]'
+#           fi
+#         else
+#           SERVICES='["${{ github.event.inputs.service }}"]'
+#         fi
+#         echo "services=$SERVICES" >> $GITHUB_OUTPUT
+#     - name: Build matrix
+#       id: matrix
+#       run: echo 'matrix={"service":${{ steps.changes.outputs.services }}}' >> $GITHUB_OUTPUT
+#
+#   build-and-push:
+#     name: Build & Push to ECR
+#     needs: detect-changes
+#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+#     steps:
+#     - uses: actions/checkout@v4
+#
+#     - name: Configure AWS Credentials (Primary)
+#       uses: aws-actions/configure-aws-credentials@v4
+#       with:
+#         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+#         aws-region: ${{ env.AWS_PRIMARY_REGION }}
+#
+#     - name: Login to ECR (Primary)
+#       uses: aws-actions/amazon-ecr-login@v2
+#
+#     - name: Build and Push Docker Image
+#       run: |
+#         IMAGE_TAG="${{ github.sha }}"
+#         SERVICE="${{ matrix.service }}"
+#
+#         # Build
+#         docker build -t ${ECR_REGISTRY}.${{ env.AWS_PRIMARY_REGION }}.amazonaws.com/${SERVICE}:${IMAGE_TAG} \
+#                      -t ${ECR_REGISTRY}.${{ env.AWS_PRIMARY_REGION }}.amazonaws.com/${SERVICE}:latest \
+#                      -f src/${SERVICE}/Dockerfile src/${SERVICE}/
+#
+#         # Push to primary region ECR
+#         docker push ${ECR_REGISTRY}.${{ env.AWS_PRIMARY_REGION }}.amazonaws.com/${SERVICE} --all-tags
+#
+#     - name: Configure AWS Credentials (Secondary)
+#       uses: aws-actions/configure-aws-credentials@v4
+#       with:
+#         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+#         aws-region: ${{ env.AWS_SECONDARY_REGION }}
+#
+#     - name: Login to ECR (Secondary)
+#       uses: aws-actions/amazon-ecr-login@v2
+#
+#     - name: Push to Secondary Region ECR
+#       run: |
+#         IMAGE_TAG="${{ github.sha }}"
+#         SERVICE="${{ matrix.service }}"
+#
+#         docker tag ${ECR_REGISTRY}.${{ env.AWS_PRIMARY_REGION }}.amazonaws.com/${SERVICE}:${IMAGE_TAG} \
+#                    ${ECR_REGISTRY}.${{ env.AWS_SECONDARY_REGION }}.amazonaws.com/${SERVICE}:${IMAGE_TAG}
+#         docker tag ${ECR_REGISTRY}.${{ env.AWS_PRIMARY_REGION }}.amazonaws.com/${SERVICE}:latest \
+#                    ${ECR_REGISTRY}.${{ env.AWS_SECONDARY_REGION }}.amazonaws.com/${SERVICE}:latest
+#
+#         docker push ${ECR_REGISTRY}.${{ env.AWS_SECONDARY_REGION }}.amazonaws.com/${SERVICE} --all-tags
+#
+#   deploy-primary:
+#     name: Deploy to Primary (us-east-1)
+#     needs: build-and-push
+#     runs-on: ubuntu-latest
+#     environment: production-us-east-1
+#     steps:
+#     - uses: actions/checkout@v4
+#
+#     - name: Configure AWS Credentials
+#       uses: aws-actions/configure-aws-credentials@v4
+#       with:
+#         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+#         aws-region: ${{ env.AWS_PRIMARY_REGION }}
+#
+#     - name: Update kubeconfig
+#       run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_PRIMARY_REGION }}
+#
+#     - name: Deploy with Kustomize
+#       run: |
+#         kubectl apply -k k8s/overlays/us-east-1/
+#
+#     - name: Wait for rollout
+#       run: |
+#         for ns in core-services user-services fulfillment business-services platform; do
+#           for deploy in $(kubectl get deployments -n $ns -o name); do
+#             kubectl rollout status $deploy -n $ns --timeout=300s
+#           done
+#         done
+#
+#     - name: Health Check
+#       run: |
+#         sleep 30
+#         FAILED=$(kubectl get pods --all-namespaces -l app.kubernetes.io/part-of=shopping-mall --field-selector=status.phase!=Running,status.phase!=Succeeded 2>/dev/null | grep -v "^NAMESPACE" | wc -l)
+#         if [ "$FAILED" -gt 0 ]; then
+#           echo "::error::$FAILED pods not in Running state in us-east-1"
+#           kubectl get pods --all-namespaces -l app.kubernetes.io/part-of=shopping-mall --field-selector=status.phase!=Running,status.phase!=Succeeded
+#           exit 1
+#         fi
+#         echo "All pods healthy in us-east-1"
+#
+#   deploy-secondary:
+#     name: Deploy to Secondary (us-west-2)
+#     needs: deploy-primary
+#     runs-on: ubuntu-latest
+#     environment: production-us-west-2
+#     steps:
+#     - uses: actions/checkout@v4
+#
+#     - name: Configure AWS Credentials
+#       uses: aws-actions/configure-aws-credentials@v4
+#       with:
+#         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+#         aws-region: ${{ env.AWS_SECONDARY_REGION }}
+#
+#     - name: Update kubeconfig
+#       run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_SECONDARY_REGION }}
+#
+#     - name: Deploy with Kustomize
+#       run: |
+#         kubectl apply -k k8s/overlays/us-west-2/
+#
+#     - name: Wait for rollout
+#       run: |
+#         for ns in core-services user-services fulfillment business-services platform; do
+#           for deploy in $(kubectl get deployments -n $ns -o name); do
+#             kubectl rollout status $deploy -n $ns --timeout=300s
+#           done
+#         done
+#
+#     - name: Smoke Test
+#       run: |
+#         sleep 30
+#         FAILED=$(kubectl get pods --all-namespaces -l app.kubernetes.io/part-of=shopping-mall --field-selector=status.phase!=Running,status.phase!=Succeeded 2>/dev/null | grep -v "^NAMESPACE" | wc -l)
+#         if [ "$FAILED" -gt 0 ]; then
+#           echo "::error::$FAILED pods not in Running state in us-west-2"
+#           kubectl get pods --all-namespaces -l app.kubernetes.io/part-of=shopping-mall --field-selector=status.phase!=Running,status.phase!=Succeeded
+#           exit 1
+#         fi
+#
+#         echo "Smoke test: Verify cross-region data replication"
+#         echo "All pods healthy in us-west-2"
+#         echo "Deployment complete across both regions"
