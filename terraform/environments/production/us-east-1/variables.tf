@@ -65,6 +65,18 @@ variable "docdb_global_cluster_identifier" {
   type        = string
 }
 
+variable "argocd_nlb_dns_name" {
+  description = "DNS name of the ArgoCD NLB (from kubectl get svc argocd-server-nlb -n argocd). Empty to skip Route53 record creation."
+  type        = string
+  default     = ""
+}
+
+variable "argocd_nlb_zone_id" {
+  description = "Hosted zone ID of the ArgoCD NLB (NLB zone ID for Route53 alias)"
+  type        = string
+  default     = ""
+}
+
 variable "sns_topic_arn" {
   description = "SNS topic ARN for alarm notifications"
   type        = string

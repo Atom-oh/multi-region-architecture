@@ -10,10 +10,30 @@ resources:
   - ../../services/platform
   - ../../infra/karpenter
   - ../../infra/otel-collector
+  - ../../infra/argocd/argocd-server-nlb.yaml
+
 
 namespace: ""
 
 patches:
+  - target:
+      kind: TargetGroupBinding
+      name: api-gateway-tgb
+    patch: |-
+      - op: replace
+        path: /spec/targetGroupARN
+        value: "arn:aws:elasticloadbalancing:us-west-2:180294183052:targetgroup/production-api-tg-us-west-2/6e707c837e2a626c"
+  - target:
+      kind: Service
+      name: argocd-server-nlb
+      namespace: argocd
+    patch: |-
+      - op: add
+        path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-security-groups
+        value: "sg-0bfd63c6e6188327b"
+      - op: add
+        path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-ssl-cert
+        value: "arn:aws:acm:us-west-2:180294183052:certificate/18ed9116-1f33-4cfa-b922-9fde952ea169"
   - target:
       kind: Deployment
     patch: |-

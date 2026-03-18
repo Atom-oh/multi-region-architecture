@@ -72,3 +72,18 @@ output "s3_replication_role_arn" {
   description = "The ARN of the S3 replication IAM role"
   value       = module.s3.replication_role_arn
 }
+
+output "nlb_security_group_id" {
+  description = "The ID of the NLB security group (api-gateway)"
+  value       = module.security_groups.nlb_security_group_id
+}
+
+output "nlb_target_group_arn" {
+  description = "The ARN of the NLB target group (for k8s TargetGroupBinding)"
+  value       = module.nlb.target_group_arn
+}
+
+output "argocd_cloudfront_domain" {
+  description = "The ArgoCD CloudFront distribution domain name"
+  value       = module.cloudfront_argocd.distribution_domain_name
+}
