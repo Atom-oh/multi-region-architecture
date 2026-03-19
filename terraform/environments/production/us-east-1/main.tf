@@ -130,8 +130,9 @@ module "eks" {
   private_subnet_ids    = module.vpc.private_subnet_ids
   alb_security_group_id = module.security_groups.alb_security_group_id
   nlb_security_group_id = module.security_groups.nlb_security_group_id
-  role_name_suffix      = ""
-  tags                  = var.tags
+  bootstrap_node_instance_types = ["t3.medium", "t3a.medium"]
+  role_name_suffix              = ""
+  tags                          = var.tags
 
   addon_versions = {
     vpc_cni        = "v1.21.1-eksbuild.3"
@@ -193,9 +194,9 @@ module "aurora" {
   security_group_id         = module.security_groups.aurora_security_group_id
   kms_key_arn               = module.kms.key_arns["aurora"]
   master_password           = random_password.aurora.result
-  writer_instance_class     = "db.r6g.2xlarge"
-  reader_instance_class     = "db.r6g.xlarge"
-  reader_count              = 2
+  writer_instance_class     = "db.r6g.large"
+  reader_instance_class     = "db.r6g.large"
+  reader_count              = 1
   tags                      = var.tags
 }
 
@@ -212,8 +213,8 @@ module "documentdb" {
   security_group_id           = module.security_groups.documentdb_security_group_id
   kms_key_arn                 = module.kms.key_arns["documentdb"]
   master_password             = random_password.documentdb.result
-  instance_class              = "db.r6g.2xlarge"
-  instance_count              = 3
+  instance_class              = "db.r6g.large"
+  instance_count              = 2
   tags                        = var.tags
 }
 
@@ -228,9 +229,9 @@ module "elasticache" {
   data_subnet_ids             = module.vpc.data_subnet_ids
   security_group_id           = module.security_groups.elasticache_security_group_id
   kms_key_arn                 = module.kms.key_arns["elasticache"]
-  node_type                   = "cache.r7g.xlarge"
-  num_node_groups             = 3
-  replicas_per_node_group     = 2
+  node_type                   = "cache.r7g.medium"
+  num_node_groups             = 2
+  replicas_per_node_group     = 1
   tags                        = var.tags
 }
 
@@ -243,9 +244,9 @@ module "msk" {
   data_subnet_ids        = module.vpc.data_subnet_ids
   security_group_id      = module.security_groups.msk_security_group_id
   kms_key_arn            = module.kms.key_arns["msk"]
-  broker_instance_type   = "kafka.m5.2xlarge"
-  number_of_broker_nodes = 6
-  ebs_volume_size        = 1000
+  broker_instance_type   = "kafka.m5.large"
+  number_of_broker_nodes = 3
+  ebs_volume_size        = 100
   enable_replicator      = false # Replicator configured separately after both clusters exist
   tags                   = var.tags
 }
@@ -258,12 +259,12 @@ module "opensearch" {
   vpc_id                = module.vpc.vpc_id
   data_subnet_ids       = module.vpc.data_subnet_ids
   security_group_id     = module.security_groups.opensearch_security_group_id
-  master_instance_type  = "r6g.large.search"
+  master_instance_type  = "r6g.medium.search"
   master_instance_count = 3
-  data_instance_type    = "r6g.xlarge.search"
-  data_instance_count   = 6
-  ebs_volume_size       = 500
-  enable_ultrawarm      = true
+  data_instance_type    = "r6g.medium.search"
+  data_instance_count   = 3
+  ebs_volume_size       = 100
+  enable_ultrawarm      = false
   tags                  = var.tags
 }
 

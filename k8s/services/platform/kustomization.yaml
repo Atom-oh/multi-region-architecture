@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - api-gateway/deployment.yaml
+  - api-gateway/target-group-binding.yaml
   - event-bus/deployment.yaml
   - analytics/deployment.yaml
 

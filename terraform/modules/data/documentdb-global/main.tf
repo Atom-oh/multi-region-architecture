@@ -9,7 +9,7 @@ resource "aws_docdb_subnet_group" "this" {
 }
 
 resource "aws_docdb_cluster_parameter_group" "this" {
-  family      = "docdb5.0"
+  family      = "docdb8.0"
   name        = "${var.environment}-docdb-global-${var.region}"
   description = "DocumentDB cluster parameter group"
 
@@ -45,7 +45,7 @@ resource "aws_docdb_cluster" "this" {
   global_cluster_identifier = var.is_primary ? null : var.global_cluster_identifier
 
   engine         = "docdb"
-  engine_version = "5.0.0"
+  engine_version = "8.0.0"
 
   # Primary cluster needs master credentials (secondary inherits from global cluster)
   master_username = var.is_primary ? "docdb_admin" : null

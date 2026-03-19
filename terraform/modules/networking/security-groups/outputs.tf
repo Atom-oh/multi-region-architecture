@@ -3,6 +3,11 @@ output "alb_security_group_id" {
   value       = aws_security_group.alb.id
 }
 
+output "nlb_security_group_id" {
+  description = "The ID of the NLB security group (api-gateway)"
+  value       = aws_security_group.nlb.id
+}
+
 output "eks_node_security_group_id" {
   description = "The ID of the EKS node security group"
   value       = aws_security_group.eks_node.id

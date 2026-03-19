@@ -1,4 +1,11 @@
 #------------------------------------------------------------------------------
+# CloudFront Managed Prefix List (origin-facing)
+#------------------------------------------------------------------------------
+data "aws_ec2_managed_prefix_list" "cloudfront" {
+  name = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
+#------------------------------------------------------------------------------
 # ALB Security Group
 #------------------------------------------------------------------------------
 resource "aws_security_group" "alb" {
@@ -16,24 +23,14 @@ resource "aws_security_group" "alb" {
   }
 }
 
-resource "aws_security_group_rule" "alb_ingress_http" {
+resource "aws_security_group_rule" "alb_ingress_cloudfront" {
   type              = "ingress"
   from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.alb.id
-  description       = "HTTP from anywhere"
-}
-
-resource "aws_security_group_rule" "alb_ingress_https" {
-  type              = "ingress"
-  from_port         = 443
   to_port           = 443
   protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  prefix_list_ids   = [data.aws_ec2_managed_prefix_list.cloudfront.id]
   security_group_id = aws_security_group.alb.id
-  description       = "HTTPS from anywhere"
+  description       = "HTTP/HTTPS from CloudFront"
 }
 
 resource "aws_security_group_rule" "alb_egress" {
@@ -43,6 +40,44 @@ resource "aws_security_group_rule" "alb_egress" {
   protocol          = "-1"
   cidr_blocks       = [var.vpc_cidr]
   security_group_id = aws_security_group.alb.id
+  description       = "All traffic to VPC"
+}
+
+#------------------------------------------------------------------------------
+# NLB Security Group (api-gateway)
+#------------------------------------------------------------------------------
+resource "aws_security_group" "nlb" {
+  name_prefix = "${var.environment}-nlb-"
+  vpc_id      = var.vpc_id
+  description = "Security group for Network Load Balancer (api-gateway)"
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-nlb-sg"
+    Environment = var.environment
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_security_group_rule" "nlb_ingress_cloudfront" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 443
+  protocol          = "tcp"
+  prefix_list_ids   = [data.aws_ec2_managed_prefix_list.cloudfront.id]
+  security_group_id = aws_security_group.nlb.id
+  description       = "HTTP/HTTPS from CloudFront"
+}
+
+resource "aws_security_group_rule" "nlb_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = [var.vpc_cidr]
+  security_group_id = aws_security_group.nlb.id
   description       = "All traffic to VPC"
 }
 
@@ -72,6 +107,16 @@ resource "aws_security_group_rule" "eks_node_ingress_alb" {
   source_security_group_id = aws_security_group.alb.id
   security_group_id        = aws_security_group.eks_node.id
   description              = "All traffic from ALB"
+}
+
+resource "aws_security_group_rule" "eks_node_ingress_nlb" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.nlb.id
+  security_group_id        = aws_security_group.eks_node.id
+  description              = "All traffic from NLB"
 }
 
 resource "aws_security_group_rule" "eks_node_ingress_self" {

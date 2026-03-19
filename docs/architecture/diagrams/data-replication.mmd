@@ -1,0 +1,60 @@
+graph LR
+    subgraph USEast["us-east-1 (Primary)"]
+        subgraph AuroraE["Aurora PostgreSQL 17.7"]
+            AW["Writer Instance<br/>db.r6g.2xlarge"]
+            AR1["Reader 1<br/>db.r6g.xlarge"]
+            AR2["Reader 2<br/>db.r6g.xlarge"]
+        end
+
+        subgraph DocDBE["DocumentDB 8.0"]
+            DW["Primary Instance<br/>db.r6g.2xlarge"]
+            DR1["Replica 1<br/>db.r6g.xlarge"]
+            DR2["Replica 2<br/>db.r6g.xlarge"]
+        end
+
+        subgraph CacheE["ElastiCache (Valkey 7)"]
+            CE["Primary Shard Group<br/>cache.r6g.xlarge<br/>3 shards × 2 replicas"]
+        end
+
+        subgraph MSKE["MSK (Kafka 4.1)"]
+            ME["6 Brokers<br/>kafka.m5.2xlarge"]
+        end
+    end
+
+    subgraph USWest["us-west-2 (Secondary)"]
+        subgraph AuroraW["Aurora PostgreSQL 17.7"]
+            AW2["Reader (Promoted on failover)<br/>db.r6g.2xlarge"]
+            ARW1["Reader 1<br/>db.r6g.xlarge"]
+            ARW2["Reader 2<br/>db.r6g.xlarge"]
+        end
+
+        subgraph DocDBW["DocumentDB 8.0"]
+            DW2["Primary (Promoted on failover)<br/>db.r6g.2xlarge"]
+            DRW1["Replica 1<br/>db.r6g.xlarge"]
+            DRW2["Replica 2<br/>db.r6g.xlarge"]
+        end
+
+        subgraph CacheW["ElastiCache (Valkey 7)"]
+            CW["Secondary Shard Group<br/>cache.r6g.xlarge<br/>3 shards × 2 replicas"]
+        end
+
+        subgraph MSKW["MSK (Kafka 4.1)"]
+            MW["6 Brokers<br/>kafka.m5.2xlarge"]
+        end
+    end
+
+    AW ==>|"Storage-level replication<br/>< 1 second lag"| AW2
+    DW ==>|"Global cluster replication<br/>< 1 second lag"| DW2
+    CE ==>|"Global Datastore<br/>cross-region replication"| CW
+
+    AW2 -.->|"Write Forwarding<br/>(local reads, forwarded writes)"| AW
+
+    classDef primary fill:#1B660F,stroke:#232F3E,color:#fff
+    classDef secondary fill:#3B48CC,stroke:#232F3E,color:#fff
+    classDef cache fill:#C925D1,stroke:#232F3E,color:#fff
+    classDef streaming fill:#ED7100,stroke:#232F3E,color:#fff
+
+    class AW,DW primary
+    class AR1,AR2,AW2,ARW1,ARW2,DW2,DR1,DR2,DRW1,DRW2 secondary
+    class CE,CW cache
+    class ME,MW streaming

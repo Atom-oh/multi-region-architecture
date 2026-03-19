@@ -1,0 +1,71 @@
+graph TD
+    subgraph EKS["EKS Cluster v1.35 — multi-region-mall"]
+        subgraph CP["Control Plane (AWS Managed)"]
+            API["API Server"]
+            ETCD["etcd"]
+            SCHED["Scheduler"]
+            CM["Controller Manager"]
+        end
+
+        subgraph Addons["EKS Managed Addons"]
+            VPC_CNI["VPC CNI<br/>v1.21.1-eksbuild.3"]
+            COREDNS["CoreDNS<br/>v1.13.2-eksbuild.3"]
+            KPROXY["kube-proxy<br/>v1.35.0-eksbuild.2"]
+            EBS_CSI["EBS CSI Driver<br/>v1.56.0-eksbuild.1"]
+            EFS_CSI["EFS CSI Driver<br/>v2.3.0-eksbuild.2"]
+        end
+
+        subgraph Bootstrap["Bootstrap Node Group (2x m5.large)"]
+            KARP_CTL["Karpenter Controller<br/>v1.9"]
+            ARGOCD["ArgoCD"]
+            COREDNS_POD["CoreDNS Pods"]
+            OTEL["OTel Collector"]
+        end
+
+        subgraph KarpenterPools["Karpenter NodePools"]
+            GP["general<br/>Spot+OD, amd64+arm64<br/>m6i/m6g .large-.2xlarge"]
+            CRIT["critical<br/>On-Demand only<br/>m6i/r6i .large-.4xlarge"]
+            API_T["api-tier<br/>Low latency"]
+            WORK["worker-tier<br/>Background jobs"]
+            BATCH["batch-tier<br/>Batch processing"]
+            MEM["memory-tier<br/>Cache-heavy workloads"]
+        end
+
+        subgraph Workloads["Application Pods (20 Services)"]
+            CORE["Core Domain<br/>product-catalog, inventory,<br/>pricing, search"]
+            USR["User Domain<br/>user, notification,<br/>recommendation"]
+            FULFILL["Fulfillment Domain<br/>order, payment, shipping,<br/>delivery-tracking"]
+            BIZ["Business Domain<br/>seller, analytics,<br/>promotion, review"]
+            PLAT["Platform Domain<br/>api-gateway, event-processor,<br/>media, config"]
+        end
+    end
+
+    subgraph IRSA["IRSA (IAM Roles for Service Accounts)"]
+        OIDC["OIDC Provider"]
+    end
+
+    subgraph KMS_ENC["Encryption"]
+        KMS["KMS Key<br/>Envelope encryption for secrets"]
+    end
+
+    CP --> Addons
+    CP --> Bootstrap
+    KARP_CTL --> KarpenterPools
+    KarpenterPools --> Workloads
+    ARGOCD -->|"GitOps sync"| Workloads
+    OIDC --> Workloads
+    KMS --> CP
+
+    classDef control fill:#8C4FFF,stroke:#232F3E,color:#fff
+    classDef addon fill:#FF9900,stroke:#232F3E,color:#232F3E
+    classDef system fill:#ED7100,stroke:#232F3E,color:#fff
+    classDef pool fill:#3B48CC,stroke:#232F3E,color:#fff
+    classDef workload fill:#1B660F,stroke:#232F3E,color:#fff
+    classDef security fill:#DD344C,stroke:#232F3E,color:#fff
+
+    class API,ETCD,SCHED,CM control
+    class VPC_CNI,COREDNS,KPROXY,EBS_CSI,EFS_CSI addon
+    class KARP_CTL,ARGOCD,COREDNS_POD,OTEL system
+    class GP,CRIT,API_T,WORK,BATCH,MEM pool
+    class CORE,USR,FULFILL,BIZ,PLAT workload
+    class OIDC,KMS security

@@ -57,3 +57,13 @@ output "s3_static_assets_bucket_arn" {
   description = "The ARN of the static assets S3 bucket"
   value       = module.s3.static_assets_bucket_arn
 }
+
+output "nlb_security_group_id" {
+  description = "The ID of the NLB security group (api-gateway)"
+  value       = module.security_groups.nlb_security_group_id
+}
+
+output "nlb_target_group_arn" {
+  description = "The ARN of the NLB target group (for k8s TargetGroupBinding)"
+  value       = module.nlb.target_group_arn
+}

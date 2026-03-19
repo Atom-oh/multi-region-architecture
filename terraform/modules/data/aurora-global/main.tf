@@ -13,7 +13,7 @@ resource "aws_rds_cluster" "this" {
   global_cluster_identifier = var.is_primary ? null : var.global_cluster_identifier
 
   engine         = "aurora-postgresql"
-  engine_version = "15.8"
+  engine_version = "17.7"
 
   # Primary cluster credentials (only for primary, secondary inherits from global cluster)
   master_username = var.is_primary ? "mall_admin" : null

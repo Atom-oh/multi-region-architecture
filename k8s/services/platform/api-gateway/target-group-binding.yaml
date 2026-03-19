@@ -1,0 +1,11 @@
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: api-gateway-tgb
+  namespace: platform
+spec:
+  serviceRef:
+    name: api-gateway
+    port: 80
+  targetGroupARN: PLACEHOLDER
+  targetType: ip

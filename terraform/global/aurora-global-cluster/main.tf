@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0"
+      version = ">= 6.0"
     }
   }
 }
@@ -12,7 +12,7 @@ terraform {
 resource "aws_rds_global_cluster" "main" {
   global_cluster_identifier = var.global_cluster_identifier
   engine                    = "aurora-postgresql"
-  engine_version            = "15.8"
+  engine_version            = "17.7"
   database_name             = var.database_name
   storage_encrypted         = true
   deletion_protection       = true

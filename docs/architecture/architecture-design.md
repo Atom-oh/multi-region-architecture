@@ -295,6 +295,8 @@ Each AZ has a dedicated NAT Gateway for high availability:
 
 ### 3.1 Global Traffic Distribution
 
+![Traffic Flow](diagrams/traffic-flow.svg)
+
 Route 53 resolves `*.atomai.click` via CNAME to the CloudFront distribution, which then uses a second Route 53 latency-based record to route to the nearest regional ALB.
 
 ```
@@ -465,11 +467,13 @@ Origin Shield provides an additional caching layer between CloudFront edge locat
 
 ### 4.1 Cluster Configuration
 
+![EKS Cluster Architecture](diagrams/eks-cluster-architecture.svg)
+
 Each region runs an independent EKS cluster with identical configurations:
 
 | Setting | Value |
 |---------|-------|
-| Kubernetes Version | 1.29 |
+| Kubernetes Version | 1.35 |
 | OIDC Provider | Enabled |
 | Control Plane Logging | api, audit, authenticator, controllerManager, scheduler |
 | Encryption | KMS (envelope encryption for secrets) |
@@ -484,7 +488,7 @@ Karpenter provides fast, flexible node provisioning based on workload requiremen
 For standard workloads with cost optimization via Spot instances:
 
 ```yaml
-apiVersion: karpenter.sh/v1beta1
+apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
   name: general
@@ -540,7 +544,7 @@ spec:
 For business-critical services requiring On-Demand stability:
 
 ```yaml
-apiVersion: karpenter.sh/v1beta1
+apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
   name: critical
@@ -594,7 +598,7 @@ spec:
 #### 4.2.3 EC2NodeClass
 
 ```yaml
-apiVersion: karpenter.k8s.aws/v1beta1
+apiVersion: karpenter.k8s.aws/v1
 kind: EC2NodeClass
 metadata:
   name: default
@@ -626,11 +630,11 @@ spec:
 
 | Addon | Version | Configuration |
 |-------|---------|---------------|
-| VPC CNI | v1.15+ | NetworkPolicy enabled, prefix delegation |
-| CoreDNS | v1.10+ | 3 replicas, node anti-affinity |
-| kube-proxy | v1.29+ | IPVS mode |
-| EBS CSI Driver | v1.25+ | Encryption enabled, gp3 default |
-| EFS CSI Driver | v1.7+ | For shared storage needs |
+| VPC CNI | v1.21.1-eksbuild.3 | NetworkPolicy enabled, prefix delegation |
+| CoreDNS | v1.13.2-eksbuild.3 | 3 replicas, node anti-affinity |
+| kube-proxy | v1.35.0-eksbuild.2 | IPVS mode |
+| EBS CSI Driver | v1.56.0-eksbuild.1 | Encryption enabled, gp3 default |
+| EFS CSI Driver | v2.3.0-eksbuild.2 | For shared storage needs |
 
 #### 4.3.1 VPC CNI Configuration
 
@@ -706,6 +710,8 @@ Each service has a dedicated IAM role with least-privilege permissions:
 
 ### 5.2 Aurora PostgreSQL Global Database
 
+![Data Replication Topology](diagrams/data-replication.svg)
+
 #### 5.2.1 Architecture
 
 ```
@@ -743,6 +749,7 @@ Each service has a dedicated IAM role with least-privilege permissions:
 | Setting | Primary (us-east-1) | Secondary (us-west-2) |
 |---------|---------------------|------------------------|
 | Role | Writer + Readers | Readers only |
+| Engine Version | Aurora PostgreSQL 17.7 | Aurora PostgreSQL 17.7 |
 | Writer Instance | db.r6g.2xlarge | db.r6g.2xlarge (promoted on failover) |
 | Reader Instances | 2x db.r6g.xlarge | 2x db.r6g.xlarge |
 | Storage | Aurora storage (auto-scaling) | Aurora storage (replicated) |
@@ -791,7 +798,7 @@ Each service has a dedicated IAM role with least-privilege permissions:
 │   │                         │              │                         │      │
 │   └─────────────────────────┘              └─────────────────────────┘      │
 │                                                                             │
-│   Engine: 5.0 (MongoDB 5.0 compatible)                                      │
+│   Engine: 8.0 (MongoDB 8.0 compatible)                                      │
 │   TLS: Required                                                             │
 │   Encryption: KMS CMK                                                       │
 │                                                                             │
@@ -805,7 +812,7 @@ Each service has a dedicated IAM role with least-privilege permissions:
 | Role | Primary + Replicas | Replicas only |
 | Primary Instance | db.r6g.2xlarge | db.r6g.2xlarge (promoted on failover) |
 | Replica Instances | 2x db.r6g.xlarge | 2x db.r6g.xlarge |
-| Engine Version | 5.0 | 5.0 |
+| Engine Version | 8.0 | 8.0 |
 | TLS | Required | Required |
 | Encryption | KMS CMK (docdb-key) | KMS CMK (docdb-key) |
 

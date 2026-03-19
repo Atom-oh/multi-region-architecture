@@ -3,7 +3,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0"
+      version = ">= 6.0"
     }
   }
 }
@@ -18,13 +18,13 @@ variable "zone_id" {
   type        = string
 }
 
-variable "alb_dns_names" {
-  description = "Map of region to ALB DNS names"
+variable "lb_dns_names" {
+  description = "Map of region to load balancer DNS names"
   type        = map(string)
 }
 
-variable "alb_zone_ids" {
-  description = "Map of region to ALB hosted zone IDs"
+variable "lb_zone_ids" {
+  description = "Map of region to load balancer hosted zone IDs"
   type        = map(string)
 }
 

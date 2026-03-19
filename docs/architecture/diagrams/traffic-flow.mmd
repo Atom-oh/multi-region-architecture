@@ -1,0 +1,53 @@
+graph TD
+    User["👤 User Request<br/>*.atomai.click"]
+
+    subgraph DNS["Route 53 DNS"]
+        CNAME["CNAME Record<br/>*.atomai.click → CloudFront"]
+    end
+
+    subgraph Edge["Edge Layer"]
+        CF["CloudFront Distribution<br/>d1muyxliujbszf.cloudfront.net"]
+        WAF["AWS WAF v2<br/>Rate Limiting + Geo Blocking"]
+    end
+
+    subgraph LatencyDNS["Route 53 Latency-Based Routing"]
+        LBR["Latency-Based Record<br/>origin.atomai.click"]
+    end
+
+    subgraph Region1["us-east-1 (Primary)"]
+        ALB1["Application Load Balancer<br/>SG: CloudFront prefix list only"]
+        EKS1["EKS Cluster v1.35<br/>multi-region-mall"]
+        subgraph Pods1["Pods"]
+            SVC1["20 Microservices<br/>nginx:alpine placeholders"]
+        end
+    end
+
+    subgraph Region2["us-west-2 (Secondary)"]
+        ALB2["Application Load Balancer<br/>SG: CloudFront prefix list only"]
+        EKS2["EKS Cluster v1.35<br/>multi-region-mall"]
+        subgraph Pods2["Pods"]
+            SVC2["20 Microservices<br/>nginx:alpine placeholders"]
+        end
+    end
+
+    User --> CNAME
+    CNAME --> CF
+    CF --> WAF
+    WAF --> CF
+    CF --> LBR
+    LBR -->|"Low latency"| ALB1
+    LBR -->|"Low latency"| ALB2
+    ALB1 --> EKS1
+    EKS1 --> SVC1
+    ALB2 --> EKS2
+    EKS2 --> SVC2
+
+    classDef edge fill:#FF9900,stroke:#232F3E,color:#232F3E
+    classDef compute fill:#ED7100,stroke:#232F3E,color:#fff
+    classDef dns fill:#8C4FFF,stroke:#232F3E,color:#fff
+    classDef user fill:#232F3E,stroke:#FF9900,color:#fff
+
+    class User user
+    class CNAME,LBR dns
+    class CF,WAF edge
+    class ALB1,ALB2,EKS1,EKS2 compute
