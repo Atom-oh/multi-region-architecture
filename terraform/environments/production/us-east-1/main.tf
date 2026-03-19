@@ -89,10 +89,6 @@ module "secrets_manager" {
   region      = var.region
   kms_key_arn = module.kms.key_arns["aurora"]
   secrets = {
-    aurora = {
-      name        = "${var.environment}/aurora/credentials"
-      description = "Aurora PostgreSQL credentials"
-    }
     documentdb = {
       name        = "${var.environment}/documentdb/credentials"
       description = "DocumentDB credentials"
@@ -170,34 +166,18 @@ module "nlb" {
 # Data
 # ─────────────────────────────────────────────────────────────────────────────
 
-resource "random_password" "aurora" {
-  length           = 32
-  special          = true
-  override_special = "!#$%^&*()-_=+"
-}
-
 resource "random_password" "documentdb" {
   length           = 32
   special          = true
   override_special = "!#$%^&*()-_=+"
 }
 
-module "aurora" {
-  source = "../../../modules/data/aurora-global"
+module "dsql" {
+  source = "../../../modules/data/dsql"
 
-  environment               = var.environment
-  region                    = var.region
-  is_primary                = true
-  global_cluster_identifier = var.aurora_global_cluster_identifier
-  vpc_id                    = module.vpc.vpc_id
-  data_subnet_ids           = module.vpc.data_subnet_ids
-  security_group_id         = module.security_groups.aurora_security_group_id
-  kms_key_arn               = module.kms.key_arns["aurora"]
-  master_password           = random_password.aurora.result
-  writer_instance_class     = "db.r6g.large"
-  reader_instance_class     = "db.r6g.large"
-  reader_count              = 1
-  tags                      = var.tags
+  environment = var.environment
+  region      = var.region
+  tags        = var.tags
 }
 
 module "documentdb" {

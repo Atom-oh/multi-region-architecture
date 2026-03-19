@@ -55,11 +55,6 @@ variable "acm_certificate_arn" {
   type        = string
 }
 
-variable "aurora_global_cluster_identifier" {
-  description = "Aurora global cluster identifier"
-  type        = string
-}
-
 variable "docdb_global_cluster_identifier" {
   description = "DocumentDB global cluster identifier"
   type        = string

@@ -66,28 +66,6 @@ resource "aws_cloudwatch_metric_alarm" "high_latency" {
   })
 }
 
-# CloudWatch Alarm: Aurora Replication Lag
-resource "aws_cloudwatch_metric_alarm" "replication_lag" {
-  alarm_name          = "${var.environment}-aurora-replication-lag"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "AuroraReplicaLag"
-  namespace           = "AWS/RDS"
-  period              = 60
-  statistic           = "Average"
-  threshold           = 1000
-  alarm_description   = "Aurora replication lag >1000ms"
-  treat_missing_data  = "notBreaching"
-
-  alarm_actions = var.sns_topic_arn != "" ? [var.sns_topic_arn] : []
-  ok_actions    = var.sns_topic_arn != "" ? [var.sns_topic_arn] : []
-
-  tags = merge(var.tags, {
-    Name        = "${var.environment}-aurora-replication-lag"
-    Environment = var.environment
-  })
-}
-
 # CloudWatch Alarm: Kafka Under Replicated Partitions
 resource "aws_cloudwatch_metric_alarm" "kafka_under_replicated" {
   alarm_name          = "${var.environment}-msk-under-replicated"
@@ -165,21 +143,6 @@ resource "aws_cloudwatch_dashboard" "main" {
         type   = "metric"
         x      = 12
         y      = 6
-        width  = 12
-        height = 6
-        properties = {
-          title  = "Aurora Replication Lag"
-          view   = "timeSeries"
-          region = var.region
-          metrics = [
-            ["AWS/RDS", "AuroraReplicaLag", { stat = "Average", period = 60 }]
-          ]
-        }
-      },
-      {
-        type   = "metric"
-        x      = 0
-        y      = 12
         width  = 12
         height = 6
         properties = {

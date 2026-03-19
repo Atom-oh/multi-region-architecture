@@ -13,14 +13,14 @@ output "eks_cluster_name" {
   value       = module.eks.cluster_id
 }
 
-output "aurora_cluster_endpoint" {
-  description = "The Aurora cluster endpoint"
-  value       = module.aurora.cluster_endpoint
+output "dsql_cluster_endpoint" {
+  description = "The DSQL cluster endpoint"
+  value       = module.dsql.cluster_endpoint
 }
 
-output "aurora_reader_endpoint" {
-  description = "The Aurora cluster reader endpoint"
-  value       = module.aurora.reader_endpoint
+output "dsql_cluster_arn" {
+  description = "The DSQL cluster ARN"
+  value       = module.dsql.cluster_arn
 }
 
 output "documentdb_cluster_endpoint" {

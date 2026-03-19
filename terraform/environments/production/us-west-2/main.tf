@@ -98,10 +98,6 @@ module "secrets_manager" {
   region      = var.region
   kms_key_arn = module.kms.key_arns["aurora"]
   secrets = {
-    aurora = {
-      name        = "${var.environment}/aurora/credentials"
-      description = "Aurora PostgreSQL credentials"
-    }
     documentdb = {
       name        = "${var.environment}/documentdb/credentials"
       description = "DocumentDB credentials"
@@ -179,22 +175,12 @@ module "nlb" {
 # Data (Secondary Region - Read Replicas)
 # ─────────────────────────────────────────────────────────────────────────────
 
-module "aurora" {
-  source = "../../../modules/data/aurora-global"
+module "dsql" {
+  source = "../../../modules/data/dsql"
 
-  environment               = var.environment
-  region                    = var.region
-  is_primary                = false
-  global_cluster_identifier = var.aurora_global_cluster_identifier
-  source_region             = "us-east-1"
-  vpc_id                    = module.vpc.vpc_id
-  data_subnet_ids           = module.vpc.data_subnet_ids
-  security_group_id         = module.security_groups.aurora_security_group_id
-  kms_key_arn               = module.kms.key_arns["aurora"]
-  writer_instance_class     = "db.r6g.large"
-  reader_instance_class     = "db.r6g.large"
-  reader_count              = 1
-  tags                      = var.tags
+  environment = var.environment
+  region      = var.region
+  tags        = var.tags
 }
 
 module "documentdb" {

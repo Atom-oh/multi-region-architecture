@@ -140,34 +140,6 @@ resource "aws_security_group_rule" "eks_node_egress" {
 }
 
 #------------------------------------------------------------------------------
-# Aurora Security Group
-#------------------------------------------------------------------------------
-resource "aws_security_group" "aurora" {
-  name_prefix = "${var.environment}-aurora-"
-  vpc_id      = var.vpc_id
-  description = "Security group for Aurora PostgreSQL"
-
-  tags = merge(var.tags, {
-    Name        = "${var.environment}-aurora-sg"
-    Environment = var.environment
-  })
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_security_group_rule" "aurora_ingress_eks" {
-  type                     = "ingress"
-  from_port                = 5432
-  to_port                  = 5432
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.eks_node.id
-  security_group_id        = aws_security_group.aurora.id
-  description              = "PostgreSQL from EKS nodes"
-}
-
-#------------------------------------------------------------------------------
 # DocumentDB Security Group
 #------------------------------------------------------------------------------
 resource "aws_security_group" "documentdb" {

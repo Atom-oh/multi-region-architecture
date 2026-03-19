@@ -64,8 +64,7 @@ configMapGenerator:
     literals:
       - REGION=us-east-1
       - REGION_ROLE=PRIMARY
-      - AURORA_ENDPOINT=production-aurora-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.rds.amazonaws.com
-      - AURORA_READER_ENDPOINT=production-aurora-global-us-east-1.cluster-ro-c4pe2u8kgt26.us-east-1.rds.amazonaws.com
+      - DSQL_ENDPOINT=<placeholder-until-apply>.us-east-1.dsql.amazonaws.com
       - DOCUMENTDB_ENDPOINT=production-docdb-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.docdb.amazonaws.com
       - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com
       - MSK_BROKERS=b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,b-2.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,b-3.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096

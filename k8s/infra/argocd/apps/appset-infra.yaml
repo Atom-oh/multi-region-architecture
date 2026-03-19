@@ -16,7 +16,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: https://github.com/Atom-oh/multi-region-architecture.git
+        repoURL: git@github.com:Atom-oh/multi-region-architecture.git
         targetRevision: main
         path: k8s/infra/karpenter
       destination:

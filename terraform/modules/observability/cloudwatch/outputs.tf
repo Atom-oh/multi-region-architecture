@@ -10,7 +10,6 @@ output "alarm_arns" {
   value = [
     aws_cloudwatch_metric_alarm.high_error_rate.arn,
     aws_cloudwatch_metric_alarm.high_latency.arn,
-    aws_cloudwatch_metric_alarm.replication_lag.arn,
     aws_cloudwatch_metric_alarm.kafka_under_replicated.arn
   ]
 }
