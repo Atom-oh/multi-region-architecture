@@ -3,7 +3,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0"
+      version = ">= 6.0"
     }
   }
 }
@@ -133,12 +133,22 @@ module "iam" {
 module "eks" {
   source = "../../../modules/compute/eks"
 
-  environment        = var.environment
-  region             = var.region
-  cluster_name       = var.eks_cluster_name
-  vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_subnet_ids
-  tags               = var.tags
+  environment           = var.environment
+  region                = var.region
+  cluster_name          = var.eks_cluster_name
+  vpc_id                = module.vpc.vpc_id
+  private_subnet_ids    = module.vpc.private_subnet_ids
+  alb_security_group_id = module.security_groups.alb_security_group_id
+  nlb_security_group_id = module.security_groups.nlb_security_group_id
+  tags                  = var.tags
+
+  addon_versions = {
+    vpc_cni        = "v1.21.1-eksbuild.3"
+    coredns        = "v1.13.2-eksbuild.1"
+    kube_proxy     = "v1.35.0-eksbuild.2"
+    ebs_csi_driver = "v1.56.0-eksbuild.1"
+    efs_csi_driver = "v2.3.0-eksbuild.2"
+  }
 }
 
 module "alb" {
@@ -149,6 +159,18 @@ module "alb" {
   oidc_provider_arn = module.eks.oidc_provider_arn
   oidc_provider_url = module.eks.oidc_provider_url
   vpc_id            = module.vpc.vpc_id
+  tags              = var.tags
+}
+
+module "nlb" {
+  source = "../../../modules/compute/nlb"
+
+  environment       = var.environment
+  region            = var.region
+  vpc_id            = module.vpc.vpc_id
+  public_subnet_ids = module.vpc.public_subnet_ids
+  security_group_id = module.security_groups.nlb_security_group_id
+  certificate_arn   = var.acm_certificate_arn
   tags              = var.tags
 }
 
@@ -265,11 +287,11 @@ module "s3" {
 module "route53" {
   source = "../../../modules/edge/route53"
 
-  environment   = var.environment
-  zone_id       = var.route53_zone_id
-  alb_dns_names = {} # ALB DNS not available until ALB controller deploys in EKS
-  alb_zone_ids  = {}
-  tags          = var.tags
+  environment  = var.environment
+  zone_id      = var.route53_zone_id
+  lb_dns_names = { (var.region) = module.nlb.nlb_dns_name }
+  lb_zone_ids  = { (var.region) = module.nlb.nlb_zone_id }
+  tags         = var.tags
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

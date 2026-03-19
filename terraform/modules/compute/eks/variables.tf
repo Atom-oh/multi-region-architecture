@@ -3,7 +3,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0"
+      version = ">= 6.0"
     }
   }
 }
@@ -26,7 +26,7 @@ variable "cluster_name" {
 variable "cluster_version" {
   description = "Kubernetes version for the EKS cluster"
   type        = string
-  default     = "1.29"
+  default     = "1.35"
 }
 
 variable "vpc_id" {
@@ -51,6 +51,18 @@ variable "role_name_suffix" {
   default     = null
 }
 
+variable "alb_security_group_id" {
+  description = "Security group ID of the ALB, used to allow ingress from ALB to EKS cluster SG"
+  type        = string
+  default     = ""
+}
+
+variable "nlb_security_group_id" {
+  description = "Security group ID of the NLB, used to allow ingress from NLB to EKS cluster SG on port 8080 (ArgoCD)"
+  type        = string
+  default     = ""
+}
+
 variable "bootstrap_node_instance_types" {
   description = "Instance types for bootstrap node group"
   type        = list(string)
@@ -73,4 +85,22 @@ variable "bootstrap_node_max_size" {
   description = "Maximum number of bootstrap nodes"
   type        = number
   default     = 3
+}
+
+variable "addon_versions" {
+  description = "EKS addon versions. Defaults are latest for EKS 1.35."
+  type = object({
+    vpc_cni        = string
+    coredns        = string
+    kube_proxy     = string
+    ebs_csi_driver = string
+    efs_csi_driver = string
+  })
+  default = {
+    vpc_cni        = "v1.21.1-eksbuild.3"
+    coredns        = "v1.13.2-eksbuild.3"
+    kube_proxy     = "v1.35.0-eksbuild.2"
+    ebs_csi_driver = "v1.56.0-eksbuild.1"
+    efs_csi_driver = "v2.3.0-eksbuild.2"
+  }
 }

@@ -117,6 +117,32 @@ resource "aws_eks_cluster" "main" {
   ]
 }
 
+# Allow ALB to reach pods on port 80 via the EKS-managed cluster security group
+resource "aws_security_group_rule" "eks_cluster_sg_alb_ingress" {
+  count = var.alb_security_group_id != "" ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  source_security_group_id = var.alb_security_group_id
+  description              = "Allow HTTP from ALB to EKS nodes"
+}
+
+# Allow NLB to reach ArgoCD pods on port 8080 via the EKS-managed cluster security group
+resource "aws_security_group_rule" "eks_cluster_sg_nlb_argocd_ingress" {
+  count = var.nlb_security_group_id != "" ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  source_security_group_id = var.nlb_security_group_id
+  description              = "Allow ArgoCD from NLB to EKS nodes"
+}
+
 # OIDC Provider for IRSA
 data "tls_certificate" "eks" {
   url = aws_eks_cluster.main.identity[0].oidc[0].issuer
@@ -163,11 +189,75 @@ resource "aws_iam_role_policy_attachment" "vpc_cni" {
   role       = aws_iam_role.vpc_cni.name
 }
 
+# IAM role for EBS CSI Driver addon
+resource "aws_iam_role" "ebs_csi" {
+  name = "${var.cluster_name}-ebs-csi${local.role_name_suffix}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.eks.arn
+        }
+        Condition = {
+          StringEquals = {
+            "${local.oidc_provider_url}:aud" = "sts.amazonaws.com"
+            "${local.oidc_provider_url}:sub" = "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi" {
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.ebs_csi.name
+}
+
+# IAM role for EFS CSI Driver addon
+resource "aws_iam_role" "efs_csi" {
+  name = "${var.cluster_name}-efs-csi${local.role_name_suffix}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.eks.arn
+        }
+        Condition = {
+          StringEquals = {
+            "${local.oidc_provider_url}:aud" = "sts.amazonaws.com"
+            "${local.oidc_provider_url}:sub" = "system:serviceaccount:kube-system:efs-csi-controller-sa"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "efs_csi" {
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
+  role       = aws_iam_role.efs_csi.name
+}
+
 # EKS Addons
 resource "aws_eks_addon" "vpc_cni" {
-  cluster_name             = aws_eks_cluster.main.name
-  addon_name               = "vpc-cni"
-  service_account_role_arn = aws_iam_role.vpc_cni.arn
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "vpc-cni"
+  addon_version               = var.addon_versions.vpc_cni
+  resolve_conflicts_on_update = "OVERWRITE"
+  service_account_role_arn    = aws_iam_role.vpc_cni.arn
 
   # Note: ENABLE_NETWORK_POLICY removed - not supported in this VPC-CNI version
 
@@ -177,8 +267,10 @@ resource "aws_eks_addon" "vpc_cni" {
 }
 
 resource "aws_eks_addon" "coredns" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "coredns"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "coredns"
+  addon_version               = var.addon_versions.coredns
+  resolve_conflicts_on_update = "OVERWRITE"
 
   tags = var.tags
 
@@ -186,24 +278,32 @@ resource "aws_eks_addon" "coredns" {
 }
 
 resource "aws_eks_addon" "kube_proxy" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "kube-proxy"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "kube-proxy"
+  addon_version               = var.addon_versions.kube_proxy
+  resolve_conflicts_on_update = "OVERWRITE"
 
   tags = var.tags
 }
 
 resource "aws_eks_addon" "aws_ebs_csi_driver" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "aws-ebs-csi-driver"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "aws-ebs-csi-driver"
+  addon_version               = var.addon_versions.ebs_csi_driver
+  resolve_conflicts_on_update = "OVERWRITE"
+  service_account_role_arn    = aws_iam_role.ebs_csi.arn
 
   tags = var.tags
 
-  depends_on = [aws_eks_addon.vpc_cni]
+  depends_on = [aws_eks_addon.vpc_cni, aws_iam_role_policy_attachment.ebs_csi]
 }
 
 resource "aws_eks_addon" "aws_efs_csi_driver" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "aws-efs-csi-driver"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "aws-efs-csi-driver"
+  addon_version               = var.addon_versions.efs_csi_driver
+  resolve_conflicts_on_update = "OVERWRITE"
+  service_account_role_arn    = aws_iam_role.efs_csi.arn
 
   tags = var.tags
 

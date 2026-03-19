@@ -129,6 +129,7 @@ module "eks" {
   vpc_id                = module.vpc.vpc_id
   private_subnet_ids    = module.vpc.private_subnet_ids
   alb_security_group_id = module.security_groups.alb_security_group_id
+  nlb_security_group_id = module.security_groups.nlb_security_group_id
   role_name_suffix      = ""
   tags                  = var.tags
 
