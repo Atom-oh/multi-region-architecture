@@ -320,7 +320,7 @@ module "cloudfront_argocd" {
   environment     = var.environment
   domain_name     = var.domain_name
   acm_certificate_arn = var.acm_certificate_arn
-  waf_web_acl_arn = module.waf.web_acl_arn
+  waf_web_acl_arn = "" # WAF disabled — bot control rules block ArgoCD API/gRPC; ArgoCD has its own auth
   tags            = var.tags
 }
 

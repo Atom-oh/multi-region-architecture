@@ -11,6 +11,8 @@ route53_zone_id                  = "Z01703432E9KT1G1FIRFM"
 acm_certificate_arn              = "arn:aws:acm:us-east-1:180294183052:certificate/f6b6907a-5747-4039-967a-a8c7c73116a7"
 aurora_global_cluster_identifier = "multi-region-mall-aurora"
 docdb_global_cluster_identifier  = "multi-region-mall-docdb"
+argocd_nlb_dns_name              = "k8s-argocd-argocdse-7d4059ca12-b57b4f4062f25aee.elb.us-east-1.amazonaws.com"
+argocd_nlb_zone_id               = "Z26RNL4JYFTOTI"
 
 tags = {
   Project = "multi-region-mall"
