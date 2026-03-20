@@ -71,6 +71,16 @@ resource "aws_security_group_rule" "nlb_ingress_cloudfront" {
   description       = "HTTP/HTTPS from CloudFront"
 }
 
+resource "aws_security_group_rule" "nlb_ingress_route53_healthcheck" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["15.177.0.0/18"]
+  security_group_id = aws_security_group.nlb.id
+  description       = "HTTP from Route53 health checkers"
+}
+
 resource "aws_security_group_rule" "nlb_egress" {
   type              = "egress"
   from_port         = 0
