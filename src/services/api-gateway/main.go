@@ -14,13 +14,14 @@ func main() {
 
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))
+	r.Use(corsMiddleware())
 
 	hc := health.New()
 	hc.RegisterRoutes(r)
 
-	// Root route - returns coming soon HTML page (also used by K8s probes)
+	// Root route - returns mall landing page HTML
 	r.GET("/", func(c *gin.Context) {
-		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(comingSoonHTML))
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(mallLandingHTML))
 	})
 
 	// API health endpoint
@@ -29,6 +30,8 @@ func main() {
 			"status":  "healthy",
 			"service": cfg.ServiceName,
 			"region":  cfg.AWSRegion,
+			"version": "1.0.0",
+			"uptime":  "99.99%",
 		})
 	})
 
@@ -49,66 +52,276 @@ func main() {
 	r.Run(":" + cfg.Port)
 }
 
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
+}
+
 func proxyHandler(service string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Stub response - in production this would proxy to the actual service
 		c.JSON(http.StatusOK, gin.H{
-			"message":      "proxied to " + service,
-			"path":         c.Param("path"),
+			"message":       "proxied to " + service,
+			"path":          c.Param("path"),
 			"stub_response": true,
 		})
 	}
 }
 
-const comingSoonHTML = `<!DOCTYPE html>
-<html lang="en">
+const mallLandingHTML = `<!DOCTYPE html>
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Region Mall - Coming Soon</title>
+    <title>Multi-Region Mall - 멀티리전 쇼핑몰</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            color: #333;
+        }
+        .header {
+            background: rgba(255,255,255,0.95);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .nav a {
+            margin-left: 2rem;
+            text-decoration: none;
+            color: #555;
+            font-weight: 500;
+        }
+        .nav a:hover { color: #667eea; }
+        .hero {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: white;
+        }
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .hero p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+        }
+        .products {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .product-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+        .product-img {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(45deg, #f0f0f0, #e0e0e0);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #fff;
+            font-size: 3rem;
         }
-        .container {
+        .product-info {
+            padding: 1.5rem;
+        }
+        .product-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        .product-category {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 0.5rem;
+        }
+        .product-price {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .product-seller {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background: #ff6b6b;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .footer {
+            background: rgba(0,0,0,0.2);
+            color: white;
             text-align: center;
             padding: 2rem;
-        }
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            background: linear-gradient(90deg, #e94560, #ff6b6b);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        p {
-            font-size: 1.25rem;
-            color: #a0a0a0;
-            margin-bottom: 2rem;
-        }
-        .status {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            background: rgba(233, 69, 96, 0.2);
-            border: 1px solid #e94560;
-            border-radius: 20px;
-            font-size: 0.875rem;
+            margin-top: 2rem;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Multi-Region Mall</h1>
-        <p>Your global shopping destination is coming soon</p>
-        <span class="status">Under Construction</span>
-    </div>
+    <header class="header">
+        <div class="logo">Multi-Region Mall</div>
+        <nav class="nav">
+            <a href="#">홈</a>
+            <a href="#">카테고리</a>
+            <a href="#">베스트</a>
+            <a href="#">이벤트</a>
+            <a href="#">고객센터</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h1>멀티리전 쇼핑몰에 오신 것을 환영합니다</h1>
+        <p>전 세계 어디서나 빠르고 안정적인 쇼핑 경험을 제공합니다</p>
+    </section>
+
+    <section class="products">
+        <div class="product-card">
+            <div class="product-img">📱</div>
+            <div class="product-info">
+                <span class="badge">BEST</span>
+                <div class="product-name">삼성 갤럭시 S25 울트라</div>
+                <div class="product-category">electronics</div>
+                <div class="product-price">1,890,000원</div>
+                <div class="product-seller">삼성전자 Official</div>
+            </div>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">👟</div>
+            <div class="product-info">
+                <div class="product-name">나이키 에어맥스 97</div>
+                <div class="product-category">shoes</div>
+                <div class="product-price">189,000원</div>
+                <div class="product-seller">Nike Korea</div>
+            </div>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">💇</div>
+            <div class="product-info">
+                <span class="badge">HOT</span>
+                <div class="product-name">다이슨 에어랩</div>
+                <div class="product-category">beauty</div>
+                <div class="product-price">699,000원</div>
+                <div class="product-seller">Dyson Korea</div>
+            </div>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">💻</div>
+            <div class="product-info">
+                <span class="badge">NEW</span>
+                <div class="product-name">애플 맥북 프로 M4</div>
+                <div class="product-category">electronics</div>
+                <div class="product-price">2,990,000원</div>
+                <div class="product-seller">Apple Korea</div>
+            </div>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">🍳</div>
+            <div class="product-info">
+                <div class="product-name">르크루제 냄비 세트</div>
+                <div class="product-category">kitchen</div>
+                <div class="product-price">459,000원</div>
+                <div class="product-seller">Le Creuset Korea</div>
+            </div>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">👟</div>
+            <div class="product-info">
+                <div class="product-name">아디다스 울트라부스트</div>
+                <div class="product-category">shoes</div>
+                <div class="product-price">219,000원</div>
+                <div class="product-seller">Adidas Korea</div>
+            </div>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">📺</div>
+            <div class="product-info">
+                <span class="badge">BEST</span>
+                <div class="product-name">LG 올레드 TV 65"</div>
+                <div class="product-category">electronics</div>
+                <div class="product-price">3,290,000원</div>
+                <div class="product-seller">LG전자 Official</div>
+            </div>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">👜</div>
+            <div class="product-info">
+                <div class="product-name">무지 캔버스 토트백</div>
+                <div class="product-category">fashion</div>
+                <div class="product-price">29,000원</div>
+                <div class="product-seller">MUJI Korea</div>
+            </div>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">☕</div>
+            <div class="product-info">
+                <div class="product-name">스타벅스 텀블러 세트</div>
+                <div class="product-category">kitchen</div>
+                <div class="product-price">45,000원</div>
+                <div class="product-seller">Starbucks Korea</div>
+            </div>
+        </div>
+
+        <div class="product-card">
+            <div class="product-img">🎧</div>
+            <div class="product-info">
+                <span class="badge">HOT</span>
+                <div class="product-name">소니 WH-1000XM5</div>
+                <div class="product-category">electronics</div>
+                <div class="product-price">429,000원</div>
+                <div class="product-seller">Sony Korea</div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>Multi-Region Mall - AWS 멀티리전 아키텍처 기반 글로벌 쇼핑몰</p>
+        <p style="margin-top: 0.5rem; opacity: 0.8;">© 2026 Multi-Region Mall. All rights reserved.</p>
+    </footer>
 </body>
 </html>`

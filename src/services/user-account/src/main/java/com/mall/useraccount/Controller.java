@@ -1,9 +1,12 @@
 package com.mall.useraccount;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
+@CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 public class Controller {
 
     @GetMapping("/")
@@ -31,48 +34,166 @@ public class Controller {
     }
 
     @PostMapping("/api/v1/users/register")
-    public Map<String, Object> register(@RequestBody Map<String, Object> user) {
-        return Map.of(
-            "id", "user-001",
-            "email", user.getOrDefault("email", "user@example.com"),
-            "username", user.getOrDefault("username", "newuser"),
-            "status", "ACTIVE",
-            "createdAt", "2026-03-20T10:00:00Z"
+    public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, Object> user) {
+        Map<String, Object> response = Map.ofEntries(
+            Map.entry("id", "USR-NEW-001"),
+            Map.entry("email", user.getOrDefault("email", "newuser@example.com")),
+            Map.entry("name", user.getOrDefault("name", "신규회원")),
+            Map.entry("phone", user.getOrDefault("phone", "")),
+            Map.entry("status", "ACTIVE"),
+            Map.entry("membership", Map.of(
+                "tier", "BRONZE",
+                "points", 1000,
+                "welcome_coupon", true
+            )),
+            Map.entry("created_at", "2026-03-20T10:00:00Z"),
+            Map.entry("message", "회원가입이 완료되었습니다. 환영합니다!")
         );
+        return ResponseEntity.ok()
+            .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .body(response);
     }
 
     @PostMapping("/api/v1/users/login")
-    public Map<String, Object> login(@RequestBody Map<String, Object> credentials) {
-        return Map.of(
-            "userId", "user-001",
-            "token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock.token",
-            "expiresAt", "2026-03-21T10:00:00Z"
+    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, Object> credentials) {
+        String email = (String) credentials.getOrDefault("email", "");
+        Map<String, Object> userInfo;
+
+        if (email.contains("minsu")) {
+            userInfo = Map.of(
+                "user_id", "USR-001",
+                "name", "김민수",
+                "email", "minsu@example.com",
+                "membership_tier", "GOLD"
+            );
+        } else if (email.contains("seoyeon")) {
+            userInfo = Map.of(
+                "user_id", "USR-002",
+                "name", "이서연",
+                "email", "seoyeon@example.com",
+                "membership_tier", "PLATINUM"
+            );
+        } else if (email.contains("jihoon")) {
+            userInfo = Map.of(
+                "user_id", "USR-003",
+                "name", "박지훈",
+                "email", "jihoon@example.com",
+                "membership_tier", "SILVER"
+            );
+        } else {
+            userInfo = Map.of(
+                "user_id", "USR-001",
+                "name", "김민수",
+                "email", "minsu@example.com",
+                "membership_tier", "GOLD"
+            );
+        }
+
+        Map<String, Object> response = Map.of(
+            "user", userInfo,
+            "token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock.token." + System.currentTimeMillis(),
+            "token_type", "Bearer",
+            "expires_in", 3600,
+            "expires_at", "2026-03-21T10:00:00Z",
+            "message", "로그인되었습니다"
         );
+        return ResponseEntity.ok()
+            .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .body(response);
     }
 
     @GetMapping("/api/v1/users/{id}")
-    public Map<String, Object> getUser(@PathVariable String id) {
-        return Map.of(
-            "id", id,
-            "email", "user@example.com",
-            "username", "johndoe",
-            "firstName", "John",
-            "lastName", "Doe",
-            "status", "ACTIVE",
-            "createdAt", "2026-01-15T08:30:00Z"
-        );
+    public ResponseEntity<Map<String, Object>> getUser(@PathVariable String id) {
+        Map<String, Object> user;
+        switch (id) {
+            case "USR-001":
+                user = Map.ofEntries(
+                    Map.entry("id", "USR-001"),
+                    Map.entry("email", "minsu@example.com"),
+                    Map.entry("name", "김민수"),
+                    Map.entry("phone", "010-1234-5678"),
+                    Map.entry("birth_date", "1990-05-15"),
+                    Map.entry("gender", "male"),
+                    Map.entry("status", "ACTIVE"),
+                    Map.entry("membership", Map.of(
+                        "tier", "GOLD",
+                        "tier_display", "골드",
+                        "points", 125000,
+                        "total_spent", 8523000,
+                        "next_tier", "PLATINUM",
+                        "points_to_next", 175000
+                    )),
+                    Map.entry("created_at", "2025-01-15T08:30:00Z"),
+                    Map.entry("last_login", "2026-03-20T09:00:00Z")
+                );
+                break;
+            case "USR-002":
+                user = Map.ofEntries(
+                    Map.entry("id", "USR-002"),
+                    Map.entry("email", "seoyeon@example.com"),
+                    Map.entry("name", "이서연"),
+                    Map.entry("phone", "010-9876-5432"),
+                    Map.entry("birth_date", "1995-11-23"),
+                    Map.entry("gender", "female"),
+                    Map.entry("status", "ACTIVE"),
+                    Map.entry("membership", Map.of(
+                        "tier", "PLATINUM",
+                        "tier_display", "플래티넘",
+                        "points", 342000,
+                        "total_spent", 15892000,
+                        "next_tier", "DIAMOND",
+                        "points_to_next", 158000
+                    )),
+                    Map.entry("created_at", "2025-02-20T14:45:00Z"),
+                    Map.entry("last_login", "2026-03-20T11:30:00Z")
+                );
+                break;
+            case "USR-003":
+                user = Map.ofEntries(
+                    Map.entry("id", "USR-003"),
+                    Map.entry("email", "jihoon@example.com"),
+                    Map.entry("name", "박지훈"),
+                    Map.entry("phone", "010-5555-7777"),
+                    Map.entry("birth_date", "1988-03-08"),
+                    Map.entry("gender", "male"),
+                    Map.entry("status", "ACTIVE"),
+                    Map.entry("membership", Map.of(
+                        "tier", "SILVER",
+                        "tier_display", "실버",
+                        "points", 45000,
+                        "total_spent", 2150000,
+                        "next_tier", "GOLD",
+                        "points_to_next", 55000
+                    )),
+                    Map.entry("created_at", "2025-03-10T09:15:00Z"),
+                    Map.entry("last_login", "2026-03-20T10:15:00Z")
+                );
+                break;
+            default:
+                user = Map.of(
+                    "id", id,
+                    "error", "사용자를 찾을 수 없습니다",
+                    "status", "not_found"
+                );
+        }
+        return ResponseEntity.ok()
+            .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .body(user);
     }
 
     @PutMapping("/api/v1/users/{id}")
-    public Map<String, Object> updateUser(@PathVariable String id, @RequestBody Map<String, Object> user) {
-        return Map.of(
+    public ResponseEntity<Map<String, Object>> updateUser(@PathVariable String id, @RequestBody Map<String, Object> user) {
+        Map<String, Object> response = Map.of(
             "id", id,
             "email", user.getOrDefault("email", "user@example.com"),
-            "username", user.getOrDefault("username", "johndoe"),
-            "firstName", user.getOrDefault("firstName", "John"),
-            "lastName", user.getOrDefault("lastName", "Doe"),
+            "name", user.getOrDefault("name", "사용자"),
+            "phone", user.getOrDefault("phone", ""),
             "status", "ACTIVE",
-            "updatedAt", "2026-03-20T10:00:00Z"
+            "updated_at", "2026-03-20T10:00:00Z",
+            "message", "회원정보가 수정되었습니다"
         );
+        return ResponseEntity.ok()
+            .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .body(response);
     }
 }

@@ -29,6 +29,7 @@ func main() {
 
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))
+	r.Use(corsMiddleware())
 
 	hc := health.New()
 	hc.RegisterRoutes(r)
@@ -49,6 +50,19 @@ func main() {
 	r.Run(":" + cfg.Port)
 }
 
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
+}
+
 func publishEvent(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req PublishRequest
@@ -57,7 +71,6 @@ func publishEvent(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		// Stub response - in production this would publish to Kafka
 		event := Event{
 			ID:        "evt_" + time.Now().Format("20060102150405"),
 			Topic:     req.Topic,
@@ -67,31 +80,35 @@ func publishEvent(cfg *config.Config) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusAccepted, gin.H{
-			"message":       "event published",
-			"event":         event,
-			"kafka_brokers": cfg.KafkaBrokers,
-			"stub_response": true,
+			"message": "이벤트가 발행되었습니다",
+			"event":   event,
 		})
 	}
 }
 
 func listTopics(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Stub response - in production this would list Kafka topics
-		topics := []string{
-			"orders.created",
-			"orders.updated",
-			"inventory.updated",
-			"products.updated",
-			"users.registered",
-			"carts.updated",
-			"payments.processed",
+		topics := []map[string]interface{}{
+			{"name": "orders.created", "partitions": 6, "description": "주문 생성 이벤트"},
+			{"name": "orders.updated", "partitions": 6, "description": "주문 상태 변경 이벤트"},
+			{"name": "orders.cancelled", "partitions": 3, "description": "주문 취소 이벤트"},
+			{"name": "inventory.updated", "partitions": 6, "description": "재고 변경 이벤트"},
+			{"name": "inventory.low-stock", "partitions": 3, "description": "재고 부족 알림 이벤트"},
+			{"name": "products.created", "partitions": 3, "description": "상품 등록 이벤트"},
+			{"name": "products.updated", "partitions": 3, "description": "상품 정보 변경 이벤트"},
+			{"name": "users.registered", "partitions": 3, "description": "회원 가입 이벤트"},
+			{"name": "users.profile-updated", "partitions": 3, "description": "회원 정보 변경 이벤트"},
+			{"name": "carts.updated", "partitions": 6, "description": "장바구니 변경 이벤트"},
+			{"name": "payments.processed", "partitions": 6, "description": "결제 완료 이벤트"},
+			{"name": "payments.refunded", "partitions": 3, "description": "환불 처리 이벤트"},
+			{"name": "shipments.created", "partitions": 6, "description": "배송 생성 이벤트"},
+			{"name": "shipments.status-changed", "partitions": 6, "description": "배송 상태 변경 이벤트"},
+			{"name": "notifications.send", "partitions": 6, "description": "알림 발송 이벤트"},
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"topics":        topics,
-			"kafka_brokers": cfg.KafkaBrokers,
-			"stub_response": true,
+			"topics":      topics,
+			"total_count": len(topics),
 		})
 	}
 }

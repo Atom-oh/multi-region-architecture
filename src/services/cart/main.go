@@ -11,24 +11,59 @@ import (
 )
 
 type CartItem struct {
-	ProductID string  `json:"product_id"`
-	Name      string  `json:"name"`
-	Quantity  int     `json:"quantity"`
-	Price     float64 `json:"price"`
+	ProductID string `json:"product_id"`
+	Name      string `json:"name"`
+	Quantity  int    `json:"quantity"`
+	Price     int    `json:"price"`
+	ImageURL  string `json:"image_url"`
 }
 
 type Cart struct {
 	UserID    string     `json:"user_id"`
 	Items     []CartItem `json:"items"`
-	Total     float64    `json:"total"`
+	Total     int        `json:"total"`
+	ItemCount int        `json:"item_count"`
 	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 type AddItemRequest struct {
-	ProductID string  `json:"product_id" binding:"required"`
-	Name      string  `json:"name" binding:"required"`
-	Quantity  int     `json:"quantity" binding:"required,min=1"`
-	Price     float64 `json:"price" binding:"required,min=0"`
+	ProductID string `json:"product_id" binding:"required"`
+	Name      string `json:"name" binding:"required"`
+	Quantity  int    `json:"quantity" binding:"required,min=1"`
+	Price     int    `json:"price" binding:"required,min=0"`
+}
+
+// Mock cart data - consistent with shared IDs
+var mockCarts = map[string]Cart{
+	"USR-001": {
+		UserID: "USR-001",
+		Items: []CartItem{
+			{ProductID: "PRD-001", Name: "삼성 갤럭시 S25 울트라", Quantity: 1, Price: 1890000, ImageURL: "https://placehold.co/400x400/EEE/333?text=Galaxy+S25"},
+			{ProductID: "PRD-010", Name: "소니 WH-1000XM5", Quantity: 1, Price: 429000, ImageURL: "https://placehold.co/400x400/EEE/333?text=Sony+XM5"},
+		},
+		Total:     2319000,
+		ItemCount: 2,
+		UpdatedAt: time.Now(),
+	},
+	"USR-002": {
+		UserID: "USR-002",
+		Items: []CartItem{
+			{ProductID: "PRD-003", Name: "다이슨 에어랩", Quantity: 1, Price: 699000, ImageURL: "https://placehold.co/400x400/EEE/333?text=Dyson+Airwrap"},
+		},
+		Total:     699000,
+		ItemCount: 1,
+		UpdatedAt: time.Now(),
+	},
+	"USR-003": {
+		UserID: "USR-003",
+		Items: []CartItem{
+			{ProductID: "PRD-002", Name: "나이키 에어맥스 97", Quantity: 1, Price: 189000, ImageURL: "https://placehold.co/400x400/EEE/333?text=Nike+AirMax"},
+			{ProductID: "PRD-008", Name: "무지 캔버스 토트백", Quantity: 1, Price: 29000, ImageURL: "https://placehold.co/400x400/EEE/333?text=MUJI+Tote"},
+		},
+		Total:     218000,
+		ItemCount: 2,
+		UpdatedAt: time.Now(),
+	},
 }
 
 func main() {
@@ -36,6 +71,7 @@ func main() {
 
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))
+	r.Use(corsMiddleware())
 
 	hc := health.New()
 	hc.RegisterRoutes(r)
@@ -49,7 +85,7 @@ func main() {
 	{
 		api.GET("/carts/:userId", getCart(cfg))
 		api.POST("/carts/:userId", addItem(cfg))
-		api.DELETE("/carts/:userId", removeItem(cfg))
+		api.DELETE("/carts/:userId/items/:itemId", removeItem(cfg))
 	}
 
 	hc.SetStarted(true)
@@ -57,24 +93,36 @@ func main() {
 	r.Run(":" + cfg.Port)
 }
 
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
+}
+
 func getCart(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.Param("userId")
 
-		// Stub response - in production this would fetch from Valkey/Redis
-		cart := Cart{
-			UserID: userID,
-			Items: []CartItem{
-				{ProductID: "prod_001", Name: "Sample Product", Quantity: 2, Price: 29.99},
-			},
-			Total:     59.98,
-			UpdatedAt: time.Now(),
+		if cart, exists := mockCarts[userID]; exists {
+			cart.UpdatedAt = time.Now()
+			c.JSON(http.StatusOK, cart)
+			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"cart":          cart,
-			"cache_host":    cfg.CacheHost,
-			"stub_response": true,
+		// Return empty cart for unknown users
+		c.JSON(http.StatusOK, Cart{
+			UserID:    userID,
+			Items:     []CartItem{},
+			Total:     0,
+			ItemCount: 0,
+			UpdatedAt: time.Now(),
 		})
 	}
 }
@@ -89,20 +137,20 @@ func addItem(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		// Stub response - in production this would add to Valkey/Redis
-		cart := Cart{
-			UserID: userID,
-			Items: []CartItem{
-				{ProductID: req.ProductID, Name: req.Name, Quantity: req.Quantity, Price: req.Price},
-			},
-			Total:     req.Price * float64(req.Quantity),
-			UpdatedAt: time.Now(),
+		// Simulate adding item
+		newItem := CartItem{
+			ProductID: req.ProductID,
+			Name:      req.Name,
+			Quantity:  req.Quantity,
+			Price:     req.Price,
+			ImageURL:  "https://placehold.co/400x400/EEE/333?text=Product",
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":       "item added to cart",
-			"cart":          cart,
-			"stub_response": true,
+			"message":    "상품이 장바구니에 추가되었습니다",
+			"user_id":    userID,
+			"item":       newItem,
+			"updated_at": time.Now(),
 		})
 	}
 }
@@ -110,19 +158,13 @@ func addItem(cfg *config.Config) gin.HandlerFunc {
 func removeItem(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.Param("userId")
-		productID := c.Query("product_id")
+		itemID := c.Param("itemId")
 
-		if productID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "product_id query parameter required"})
-			return
-		}
-
-		// Stub response - in production this would remove from Valkey/Redis
 		c.JSON(http.StatusOK, gin.H{
-			"message":       "item removed from cart",
-			"user_id":       userID,
-			"product_id":    productID,
-			"stub_response": true,
+			"message":    "상품이 장바구니에서 삭제되었습니다",
+			"user_id":    userID,
+			"item_id":    itemID,
+			"removed_at": time.Now(),
 		})
 	}
 }
