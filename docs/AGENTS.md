@@ -9,6 +9,7 @@ Technical design documents and architecture diagrams for the multi-region shoppi
 ## Key Files
 | File | Description |
 |------|-------------|
+
 | `deployment-design.md` | Infrastructure design, GitOps patterns, security, cost estimates |
 | `deployment-execution-plan.md` | Step-by-step deployment phases (Terraform, ArgoCD, verification) |
 | `argocd-gitops-design.md` | App-of-ApplicationSets pattern for multi-cluster GitOps |

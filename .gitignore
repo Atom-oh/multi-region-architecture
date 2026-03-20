@@ -18,6 +18,9 @@ terraform.rc
 .DS_Store
 Thumbs.db
 
+# Discussion files
+discussion/
+
 # IDE
 .idea/
 .vscode/

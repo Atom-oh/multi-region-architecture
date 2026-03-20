@@ -23,8 +23,8 @@ resource "aws_lb_target_group" "this" {
   health_check {
     enabled             = true
     protocol            = "HTTP"
-    port                = "traffic-port"
-    path                = var.health_check_path
+    port                = "8080"
+    path                = "/health/ready"
     healthy_threshold   = 3
     unhealthy_threshold = 3
     interval            = 10

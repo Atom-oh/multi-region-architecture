@@ -82,6 +82,39 @@ module "kms" {
   tags        = var.tags
 }
 
+# Override S3 KMS key policy to allow CloudFront OAC decryption
+resource "aws_kms_key_policy" "s3_cloudfront" {
+  key_id = module.kms.key_ids["s3"]
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableIAMUserPermissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::180294183052:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudFrontServicePrincipal"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
+        Action   = "kms:Decrypt"
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = module.cloudfront.distribution_arn
+          }
+        }
+      }
+    ]
+  })
+}
+
 module "secrets_manager" {
   source = "../../../modules/security/secrets-manager"
 
