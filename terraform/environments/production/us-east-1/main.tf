@@ -292,7 +292,7 @@ module "cloudfront" {
   static_assets_bucket_domain_name = module.s3.static_assets_bucket_domain_name
   static_assets_bucket_id          = module.s3.static_assets_bucket_id
   api_domain_name                  = "api-internal.${var.domain_name}"
-  waf_web_acl_id                   = module.waf.web_acl_arn
+  waf_web_acl_id                   = "" # temporarily disabled — WAF Bot Control blocks curl/headless browsers
   tags                             = var.tags
 }
 
