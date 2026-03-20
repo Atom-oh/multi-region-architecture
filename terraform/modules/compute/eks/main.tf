@@ -296,6 +296,24 @@ resource "aws_eks_addon" "coredns" {
     nodeSelector = {
       role = "system"
     }
+    affinity = {
+      podAntiAffinity = {
+        requiredDuringSchedulingIgnoredDuringExecution = [
+          {
+            labelSelector = {
+              matchExpressions = [
+                {
+                  key      = "k8s-app"
+                  operator = "In"
+                  values   = ["kube-dns"]
+                }
+              ]
+            }
+            topologyKey = "kubernetes.io/hostname"
+          }
+        ]
+      }
+    }
   })
 
   tags = var.tags

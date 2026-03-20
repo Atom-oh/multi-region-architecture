@@ -41,6 +41,16 @@ spec:
                 effect: NoSchedule
             nodeSelector:
               role: system
+            affinity:
+              podAntiAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  - labelSelector:
+                      matchExpressions:
+                        - key: app.kubernetes.io/name
+                          operator: In
+                          values:
+                            - karpenter
+                    topologyKey: kubernetes.io/hostname
       destination:
         server: '{{server}}'
         namespace: karpenter
