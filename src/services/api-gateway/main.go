@@ -1,7 +1,9 @@
 package main
 
 import (
+	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/multi-region-mall/shared/pkg/config"
@@ -35,16 +37,28 @@ func main() {
 		})
 	})
 
-	// Proxy routes to backend services (stub responses)
+	// Reverse proxy routes to backend K8s services
 	api := r.Group("/api/v1")
 	{
-		api.Any("/products/*path", proxyHandler("product-catalog-service"))
-		api.Any("/inventory/*path", proxyHandler("inventory-service"))
-		api.Any("/carts/*path", proxyHandler("cart-service"))
-		api.Any("/search/*path", proxyHandler("search-service"))
-		api.Any("/orders/*path", proxyHandler("order-service"))
-		api.Any("/users/*path", proxyHandler("user-service"))
-		api.Any("/events/*path", proxyHandler("event-bus"))
+		api.Any("/products/*path", reverseProxy("product-catalog.core-services.svc.cluster.local:80"))
+		api.Any("/inventory/*path", reverseProxy("inventory.core-services.svc.cluster.local:80"))
+		api.Any("/carts/*path", reverseProxy("cart.core-services.svc.cluster.local:80"))
+		api.Any("/search/*path", reverseProxy("search.core-services.svc.cluster.local:80"))
+		api.Any("/orders/*path", reverseProxy("order.core-services.svc.cluster.local:80"))
+		api.Any("/payments/*path", reverseProxy("payment.core-services.svc.cluster.local:80"))
+		api.Any("/users/*path", reverseProxy("user-account.user-services.svc.cluster.local:80"))
+		api.Any("/profiles/*path", reverseProxy("user-profile.user-services.svc.cluster.local:80"))
+		api.Any("/wishlists/*path", reverseProxy("wishlist.user-services.svc.cluster.local:80"))
+		api.Any("/reviews/*path", reverseProxy("review.user-services.svc.cluster.local:80"))
+		api.Any("/shipments/*path", reverseProxy("shipping.fulfillment.svc.cluster.local:80"))
+		api.Any("/returns/*path", reverseProxy("returns.fulfillment.svc.cluster.local:80"))
+		api.Any("/warehouses/*path", reverseProxy("warehouse.fulfillment.svc.cluster.local:80"))
+		api.Any("/prices/*path", reverseProxy("pricing.business-services.svc.cluster.local:80"))
+		api.Any("/recommendations/*path", reverseProxy("recommendation.business-services.svc.cluster.local:80"))
+		api.Any("/notifications/*path", reverseProxy("notification.business-services.svc.cluster.local:80"))
+		api.Any("/sellers/*path", reverseProxy("seller.business-services.svc.cluster.local:80"))
+		api.Any("/events/*path", reverseProxy("event-bus.platform.svc.cluster.local:80"))
+		api.Any("/analytics/*path", reverseProxy("analytics.platform.svc.cluster.local:80"))
 	}
 
 	hc.SetStarted(true)
@@ -65,14 +79,44 @@ func corsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func proxyHandler(service string) gin.HandlerFunc {
+func reverseProxy(target string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Stub response - in production this would proxy to the actual service
-		c.JSON(http.StatusOK, gin.H{
-			"message":       "proxied to " + service,
-			"path":          c.Param("path"),
-			"stub_response": true,
-		})
+		path := c.Param("path")
+		if path == "/" {
+			path = ""
+		}
+		// Build upstream URL: /api/v1/products/PRD-001 -> product-catalog:80/api/v1/products/PRD-001
+		upstreamURL := "http://" + target + c.Request.URL.Path
+		if c.Request.URL.RawQuery != "" {
+			upstreamURL += "?" + c.Request.URL.RawQuery
+		}
+
+		req, err := http.NewRequestWithContext(c.Request.Context(), c.Request.Method, upstreamURL, c.Request.Body)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to create request"})
+			return
+		}
+		for k, v := range c.Request.Header {
+			if !strings.EqualFold(k, "Host") {
+				req.Header[k] = v
+			}
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "upstream unreachable", "target": target})
+			return
+		}
+		defer resp.Body.Close()
+
+		for k, v := range resp.Header {
+			for _, vv := range v {
+				c.Header(k, vv)
+			}
+		}
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Status(resp.StatusCode)
+		io.Copy(c.Writer, resp.Body)
 	}
 }
 
