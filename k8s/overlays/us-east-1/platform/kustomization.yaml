@@ -6,6 +6,13 @@ resources:
 
 patches:
   - target:
+      kind: TargetGroupBinding
+      name: api-gateway-tgb
+    patch: |-
+      - op: replace
+        path: /spec/targetGroupARN
+        value: "arn:aws:elasticloadbalancing:us-east-1:180294183052:targetgroup/production-api-tg-us-east-1/3d190a4dd7c161bd"
+  - target:
       kind: Deployment
     patch: |-
       - op: add
