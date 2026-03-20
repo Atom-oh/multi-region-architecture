@@ -28,9 +28,9 @@ spec:
       serviceAccountName: returns
       containers:
         - name: returns
-          image: nginx:alpine
+          image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/returns:latest
           ports:
-            - containerPort: 80
+            - containerPort: 8080
               name: http
           env:
             - name: AWS_REGION
@@ -52,20 +52,20 @@ spec:
               memory: 1Gi
           readinessProbe:
             httpGet:
-              path: /
-              port: 80
+              path: /health/ready
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /
-              port: 80
+              path: /health/live
+              port: 8080
             initialDelaySeconds: 15
             periodSeconds: 10
           startupProbe:
             httpGet:
-              path: /
-              port: 80
+              path: /health/startup
+              port: 8080
             failureThreshold: 30
             periodSeconds: 10
       topologySpreadConstraints:
@@ -86,7 +86,7 @@ spec:
     app: returns
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: 8080
       protocol: TCP
       name: http
   type: ClusterIP
