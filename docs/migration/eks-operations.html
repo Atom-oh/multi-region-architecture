@@ -193,15 +193,15 @@
     <span class="hl-key">name:</span> ccdi-processor
   <span class="hl-key">minReplicaCount:</span> <span class="hl-num">3</span>
   <span class="hl-key">maxReplicaCount:</span> <span class="hl-num">30</span>
-  <span class="hl-key">cooldownPeriod:</span> <span class="hl-num">300</span>        <span class="hl-cm"># 5분 cooldown</span>
-  <span class="hl-key">pollingInterval:</span> <span class="hl-num">30</span>       <span class="hl-cm"># 30초마다 체크</span>
+  <span class="hl-key">cooldownPeriod:</span> <span class="hl-num">300</span>        <span class="hl-cm"># 5 min cooldown</span>
+  <span class="hl-key">pollingInterval:</span> <span class="hl-num">30</span>       <span class="hl-cm"># check every 30 sec</span>
   <span class="hl-key">triggers:</span>
     - <span class="hl-key">type:</span> kafka
       <span class="hl-key">metadata:</span>
         <span class="hl-key">bootstrapServers:</span> <span class="hl-str">"b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096"</span>
         <span class="hl-key">consumerGroup:</span> ccdi-processor-group
         <span class="hl-key">topic:</span> vss-data
-        <span class="hl-key">lagThreshold:</span> <span class="hl-str">"1000"</span>   <span class="hl-cm"># lag 1000 초과 시 스케일 아웃</span>
+        <span class="hl-key">lagThreshold:</span> <span class="hl-str">"1000"</span>   <span class="hl-cm"># scale out when lag exceeds 1000</span>
         <span class="hl-key">sasl:</span> scram_sha512
         <span class="hl-key">tls:</span> enable</code><span class="code-label">yaml</span></pre>
 
@@ -249,12 +249,12 @@
                                 <tr><th>NodePool</th><th><span class="lang-ko">용도</span><span class="lang-en">Purpose</span></th><th>Instance Family</th><th>Capacity</th><th>Weight</th></tr>
                             </thead>
                             <tbody>
-                                <tr><td><strong>general</strong></td><td><span class="lang-ko">범용 워크로드</span><span class="lang-en">General workloads</span></td><td>m6i/m6g/m7i/m7g, c6i/c6g/c7i/c7g, r6i/r6g/r7i/r7g</td><td>Spot + On-Demand</td><td>70</td></tr>
+                                <tr><td><strong>general</strong></td><td><span class="lang-ko">범용 워크로드</span><span class="lang-en">General workloads</span></td><td>m6i/m7i, c6i/c7i, r6i/r7i</td><td>Spot + On-Demand</td><td>70</td></tr>
                                 <tr><td><strong>critical</strong></td><td><span class="lang-ko">결제/주문 미션 크리티컬</span><span class="lang-en">Payment/order mission-critical</span></td><td>m6i/m7i</td><td>On-Demand only</td><td>100</td></tr>
-                                <tr><td><strong>api-tier</strong></td><td><span class="lang-ko">API Gateway, 프론트 서비스</span><span class="lang-en">API Gateway, front services</span></td><td>c6i/c6g/c7i/c7g</td><td>Spot + On-Demand</td><td>80</td></tr>
-                                <tr><td><strong>worker-tier</strong></td><td><span class="lang-ko">백그라운드 프로세싱</span><span class="lang-en">Background processing</span></td><td>m6i/m6g</td><td>Spot preferred</td><td>50</td></tr>
-                                <tr><td><strong>batch-tier</strong></td><td><span class="lang-ko">배치 작업, 분석</span><span class="lang-en">Batch jobs, analytics</span></td><td>c6i/c6g</td><td>Spot only</td><td>30</td></tr>
-                                <tr><td><strong>memory-tier</strong></td><td><span class="lang-ko">캐시, 검색 엔진</span><span class="lang-en">Cache, search engine</span></td><td>r6i/r6g/r7i/r7g</td><td>Spot + On-Demand</td><td>60</td></tr>
+                                <tr><td><strong>api-tier</strong></td><td><span class="lang-ko">API Gateway, 프론트 서비스</span><span class="lang-en">API Gateway, front services</span></td><td>c6i/c7i</td><td>Spot + On-Demand</td><td>80</td></tr>
+                                <tr><td><strong>worker-tier</strong></td><td><span class="lang-ko">백그라운드 프로세싱</span><span class="lang-en">Background processing</span></td><td>m6i</td><td>Spot preferred</td><td>50</td></tr>
+                                <tr><td><strong>batch-tier</strong></td><td><span class="lang-ko">배치 작업, 분석</span><span class="lang-en">Batch jobs, analytics</span></td><td>c6i</td><td>Spot only</td><td>30</td></tr>
+                                <tr><td><strong>memory-tier</strong></td><td><span class="lang-ko">캐시, 검색 엔진</span><span class="lang-en">Cache, search engine</span></td><td>r6i/r7i</td><td>Spot + On-Demand</td><td>60</td></tr>
                             </tbody>
                         </table>
 
@@ -288,17 +288,11 @@
           <span class="hl-key">operator:</span> In
           <span class="hl-key">values:</span>
             - <span class="hl-str">m6i</span>
-            - <span class="hl-str">m6g</span>
             - <span class="hl-str">m7i</span>
-            - <span class="hl-str">m7g</span>
             - <span class="hl-str">c6i</span>
-            - <span class="hl-str">c6g</span>
             - <span class="hl-str">c7i</span>
-            - <span class="hl-str">c7g</span>
             - <span class="hl-str">r6i</span>
-            - <span class="hl-str">r6g</span>
             - <span class="hl-str">r7i</span>
-            - <span class="hl-str">r7g</span>
         - <span class="hl-key">key:</span> karpenter.k8s.aws/instance-size
           <span class="hl-key">operator:</span> In
           <span class="hl-key">values:</span>
@@ -321,7 +315,7 @@
   <span class="hl-key">name:</span> default
 <span class="hl-key">spec:</span>
   <span class="hl-key">amiSelectorTerms:</span>
-    - <span class="hl-key">alias:</span> al2023@latest      <span class="hl-cm"># Amazon Linux 2023 최신</span>
+    - <span class="hl-key">alias:</span> al2023@latest      <span class="hl-cm"># Amazon Linux 2023 latest</span>
   <span class="hl-key">blockDeviceMappings:</span>
     - <span class="hl-key">deviceName:</span> /dev/xvda
       <span class="hl-key">ebs:</span>
@@ -331,10 +325,10 @@
         <span class="hl-key">throughput:</span> <span class="hl-num">125</span>
         <span class="hl-key">encrypted:</span> <span class="hl-num">true</span>
         <span class="hl-key">deleteOnTermination:</span> <span class="hl-num">true</span>
-  <span class="hl-key">role:</span> multi-region-mall-node-group   <span class="hl-cm"># IAM role (글로벌, 양 리전 동일)</span>
+  <span class="hl-key">role:</span> multi-region-mall-node-group   <span class="hl-cm"># IAM role (global, same in both regions)</span>
   <span class="hl-key">subnetSelectorTerms:</span>
     - <span class="hl-key">tags:</span>
-        <span class="hl-key">Tier:</span> private              <span class="hl-cm"># private 서브넷만 사용</span>
+        <span class="hl-key">Tier:</span> private              <span class="hl-cm"># use private subnets only</span>
   <span class="hl-key">securityGroupSelectorTerms:</span>
     - <span class="hl-key">tags:</span>
         <span class="hl-key">karpenter.sh/discovery:</span> multi-region-mall
@@ -343,10 +337,10 @@
     <span class="hl-key">ManagedBy:</span> karpenter</code><span class="code-label">yaml</span></pre>
 
                         <div class="callout tip" style="margin-top:12px;">
-                            <strong><span class="lang-ko">Spot + Graviton 전략</span><span class="lang-en">Spot + Graviton Strategy</span></strong>
-                            <span class="lang-ko">General NodePool은 amd64/arm64 모두 허용하여 Graviton 인스턴스를 활용합니다.
+                            <strong><span class="lang-ko">Spot 전략</span><span class="lang-en">Spot Strategy</span></strong>
+                            <span class="lang-ko">현재는 amd64 인스턴스만 사용하지만, arm64(Graviton) 추가 시 비용 최적화가 가능합니다.
                             Spot 인스턴스 중단 시 Karpenter가 자동으로 대체 노드를 프로비저닝하며,
-                            <code>consolidateAfter: 30s</code>로 빈 노드를 빠르게 정리합니다.</span><span class="lang-en">General NodePool allows both amd64/arm64 to utilize Graviton instances.
+                            <code>consolidateAfter: 30s</code>로 빈 노드를 빠르게 정리합니다.</span><span class="lang-en">Currently using amd64 instances only, but adding arm64 (Graviton) can further optimize costs.
                             When Spot instances are interrupted, Karpenter automatically provisions replacement nodes,
                             and <code>consolidateAfter: 30s</code> quickly cleans up empty nodes.</span>
                         </div>
@@ -409,7 +403,7 @@
             <span class="hl-key">maxDuration:</span> 3m</code><span class="code-label">yaml</span></pre>
 
                         <h4><span class="lang-ko">Kustomize Overlay - 리전별 ConfigMap</span><span class="lang-en">Kustomize Overlay - Per-Region ConfigMap</span></h4>
-                        <p><code>k8s/overlays/us-east-1/kustomization.yaml</code> (발췌)</p>
+                        <p><code>k8s/overlays/us-east-1/kustomization.yaml</code> <span class="lang-ko">(발췌)</span><span class="lang-en">(excerpt)</span></p>
 <pre><code><span class="hl-key">configMapGenerator:</span>
   - <span class="hl-key">name:</span> region-config
     <span class="hl-key">namespace:</span> platform
@@ -436,7 +430,7 @@
                         </ol>
 
                         <div class="callout info" style="margin-top:12px;">
-                            <strong>HAEA CMC Workshop Request #1</strong>
+                            <strong>HAEA CMC (Connected Mobility Center) Workshop Request #1</strong>
                             <span class="lang-ko">GitLab On-Prem에서 AWS까지 CI/CD 파이프라인 구축 워크샵이 요청되었습니다.
                             GitLab Runner 설정, ECR 인증, ArgoCD Image Updater 통합을 다룰 예정입니다.</span><span class="lang-en">Workshop requested for building CI/CD pipeline from GitLab On-Prem to AWS.
                             Will cover GitLab Runner setup, ECR authentication, and ArgoCD Image Updater integration.</span>

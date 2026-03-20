@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step 4: Traffic Distribution - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>Step 4</span></div>
+
+                <h1>Step 4: <span class="lang-ko">트래픽 분산 시작</span><span class="lang-en">Traffic Distribution Start</span> (7:1.5:1.5)</h1>
+                <p class="lead">
+                    <span class="lang-ko">CloudFront Origin Group을 통해 AWS 리전으로 트래픽 분산을 시작합니다.
+                    Route53 latency-based routing과 Health Check로 리전간 failover를 보장합니다.</span><span class="lang-en">Begin traffic distribution to AWS regions via CloudFront Origin Group.
+                    Route53 latency-based routing and Health Check ensure cross-region failover.</span>
+                </p>
+
+                <div class="callout info">
+                    <strong><span class="lang-ko">트래픽 분배</span><span class="lang-en">Traffic Distribution</span></strong>
+                    On-Prem 70% / us-west-2 15% / us-east-1 15% &mdash; <span class="lang-ko">AWS 리전으로 30% 트래픽 전환</span><span class="lang-en">30% traffic shift to AWS regions</span>
+                </div>
+
+                <!-- ===== Card 4-1: Latency-based Routing ===== -->
+                <h2 id="latency-routing">Latency-based <span class="lang-ko">라우팅</span><span class="lang-en">Routing</span></h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Route53 Latency-based Routing + Health Check</span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Route53의 <strong>Latency-based Routing</strong>은 사용자 위치에서 가장 낮은 지연 시간을 가진 리전으로 DNS를 라우팅합니다.
+                            각 리전의 NLB에 대해 Health Check를 설정하여, 한 리전이 다운되면 자동으로 다른 리전으로 failover됩니다.</span><span class="lang-en">Route53's <strong>Latency-based Routing</strong> routes DNS to the region with lowest latency from the user's location.
+                            Health Checks are configured for each region's NLB, enabling automatic failover to another region when one goes down.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">Route53 Terraform 정의</span><span class="lang-en">Route53 Terraform Definition</span></h4>
+                        <p><code>terraform/modules/edge/route53/main.tf</code></p>
+<pre><code><span class="hl-cm"># Health Check (per region)</span>
+<span class="hl-kw">resource</span> <span class="hl-str">"aws_route53_health_check"</span> <span class="hl-str">"regional"</span> {
+  for_each = var.lb_dns_names
+
+  fqdn              = each.value
+  port              = <span class="hl-num">80</span>
+  type              = <span class="hl-str">"HTTP"</span>
+  resource_path     = var.health_check_path
+  request_interval  = var.health_check_interval
+  failure_threshold = var.health_check_failure_threshold
+
+  tags = <span class="hl-fn">merge</span>(var.tags, {
+    Name   = <span class="hl-str">"${var.environment}-${each.key}-health-check"</span>
+    Region = each.key
+  })
+}
+
+<span class="hl-cm"># Latency-based Routing (per region)</span>
+<span class="hl-kw">resource</span> <span class="hl-str">"aws_route53_record"</span> <span class="hl-str">"api_latency"</span> {
+  for_each = var.lb_dns_names
+
+  zone_id = var.zone_id
+  name    = <span class="hl-str">"api-internal.${data.aws_route53_zone.main.name}"</span>
+  type    = <span class="hl-str">"A"</span>
+
+  alias {
+    name                   = each.value
+    zone_id                = var.lb_zone_ids[each.key]
+    evaluate_target_health = <span class="hl-num">true</span>
+  }
+
+  set_identifier = each.key
+
+  latency_routing_policy {
+    region = each.key
+  }
+
+  health_check_id = aws_route53_health_check.regional[each.key].id
+}
+
+<span class="hl-cm"># CloudWatch Alarm (Health Check monitoring)</span>
+<span class="hl-kw">resource</span> <span class="hl-str">"aws_cloudwatch_metric_alarm"</span> <span class="hl-str">"health_check"</span> {
+  for_each = var.lb_dns_names
+
+  alarm_name          = <span class="hl-str">"${var.environment}-${each.key}-health-check-alarm"</span>
+  comparison_operator = <span class="hl-str">"LessThanThreshold"</span>
+  evaluation_periods  = <span class="hl-num">2</span>
+  metric_name         = <span class="hl-str">"HealthCheckStatus"</span>
+  namespace           = <span class="hl-str">"AWS/Route53"</span>
+  period              = <span class="hl-num">60</span>
+  threshold           = <span class="hl-num">1</span>
+  treat_missing_data  = <span class="hl-str">"breaching"</span>
+}</code><span class="code-label">hcl</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">for_each 패턴</span><span class="lang-en">for_each Pattern</span></strong>
+                            <span class="lang-ko"><code>for_each = var.lb_dns_names</code>로 리전별 Health Check, DNS Record, CloudWatch Alarm을 한번에 생성합니다.
+                            새 리전을 추가할 때 변수에 엔트리만 추가하면 모든 리소스가 자동으로 생성됩니다.</span><span class="lang-en">With <code>for_each = var.lb_dns_names</code>, Health Check, DNS Record, and CloudWatch Alarm are created per region at once.
+                            When adding a new region, just add an entry to the variable and all resources are automatically created.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 4-2: Failover Mechanism ===== -->
+                <h2 id="failover"><span class="lang-ko">리전간 Failover 메커니즘</span><span class="lang-en">Cross-Region Failover Mechanism</span></h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Aurora Global Write Forwarding + Route53 Failover</span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">리전 장애 시 두 계층에서 failover가 발생합니다:
+                            (1) <strong>DNS 레벨</strong>에서 Route53 Health Check가 장애 리전을 감지하고 트래픽을 전환하고,
+                            (2) <strong>데이터 레벨</strong>에서 Aurora Global Database가 Secondary를 Primary로 승격합니다.</span><span class="lang-en">During regional failure, failover occurs at two layers:
+                            (1) At the <strong>DNS level</strong>, Route53 Health Check detects the failed region and redirects traffic,
+                            (2) At the <strong>data level</strong>, Aurora Global Database promotes Secondary to Primary.</span>
+                        </p>
+
+                        <h4>Aurora Global Write Forwarding</h4>
+                        <div class="callout info">
+                            <strong><span class="lang-ko">DSQL vs Aurora Write Forwarding</span><span class="lang-en">DSQL vs Aurora Write Forwarding</span></strong>
+                            <span class="lang-ko">DSQL은 Active-Active이므로 Write Forwarding이 불필요합니다.
+                            아래 Aurora Write Forwarding 설명은 DocumentDB 등 Write-Primary 패턴을
+                            사용하는 서비스의 failover 메커니즘을 보여줍니다.</span><span class="lang-en">DSQL is Active-Active, so Write Forwarding is unnecessary.
+                            The Aurora Write Forwarding explanation below illustrates the failover mechanism
+                            for services using Write-Primary patterns such as DocumentDB.</span>
+                        </div>
+                        <p style="margin-bottom:8px;"><em><span class="lang-ko">Step 3에서 리전간 동기화를 활성화했지만, Aurora의 Write Forwarding은 실제 트래픽이 양 리전에 분산되는 이 단계에서 동작하기 시작합니다.</span><span class="lang-en">Cross-region sync was activated in Step 3, but Aurora's Write Forwarding begins operating at this stage when actual traffic is distributed across both regions.</span></em></p>
+                        <p><code>terraform/modules/data/aurora-global/main.tf</code> (발췌)</p>
+<pre><code><span class="hl-cm"># Secondary cluster: Enable Write Forwarding</span>
+source_region                  = var.is_primary ? <span class="hl-num">null</span> : var.source_region
+enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</span> : var.enable_write_forwarding</code><span class="code-label">hcl</span></pre>
+
+                        <h4><span class="lang-ko">Failover 시나리오</span><span class="lang-en">Failover Scenarios</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">시나리오</span><span class="lang-en">Scenario</span></th><th><span class="lang-ko">감지 시간</span><span class="lang-en">Detection Time</span></th><th><span class="lang-ko">복구 방법</span><span class="lang-en">Recovery Method</span></th><th><span class="lang-ko">데이터 손실</span><span class="lang-en">Data Loss</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="lang-ko">us-east-1 장애</span><span class="lang-en">us-east-1 failure</span></td>
+                                    <td>~60s (Health Check)</td>
+                                    <td><span class="lang-ko">Route53가 us-west-2로 자동 전환</span><span class="lang-en">Route53 auto-switches to us-west-2</span></td>
+                                    <td><span class="lang-ko">DSQL: 없음 / DocumentDB: RPO &lt;5s / MSK: RPO &lt;5s</span><span class="lang-en">DSQL: None / DocumentDB: RPO &lt;5s / MSK: RPO &lt;5s</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">us-west-2 장애</span><span class="lang-en">us-west-2 failure</span></td>
+                                    <td>~60s</td>
+                                    <td><span class="lang-ko">Route53가 us-east-1로 자동 전환</span><span class="lang-en">Route53 auto-switches to us-east-1</span></td>
+                                    <td><span class="lang-ko">DSQL: 없음 / DocumentDB: RPO &lt;5s / MSK: RPO &lt;5s</span><span class="lang-en">DSQL: None / DocumentDB: RPO &lt;5s / MSK: RPO &lt;5s</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">Aurora Primary 장애</span><span class="lang-en">Aurora Primary failure</span></td>
+                                    <td>~120s</td>
+                                    <td><span class="lang-ko">Global Database failover (Secondary 승격)</span><span class="lang-en">Global Database failover (Secondary promotion)</span></td>
+                                    <td>RPO (Recovery Point Objective) &lt; 1s</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">단일 AZ 장애</span><span class="lang-en">Single AZ failure</span></td>
+                                    <td>~30s</td>
+                                    <td><span class="lang-ko">Multi-AZ 자동 전환 (리전 내)</span><span class="lang-en">Multi-AZ auto-switch (within region)</span></td>
+                                    <td><span class="lang-ko">없음</span><span class="lang-en">None</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Write Forwarding 주의</span><span class="lang-en">Write Forwarding Caution</span></strong>
+                            <span class="lang-ko">Aurora의 <code>enable_global_write_forwarding</code>은 Secondary에서의 쓰기 요청을 Primary로 전달합니다.
+                            추가 지연 (~100ms cross-region)이 발생하므로, 쓰기 빈도가 높은 서비스는 Primary 리전에서 직접 처리하는 것이 좋습니다.
+                            DSQL은 이 제약이 없어 양 리전에서 동등하게 쓰기 가능합니다.</span><span class="lang-en">Aurora's <code>enable_global_write_forwarding</code> forwards write requests from Secondary to Primary.
+                            Additional latency (~100ms cross-region) occurs, so write-intensive services should process directly in the Primary region.
+                            DSQL has no such limitation, allowing equal writes from both regions.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 4-3: Canary Deployment ===== -->
+                <h2 id="canary">Canary <span class="lang-ko">배포 전략</span><span class="lang-en">Deployment Strategy</span></h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">점진적 트래픽 전환과 롤백 전략</span><span class="lang-en">Gradual Traffic Shift & Rollback Strategy</span></span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">On-Prem에서 AWS로의 트래픽 전환은 <strong>Canary 방식</strong>으로 점진적으로 수행합니다.
+                            각 단계에서 에러율과 지연 시간을 모니터링하고, 문제 발생 시 즉시 이전 단계로 롤백합니다.</span><span class="lang-en">Traffic shift from On-Prem to AWS is performed gradually using <strong>Canary deployment</strong>.
+                            Monitor error rates and latency at each stage, and rollback immediately to the previous stage if issues occur.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">트래픽 전환 일정</span><span class="lang-en">Traffic Shift Schedule</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th>Phase</th><th>On-Prem</th><th>West</th><th>East</th><th><span class="lang-ko">검증 항목</span><span class="lang-en">Verification Items</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>Step 1</td><td>90%</td><td>10%</td><td>0%</td><td><span class="lang-ko">기본 연결성, 응답 시간</span><span class="lang-en">Basic connectivity, response time</span></td></tr>
+                                <tr><td>Step 4</td><td>70%</td><td>15%</td><td>15%</td><td><span class="lang-ko">양 리전 동시 트래픽 처리</span><span class="lang-en">Simultaneous traffic handling in both regions</span></td></tr>
+                                <tr><td>Step 5</td><td>50%</td><td>25%</td><td>25%</td><td><span class="lang-ko">데이터 일관성, 동기화 지연</span><span class="lang-en">Data consistency, sync latency</span></td></tr>
+                                <tr><td>Step 6</td><td>0%</td><td>50%</td><td>50%</td><td><span class="lang-ko">On-Prem 의존성 완전 제거</span><span class="lang-en">Complete On-Prem dependency removal</span></td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">롤백 기준 (자동)</span><span class="lang-en">Rollback Criteria (Automatic)</span></h4>
+<pre><code><span class="hl-cm"># CloudWatch Alarm-based rollback trigger</span>
+Error Rate   > 1%     <span class="hl-cm"># Error rate exceeds 1% for 5 minutes</span>
+P99 (99th percentile) Latency  > 3s     <span class="hl-cm"># P99 response time exceeds 3 seconds</span>
+Health Check  FAIL    <span class="hl-cm"># Route53 Health Check failure</span>
+Data Lag     > 30s    <span class="hl-cm"># Cross-region data sync delay exceeds 30 seconds</span>
+
+<span class="hl-cm"># Rollback procedure</span>
+1. Restore CloudFront Origin Group weight to previous stage
+2. Manually change Route53 record to prioritize On-Prem
+3. Retry after root cause analysis</code><span class="code-label">text</span></pre>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="step-3.html"><span class="label">Previous</span><span class="title">&larr; Step 3: <span class="lang-ko">리전간 동기화</span><span class="lang-en">Cross-Region Sync</span></span></a>
+                    <a href="step-5.html" class="next"><span class="label">Next</span><span class="title">Step 5: <span class="lang-ko">AWS 확대</span><span class="lang-en">AWS Scale-Up</span> &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#latency-routing" class="toc-link"><span class="lang-ko">Latency-based 라우팅</span><span class="lang-en">Latency-based Routing</span></a>
+            <a href="#failover" class="toc-link"><span class="lang-ko">리전간 Failover</span><span class="lang-en">Cross-Region Failover</span></a>
+            <a href="#canary" class="toc-link"><span class="lang-ko">Canary 배포 전략</span><span class="lang-en">Canary Deployment</span></a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

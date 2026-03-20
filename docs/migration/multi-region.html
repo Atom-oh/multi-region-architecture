@@ -82,15 +82,16 @@
                             </tbody>
                         </table>
 
-                        <h4>PACELC Extension for CCS</h4>
-<pre><code><span class="hl-cm"># PACELC: Partition 발생 시 A vs C, 정상 시 Latency vs Consistency</span>
+                        <h4><span class="lang-ko">CCS를 위한 PACELC 확장</span><span class="lang-en">PACELC Extension for CCS</span></h4>
+<pre><code><span class="hl-cm"># PACELC (Partition→AC, Else→LC) — Extension of CAP Theorem</span>
+<span class="hl-cm"># On Partition: A vs C, Normal: Latency vs Consistency</span>
 <span class="hl-cm"># Cross-region RTT: ~60ms (us-east-1 ↔ us-west-2)</span>
 
-<span class="hl-key">CCDI:</span>       P→C, E→C   <span class="hl-cm"># 항상 일관성 우선 (차량 데이터 무결성)</span>
-<span class="hl-key">GIS:</span>        P→A, E→L   <span class="hl-cm"># 정상 시에도 레이턴시 우선 (실시간 경로 안내)</span>
-<span class="hl-key">CPX:</span>        P→A, E→L   <span class="hl-cm"># 콘텐츠는 stale 허용, CDN 캐시 활용</span>
-<span class="hl-key">ServiceHub:</span> P→C, E→L   <span class="hl-cm"># 정상 시 레이턴시, 장애 시 일관성</span>
-<span class="hl-key">CUS:</span>        P→A, E→L   <span class="hl-cm"># OTA는 지연 허용, 최종 전달만 보장</span></code><span class="code-label">text</span></pre>
+<span class="hl-key">CCDI:</span>       P→C, E→C   <span class="hl-cm"># Always consistency first (vehicle data integrity)</span>
+<span class="hl-key">GIS:</span>        P→A, E→L   <span class="hl-cm"># Latency first even in normal state (real-time navigation)</span>
+<span class="hl-key">CPX:</span>        P→A, E→L   <span class="hl-cm"># Stale content allowed, use CDN cache</span>
+<span class="hl-key">ServiceHub:</span> P→C, E→L   <span class="hl-cm"># Latency in normal, consistency on failure</span>
+<span class="hl-key">CUS:</span>        P→A, E→L   <span class="hl-cm"># OTA allows delay, only guarantee eventual delivery</span></code><span class="code-label">text</span></pre>
 
                         <div class="callout tip">
                             <strong>Cross-Region Latency Budget</strong>
@@ -118,13 +119,13 @@
                         </p>
 
                         <h4><span class="lang-ko">격리 계층 (Isolation Layers)</span><span class="lang-en">Isolation Layers</span></h4>
-<pre><code><span class="hl-cm"># 장애 격리 계층 (안쪽 → 바깥쪽)</span>
+<pre><code><span class="hl-cm"># Failure Isolation Layers (inner → outer)</span>
 
-L1: <span class="hl-str">Pod-level</span>        <span class="hl-cm"># Pod crash → K8s 자동 재시작 (~5s)</span>
-L2: <span class="hl-str">Node-level</span>       <span class="hl-cm"># Node 장애 → Karpenter 대체 노드 (~60s)</span>
-L3: <span class="hl-str">AZ-level</span>         <span class="hl-cm"># AZ 장애 → Multi-AZ 자동 전환</span>
-L4: <span class="hl-str">Region-level</span>     <span class="hl-cm"># 리전 장애 → Route53 failover (~60-120s)</span>
-L5: <span class="hl-str">Global-level</span>     <span class="hl-cm"># CloudFront/WAF → 글로벌 엣지 방어</span></code><span class="code-label">text</span></pre>
+L1: <span class="hl-str">Pod-level</span>        <span class="hl-cm"># Pod crash → K8s auto-restart (~5s)</span>
+L2: <span class="hl-str">Node-level</span>       <span class="hl-cm"># Node failure → Karpenter replacement node (~60s)</span>
+L3: <span class="hl-str">AZ-level</span>         <span class="hl-cm"># AZ failure → Multi-AZ auto-failover</span>
+L4: <span class="hl-str">Region-level</span>     <span class="hl-cm"># Region failure → Route53 failover (~60-120s)</span>
+L5: <span class="hl-str">Global-level</span>     <span class="hl-cm"># CloudFront/WAF → Global edge defense</span></code><span class="code-label">text</span></pre>
 
                         <div style="margin: 16px 0;">
                             <svg id="blast-radius-svg" width="100%" viewBox="0 0 500 320" style="max-width: 500px; display: block; margin: 0 auto;">
@@ -266,7 +267,7 @@ L5: <span class="hl-str">Global-level</span>     <span class="hl-cm"># CloudFron
                             <thead><tr><th><span class="lang-ko">카테고리</span><span class="lang-en">Category</span></th><th><span class="lang-ko">단일 리전</span><span class="lang-en">Single Region</span></th><th><span class="lang-ko">멀티리전 (2)</span><span class="lang-en">Multi-Region (2)</span></th><th><span class="lang-ko">CCS 특이사항</span><span class="lang-en">CCS Specifics</span></th></tr></thead>
                             <tbody>
                                 <tr><td>Compute (EKS + Karpenter)</td><td>1x</td><td>~1.8x</td><td><span class="lang-ko">CCDI 워커 노드 집중</span><span class="lang-en">CCDI worker node concentration</span></td></tr>
-                                <tr><td>Database (Aurora, DocDB)</td><td>1x</td><td>~2x</td><td>VSS 데이터 230M rows/day</td></tr>
+                                <tr><td>Database (Aurora, DocDB)</td><td>1x</td><td>~2x</td><td><span class="lang-ko">VSS 데이터 230M rows/day</span><span class="lang-en">VSS data 230M rows/day</span></td></tr>
                                 <tr><td>Data Transfer (Cross-Region)</td><td>0</td><td>+$0.02/GB</td><td>10TB/day = ~$200/day</td></tr>
                                 <tr><td>MSK Replication</td><td>1x</td><td>~1.5x</td><td>50MB/s throughput</td></tr>
                                 <tr><td>Edge (CloudFront, WAF)</td><td>1x</td><td>1x</td><td><span class="lang-ko">글로벌 서비스 (공유)</span><span class="lang-en">Global services (shared)</span></td></tr>
@@ -283,28 +284,28 @@ Monthly estimate: <span class="hl-str">~$6,000/month</span> (cross-region transf
 <span class="hl-cm"># MSK Replication (Replicator)</span>
 Throughput:       <span class="hl-num">50</span>MB/s sustained
 Data replicated:  <span class="hl-num">~4.3TB</span>/day
-Replicator cost:  $<span class="hl-num">0.10</span>/GB = <span class="hl-str">~$430/day</span>
+Replicator cost:  $<span class="hl-num">0.09</span>/GB = <span class="hl-str">~$387/day</span>
 
 <span class="hl-cm"># Total Cross-Region Data Cost</span>
-Monthly estimate: <span class="hl-str">~$19,000/month</span></code><span class="code-label">text</span></pre>
+Monthly estimate: <span class="hl-str">~$17,600/month</span></code><span class="code-label">text</span></pre>
 
                         <h4><span class="lang-ko">핵심 절감 전략</span><span class="lang-en">Key Cost Reduction Strategies</span></h4>
-<pre><code><span class="hl-cm"># 1. Karpenter Spot + Graviton (Compute 40% 절감)</span>
+<pre><code><span class="hl-cm"># 1. Karpenter Spot (40% compute savings, additional savings possible with Graviton)</span>
 capacity-type: [spot, on-demand]
-arch: [amd64, arm64]   <span class="hl-cm"># Graviton 자동 선택</span>
+arch: [amd64]   <span class="hl-cm"># Currently amd64 only, arm64 (Graviton) can be added</span>
 
-<span class="hl-cm"># 2. ElastiCache 독립 운영 (Cross-Region Transfer 제거)</span>
-<span class="hl-cm"># GIS 경로 캐시는 리전별 독립 → 복제 비용 0</span>
+<span class="hl-cm"># 2. Independent ElastiCache Operation (Eliminates Cross-Region Transfer)</span>
+<span class="hl-cm"># GIS route cache is independent per region → Zero replication cost</span>
 
-<span class="hl-cm"># 3. Tail-based Sampling (Observability 90% 절감)</span>
-errors:        <span class="hl-num">100</span>%   <span class="hl-cm"># 에러는 전체 저장</span>
-slow (>500ms): <span class="hl-num">100</span>%   <span class="hl-cm"># 느린 요청 전체 저장</span>
-default:       <span class="hl-num">10</span>%    <span class="hl-cm"># 정상 트레이스 10%만</span>
+<span class="hl-cm"># 3. Tail-based Sampling (90% observability cost reduction)</span>
+errors:        <span class="hl-num">100</span>%   <span class="hl-cm"># Store all errors</span>
+slow (>500ms): <span class="hl-num">100</span>%   <span class="hl-cm"># Store all slow requests</span>
+default:       <span class="hl-num">10</span>%    <span class="hl-cm"># Only 10% of normal traces</span>
 
 <span class="hl-cm"># 4. MSK Topic-level Replication</span>
-<span class="hl-cm"># 모든 토픽이 아닌 cross-region 필수 토픽만 복제</span>
-replicated:    ccdi.vss, ccdi.location  <span class="hl-cm"># 필수</span>
-local-only:    analytics.*, logs.*      <span class="hl-cm"># 복제 제외</span></code><span class="code-label">text</span></pre>
+<span class="hl-cm"># Replicate only cross-region essential topics, not all topics</span>
+replicated:    ccdi.vss, ccdi.location  <span class="hl-cm"># Required</span>
+local-only:    analytics.*, logs.*      <span class="hl-cm"># Excluded from replication</span></code><span class="code-label">text</span></pre>
 
                         <div class="callout warning">
                             <strong><span class="lang-ko">Data Transfer 비용 모니터링</span><span class="lang-en">Data Transfer Cost Monitoring</span></strong>

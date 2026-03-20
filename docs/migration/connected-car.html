@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connected Car 레이턴시 - On-Prem to AWS Migration</title>
+    <title>Connected Car Latency - On-Prem to AWS Migration</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -20,7 +20,7 @@
 
         <main class="doc-main">
             <div class="doc-content">
-                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>Connected Car 레이턴시</span></div>
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span><span class="lang-ko">Connected Car 레이턴시</span><span class="lang-en">Connected Car Latency</span></span></div>
 
                 <h1><span class="lang-ko">Connected Car 서비스와 레이턴시</span><span class="lang-en">Connected Car Services and Latency</span></h1>
                 <p class="lead">
@@ -53,10 +53,10 @@
                         </p>
 
                         <h4><span class="lang-ko">현재 (As-Is) vs To-Be 경로</span><span class="lang-en">Current (As-Is) vs To-Be Path</span></h4>
-<pre><code><span class="hl-cm"># As-Is: 현재 CCS 텔레메트리 경로</span>
+<pre><code><span class="hl-cm"># As-Is: Current CCS telemetry path</span>
 Vehicle &rarr; Verizon PIP &rarr; LA Equinix DC (HCloud) &rarr; Service
 
-<span class="hl-cm"># To-Be: AWS 마이그레이션 후</span>
+<span class="hl-cm"># To-Be: After AWS migration</span>
 Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</code><span class="code-label">text</span></pre>
 
                         <h4><span class="lang-ko">CCS Fleet 현황</span><span class="lang-en">CCS Fleet Status</span></h4>
@@ -66,13 +66,13 @@ Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</
                                 <tr>
                                     <td>Gen2</td>
                                     <td>TCP</td>
-                                    <td>2-3M 대</td>
+                                    <td><span class="lang-ko">2-3M 대</span><span class="lang-en">2-3M units</span></td>
                                     <td><span class="lang-ko">레거시, 안정적</span><span class="lang-en">Legacy, stable</span></td>
                                 </tr>
                                 <tr>
                                     <td>Gen3</td>
                                     <td>MQTT</td>
-                                    <td>0.6M 대</td>
+                                    <td><span class="lang-ko">0.6M 대</span><span class="lang-en">0.6M units</span></td>
                                     <td><span class="lang-ko">신규 차량, 양방향</span><span class="lang-en">New vehicles, bidirectional</span></td>
                                 </tr>
                             </tbody>
@@ -254,23 +254,23 @@ Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</
                         </p>
 
                         <h4><span class="lang-ko">리전별 차량 분포</span><span class="lang-en">Vehicle Distribution by Region</span></h4>
-<pre><code><span class="hl-cm"># CCS North America 리전 커버리지</span>
+<pre><code><span class="hl-cm"># CCS North America Region Coverage</span>
 
 <span class="hl-key">us-west-2 (Oregon):</span>
-  커버리지: West Coast (CA, OR, WA, NV, AZ, CO, UT...)
-  차량 비중: ~35%
-  평균 RTT: 10-30ms (서부 도시 기준)
-  현재 허브: LA Equinix DC → Verizon Private Network
+  Coverage: West Coast (CA, OR, WA, NV, AZ, CO, UT...)
+  Vehicle share: ~35%
+  Average RTT: 10-30ms (West Coast cities)
+  Current hub: LA Equinix DC → Verizon Private Network
 
 <span class="hl-key">us-east-1 (N. Virginia):</span>
-  커버리지: East + Central (NY, FL, TX, IL, GA, OH...)
-  차량 비중: ~65%
-  평균 RTT: 10-40ms (동부 도시 기준)
-  신규 구축: AWS Direct Connect
+  Coverage: East + Central (NY, FL, TX, IL, GA, OH...)
+  Vehicle share: ~65%
+  Average RTT: 10-40ms (East Coast cities)
+  New deployment: AWS Direct Connect
 
-<span class="hl-cm"># 한국 참조 사례 (2025.04 완료)</span>
-  3개 통신사 (SKT, KT, LGU+) → DXGW → AWS
-  Private Network 구성 완료</code><span class="code-label">text</span></pre>
+<span class="hl-cm"># Korea Reference Case (Completed 2025.04)</span>
+  3 carriers (SKT, KT, LGU+) → DXGW → AWS
+  Private Network setup complete</code><span class="code-label">text</span></pre>
 
                         <h4><span class="lang-ko">Cross-Country 핸드오버</span><span class="lang-en">Cross-Country Handover</span></h4>
                         <table class="info-table">
@@ -309,7 +309,7 @@ Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</
                 </div>
 
                 <!-- ===== Critical API Classification ===== -->
-                <h2 id="critical-apis">CCS Critical API 분류</h2>
+                <h2 id="critical-apis"><span class="lang-ko">CCS Critical API 분류</span><span class="lang-en">CCS Critical API Classification</span></h2>
 
                 <div class="tech-card" data-tag="Architecture">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
@@ -349,34 +349,34 @@ Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</
                             </tbody>
                         </table>
 
-                        <h4>VSS (Vehicle Status Service) 캐싱 패턴</h4>
+                        <h4><span class="lang-ko">VSS (Vehicle Status Service) 캐싱 패턴</span><span class="lang-en">VSS (Vehicle Status Service) Caching Pattern</span></h4>
 <pre><code><span class="hl-cm"># Critical API - Cache-Aside with Hot VSS Data</span>
 <span class="hl-kw">async function</span> <span class="hl-fn">getVehicleStatus</span>(vehicleId) {
   <span class="hl-kw">const</span> cacheKey = <span class="hl-str">`vss:${vehicleId}:status`</span>
 
-  <span class="hl-cm">// 1. ElastiCache 조회 (P99 &lt; 1ms)</span>
+  <span class="hl-cm">// 1. ElastiCache lookup (P99 &lt; 1ms)</span>
   <span class="hl-kw">let</span> status = <span class="hl-kw">await</span> redis.get(cacheKey)
   <span class="hl-kw">if</span> (status) <span class="hl-kw">return</span> JSON.parse(status)   <span class="hl-cm">// Cache HIT</span>
 
-  <span class="hl-cm">// 2. Aurora 조회 (P99 ~15ms)</span>
+  <span class="hl-cm">// 2. Aurora query (P99 ~15ms)</span>
   status = <span class="hl-kw">await</span> aurora.query(<span class="hl-str">`SELECT * FROM vehicle_status WHERE ...`</span>)
 
-  <span class="hl-cm">// 3. Hot data 캐시 저장 (TTL: 10초 - 텔레메트리 주기와 동일)</span>
+  <span class="hl-cm">// 3. Store hot data in cache (TTL: 10s - same as telemetry interval)</span>
   <span class="hl-kw">await</span> redis.set(cacheKey, JSON.stringify(status), <span class="hl-str">'EX'</span>, <span class="hl-num">10</span>)
   <span class="hl-kw">return</span> status
 }</code><span class="code-label">javascript</span></pre>
 
-                        <h4>TPS 증가 대응</h4>
-<pre><code><span class="hl-cm"># 현재 → 연말 TPS 증가 계획</span>
+                        <h4><span class="lang-ko">TPS 증가 대응</span><span class="lang-en">TPS Growth Response</span></h4>
+<pre><code><span class="hl-cm"># Current → Year-end TPS Growth Plan</span>
 
-<span class="hl-key">현재:</span> 20-30K TPS
-<span class="hl-key">연말:</span> 40K TPS (예상)
-<span class="hl-key">증가율:</span> ~33-100%
+<span class="hl-key">Current:</span> 20-30K TPS
+<span class="hl-key">Year-end:</span> 40K TPS (expected)
+<span class="hl-key">Growth rate:</span> ~33-100%
 
-<span class="hl-cm"># 대응 전략</span>
-1. ElastiCache 클러스터 수평 확장 (샤드 추가)
-2. Read Replica 활용 (Aurora Reader Endpoint)
-3. HPA min replica 상향 조정</code><span class="code-label">text</span></pre>
+<span class="hl-cm"># Response Strategy</span>
+1. ElastiCache cluster horizontal scaling (add shards)
+2. Utilize Read Replicas (Aurora Reader Endpoint)
+3. Increase HPA min replicas</code><span class="code-label">text</span></pre>
 
                         <div class="callout tip">
                             <strong><span class="lang-ko">핵심: VSS Hot Data 캐싱</span><span class="lang-en">Key: VSS Hot Data Caching</span></strong>
@@ -388,7 +388,7 @@ Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</
                 </div>
 
                 <div class="page-nav">
-                    <a href="data-sync.html"><span class="label">Previous</span><span class="title">&larr; 데이터 동기화 노하우</span></a>
+                    <a href="data-sync.html"><span class="label">Previous</span><span class="title">&larr; <span class="lang-ko">데이터 동기화 노하우</span><span class="lang-en">Data Sync Best Practices</span></span></a>
                     <a href="route-cache.html" class="next"><span class="label">Next</span><span class="title">GIS Route Cache &rarr;</span></a>
                 </div>
             </div>

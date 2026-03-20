@@ -154,7 +154,7 @@ Backend Services (ESB, Java+Spring)</code><span class="code-label">text</span></
                         </p>
 <pre><code>SKT  ---+
         |
-KT   ---+---> DXGW ---> VPC (ap-northeast-2)
+KT   ---+---> DXGW (Direct Connect Gateway) ---> VPC (ap-northeast-2)
         |
 LGU+ ---+
 
@@ -260,8 +260,8 @@ Required:            /26 (64 IPs) per region
                                 <tr><td>Route53 DNS</td><td>~60s</td><td>0</td><td>Health check auto-failover</td></tr>
                                 <tr><td>Aurora Global</td><td>~120s</td><td>&lt; 1s</td><td>Secondary promotion</td></tr>
                                 <tr><td>DSQL Active-Active</td><td>0s</td><td>0</td><td>No failover needed (active-active)</td></tr>
-                                <tr><td>DocumentDB Global</td><td>~60s</td><td>~5s</td><td>Manual promotion required</td></tr>
-                                <tr><td>MSK Replicator</td><td>~30s</td><td>~2-5s</td><td>Consumer group rebalance</td></tr>
+                                <tr><td>DocumentDB Global</td><td><span class="lang-ko">수 분 (수동 failover)</span><span class="lang-en">Minutes (manual failover)</span></td><td>~5s</td><td><span class="lang-ko">수동 승격 필요</span><span class="lang-en">Manual promotion required</span></td></tr>
+                                <tr><td>MSK Replicator</td><td>~30-60s</td><td>~2-5s</td><td><span class="lang-ko">Consumer group rebalance (토픽 파티션 수에 의존)</span><span class="lang-en">Consumer group rebalance (depends on topic partition count)</span></td></tr>
                             </tbody>
                         </table>
 

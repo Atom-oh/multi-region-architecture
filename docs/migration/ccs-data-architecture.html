@@ -83,7 +83,7 @@
        |           TTL: minutes
        |           Use: VSS latest state
        |
-       +---> MongoDB Atlas (Warm Tier)
+       +---> MongoDB Atlas (Warm Tier, 검토 중)
        |           Retention: 3-7 days
        |           Use: Service queries
        |
@@ -375,7 +375,7 @@
                         <table class="info-table">
                             <thead><tr><th>Storage</th><th>Cost</th><th>Best For</th></tr></thead>
                             <tbody>
-                                <tr><td>ElastiCache (Redis)</td><td>~$0.125/GB-hour</td><td>Sub-millisecond access</td></tr>
+                                <tr><td>ElastiCache (Redis)</td><td>~$0.125/node-hour (cache.r6g.large)</td><td>Sub-millisecond access</td></tr>
                                 <tr><td>MongoDB Atlas (M30)</td><td>~$0.10/GB</td><td>Complex queries</td></tr>
                                 <tr><td>S3 Standard</td><td>$0.023/GB</td><td>Frequent access cold data</td></tr>
                                 <tr><td>S3 Glacier IR</td><td>$0.004/GB</td><td>Compliance archives</td></tr>
@@ -421,7 +421,7 @@
                         <h4>Data Volume Comparison</h4>
 <pre><code><span class="hl-cm"># Per-vehicle data rates</span>
 Gen2 vehicle:  ~50 KB/minute  (basic telemetry)
-Gen3 vehicle:  ~250 KB/minute (rich sensors, ADAS data)
+Gen3 vehicle:  ~250 KB/minute (rich sensors, ADAS (Advanced Driver Assistance Systems) data)
 
 <span class="hl-cm"># Fleet total (current)</span>
 Gen2: 2.5M vehicles x 50 KB/min  = ~125 GB/min = ~180 TB/day

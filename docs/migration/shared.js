@@ -22,17 +22,17 @@
                 <div class="sidebar-section-title">Overview</div>
                 <a href="index.html" class="sidebar-link${isActive('index.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                    소개
+                    <span class="lang-ko">소개</span><span class="lang-en">Introduction</span>
                 </a>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-section-title">Migration Steps</div>
-                <a href="step-0.html" class="sidebar-link${isActive('step-0.html')}"><span class="step-num">0</span> 초기 상태</a>
-                <a href="step-1.html" class="sidebar-link${isActive('step-1.html')}"><span class="step-num">1</span> us-west-2 배포</a>
-                <a href="step-2.html" class="sidebar-link${isActive('step-2.html')}"><span class="step-num">2</span> us-east-1 배포</a>
-                <a href="step-3.html" class="sidebar-link${isActive('step-3.html')}"><span class="step-num">3</span> 리전간 동기화</a>
-                <a href="step-4.html" class="sidebar-link${isActive('step-4.html')}"><span class="step-num">4</span> 트래픽 분산</a>
-                <a href="step-5.html" class="sidebar-link${isActive('step-5.html')}"><span class="step-num">5</span> AWS 확대</a>
+                <a href="step-0.html" class="sidebar-link${isActive('step-0.html')}"><span class="step-num">0</span> <span class="lang-ko">초기 상태</span><span class="lang-en">Initial State</span></a>
+                <a href="step-1.html" class="sidebar-link${isActive('step-1.html')}"><span class="step-num">1</span> <span class="lang-ko">us-west-2 배포</span><span class="lang-en">us-west-2 Deploy</span></a>
+                <a href="step-2.html" class="sidebar-link${isActive('step-2.html')}"><span class="step-num">2</span> <span class="lang-ko">us-east-1 배포</span><span class="lang-en">us-east-1 Deploy</span></a>
+                <a href="step-3.html" class="sidebar-link${isActive('step-3.html')}"><span class="step-num">3</span> <span class="lang-ko">리전간 동기화</span><span class="lang-en">Cross-Region Sync</span></a>
+                <a href="step-4.html" class="sidebar-link${isActive('step-4.html')}"><span class="step-num">4</span> <span class="lang-ko">트래픽 분산</span><span class="lang-en">Traffic Distribution</span></a>
+                <a href="step-5.html" class="sidebar-link${isActive('step-5.html')}"><span class="step-num">5</span> <span class="lang-ko">AWS 확대</span><span class="lang-en">AWS Expansion</span></a>
                 <a href="step-6.html" class="sidebar-link${isActive('step-6.html')}"><span class="step-num">6</span> Full AWS</a>
             </div>
             <div class="sidebar-section">

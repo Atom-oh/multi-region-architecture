@@ -42,7 +42,7 @@
 
                 <div class="callout info">
                     <strong><span class="lang-ko">핵심 목표</span><span class="lang-en">Key Objectives</span></strong>
-                    Write-Primary / Read-Local 패턴의 Active-Active 멀티리전 구성. CloudFront + WAF를 통한 글로벌 트래픽 관리. 무중단 마이그레이션을 위한 7단계 점진적 전환.
+                    <span class="lang-ko">Write-Primary / Read-Local 패턴의 Active-Active 멀티리전 구성. CloudFront + WAF를 통한 글로벌 트래픽 관리. 무중단 마이그레이션을 위한 7단계 점진적 전환.</span><span class="lang-en">Active-Active multi-region with Write-Primary / Read-Local pattern. Global traffic management via CloudFront + WAF. Zero-downtime migration through 7 incremental steps.</span>
                 </div>
 
                 <table class="info-table">
@@ -68,10 +68,10 @@
 
                 <!-- Step Nav (compact) -->
                 <nav class="step-nav-compact">
-                    <button class="step-btn active" onclick="setStep(0)"><span class="num">0</span><span class="lbl">초기 상태</span></button>
-                    <button class="step-btn" onclick="setStep(1)"><span class="num">1</span><span class="lbl">West 배포</span></button>
-                    <button class="step-btn" onclick="setStep(2)"><span class="num">2</span><span class="lbl">East 배포</span></button>
-                    <button class="step-btn" onclick="setStep(3)"><span class="num">3</span><span class="lbl">동기화</span></button>
+                    <button class="step-btn active" onclick="setStep(0)"><span class="num">0</span><span class="lbl"><span class="lang-ko">초기 상태</span><span class="lang-en">Initial</span></span></button>
+                    <button class="step-btn" onclick="setStep(1)"><span class="num">1</span><span class="lbl"><span class="lang-ko">West 배포</span><span class="lang-en">West Deploy</span></span></button>
+                    <button class="step-btn" onclick="setStep(2)"><span class="num">2</span><span class="lbl"><span class="lang-ko">East 배포</span><span class="lang-en">East Deploy</span></span></button>
+                    <button class="step-btn" onclick="setStep(3)"><span class="num">3</span><span class="lbl"><span class="lang-ko">동기화</span><span class="lang-en">Sync</span></span></button>
                     <button class="step-btn" onclick="setStep(4)"><span class="num">4</span><span class="lbl">7:1.5:1.5</span></button>
                     <button class="step-btn" onclick="setStep(5)"><span class="num">5</span><span class="lbl">5:2.5:2.5</span></button>
                     <button class="step-btn" onclick="setStep(6)"><span class="num">6</span><span class="lbl">Full AWS</span></button>
@@ -226,7 +226,7 @@
                 <h2 id="traffic-flow"><span class="lang-ko">트래픽 흐름</span><span class="lang-en">Traffic Flow</span></h2>
                 <div class="callout tip">
                     <strong><span class="lang-ko">End-to-End 트래픽 경로</span><span class="lang-en">End-to-End Traffic Path</span></strong>
-                    User &rarr; mall.atomai.click &rarr; CloudFront + WAF &rarr; api-internal.atomai.click (Route53 latency-based) &rarr; NLB (Network Load Balancer, CloudFront prefix list SG (Security Group)) &rarr; api-gateway pods (EKS)<br><small>WAF는 AWS Managed Rules (SQL Injection, XSS, Common Rule Set)로 OWASP Top 10 공격을 차단합니다.</small>
+                    User &rarr; mall.atomai.click &rarr; CloudFront + WAF &rarr; api-internal.atomai.click (Route53 latency-based) &rarr; NLB (Network Load Balancer, CloudFront prefix list SG (Security Group)) &rarr; api-gateway pods (EKS)<br><small><span class="lang-ko">WAF는 AWS Managed Rules (SQL Injection, XSS, Common Rule Set)로 OWASP Top 10 공격을 차단합니다.</span><span class="lang-en">WAF blocks OWASP Top 10 attacks using AWS Managed Rules (SQL Injection, XSS, Common Rule Set).</span></small>
                 </div>
 
                 <!-- Data Sync Summary -->
@@ -243,10 +243,10 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr><td>PostgreSQL</td><td>Aurora DSQL</td><td>Active-Active</td><td>AWS Native Peer Linking</td></tr>
+                        <tr><td>PostgreSQL</td><td>DSQL</td><td>Active-Active</td><td>AWS Native Peer Linking</td></tr>
                         <tr><td>MongoDB</td><td>DocumentDB</td><td>Primary-Replica</td><td>Global Cluster</td></tr>
                         <tr><td>Kafka</td><td>MSK</td><td>Topic Replication</td><td>MSK Replicator</td></tr>
-                        <tr><td>Redis</td><td>ElastiCache (Valkey)</td><td><span class="lang-ko">독립 운영</span><span class="lang-en">Independent</span></td><td>Global Datastore (DR용 비동기 복제)</td></tr>
+                        <tr><td>Redis</td><td>ElastiCache (Valkey)</td><td><span class="lang-ko">독립 운영</span><span class="lang-en">Independent</span></td><td>Global Datastore (<span class="lang-ko">DR용 비동기 복제</span><span class="lang-en">Async replication for DR</span>)</td></tr>
                         <tr><td>Elasticsearch</td><td>OpenSearch</td><td>Index Replication</td><td>Cross-Cluster Replication (CCR)</td></tr>
                     </tbody>
                 </table>
@@ -444,7 +444,7 @@
                     <div></div>
                     <a href="step-0.html" class="next">
                         <span class="label">Next</span>
-                        <span class="title">Step 0: 초기 상태 &rarr;</span>
+                        <span class="title"><span class="lang-ko">Step 0: 초기 상태</span><span class="lang-en">Step 0: Initial State</span> &rarr;</span>
                     </a>
                 </div>
             </div>

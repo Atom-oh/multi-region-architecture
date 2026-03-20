@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step 6: Full AWS - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>Step 6</span></div>
+
+                <h1>Step 6: On-Prem <span class="lang-ko">종료</span><span class="lang-en">Shutdown</span> - Full AWS</h1>
+                <p class="lead">
+                    <span class="lang-ko">On-Prem 데이터센터를 완전히 폐쇄하고 모든 트래픽을 AWS로 전환합니다.
+                    EC2 Sync Connector와 Direct Connect를 제거하고, latency-based routing으로 양 리전에 50:50 분산합니다.</span><span class="lang-en">Fully shut down the On-Prem datacenter and shift all traffic to AWS.
+                    Remove EC2 Sync Connectors and Direct Connect, distributing 50:50 across both regions via latency-based routing.</span>
+                </p>
+
+                <div class="callout info">
+                    <strong><span class="lang-ko">트래픽 분배</span><span class="lang-en">Traffic Distribution</span></strong>
+                    us-west-2 50% / us-east-1 50% &mdash; <span class="lang-ko">On-Prem 완전 제거, Full AWS</span><span class="lang-en">On-Prem fully removed, Full AWS</span>
+                </div>
+
+                <!-- ===== Card 6-1: Decommission Checklist ===== -->
+                <h2 id="checklist">On-Prem <span class="lang-ko">해제 체크리스트</span><span class="lang-en">Decommission Checklist</span></h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">On-Prem DC 해제 절차와 검증 항목</span><span class="lang-en">On-Prem DC Decommission Procedure & Verification</span></span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">On-Prem 해제는 <strong>데이터 검증 &rarr; 트래픽 전환 &rarr; 리소스 제거</strong> 순서로 진행합니다.
+                            각 단계에서 롤백이 가능한 상태를 유지하며, 최종 확인 후에만 물리적 리소스를 제거합니다.</span><span class="lang-en">On-Prem decommission proceeds in order: <strong>Data validation &rarr; Traffic shift &rarr; Resource removal</strong>.
+                            Maintain rollback capability at each stage, removing physical resources only after final confirmation.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">Phase 1: 사전 검증 (D-7)</span><span class="lang-en">Phase 1: Pre-Validation (D-7)</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th>#</th><th><span class="lang-ko">항목</span><span class="lang-en">Item</span></th><th><span class="lang-ko">검증 방법</span><span class="lang-en">Verification Method</span></th><th><span class="lang-ko">통과 기준</span><span class="lang-en">Pass Criteria</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>1</td><td><span class="lang-ko">데이터 정합성</span><span class="lang-en">Data Consistency</span></td><td><span class="lang-ko">크로스리전 데이터 비교 스크립트</span><span class="lang-en">Cross-region data comparison script</span></td><td><span class="lang-ko">불일치 0건</span><span class="lang-en">0 mismatches</span></td></tr>
+                                <tr><td>2</td><td><span class="lang-ko">동기화 지연</span><span class="lang-en">Sync Latency</span></td><td><span class="lang-ko">CloudWatch 리전간 lag 메트릭</span><span class="lang-en">CloudWatch cross-region lag metrics</span></td><td><span class="lang-ko">&lt; 5s (모든 스토어)</span><span class="lang-en">&lt; 5s (all stores)</span></td></tr>
+                                <tr><td>3</td><td><span class="lang-ko">AWS 트래픽 안정성</span><span class="lang-en">AWS Traffic Stability</span></td><td><span class="lang-ko">7일간 에러율 추이</span><span class="lang-en">7-day error rate trend</span></td><td>&lt; 0.1%</td></tr>
+                                <tr><td>4</td><td><span class="lang-ko">Failover 테스트</span><span class="lang-en">Failover Test</span></td><td><span class="lang-ko">한 리전 강제 다운 &rarr; 복구</span><span class="lang-en">Force down one region &rarr; recovery</span></td><td><span class="lang-ko">자동 failover &lt; 120s</span><span class="lang-en">Auto failover &lt; 120s</span></td></tr>
+                                <tr><td>5</td><td><span class="lang-ko">On-Prem 의존성</span><span class="lang-en">On-Prem Dependency</span></td><td><span class="lang-ko">네트워크 플로우 로그 분석</span><span class="lang-en">Network flow log analysis</span></td><td><span class="lang-ko">On-Prem 향 트래픽 0</span><span class="lang-en">0 traffic to On-Prem</span></td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">Phase 2: 트래픽 전환 (D-Day)</span><span class="lang-en">Phase 2: Traffic Shift (D-Day)</span></h4>
+<pre><code><span class="hl-cm"># 1. Remove On-Prem from CloudFront Origin</span>
+aws cloudfront update-distribution \
+  --id E1MUYXLIUJBSZF \
+  --origin-items <span class="hl-str">"... (Remove On-Prem origin)"</span>
+
+<span class="hl-cm"># 2. Remove On-Prem record from Route53</span>
+aws route53 change-resource-record-sets \
+  --hosted-zone-id Z... \
+  --change-batch <span class="hl-str">"... (On-Prem A record DELETE)"</span>
+
+<span class="hl-cm"># 3. 24-hour monitoring</span>
+<span class="hl-cm"># - Verify error rate, response time, data consistency</span>
+<span class="hl-cm"># - Keep rollback ready (On-Prem still alive)</span></code><span class="code-label">bash</span></pre>
+
+                        <h4><span class="lang-ko">Phase 3: 리소스 제거 (D+7)</span><span class="lang-en">Phase 3: Resource Removal (D+7)</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th>#</th><th><span class="lang-ko">리소스</span><span class="lang-en">Resource</span></th><th><span class="lang-ko">제거 방법</span><span class="lang-en">Removal Method</span></th><th><span class="lang-ko">주의사항</span><span class="lang-en">Notes</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>1</td><td>EC2 Sync Connectors</td><td>Terraform destroy</td><td><span class="lang-ko">CDC 중지 확인 후 제거</span><span class="lang-en">Remove after confirming CDC stopped</span></td></tr>
+                                <tr><td>2</td><td>Direct Connect</td><td>AWS Console / CLI</td><td><span class="lang-ko">VIF (Virtual Interface) 해제 &rarr; Connection 해제</span><span class="lang-en">Release VIF (Virtual Interface) &rarr; Release Connection</span></td></tr>
+                                <tr><td>3</td><td><span class="lang-ko">On-Prem CDC 에이전트</span><span class="lang-en">On-Prem CDC Agent</span></td><td><span class="lang-ko">서비스 중지 + 삭제</span><span class="lang-en">Stop service + delete</span></td><td><span class="lang-ko">로그 백업 후 제거</span><span class="lang-en">Remove after log backup</span></td></tr>
+                                <tr><td>4</td><td><span class="lang-ko">On-Prem 데이터 백업</span><span class="lang-en">On-Prem Data Backup</span></td><td><span class="lang-ko">최종 스냅샷 S3 아카이빙</span><span class="lang-en">Final snapshot S3 archiving</span></td><td><span class="lang-ko">규정 준수 기간 동안 보관</span><span class="lang-en">Retain during compliance period</span></td></tr>
+                                <tr><td>5</td><td><span class="lang-ko">On-Prem 서버</span><span class="lang-en">On-Prem Servers</span></td><td><span class="lang-ko">물리 서버 해제</span><span class="lang-en">Physical server decommission</span></td><td><span class="lang-ko">데이터 완전 삭제(NIST 800-88, 미디어 삭제 가이드라인)</span><span class="lang-en">Complete data wipe (NIST 800-88, media sanitization guidelines)</span></td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">롤백 안전장치</span><span class="lang-en">Rollback Safety Mechanism</span></strong>
+                            <span class="lang-ko">D+7까지는 On-Prem DC를 대기 상태로 유지합니다. 7일은 주간/주말 트래픽 패턴을 최소 한 사이클 관찰하기 위한 기간입니다.
+                            만약 AWS에서 예상치 못한 문제가 발생하면, CloudFront Origin을 다시 추가하고
+                            EC2 Sync Connector를 재활성화하여 On-Prem으로 롤백할 수 있습니다.</span><span class="lang-en">Keep On-Prem DC on standby until D+7. The 7 days allow observation of at least one weekday/weekend traffic cycle.
+                            If unexpected issues occur on AWS, add the CloudFront Origin back and
+                            reactivate EC2 Sync Connector to rollback to On-Prem.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 6-2: Final Architecture ===== -->
+                <h2 id="final-architecture"><span class="lang-ko">최종 멀티리전 아키텍처</span><span class="lang-en">Final Multi-Region Architecture</span></h2>
+
+                <div class="tech-card" data-tag="Architecture">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Full AWS 멀티리전 최종 구성도</span><span class="lang-en">Full AWS Multi-Region Final Architecture</span></span>
+                        <span class="tech-card-tag Architecture">Architecture</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">On-Prem 해제 후의 최종 아키텍처입니다.
+                            모든 트래픽이 CloudFront &rarr; Route53 &rarr; NLB &rarr; EKS로 흐르며,
+                            양 리전의 데이터스토어가 AWS 네이티브 복제로 동기화됩니다.</span><span class="lang-en">This is the final architecture after On-Prem decommission.
+                            All traffic flows through CloudFront &rarr; Route53 &rarr; NLB &rarr; EKS,
+                            with datastores in both regions synchronized via AWS-native replication.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">최종 구성 요약</span><span class="lang-en">Final Configuration Summary</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">계층</span><span class="lang-en">Layer</span></th><th>us-west-2</th><th>us-east-1</th><th><span class="lang-ko">동기화</span><span class="lang-en">Sync</span></th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Edge</strong></td><td colspan="2" style="text-align:center"><span class="lang-ko">CloudFront + WAF (글로벌)</span><span class="lang-en">CloudFront + WAF (Global)</span></td><td>-</td></tr>
+                                <tr><td><strong>DNS</strong></td><td colspan="2" style="text-align:center">Route53 Latency-based Routing</td><td>-</td></tr>
+                                <tr><td><strong>Compute</strong></td><td>EKS + Karpenter</td><td>EKS + Karpenter</td><td>ArgoCD GitOps</td></tr>
+                                <tr><td><strong>RDBMS</strong></td><td>DSQL</td><td>DSQL</td><td>Active-Active (Native)</td></tr>
+                                <tr><td><strong>Document</strong></td><td>DocumentDB</td><td>DocumentDB</td><td>Global Cluster</td></tr>
+                                <tr><td><strong>Streaming</strong></td><td>MSK</td><td>MSK</td><td>MSK Replicator</td></tr>
+                                <tr><td><strong>Cache</strong></td><td>ElastiCache</td><td>ElastiCache</td><td><span class="lang-ko">독립 운영</span><span class="lang-en">Independent</span></td></tr>
+                                <tr><td><strong>Search</strong></td><td>OpenSearch</td><td>OpenSearch</td><td>CCR (Cross-Cluster Replication)</td></tr>
+                                <tr><td><strong>Observability</strong></td><td>OTel + Tempo</td><td>OTel + Tempo</td><td><span class="lang-ko">리전별 독립</span><span class="lang-en">Per-region independent</span></td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">제거된 구성 요소</span><span class="lang-en">Removed Components</span></h4>
+<pre><code><span class="hl-cm"># Removed in Step 6</span>
+<span class="hl-key">On-Prem DC:</span>
+  - EKS Cluster (20 microservices)
+  - PostgreSQL, MongoDB, Kafka, Redis, Elasticsearch
+  - Physical servers + network equipment
+
+<span class="hl-key">Migration Infra:</span>
+  - EC2 Sync Connectors (Debezium, MirrorMaker2, Custom Agent)
+  - Direct Connect (10Gbps)
+  - On-Prem CDC agents
+  - CloudFront On-Prem Origin</code><span class="code-label">text</span></pre>
+
+                        <h4><span class="lang-ko">운영 모드 전환</span><span class="lang-en">Operations Mode Transition</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">항목</span><span class="lang-en">Item</span></th><th><span class="lang-ko">마이그레이션 중</span><span class="lang-en">During Migration</span></th><th><span class="lang-ko">마이그레이션 후</span><span class="lang-en">After Migration</span></th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="lang-ko">트래픽 라우팅</span><span class="lang-en">Traffic Routing</span></td><td>CloudFront weighted origin</td><td>Route53 latency-based</td></tr>
+                                <tr><td><span class="lang-ko">데이터 동기화</span><span class="lang-en">Data Sync</span></td><td>EC2 CDC + AWS Native</td><td>AWS Native only</td></tr>
+                                <tr><td>Failover</td><td><span class="lang-ko">On-Prem fallback 가능</span><span class="lang-en">On-Prem fallback available</span></td><td><span class="lang-ko">리전간 failover only</span><span class="lang-en">Cross-region failover only</span></td></tr>
+                                <tr><td><span class="lang-ko">비용</span><span class="lang-en">Cost</span></td><td><span class="lang-ko">On-Prem + AWS 이중 운영</span><span class="lang-en">On-Prem + AWS dual operation</span></td><td><span class="lang-ko">AWS only (On-Prem 비용 제거)</span><span class="lang-en">AWS only (On-Prem cost removed)</span></td></tr>
+                                <tr><td><span class="lang-ko">운영 복잡도</span><span class="lang-en">Ops Complexity</span></td><td><span class="lang-ko">높음 (하이브리드)</span><span class="lang-en">High (hybrid)</span></td><td><span class="lang-ko">낮음 (단일 플랫폼)</span><span class="lang-en">Low (single platform)</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="callout tip" style="margin-top:32px;">
+                    <strong><span class="lang-ko">마이그레이션 완료!</span><span class="lang-en">Migration Complete!</span></strong>
+                    <span class="lang-ko">On-Prem DC가 완전히 해제되고, 20개 마이크로서비스가 AWS 멀티리전에서 Active-Active로 운영됩니다.
+                    앞으로의 운영은 ArgoCD GitOps, Karpenter 자동 스케일링, AWS 네이티브 데이터 동기화에 의해 관리됩니다.</span><span class="lang-en">On-Prem DC is fully decommissioned, and 20 microservices operate Active-Active in AWS multi-region.
+                    Future operations are managed by ArgoCD GitOps, Karpenter auto-scaling, and AWS-native data synchronization.</span>
+                </div>
+
+                <div class="page-nav">
+                    <a href="step-5.html"><span class="label">Previous</span><span class="title">&larr; Step 5: <span class="lang-ko">AWS 확대</span><span class="lang-en">AWS Scale-Up</span></span></a>
+                    <a href="multi-region.html" class="next"><span class="label">Next</span><span class="title">Deep Dive: CCS Multi-Region &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#checklist" class="toc-link"><span class="lang-ko">On-Prem 해제 체크리스트</span><span class="lang-en">Decommission Checklist</span></a>
+            <a href="#final-architecture" class="toc-link"><span class="lang-ko">최종 멀티리전 아키텍처</span><span class="lang-en">Final Architecture</span></a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

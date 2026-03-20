@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step 3: Cross-Region Sync - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>Step 3</span></div>
+
+                <h1>Step 3: <span class="lang-ko">리전간 동기화 활성화</span><span class="lang-en">Cross-Region Sync Activation</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">us-west-2와 us-east-1 간의 데이터 동기화를 활성화합니다.
+                    DSQL Active-Active, DocumentDB Global Cluster, MSK Replicator, OpenSearch Cross-Cluster Replication (CCR)이 활성화됩니다.</span><span class="lang-en">Activate data synchronization between us-west-2 and us-east-1.
+                    DSQL Active-Active, DocumentDB Global Cluster, MSK Replicator, and OpenSearch Cross-Cluster Replication (CCR) are enabled.</span>
+                </p>
+
+                <div class="callout info">
+                    <strong><span class="lang-ko">트래픽 분배</span><span class="lang-en">Traffic Distribution</span></strong>
+                    On-Prem 90% / us-west-2 10% / us-east-1 0% &mdash; <span class="lang-ko">동기화 안정성 확인 후 트래픽 전환</span><span class="lang-en">Traffic shift after sync stability verification</span>
+                </div>
+
+                <!-- ===== Card 3-1: DSQL Active-Active ===== -->
+                <h2 id="dsql">DSQL Active-Active</h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">DSQL - 네이티브 Active-Active 구성</span><span class="lang-en">DSQL - Native Active-Active Configuration</span></span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">DSQL은 <strong>서버리스 분산 SQL</strong> (PostgreSQL 16 호환)로, 별도의 복제 설정 없이 AWS 네이티브로 멀티리전 Active-Active를 지원합니다.
+                            각 리전에 DSQL 클러스터를 생성하고 <code>multi-region-properties</code>로 피어링을 설정하면, AWS가 Peer Linking을 통해 데이터를 자동 동기화합니다.</span><span class="lang-en">DSQL is a <strong>serverless distributed SQL</strong> (PostgreSQL 16 compatible) that natively supports multi-region Active-Active without separate replication setup.
+                            After creating DSQL clusters in each region and configuring peering via <code>multi-region-properties</code>, AWS automatically synchronizes data through Peer Linking.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">Terraform 정의</span><span class="lang-en">Terraform Definition</span></h4>
+                        <p><code>terraform/modules/data/dsql/main.tf</code></p>
+<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"aws_dsql_cluster"</span> <span class="hl-str">"this"</span> {
+  deletion_protection_enabled = var.deletion_protection_enabled
+
+  tags = <span class="hl-fn">merge</span>(var.tags, {
+    Name        = <span class="hl-str">"${var.environment}-dsql-${var.region}"</span>
+    Environment = var.environment
+  })
+}</code><span class="code-label">hcl</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">DSQL Active-Active의 장점</span><span class="lang-en">Benefits of DSQL Active-Active</span></strong>
+                            <span class="lang-ko">기존 Aurora Global Database와 달리, DSQL은 양 리전에서 동시 쓰기가 가능합니다.
+                            Write Forwarding이 필요 없어 쓰기 지연(latency)이 크게 줄어듭니다.
+                            멀티리전 구성은 각 리전에 DSQL 클러스터를 생성하고, <code>multi-region-properties</code>로 상호 피어링을 설정하면 AWS가 데이터 복제를 자동 처리합니다. Witness Region(트랜잭션 로그만 저장하는 제3 리전)도 지정해야 합니다.</span><span class="lang-en">Unlike Aurora Global Database, DSQL allows simultaneous writes in both regions.
+                            Without Write Forwarding, write latency is significantly reduced.
+                            For multi-region setup, create DSQL clusters in each region and configure mutual peering with <code>multi-region-properties</code>, and AWS handles data replication automatically. A Witness Region (a third region storing only transaction logs) must also be specified.</span>
+                        </div>
+
+                        <h4>DSQL vs Aurora Global Database</h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">항목</span><span class="lang-en">Item</span></th><th>DSQL</th><th>Aurora Global DB</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="lang-ko">쓰기 모델</span><span class="lang-en">Write Model</span></td><td><span class="lang-ko">Active-Active (양 리전)</span><span class="lang-en">Active-Active (both regions)</span></td><td><span class="lang-ko">Write-Primary (단일 리전)</span><span class="lang-en">Write-Primary (single region)</span></td></tr>
+                                <tr><td><span class="lang-ko">복제 지연</span><span class="lang-en">Replication Lag</span></td><td><span class="lang-ko">동기 복제 (zero lag on commit)</span><span class="lang-en">Sync replication (zero lag on commit)</span></td><td><span class="lang-ko">~1s (스토리지 레벨)</span><span class="lang-en">~1s (storage level)</span></td></tr>
+                                <tr><td>Write Forwarding</td><td><span class="lang-ko">불필요</span><span class="lang-en">Not required</span></td><td><span class="lang-ko">Secondary에서 필요</span><span class="lang-en">Required on Secondary</span></td></tr>
+                                <tr><td><span class="lang-ko">서버리스</span><span class="lang-en">Serverless</span></td><td><span class="lang-ko">완전 서버리스</span><span class="lang-en">Fully serverless</span></td><td><span class="lang-ko">인스턴스 기반</span><span class="lang-en">Instance-based</span></td></tr>
+                                <tr><td><span class="lang-ko">제약사항</span><span class="lang-en">Limitations</span></td><td><span class="lang-ko">일부 DDL/Extension 미지원</span><span class="lang-en">Some DDL/Extensions unsupported</span></td><td><span class="lang-ko">거의 없음</span><span class="lang-en">Almost none</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ===== Card 3-2: MSK Replicator ===== -->
+                <h2 id="msk-replicator">MSK Replicator</h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">MSK Replicator - 크로스리전 토픽 복제</span><span class="lang-en">MSK Replicator - Cross-Region Topic Replication</span></span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">MSK Replicator는 AWS 네이티브 크로스리전 Kafka 토픽 복제 서비스입니다.
+                            MirrorMaker2를 직접 운영할 필요 없이, 소스/타겟 클러스터를 지정하면 자동으로 토픽과 컨슈머 그룹을 복제합니다.</span><span class="lang-en">MSK Replicator is an AWS-native cross-region Kafka topic replication service.
+                            Without managing MirrorMaker2 directly, it automatically replicates topics and consumer groups when you specify source/target clusters.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">Terraform 정의 (발췌)</span><span class="lang-en">Terraform Definition (excerpt)</span></h4>
+                        <p><code>terraform/modules/data/msk/main.tf</code></p>
+<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"aws_msk_replicator"</span> <span class="hl-str">"this"</span> {
+  count = var.enable_replicator ? <span class="hl-num">1</span> : <span class="hl-num">0</span>
+
+  replicator_name = <span class="hl-str">"${var.environment}-msk-replicator-${var.region}"</span>
+
+  <span class="hl-cm"># Source cluster</span>
+  kafka_cluster {
+    amazon_msk_cluster {
+      msk_cluster_arn = var.source_cluster_arn
+    }
+    vpc_config {
+      subnet_ids          = var.data_subnet_ids
+      security_groups_ids = [var.security_group_id]
+    }
+  }
+
+  <span class="hl-cm"># Target cluster</span>
+  kafka_cluster {
+    amazon_msk_cluster {
+      msk_cluster_arn = var.target_cluster_arn
+    }
+    vpc_config {
+      subnet_ids          = var.data_subnet_ids
+      security_groups_ids = [var.security_group_id]
+    }
+  }
+
+  replication_info_list {
+    source_kafka_cluster_arn = var.source_cluster_arn
+    target_kafka_cluster_arn = var.target_cluster_arn
+    target_compression_type  = <span class="hl-str">"GZIP"</span>
+
+    topic_replication {
+      topics_to_replicate                  = var.replicator_topics
+      copy_access_control_lists_for_topics = <span class="hl-num">true</span>
+      copy_topic_configurations            = <span class="hl-num">true</span>
+      detect_and_copy_new_topics           = <span class="hl-num">true</span>
+    }
+
+    consumer_group_replication {
+      consumer_groups_to_replicate         = [<span class="hl-str">".*"</span>]
+      synchronise_consumer_group_offsets   = <span class="hl-num">true</span>
+      detect_and_copy_new_consumer_groups  = <span class="hl-num">true</span>
+    }
+  }
+
+  service_execution_role_arn = aws_iam_role.msk_replicator[<span class="hl-num">0</span>].arn
+}</code><span class="code-label">hcl</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">핵심 설정</span><span class="lang-en">Key Settings</span></strong>
+                            <span class="lang-ko"><code>detect_and_copy_new_topics: true</code>로 새 토픽이 자동 복제됩니다.
+                            <code>synchronise_consumer_group_offsets: true</code>로 failover 시 컨슈머가 이어서 처리할 수 있습니다.
+                            단, offset 동기화에는 10-30초 지연이 있으므로, failover 시 소수의 메시지가 재처리될 수 있습니다.</span><span class="lang-en">With <code>detect_and_copy_new_topics: true</code>, new topics are automatically replicated.
+                            With <code>synchronise_consumer_group_offsets: true</code>, consumers can resume processing during failover.
+                            Note: offset synchronization has a 10-30 second lag, so a small number of messages may be reprocessed during failover.</span>
+                        </div>
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">MSK Replicator 방향성</span><span class="lang-en">MSK Replicator Directionality</span></strong>
+                            <span class="lang-ko">MSK Replicator는 <strong>단방향</strong>(source→target) 복제입니다.
+                            양방향 복제가 필요한 경우 2개의 Replicator를 각각 반대 방향으로 구성해야 합니다.</span><span class="lang-en">MSK Replicator is <strong>unidirectional</strong> (source→target) replication.
+                            For bidirectional replication, configure 2 Replicators in opposite directions.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 3-3: DocumentDB + ElastiCache ===== -->
+                <h2 id="docdb-elasticache">DocumentDB + ElastiCache + OpenSearch</h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Global Cluster, Global Datastore, Cross-Cluster Replication</span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">나머지 3개 데이터스토어는 각각의 AWS 네이티브 크로스리전 복제 메커니즘을 사용합니다.</span><span class="lang-en">The remaining 3 datastores use their respective AWS-native cross-region replication mechanisms.</span>
+                        </p>
+
+                        <h4>DocumentDB Global Cluster</h4>
+                        <p><code>terraform/modules/data/documentdb-global/main.tf</code></p>
+<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"aws_docdb_cluster"</span> <span class="hl-str">"this"</span> {
+  cluster_identifier        = local.cluster_identifier
+  <span class="hl-cm"># Primary: null (standalone) / Secondary: global cluster ID</span>
+  global_cluster_identifier = var.is_primary ? <span class="hl-num">null</span> : var.global_cluster_identifier
+
+  engine         = <span class="hl-str">"docdb"</span>
+  engine_version = <span class="hl-str">"8.0.0"</span>
+
+  <span class="hl-cm"># Primary needs credentials, secondary inherits</span>
+  master_username = var.is_primary ? <span class="hl-str">"docdb_admin"</span> : <span class="hl-num">null</span>
+  master_password = var.is_primary ? var.master_password : <span class="hl-num">null</span>
+}</code><span class="code-label">hcl</span></pre>
+
+                        <h4>ElastiCache Global Datastore</h4>
+                        <p><code>terraform/modules/data/elasticache-global/main.tf</code></p>
+<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"aws_elasticache_global_replication_group"</span> <span class="hl-str">"this"</span> {
+  count = var.is_primary ? <span class="hl-num">1</span> : <span class="hl-num">0</span>
+
+  global_replication_group_id_suffix = <span class="hl-str">"${var.environment}-global"</span>
+  primary_replication_group_id       = aws_elasticache_replication_group.this.id
+
+  global_replication_group_description = <span class="hl-str">"Global replication group for ${var.environment}"</span>
+}</code><span class="code-label">hcl</span></pre>
+
+                        <h4><span class="lang-ko">리전간 동기화 요약</span><span class="lang-en">Cross-Region Sync Summary</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">서비스</span><span class="lang-en">Service</span></th><th><span class="lang-ko">동기화 방식</span><span class="lang-en">Sync Method</span></th><th><span class="lang-ko">방향</span><span class="lang-en">Direction</span></th><th><span class="lang-ko">지연</span><span class="lang-en">Latency</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>DocumentDB</td><td>Global Cluster</td><td>Primary &rarr; Secondary</td><td>~1s</td></tr>
+                                <tr><td>ElastiCache</td><td>Global Datastore</td><td>Primary &rarr; Secondary (<span class="lang-ko">비동기, DR용</span><span class="lang-en">async, for DR</span>)</td><td>N/A</td></tr>
+                                <tr><td>OpenSearch</td><td>Cross-Cluster Replication</td><td>Leader &rarr; Follower</td><td>~seconds</td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">OpenSearch CCR 제약사항</span><span class="lang-en">OpenSearch CCR Limitations</span></strong>
+                            <span class="lang-ko">CCR은 leader→follower <strong>단방향</strong> 복제이며, follower 인덱스는 읽기 전용입니다.
+                            사전 조건으로 Fine-Grained Access Control과 Node-to-node encryption이 활성화되어 있어야 합니다.</span><span class="lang-en">CCR is <strong>unidirectional</strong> leader→follower replication, and follower indices are read-only.
+                            Prerequisites: Fine-Grained Access Control and Node-to-node encryption must be enabled.</span>
+                        </div>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">ElastiCache 주의</span><span class="lang-en">ElastiCache Caution</span></strong>
+                            <span class="lang-ko">ElastiCache(Valkey)의 Global Datastore는 리전간 비동기 복제를 자동으로 수행합니다 (Secondary는 읽기 전용 복제본). 다만, 캐시 특성상 각 리전에서 독립적으로 운영하는 것이 더 효율적이므로, Global Datastore는 주로 DR(재해 복구) 시 Secondary를 Primary로 승격하기 위한 목적으로 구성합니다. cache miss 시 DB에서 재로드합니다.
+                            Secondary 클러스터의 <code>engine</code>, <code>engine_version</code>, 암호화 파라미터는 <code>null</code>로 설정해야 합니다 (Global Datastore에서 상속).</span><span class="lang-en">ElastiCache (Valkey) Global Datastore performs automatic async replication between regions (Secondary is read-only replica). However, due to cache characteristics, independent operation per region is more efficient, so Global Datastore is mainly configured for promoting Secondary to Primary during DR (disaster recovery). Cache misses reload from DB.
+                            Secondary cluster's <code>engine</code>, <code>engine_version</code>, and encryption parameters must be set to <code>null</code> (inherited from Global Datastore).</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="step-2.html"><span class="label">Previous</span><span class="title">&larr; Step 2: <span class="lang-ko">us-east-1 배포</span><span class="lang-en">us-east-1 Deploy</span></span></a>
+                    <a href="step-4.html" class="next"><span class="label">Next</span><span class="title">Step 4: <span class="lang-ko">트래픽 분산</span><span class="lang-en">Traffic Distribution</span> &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#dsql" class="toc-link">DSQL Active-Active</a>
+            <a href="#msk-replicator" class="toc-link">MSK Replicator</a>
+            <a href="#docdb-elasticache" class="toc-link">DocumentDB + ElastiCache + OpenSearch</a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

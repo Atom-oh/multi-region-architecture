@@ -41,8 +41,8 @@
                     <div class="tech-card-body">
                         <p>
                             <span class="lang-ko">현재 MSK 클러스터는 8개 브로커, 50MB/s 처리량, 6K consumer lag으로 운영 중입니다.
-                            Gen2(TCP, 2-3M 차량)와 Gen3(MQTT, 0.6M 차량)에서 4개 CBU를 통해 데이터가 수집됩니다.</span><span class="lang-en">Current MSK cluster runs 8 brokers, 50MB/s throughput, with 6K consumer lag.
-                            Data is collected via 4 CBUs from Gen2 (TCP, 2-3M vehicles) and Gen3 (MQTT, 0.6M vehicles).</span>
+                            Gen2(TCP, 2-3M 차량)와 Gen3(MQTT, 0.6M 차량)에서 4개 CBU (Connected Business Unit)를 통해 데이터가 수집됩니다.</span><span class="lang-en">Current MSK cluster runs 8 brokers, 50MB/s throughput, with 6K consumer lag.
+                            Data is collected via 4 CBUs (Connected Business Units) from Gen2 (TCP, 2-3M vehicles) and Gen3 (MQTT, 0.6M vehicles).</span>
                         </p>
 
                         <h4><span class="lang-ko">일일 트래픽 볼륨</span><span class="lang-en">Daily Traffic Volume</span></h4>
@@ -57,27 +57,27 @@
                                 <tr><td><strong>Events/Alerts</strong></td><td>10M</td><td>~1KB</td><td>~10GB</td><td>14 days</td></tr>
                             </tbody>
                         </table>
-                        <p><strong>Total: ~10TB/day (replication factor 3 포함)</strong></p>
+                        <p><strong>Total: ~10TB/day <span class="lang-ko">(replication factor 3 포함)</span><span class="lang-en">(including replication factor 3)</span></strong></p>
 
                         <h4><span class="lang-ko">브로커 사이징 공식</span><span class="lang-en">Broker Sizing Formula</span></h4>
-<pre><code><span class="hl-cm"># Broker 수 계산</span>
+<pre><code><span class="hl-cm"># Broker count calculation</span>
 brokers = (peak_throughput × replication_factor) / (broker_throughput × 0.7)
 
-<span class="hl-cm"># 현재 구성</span>
+<span class="hl-cm"># Current configuration</span>
 peak_throughput = 150 MB/s
 replication_factor = 3
 broker_throughput = 100 MB/s  <span class="hl-cm"># kafka.m5.2xlarge</span>
 safety_margin = 0.7
 
-brokers = (150 × 3) / (100 × 0.7) = 450 / 70 ≈ <span class="hl-num">7</span> → <span class="hl-num">8</span> (3 AZ 분산)</code><span class="code-label">text</span></pre>
+brokers = (150 × 3) / (100 × 0.7) = 450 / 70 ≈ <span class="hl-num">7</span> → <span class="hl-num">8</span> (distributed across 3 AZs)</code><span class="code-label">text</span></pre>
 
                         <h4><span class="lang-ko">인증 설정</span><span class="lang-en">Authentication Configuration</span></h4>
                         <p><span class="lang-ko">SASL/SCRAM 인증을 port 9096에서 사용합니다.</span><span class="lang-en">Uses SASL/SCRAM authentication on port 9096.</span></p>
-<pre><code><span class="hl-cm"># MSK 브로커 접속 (SASL/SCRAM)</span>
+<pre><code><span class="hl-cm"># MSK broker connection (SASL/SCRAM)</span>
 bootstrap.servers=b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:<span class="hl-num">9096</span>
 security.protocol=SASL_SSL
 sasl.mechanism=SCRAM-SHA-512
-sasl.jaas.config=...  <span class="hl-cm"># AWS Secrets Manager에서 credential 로드</span></code><span class="code-label">properties</span></pre>
+sasl.jaas.config=...  <span class="hl-cm"># load credentials from AWS Secrets Manager</span></code><span class="code-label">properties</span></pre>
                     </div>
                 </div>
 
@@ -127,7 +127,7 @@ sasl.jaas.config=...  <span class="hl-cm"># AWS Secrets Manager에서 credential
   replication_info_list {
     source_kafka_cluster_arn = var.source_cluster_arn
     target_kafka_cluster_arn = var.target_cluster_arn
-    target_compression_type  = <span class="hl-str">"GZIP"</span>  <span class="hl-cm"># 리전 간 전송 비용 최적화</span>
+    target_compression_type  = <span class="hl-str">"GZIP"</span>  <span class="hl-cm"># optimize cross-region transfer costs</span>
 
     topic_replication {
       topics_to_replicate = var.replicator_topics
@@ -139,7 +139,7 @@ sasl.jaas.config=...  <span class="hl-cm"># AWS Secrets Manager에서 credential
 
     consumer_group_replication {
       consumer_groups_to_replicate        = [<span class="hl-str">".*"</span>]
-      synchronise_consumer_group_offsets  = <span class="hl-num">true</span>  <span class="hl-cm"># 장애 복구 핵심</span>
+      synchronise_consumer_group_offsets  = <span class="hl-num">true</span>  <span class="hl-cm"># key for failover recovery</span>
       detect_and_copy_new_consumer_groups = <span class="hl-num">true</span>
     }
   }
@@ -296,7 +296,7 @@ sasl.jaas.config=...  <span class="hl-cm"># AWS Secrets Manager에서 credential
 <span class="hl-cm">│                      Data Tiering Flow                          │</span>
 <span class="hl-cm">└─────────────────────────────────────────────────────────────────┘</span>
 
-     <span class="hl-str">CBU (4개)</span>
+     <span class="hl-str">CBU (4 units)</span>
          │
          ▼
    <span class="hl-key">┌─────────────┐</span>
@@ -310,8 +310,8 @@ sasl.jaas.config=...  <span class="hl-cm"># AWS Secrets Manager에서 credential
    <span class="hl-num">│   (Valkey)  │</span>      <span class="hl-str">│   (MongoDB) │</span>      <span class="hl-cm">│   (Parquet) │</span>
    <span class="hl-num">└─────────────┘</span>      <span class="hl-str">└─────────────┘</span>      <span class="hl-cm">└─────────────┘</span>
         <span class="hl-num">HOT</span>                 <span class="hl-str">WARM</span>                 <span class="hl-cm">COLD</span>
-   VSS 최신값 캐시       3-7일 데이터          영구 보관
-   &lt; 1ms 응답             분석 쿼리            Athena 쿼리</code><span class="code-label">text</span></pre>
+   VSS Latest Cache    3-7 Day Data         Permanent
+   &lt; 1ms Response      Analytics Query      Athena Query</code><span class="code-label">text</span></pre>
 
                         <h4><span class="lang-ko">데이터 라이프사이클</span><span class="lang-en">Data Lifecycle</span></h4>
                         <ul>
@@ -359,10 +359,10 @@ sasl.jaas.config=...  <span class="hl-cm"># AWS Secrets Manager에서 credential
 
                         <h4><span class="lang-ko">마이그레이션 경로</span><span class="lang-en">Migration Path</span></h4>
 <pre><code><span class="hl-cm"># Phase 1: Initial Sync (MirrorMaker2)</span>
-On-Prem Kafka ──MirrorMaker2──▶ MSK (신규)
+On-Prem Kafka ──MirrorMaker2──▶ MSK (new)
      │                              │
      ▼                              ▼
-  Producer                     Consumer (검증)
+  Producer                     Consumer (validation)
 
 <span class="hl-cm"># Phase 2: Production Cutover (MSK Replicator)</span>
 On-Prem Kafka ──MSK Replicator──▶ MSK (Production)
@@ -388,7 +388,7 @@ On-Prem Kafka ──MSK Replicator──▶ MSK (Production)
                         </table>
 
                         <h4><span class="lang-ko">보안 구성</span><span class="lang-en">Security Configuration</span></h4>
-<pre><code><span class="hl-cm"># SASL/SCRAM 인증 + VPC Security Group</span>
+<pre><code><span class="hl-cm"># SASL/SCRAM authentication + VPC Security Group</span>
 security.protocol=SASL_SSL
 sasl.mechanism=SCRAM-SHA-512
 

@@ -69,7 +69,7 @@
                                 </tr>
                                 <tr>
                                     <td>Vehicle Config</td>
-                                    <td><strong>&lt;30s</strong></td>
+                                    <td><strong><span class="lang-ko">일반 &lt;5s / SLA &lt;30s</span><span class="lang-en">Typical &lt;5s / SLA &lt;30s</span></strong></td>
                                     <td>Low frequency</td>
                                     <td>DocumentDB Global Cluster</td>
                                 </tr>
@@ -173,7 +173,7 @@ Metric: <span class="hl-str">ReplicationLatency</span>
 Alarm:  &gt; <span class="hl-num">5000</span>ms for <span class="hl-num">5</span> datapoints → P3 alert
 
 <span class="hl-cm"># DocumentDB Global Cluster</span>
-Metric: <span class="hl-str">GlobalClusterReplicaLag</span>
+Metric: <span class="hl-str">DBClusterReplicaLagMilliseconds</span>
 Alarm:  &gt; <span class="hl-num">30000</span>ms for <span class="hl-num">5</span> datapoints → P4 alert</code><span class="code-label">text</span></pre>
 
                         <div class="callout warning">
@@ -203,7 +203,7 @@ Alarm:  &gt; <span class="hl-num">30000</span>ms for <span class="hl-num">5</spa
                             Since vehicles generate data and servers receive it in a one-way flow, conflicts rarely occur.</span>
                         </p>
 
-                        <h4>CCDI Append-Only Pattern</h4>
+                        <h4><span class="lang-ko">CCDI Append-Only 패턴</span><span class="lang-en">CCDI Append-Only Pattern</span></h4>
 <pre><code><span class="hl-cm"># Vehicle telemetry is write-once</span>
 <span class="hl-cm"># No UPDATE, only INSERT</span>
 
@@ -217,7 +217,7 @@ Alarm:  &gt; <span class="hl-num">30000</span>ms for <span class="hl-num">5</spa
 <span class="hl-cm"># Primary key: (vin, timestamp, signal_type)</span>
 <span class="hl-cm"># Same event from same vehicle = same key = idempotent</span></code><span class="code-label">text</span></pre>
 
-                        <h4>VIN-based Partitioning (Single-Writer Guarantee)</h4>
+                        <h4><span class="lang-ko">VIN 기반 파티셔닝 (Single-Writer 보장)</span><span class="lang-en">VIN-based Partitioning (Single-Writer Guarantee)</span></h4>
 <pre><code><span class="hl-cm"># VIN determines primary region</span>
 <span class="hl-cm"># Hash(VIN) % 2 → region affinity</span>
 
@@ -229,7 +229,7 @@ VIN: <span class="hl-str">KMHXX00XXXX000002</span> → hash(<span class="hl-num"
 <span class="hl-cm"># 2. All data for a vehicle in one region → no cross-region joins</span>
 <span class="hl-cm"># 3. Predictable failover (VIN→region mapping is deterministic)</span></code><span class="code-label">text</span></pre>
 
-                        <h4>Shared State Conflict Resolution</h4>
+                        <h4><span class="lang-ko">공유 상태 충돌 해결</span><span class="lang-en">Shared State Conflict Resolution</span></h4>
                         <table class="info-table">
                             <thead><tr><th>Data Type</th><th><span class="lang-ko">충돌 가능성</span><span class="lang-en">Conflict Possibility</span></th><th><span class="lang-ko">해결 전략</span><span class="lang-en">Resolution Strategy</span></th></tr></thead>
                             <tbody>
@@ -256,7 +256,7 @@ VIN: <span class="hl-str">KMHXX00XXXX000002</span> → hash(<span class="hl-num"
                             </tbody>
                         </table>
 
-                        <h4>MSK Consumer Group Offset Sync</h4>
+                        <h4><span class="lang-ko">MSK Consumer Group Offset 동기화</span><span class="lang-en">MSK Consumer Group Offset Sync</span></h4>
 <pre><code><span class="hl-cm"># MSK Replicator syncs consumer group offsets</span>
 <span class="hl-cm"># Enables cross-region failover without reprocessing</span>
 
@@ -312,25 +312,25 @@ VIN: <span class="hl-str">KMHXX00XXXX000002</span> → hash(<span class="hl-num"
                             </tbody>
                         </table>
 
-                        <h4>Phase Approach</h4>
-<pre><code><span class="hl-cm"># Phase 1: Full Snapshot (서비스 운영 중)</span>
-mongodump --oplog → S3 → mongorestore    <span class="hl-cm"># ~200GB, 2-3시간</span>
-MirrorMaker2 initial sync                 <span class="hl-cm"># ~1TB, 1-2시간</span>
+                        <h4><span class="lang-ko">단계별 접근법</span><span class="lang-en">Phase Approach</span></h4>
+<pre><code><span class="hl-cm"># Phase 1: Full Snapshot (while service is running)</span>
+mongodump --oplog → S3 → mongorestore    <span class="hl-cm"># ~200GB, 2-3 hours</span>
+MirrorMaker2 initial sync                 <span class="hl-cm"># ~1TB, 1-2 hours</span>
 
-<span class="hl-cm"># Phase 2: CDC Catch-up (스냅샷 이후 변경분)</span>
-MongoDB Change Stream → DocumentDB        <span class="hl-cm"># oplog 기반 tailing</span>
-MirrorMaker2 continuous                   <span class="hl-cm"># offset 기반 sync</span>
+<span class="hl-cm"># Phase 2: CDC Catch-up (changes after snapshot)</span>
+MongoDB Change Stream → DocumentDB        <span class="hl-cm"># oplog-based tailing</span>
+MirrorMaker2 continuous                   <span class="hl-cm"># offset-based sync</span>
 
 <span class="hl-cm"># Phase 3: Validation</span>
-Document count comparison                 <span class="hl-cm"># collection별 count 일치</span>
-Sample document hash                      <span class="hl-cm"># 랜덤 샘플 해시 비교</span>
-API response comparison                   <span class="hl-cm"># 주요 API 응답 diff</span>
+Document count comparison                 <span class="hl-cm"># count match per collection</span>
+Sample document hash                      <span class="hl-cm"># random sample hash comparison</span>
+API response comparison                   <span class="hl-cm"># major API response diff</span>
 
 <span class="hl-cm"># Phase 4: Cutover</span>
 DNS switch (Route53 weighted → 100%)      <span class="hl-cm"># ~60s propagation</span>
-MirrorMaker2 reverse (new primary→old)    <span class="hl-cm"># 롤백 대비</span></code><span class="code-label">text</span></pre>
+MirrorMaker2 reverse (new primary→old)    <span class="hl-cm"># rollback preparation</span></code><span class="code-label">text</span></pre>
 
-                        <h4>Korea CCS 선례 (2025.06)</h4>
+                        <h4><span class="lang-ko">Korea CCS 선례 (2025.06)</span><span class="lang-en">Korea CCS Precedent (2025.06)</span></h4>
 <pre><code><span class="hl-cm"># Korea CCS Kafka→MSK Migration (2025.06)</span>
 
 <span class="hl-key">Volume:</span>        <span class="hl-num">800GB</span> (5-day retention)
@@ -339,20 +339,20 @@ MirrorMaker2 reverse (new primary→old)    <span class="hl-cm"># 롤백 대비<
 <span class="hl-key">Downtime:</span>      <span class="hl-num">0</span> (zero downtime migration)
 
 <span class="hl-cm"># Lessons learned:</span>
-<span class="hl-cm"># 1. MirrorMaker2 consumer lag monitoring 필수</span>
-<span class="hl-cm"># 2. Topic config 사전 복제 (retention, partitions)</span>
-<span class="hl-cm"># 3. Consumer group offset sync 검증 후 cutover</span></code><span class="code-label">text</span></pre>
+<span class="hl-cm"># 1. MirrorMaker2 consumer lag monitoring is essential</span>
+<span class="hl-cm"># 2. Pre-replicate topic config (retention, partitions)</span>
+<span class="hl-cm"># 3. Verify consumer group offset sync before cutover</span></code><span class="code-label">text</span></pre>
 
-                        <h4>Direct Connect Bandwidth</h4>
+                        <h4><span class="lang-ko">Direct Connect 대역폭</span><span class="lang-en">Direct Connect Bandwidth</span></h4>
 <pre><code><span class="hl-cm"># Direct Connect: 10Gbps dedicated</span>
 
 <span class="hl-key">Theoretical:</span>   <span class="hl-num">10Gbps</span> = <span class="hl-num">1.25GB/s</span> = <span class="hl-num">1TB</span> in ~<span class="hl-num">15</span>min
 <span class="hl-key">Effective:</span>     <span class="hl-num">~60-70%</span> utilization = <span class="hl-num">1TB</span> in ~<span class="hl-num">1-2</span>hr
 
 <span class="hl-cm"># Best practices:</span>
-<span class="hl-cm"># - 야간 (04:00-06:00 KST) 이관으로 서비스 영향 최소화</span>
-<span class="hl-cm"># - 병렬 스트림 (4-8 threads) 으로 대역폭 활용 극대화</span>
-<span class="hl-cm"># - S3 Transfer Acceleration 비활성화 (Direct Connect 경유)</span></code><span class="code-label">text</span></pre>
+<span class="hl-cm"># - Migrate at night (04:00-06:00 KST) to minimize service impact</span>
+<span class="hl-cm"># - Maximize bandwidth with parallel streams (4-8 threads)</span>
+<span class="hl-cm"># - Disable S3 Transfer Acceleration (use Direct Connect)</span></code><span class="code-label">text</span></pre>
 
                         <div class="callout tip">
                             <strong>Redis Cache Warming</strong>

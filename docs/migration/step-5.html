@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step 5: AWS Traffic Scale-Up - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>Step 5</span></div>
+
+                <h1>Step 5: AWS <span class="lang-ko">트래픽 확대</span><span class="lang-en">Traffic Scale-Up</span> (5:2.5:2.5)</h1>
+                <p class="lead">
+                    <span class="lang-ko">AWS로의 트래픽 비중을 50%로 확대하면서 Observability 스택을 통해 서비스 안정성을 검증합니다.
+                    OTel (OpenTelemetry) Collector는 Step 1부터 배포되어 있지만, 트래픽이 50%로 확대되는 이 시점에서 sampling 전략과 모니터링 임계값 튜닝이 중요해지므로 여기서 상세히 다룹니다.</span><span class="lang-en">Scale up traffic to AWS to 50% while validating service stability through the Observability stack.
+                    OTel (OpenTelemetry) Collector has been deployed since Step 1, but sampling strategy and monitoring threshold tuning become critical at this stage when traffic reaches 50%, so we cover it in detail here.</span>
+                </p>
+
+                <div class="callout info">
+                    <strong><span class="lang-ko">트래픽 분배</span><span class="lang-en">Traffic Distribution</span></strong>
+                    On-Prem 50% / us-west-2 25% / us-east-1 25% &mdash; <span class="lang-ko">AWS가 절반의 트래픽을 처리</span><span class="lang-en">AWS handles half of the traffic</span>
+                </div>
+
+                <!-- ===== Card 5-1: OTel Collector ===== -->
+                <h2 id="otel-collector">OTel (OpenTelemetry) Collector Pipeline</h2>
+
+                <div class="tech-card" data-tag="Observability">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Tail-based Sampling + 듀얼 Export (Tempo + X-Ray)</span><span class="lang-en">Tail-based Sampling + Dual Export (Tempo + X-Ray)</span></span>
+                        <span class="tech-card-tag Observability">Observability</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">OTel Collector는 DaemonSet으로 모든 노드에 배포되며,
+                            수집한 트레이스를 <strong>Grafana Tempo</strong>와 <strong>AWS X-Ray</strong>에 동시에 전송합니다.
+                            Tail-based sampling으로 중요한 트레이스만 선별하여 비용을 절감합니다.</span><span class="lang-en">OTel Collector is deployed as a DaemonSet on all nodes,
+                            sending collected traces to both <strong>Grafana Tempo</strong> and <strong>AWS X-Ray</strong> simultaneously.
+                            Tail-based sampling selects only important traces to reduce costs.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">Sampling 정책</span><span class="lang-en">Sampling Policy</span></h4>
+                        <p><code>k8s/infra/otel-collector/otel-collector.yaml</code> (발췌)</p>
+<pre><code><span class="hl-key">tail_sampling:</span>
+  <span class="hl-key">decision_wait:</span> <span class="hl-num">10</span>s
+  <span class="hl-key">num_traces:</span> <span class="hl-num">100000</span>
+  <span class="hl-key">expected_new_traces_per_sec:</span> <span class="hl-num">1000</span>
+  <span class="hl-key">policies:</span>
+    - <span class="hl-key">name:</span> errors-policy
+      <span class="hl-key">type:</span> status_code
+      <span class="hl-key">status_code:</span>
+        <span class="hl-key">status_codes:</span>
+          - <span class="hl-str">ERROR</span>              <span class="hl-cm"># Error traces: 100% collection</span>
+    - <span class="hl-key">name:</span> slow-requests-policy
+      <span class="hl-key">type:</span> latency
+      <span class="hl-key">latency:</span>
+        <span class="hl-key">threshold_ms:</span> <span class="hl-num">500</span>    <span class="hl-cm"># Over 500ms: 100% collection</span>
+    - <span class="hl-key">name:</span> probabilistic-policy
+      <span class="hl-key">type:</span> probabilistic
+      <span class="hl-key">probabilistic:</span>
+        <span class="hl-key">sampling_percentage:</span> <span class="hl-num">10</span>  <span class="hl-cm"># Default: 10% sampling</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Sampling 전략 해설</span><span class="lang-en">Sampling Strategy Explanation</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th>Policy</th><th><span class="lang-ko">조건</span><span class="lang-en">Condition</span></th><th><span class="lang-ko">수집률</span><span class="lang-en">Collection Rate</span></th><th><span class="lang-ko">목적</span><span class="lang-en">Purpose</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>errors-policy</td><td>STATUS = ERROR</td><td>100%</td><td><span class="lang-ko">모든 에러를 놓치지 않음</span><span class="lang-en">Capture all errors</span></td></tr>
+                                <tr><td>slow-requests</td><td>Latency &gt; 500ms</td><td>100%</td><td><span class="lang-ko">성능 병목 분석</span><span class="lang-en">Performance bottleneck analysis</span></td></tr>
+                                <tr><td>probabilistic</td><td><span class="lang-ko">기본</span><span class="lang-en">Default</span></td><td>10%</td><td><span class="lang-ko">비용 최적화</span><span class="lang-en">Cost optimization</span></td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong>Tail-based vs Head-based</strong>
+                            <span class="lang-ko">Head-based sampling은 트레이스 시작 시점에 결정하므로, 나중에 에러가 발생해도 놓칠 수 있습니다.
+                            Tail-based는 전체 트레이스가 완료된 후 판단하므로, 에러/슬로우 트레이스를 100% 캡처합니다.
+                            단, 메모리 사용량이 높아 <code>num_traces: 100000</code>으로 버퍼를 충분히 잡아야 합니다.</span><span class="lang-en">Head-based sampling decides at trace start, so errors occurring later may be missed.
+                            Tail-based decides after the entire trace completes, capturing 100% of error/slow traces.
+                            However, memory usage is high, so set <code>num_traces: 100000</code> for sufficient buffer.</span>
+                        </div>
+
+                        <h4><span class="lang-ko">Export Pipeline</span><span class="lang-en">Export Pipeline</span></h4>
+<pre><code><span class="hl-cm"># OTel Collector pipeline flow</span>
+Pods (OTLP gRPC)
+    <span class="hl-cm">|</span>
+    v
+OTel Collector (DaemonSet)
+    <span class="hl-cm">|--- receivers: otlp (gRPC:4317, HTTP:4318)</span>
+    <span class="hl-cm">|--- processors: tail_sampling, batch</span>
+    <span class="hl-cm">|</span>
+    <span class="hl-cm">|--- exporters:</span>
+    <span class="hl-cm">|      |--- otlp/tempo   (Grafana Tempo, S3 backend)</span>
+    <span class="hl-cm">|      |--- awsxray      (AWS X-Ray)</span>
+    v
+Grafana Dashboard
+    <span class="hl-cm">|--- Tempo: Distributed tracing details</span>
+    <span class="hl-cm">|--- X-Ray: Service Map + cross-region flow</span></code><span class="code-label">text</span></pre>
+                    </div>
+                </div>
+
+                <!-- ===== Card 5-2: Grafana Tempo + CloudWatch ===== -->
+                <h2 id="tempo-cloudwatch">Grafana Tempo + CloudWatch</h2>
+
+                <div class="tech-card" data-tag="Observability">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Observability 스택 구성과 모니터링 대시보드</span><span class="lang-en">Observability Stack & Monitoring Dashboard</span></span>
+                        <span class="tech-card-tag Observability">Observability</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Observability 스택은 <strong>3개 계층</strong>으로 구성됩니다:
+                            Metrics (CloudWatch + Prometheus), Logs (CloudWatch Logs), Traces (Tempo + X-Ray).
+                            Grafana에서 3가지 신호를 통합하여 크로스리전 서비스 상태를 모니터링합니다.</span><span class="lang-en">The Observability stack consists of <strong>3 layers</strong>:
+                            Metrics (CloudWatch + Prometheus), Logs (CloudWatch Logs), Traces (Tempo + X-Ray).
+                            Grafana integrates all 3 signals to monitor cross-region service status.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">Observability 계층</span><span class="lang-en">Observability Layers</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th>Signal</th><th><span class="lang-ko">수집</span><span class="lang-en">Collection</span></th><th><span class="lang-ko">저장</span><span class="lang-en">Storage</span></th><th><span class="lang-ko">시각화</span><span class="lang-en">Visualization</span></th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Metrics</strong></td><td>Prometheus / CW Agent</td><td>CloudWatch Metrics</td><td>Grafana Dashboard</td></tr>
+                                <tr><td><strong>Logs</strong></td><td>Fluent Bit DaemonSet</td><td>CloudWatch Logs</td><td>CloudWatch Logs Insights</td></tr>
+                                <tr><td><strong>Traces</strong></td><td>OTel Collector</td><td>Tempo (S3) + X-Ray</td><td>Grafana Tempo / X-Ray Console</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">핵심 모니터링 지표</span><span class="lang-en">Key Monitoring Metrics</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">지표</span><span class="lang-en">Metric</span></th><th><span class="lang-ko">임계값</span><span class="lang-en">Threshold</span></th><th><span class="lang-ko">알람</span><span class="lang-en">Alarm</span></th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="lang-ko">요청 에러율 (5xx)</span><span class="lang-en">Request Error Rate (5xx)</span></td><td>&gt; 1%</td><td>Critical: PagerDuty</td></tr>
+                                <tr><td><span class="lang-ko">P99 (99번째 백분위수) 응답 시간</span><span class="lang-en">P99 (99th percentile) Response Time</span></td><td>&gt; 3s</td><td>Warning: Slack</td></tr>
+                                <tr><td><span class="lang-ko">리전간 데이터 지연</span><span class="lang-en">Cross-Region Data Lag</span></td><td>&gt; 30s</td><td>Critical: PagerDuty</td></tr>
+                                <tr><td><span class="lang-ko">Health Check 실패</span><span class="lang-en">Health Check Failure</span></td><td>2 consecutive</td><td>Critical: Route53 Failover</td></tr>
+                                <tr><td><span class="lang-ko">CPU 사용률</span><span class="lang-en">CPU Utilization</span></td><td>&gt; 80%</td><td>Warning: Slack</td></tr>
+                                <tr><td>Pod Restart Count</td><td>&gt; 3/5min</td><td>Warning: Slack</td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong>Tempo S3 Backend</strong>
+                            <span class="lang-ko">Tempo는 monolithic mode로 실행하며, 트레이스 데이터를 리전별 S3 버킷
+                            (<code>production-mall-tempo-traces-{region}</code>)에 저장합니다.
+                            S3 스토리지 비용이 매우 낮아(~$0.023/GB) 장기 보존에 적합합니다.</span><span class="lang-en">Tempo runs in monolithic mode, storing trace data in per-region S3 buckets
+                            (<code>production-mall-tempo-traces-{region}</code>).
+                            S3 storage costs are very low (~$0.023/GB), making it suitable for long-term retention.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="step-4.html"><span class="label">Previous</span><span class="title">&larr; Step 4: <span class="lang-ko">트래픽 분산</span><span class="lang-en">Traffic Distribution</span></span></a>
+                    <a href="step-6.html" class="next"><span class="label">Next</span><span class="title">Step 6: Full AWS &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#otel-collector" class="toc-link">OTel Collector Pipeline</a>
+            <a href="#tempo-cloudwatch" class="toc-link">Grafana Tempo + CloudWatch</a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

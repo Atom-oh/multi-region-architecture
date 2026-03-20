@@ -46,27 +46,27 @@
                         </p>
 
                         <h4><span class="lang-ko">GIS 핵심 컴포넌트</span><span class="lang-en">GIS Core Components</span></h4>
-<pre><code><span class="hl-cm"># GIS = Global Information Service (실시간 내비게이션)</span>
+<pre><code><span class="hl-cm"># GIS = Global Information Service (Real-time Navigation)</span>
 
 <span class="hl-key">Road Guide:</span>
-  - 정적 도로 네트워크 데이터
-  - 도로 구조, 차선, 교차로, 제한속도
-  - 변경 빈도: 낮음 (월 1-2회 업데이트)
+  - Static road network data
+  - Road structure, lanes, intersections, speed limits
+  - Update frequency: Low (1-2 updates per month)
 
 <span class="hl-key">Traffic Info:</span>
-  - 실시간 교통 혼잡도 데이터
-  - 구간별 평균 속도, 예상 소요시간
-  - 변경 빈도: 높음 (5분 주기 갱신)
+  - Real-time traffic congestion data
+  - Average speed per segment, estimated travel time
+  - Update frequency: High (5-minute refresh cycle)
 
 <span class="hl-key">Analytics:</span>
-  - 경로 최적화 알고리즘
-  - 과거 데이터 기반 예측
-  - ETA 정확도 향상
+  - Route optimization algorithms
+  - Prediction based on historical data
+  - ETA accuracy improvement
 
 <span class="hl-cm"># GSS (Global Search Service)</span>
-  - Autocomplete 검색
-  - 리전별 Edge Processing
-  - POI 검색 최적화</code><span class="code-label">text</span></pre>
+  - Autocomplete search
+  - Region-specific Edge Processing
+  - POI search optimization</code><span class="code-label">text</span></pre>
 
                         <h4><span class="lang-ko">표준 서비스 패턴</span><span class="lang-en">Standard Service Pattern</span></h4>
                         <table class="info-table">
@@ -225,24 +225,24 @@
                         </table>
 
                         <h4><span class="lang-ko">Geohash 기반 구간 캐싱</span><span class="lang-en">Geohash-Based Segment Caching</span></h4>
-<pre><code><span class="hl-cm"># Geohash 정밀도 6 = ~1.2km x 0.6km 셀</span>
-<span class="hl-cm"># 출발지-목적지(OD) 조합 대신 구간별 캐싱 → 재사용률 극대화</span>
+<pre><code><span class="hl-cm"># Geohash (technique to encode location as short string) precision 6 = ~1.2km x 0.6km cell</span>
+<span class="hl-cm"># Segment-based caching instead of Origin-Destination(OD) pairs → Maximize reuse rate</span>
 
-<span class="hl-key">Cache Key 구조:</span>
+<span class="hl-key">Cache Key Structure:</span>
   route:segment:{geohash_from}:{geohash_to}:{traffic_level}
 
-<span class="hl-key">Traffic Level 분리:</span>
-  - normal  : 일반 통행
-  - heavy   : 혼잡
-  - severe  : 심각한 정체
+<span class="hl-key">Traffic Level Separation:</span>
+  - normal  : Normal traffic
+  - heavy   : Congested
+  - severe  : Severe congestion
 
-<span class="hl-key">예시:</span>
-  route:segment:9q8yyk:9q8yym:normal    <span class="hl-cm"># LA 도심 (일반)</span>
-  route:segment:9q8yyk:9q8yym:heavy     <span class="hl-cm"># LA 도심 (혼잡)</span>
-  route:segment:9q8yyk:9q8yym:severe    <span class="hl-cm"># LA 도심 (심각)</span>
+<span class="hl-key">Example:</span>
+  route:segment:9q8yyk:9q8yym:normal    <span class="hl-cm"># LA downtown (normal)</span>
+  route:segment:9q8yyk:9q8yym:heavy     <span class="hl-cm"># LA downtown (congested)</span>
+  route:segment:9q8yyk:9q8yym:severe    <span class="hl-cm"># LA downtown (severe)</span>
 
-<span class="hl-cm"># 혼잡도 변경 시 해당 traffic level 캐시만 교체</span>
-<span class="hl-cm"># 전체 무효화 방지 → 캐시 효율성 향상</span></code><span class="code-label">text</span></pre>
+<span class="hl-cm"># When congestion changes, only replace that traffic level's cache</span>
+<span class="hl-cm"># Prevent full invalidation → Improve cache efficiency</span></code><span class="code-label">text</span></pre>
 
                         <div class="callout tip">
                             <strong><span class="lang-ko">Traffic Level 분리의 이점</span><span class="lang-en">Benefits of Traffic Level Separation</span></strong>
@@ -276,52 +276,52 @@
                                 <tr>
                                     <td style="font-weight:600;">us-west-2</td>
                                     <td>~30GB</td>
-                                    <td>West Coast 도로 네트워크</td>
+                                    <td><span class="lang-ko">West Coast 도로 네트워크</span><span class="lang-en">West Coast road network</span></td>
                                     <td><span class="lang-ko">CA, OR, WA 집중</span><span class="lang-en">CA, OR, WA focused</span></td>
                                 </tr>
                                 <tr>
                                     <td style="font-weight:600;">us-east-1</td>
                                     <td>~45GB</td>
-                                    <td>East + Central 도로 네트워크</td>
+                                    <td><span class="lang-ko">East + Central 도로 네트워크</span><span class="lang-en">East + Central road network</span></td>
                                     <td><span class="lang-ko">도로 밀도 높음</span><span class="lang-en">High road density</span></td>
                                 </tr>
                             </tbody>
                         </table>
 
                         <h4><span class="lang-ko">독립 운영의 이점</span><span class="lang-en">Benefits of Independent Operation</span></h4>
-<pre><code><span class="hl-cm"># ElastiCache 리전간 동기화 vs 독립 운영</span>
+<pre><code><span class="hl-cm"># ElastiCache cross-region sync vs independent operation</span>
 
-<span class="hl-key">Cross-region 전송 비용:</span>
-  동기화: ~$0.02/GB (상당한 비용)
-  독립:   $0 (없음)
+<span class="hl-key">Cross-region Transfer Cost:</span>
+  Sync:        ~$0.02/GB (significant cost)
+  Independent: $0 (none)
 
-<span class="hl-key">쓰기 레이턴시:</span>
-  동기화: +60ms (cross-region RTT 추가)
-  독립:   &lt;1ms (로컬 쓰기)
+<span class="hl-key">Write Latency:</span>
+  Sync:        +60ms (cross-region RTT added)
+  Independent: &lt;1ms (local write)
 
-<span class="hl-key">캐시 효율성:</span>
-  동기화: 낮음 (타 리전 데이터 불필요)
-  독립:   높음 (지역 특화 데이터만)
+<span class="hl-key">Cache Efficiency:</span>
+  Sync:        Low (other region data unnecessary)
+  Independent: High (region-specific data only)
 
-<span class="hl-key">장애 격리:</span>
-  동기화: 복제 장애 시 양 리전 영향
-  독립:   완전 독립, 완전 격리</code><span class="code-label">text</span></pre>
+<span class="hl-key">Fault Isolation:</span>
+  Sync:        Replication failure affects both regions
+  Independent: Fully independent, fully isolated</code><span class="code-label">text</span></pre>
 
                         <h4><span class="lang-ko">Cache Warming 전략</span><span class="lang-en">Cache Warming Strategy</span></h4>
-<pre><code><span class="hl-cm"># Cold Start 방지를 위한 Cache Warming</span>
+<pre><code><span class="hl-cm"># Cache Warming to prevent Cold Start</span>
 
-<span class="hl-key">1. 주기적 Pre-load (매 5분):</span>
-   - DocumentDB에서 주요 구간 데이터 로드
-   - 인기 경로 기반 우선순위 적용
+<span class="hl-key">1. Periodic Pre-load (every 5 min):</span>
+   - Load major segment data from DocumentDB
+   - Apply priority based on popular routes
 
-<span class="hl-key">2. 배포 시 Seed Data:</span>
-   - Top-1000 인기 경로 사전 투입
-   - 배포 직후 캐시 미스 최소화
+<span class="hl-key">2. Seed Data on Deployment:</span>
+   - Pre-populate Top-1000 popular routes
+   - Minimize cache misses immediately after deployment
 
 <span class="hl-key">3. MSK Event Subscription:</span>
-   - traffic.events 토픽 구독
-   - road.events 토픽 구독
-   - 이벤트 기반 능동적 캐시 갱신</code><span class="code-label">text</span></pre>
+   - Subscribe to traffic.events topic
+   - Subscribe to road.events topic
+   - Event-driven proactive cache refresh</code><span class="code-label">text</span></pre>
 
                         <div class="callout info">
                             <strong><span class="lang-ko">설계 원칙: 지역 특화</span><span class="lang-en">Design Principle: Regional Specialization</span></strong>
@@ -351,7 +351,7 @@
                         </p>
 
                         <h4><span class="lang-ko">MSK 토픽 구조</span><span class="lang-en">MSK Topic Structure</span></h4>
-<pre><code><span class="hl-cm"># traffic.events - 혼잡도 변경 이벤트</span>
+<pre><code><span class="hl-cm"># traffic.events - Congestion change event</span>
 {
   <span class="hl-str">"type"</span>: <span class="hl-str">"CONGESTION_CHANGE"</span>,
   <span class="hl-str">"geohash"</span>: <span class="hl-str">"9q8yyk"</span>,
@@ -360,11 +360,11 @@
   <span class="hl-str">"timestamp"</span>: <span class="hl-str">"2026-03-20T10:30:00Z"</span>
 }
 
-<span class="hl-cm"># road.events - 도로 상태 변경 이벤트</span>
+<span class="hl-cm"># road.events - Road status change event</span>
 {
-  <span class="hl-str">"type"</span>: <span class="hl-str">"ACCIDENT"</span>,          <span class="hl-cm">// 사고</span>
-  <span class="hl-str">"type"</span>: <span class="hl-str">"CONSTRUCTION"</span>,      <span class="hl-cm">// 공사</span>
-  <span class="hl-str">"type"</span>: <span class="hl-str">"ROAD_CLOSURE"</span>,      <span class="hl-cm">// 도로 폐쇄</span>
+  <span class="hl-str">"type"</span>: <span class="hl-str">"ACCIDENT"</span>,          <span class="hl-cm">// Accident</span>
+  <span class="hl-str">"type"</span>: <span class="hl-str">"CONSTRUCTION"</span>,      <span class="hl-cm">// Construction</span>
+  <span class="hl-str">"type"</span>: <span class="hl-str">"ROAD_CLOSURE"</span>,      <span class="hl-cm">// Road closure</span>
   <span class="hl-str">"affected_segments"</span>: [<span class="hl-str">"9q8yyk:9q8yym"</span>, <span class="hl-str">"..."</span>],
   <span class="hl-str">"invalidate_radius_km"</span>: <span class="hl-num">5</span>
 }</code><span class="code-label">json</span></pre>
@@ -401,15 +401,15 @@
                         </table>
 
                         <h4><span class="lang-ko">영향 구간 반경 계산</span><span class="lang-en">Affected Segment Radius Calculation</span></h4>
-<pre><code><span class="hl-cm"># 이벤트 수신 → 영향 구간 계산 → 캐시 무효화</span>
+<pre><code><span class="hl-cm"># Event received → Calculate affected segments → Invalidate cache</span>
 
 <span class="hl-kw">def</span> <span class="hl-fn">invalidate_affected_segments</span>(event):
-    <span class="hl-cm"># 이벤트 타입별 영향 반경</span>
+    <span class="hl-cm"># Impact radius by event type</span>
     radius_map = {
         <span class="hl-str">"ACCIDENT"</span>: <span class="hl-num">5</span>,      <span class="hl-cm"># 5km</span>
-        <span class="hl-str">"ROAD_CLOSURE"</span>: <span class="hl-num">10</span>, <span class="hl-cm"># 10km (우회로 포함)</span>
+        <span class="hl-str">"ROAD_CLOSURE"</span>: <span class="hl-num">10</span>, <span class="hl-cm"># 10km (including detours)</span>
         <span class="hl-str">"CONSTRUCTION"</span>: <span class="hl-num">2</span>,  <span class="hl-cm"># 2km</span>
-        <span class="hl-str">"CONGESTION"</span>: <span class="hl-num">0</span>      <span class="hl-cm"># 해당 구간만</span>
+        <span class="hl-str">"CONGESTION"</span>: <span class="hl-num">0</span>      <span class="hl-cm"># Affected segment only</span>
     }
 
     radius = radius_map.get(event.type, <span class="hl-num">1</span>)
