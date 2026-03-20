@@ -29,6 +29,7 @@ spec:
       containers:
         - name: wishlist
           image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/wishlist:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http

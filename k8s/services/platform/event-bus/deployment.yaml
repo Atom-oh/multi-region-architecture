@@ -35,6 +35,7 @@ spec:
       containers:
         - name: event-bus
           image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/event-bus:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http
