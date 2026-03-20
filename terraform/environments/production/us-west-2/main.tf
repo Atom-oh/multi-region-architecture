@@ -156,6 +156,7 @@ module "alb" {
   oidc_provider_arn = module.eks.oidc_provider_arn
   oidc_provider_url = module.eks.oidc_provider_url
   vpc_id            = module.vpc.vpc_id
+  role_name_suffix  = "-us-west-2"
   tags              = var.tags
 }
 

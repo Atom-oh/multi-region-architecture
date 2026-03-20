@@ -6,7 +6,7 @@ data "aws_region" "current" {}
 
 # IAM role for AWS Load Balancer Controller
 resource "aws_iam_role" "alb_controller" {
-  name = "${var.cluster_name}-alb-controller"
+  name = "${var.cluster_name}-alb-controller${var.role_name_suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -32,7 +32,7 @@ resource "aws_iam_role" "alb_controller" {
 
 # IAM policy for AWS Load Balancer Controller
 resource "aws_iam_policy" "alb_controller" {
-  name        = "${var.cluster_name}-alb-controller-policy"
+  name        = "${var.cluster_name}-alb-controller-policy${var.role_name_suffix}"
   description = "IAM policy for AWS Load Balancer Controller"
 
   policy = jsonencode({

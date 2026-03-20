@@ -33,6 +33,12 @@ variable "vpc_id" {
   type        = string
 }
 
+variable "role_name_suffix" {
+  description = "Suffix to append to IAM role/policy names (e.g., '-us-west-2' for secondary region)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

@@ -143,6 +143,19 @@ resource "aws_security_group_rule" "eks_cluster_sg_nlb_argocd_ingress" {
   description              = "Allow ArgoCD from NLB to EKS nodes"
 }
 
+# Allow NLB to reach api-gateway pods on port 80 via the EKS-managed cluster security group
+resource "aws_security_group_rule" "eks_cluster_sg_nlb_api_ingress" {
+  count = var.nlb_security_group_id != "" ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  source_security_group_id = var.nlb_security_group_id
+  description              = "Allow HTTP from NLB to EKS nodes (api-gateway)"
+}
+
 # OIDC Provider for IRSA
 data "tls_certificate" "eks" {
   url = aws_eks_cluster.main.identity[0].oidc[0].issuer
