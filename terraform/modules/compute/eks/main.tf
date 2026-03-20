@@ -285,6 +285,19 @@ resource "aws_eks_addon" "coredns" {
   addon_version               = var.addon_versions.coredns
   resolve_conflicts_on_update = "OVERWRITE"
 
+  configuration_values = jsonencode({
+    tolerations = [
+      {
+        key      = "node-role"
+        value    = "system-critical"
+        effect   = "NoSchedule"
+      }
+    ]
+    nodeSelector = {
+      role = "system"
+    }
+  })
+
   tags = var.tags
 
   depends_on = [aws_eks_addon.vpc_cni]
@@ -386,9 +399,9 @@ resource "aws_eks_node_group" "bootstrap" {
   }
 
   taint {
-    key    = "CriticalAddonsOnly"
-    value  = "true"
-    effect = "PREFER_NO_SCHEDULE"
+    key    = "node-role"
+    value  = "system-critical"
+    effect = "NO_SCHEDULE"
   }
 
   tags = merge(var.tags, {

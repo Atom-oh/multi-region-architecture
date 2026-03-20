@@ -35,6 +35,12 @@ spec:
               annotations:
                 eks.amazonaws.com/role-arn: 'arn:aws:iam::180294183052:role/multi-region-mall-karpenter-controller{{values.roleSuffix}}'
             replicas: 2
+            tolerations:
+              - key: node-role
+                value: system-critical
+                effect: NoSchedule
+            nodeSelector:
+              role: system
       destination:
         server: '{{server}}'
         namespace: karpenter
