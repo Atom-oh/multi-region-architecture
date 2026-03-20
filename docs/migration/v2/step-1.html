@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step 1: us-west-2 배포 - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb">
+                    <a href="index.html">Home</a><span class="sep">/</span><span>Step 1</span>
+                </div>
+
+                <h1>Step 1: us-west-2 <span class="lang-ko">배포 + 듀얼 오리진</span><span class="lang-en">Deploy + Dual Origin</span> (9:1)</h1>
+                <p class="lead">
+                    us-west-2 리전에 전체 인프라를 배포하고, Route53 weighted routing으로 On-Prem 90%, us-west-2 10%의 트래픽 비율을 설정합니다. (CloudFront Origin Group은 failover 전용이므로, 가중치 기반 분산은 Route53에서 처리합니다.)
+                    EC2 Sync Connector가 On-Prem과 AWS 간 데이터 동기화를 수행합니다. On-Prem DC가 us-west 지역에 위치하므로, 네트워크 지연이 적은 us-west-2를 먼저 배포하여 검증합니다.
+                </p>
+
+                <div class="callout info">
+                    <strong><span class="lang-ko">트래픽 분배</span><span class="lang-en">Traffic Distribution</span></strong>
+                    On-Prem 90% / us-west-2 10% &mdash; Route53 weighted routing으로 소량 트래픽 검증
+                </div>
+
+                <!-- ===== Card 1-1: ArgoCD App of Apps ===== -->
+                <h2 id="argocd">ArgoCD App of Apps <span class="lang-ko">패턴</span><span class="lang-en">Pattern</span></h2>
+
+                <div class="tech-card" data-tag="GitOps">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">ArgoCD ApplicationSet + Kustomize 오버레이</span>
+                        <span class="tech-card-tag GitOps">GitOps</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            ArgoCD <strong>ApplicationSet</strong>의 <code>clusters</code> generator를 사용하여,
+                            하나의 ApplicationSet 정의로 양 리전에 동일한 서비스를 자동 배포합니다.
+                            리전별 차이(엔드포인트, SG ID, 인증서 ARN 등)는 Kustomize 오버레이에서 처리합니다.
+                        </p>
+
+                        <h4>ApplicationSet: Core 서비스</h4>
+                        <p><code>k8s/infra/argocd/apps/appset-core.yaml</code></p>
+<pre><code><span class="hl-key">apiVersion:</span> argoproj.io/v1alpha1
+<span class="hl-key">kind:</span> ApplicationSet
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> core-services
+  <span class="hl-key">namespace:</span> argocd
+<span class="hl-key">spec:</span>
+  <span class="hl-key">generators:</span>
+    - <span class="hl-key">clusters:</span>
+        <span class="hl-key">selector:</span>
+          <span class="hl-key">matchExpressions:</span>
+            - <span class="hl-key">key:</span> region
+              <span class="hl-key">operator:</span> Exists
+  <span class="hl-key">template:</span>
+    <span class="hl-key">metadata:</span>
+      <span class="hl-key">name:</span> <span class="hl-str">'core-{{metadata.labels.region}}'</span>
+    <span class="hl-key">spec:</span>
+      <span class="hl-key">project:</span> default
+      <span class="hl-key">source:</span>
+        <span class="hl-key">repoURL:</span> git@github.com:Atom-oh/multi-region-architecture.git
+        <span class="hl-key">targetRevision:</span> main
+        <span class="hl-key">path:</span> <span class="hl-str">'k8s/overlays/{{metadata.labels.region}}/core'</span>
+      <span class="hl-key">destination:</span>
+        <span class="hl-key">server:</span> <span class="hl-str">'{{server}}'</span>
+        <span class="hl-key">namespace:</span> core-services
+      <span class="hl-key">syncPolicy:</span>
+        <span class="hl-key">automated:</span>
+          <span class="hl-key">prune:</span> <span class="hl-num">true</span>
+          <span class="hl-key">selfHeal:</span> <span class="hl-num">true</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4>Kustomize: 리전별 ConfigMap 오버레이</h4>
+                        <p><code>k8s/overlays/us-east-1/kustomization.yaml</code> (발췌)</p>
+<pre><code><span class="hl-key">configMapGenerator:</span>
+  - <span class="hl-key">name:</span> region-config
+    <span class="hl-key">namespace:</span> platform
+    <span class="hl-key">literals:</span>
+      - <span class="hl-str">REGION=us-east-1</span>
+      - <span class="hl-str">REGION_ROLE=PRIMARY</span>
+      - <span class="hl-str">DOCUMENTDB_ENDPOINT=production-docdb-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.docdb.amazonaws.com</span>
+      - <span class="hl-str">VALKEY_ENDPOINT=clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com</span>
+      - <span class="hl-str">MSK_BROKERS=b-1.productionmskuseast1...kafka.us-east-1.amazonaws.com:9096</span>
+      - <span class="hl-str">OPENSEARCH_ENDPOINT=https://vpc-production-os-use1-...us-east-1.es.amazonaws.com</span></code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">핵심 패턴</span><span class="lang-en">Key Pattern</span></strong>
+                            <code>{{metadata.labels.region}}</code> 템플릿 변수 하나로 양 리전에 동일한 Application을 생성합니다.
+                            리전별 엔드포인트 차이는 <code>configMapGenerator</code>의 <code>literals</code>에서 흡수하므로,
+                            서비스 코드는 환경변수만 읽으면 됩니다.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 1-2: Multi-Region Design Principles ===== -->
+                <h2 id="design-principles"><span class="lang-ko">멀티리전 아키텍처 설계 원칙</span><span class="lang-en">Multi-Region Architecture Design Principles</span></h2>
+
+                <div class="tech-card" data-tag="Architecture">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Write-Primary / Read-Local 패턴과 설계 원칙</span><span class="lang-en">Write-Primary / Read-Local Pattern & Design Principles</span></span>
+                        <span class="tech-card-tag Architecture">Architecture</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            멀티리전 아키텍처에서 가장 어려운 문제는 <strong>데이터 일관성</strong>입니다.
+                            모든 리전에서 동시에 쓰기를 허용하면 Last Write Wins 등의 충돌(conflict)이 발생하므로,
+                            본 아키텍처는 <strong>Write-Primary / Read-Local</strong> 패턴을 채택합니다.
+                        </p>
+
+                        <h4>핵심 원칙</h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th>원칙</th><th>설명</th><th>구현</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Write-Primary</td>
+                                    <td>쓰기 요청은 Primary 리전(us-east-1)으로 전달</td>
+                                    <td>Aurora Global Write Forwarding</td>
+                                </tr>
+                                <tr>
+                                    <td>Read-Local</td>
+                                    <td>읽기 요청은 가장 가까운 리전에서 처리</td>
+                                    <td>Route53 Latency-based Routing</td>
+                                </tr>
+                                <tr>
+                                    <td>Eventual Consistency</td>
+                                    <td>리전간 데이터 복제 지연 허용 (~1s 이내)</td>
+                                    <td>각 데이터스토어의 네이티브 복제</td>
+                                </tr>
+                                <tr>
+                                    <td>Active-Active (예외)</td>
+                                    <td>DSQL은 양 리전에서 동시 쓰기 가능</td>
+                                    <td>DSQL Peer Linking (AWS 네이티브)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>트래픽 라우팅 계층</h4>
+<pre><code>User
+  <span class="hl-cm">|</span>
+  <span class="hl-cm">v</span>
+CloudFront + WAF        <span class="hl-cm"># L7 글로벌 엣지 (정적 콘텐츠 캐싱 + WAF 보안)</span>
+  <span class="hl-cm">|</span>
+  <span class="hl-cm">v</span>
+Route53 Latency-based   <span class="hl-cm"># DNS 레벨 리전 선택</span>
+  <span class="hl-cm">|</span>
+  <span class="hl-cm">v</span>
+NLB (Network Load Balancer, per region)        <span class="hl-cm"># L4 로드밸런싱 (CloudFront prefix-list SG)</span>
+  <span class="hl-cm">|</span>
+  <span class="hl-cm">v</span>
+api-gateway pod         <span class="hl-cm"># 서비스 메시 진입점</span>
+  <span class="hl-cm">|</span>
+  <span class="hl-cm">v</span>
+Internal services       <span class="hl-cm"># K8s Service DNS 기반 통신</span></code><span class="code-label">text</span></pre>
+                    </div>
+                </div>
+
+                <!-- ===== Card 1-3: EC2 Sync Connector ===== -->
+                <h2 id="sync-connector">EC2 Sync Connector</h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">On-Prem &harr; AWS CDC 동기화 아키텍처</span><span class="lang-en">On-Prem &harr; AWS CDC Sync Architecture</span></span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            On-Prem과 AWS 간의 데이터 동기화를 위해 <strong>EC2 기반 CDC Connector</strong>를 사용합니다.
+                            On-Prem DC와 AWS VPC를 Direct Connect로 연결하고, EC2 인스턴스에서 CDC 에이전트를 실행합니다.
+                        </p>
+
+                        <h4>동기화 구성</h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th>Source (On-Prem)</th><th>Target (AWS)</th><th>CDC 도구</th><th>방향</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>PostgreSQL</td>
+                                    <td>DSQL</td>
+                                    <td>Debezium + Kafka Connect</td>
+                                    <td>On-Prem &rarr; AWS (단방향)</td>
+                                </tr>
+                                <tr>
+                                    <td>MongoDB</td>
+                                    <td>DocumentDB</td>
+                                    <td>Mongo Change Stream + Custom Agent</td>
+                                    <td>On-Prem &rarr; AWS (단방향)</td>
+                                </tr>
+                                <tr>
+                                    <td>Kafka</td>
+                                    <td>MSK</td>
+                                    <td>Kafka MirrorMaker2</td>
+                                    <td>양방향 (topic prefix)</td>
+                                </tr>
+                                <tr>
+                                    <td>Elasticsearch</td>
+                                    <td>OpenSearch</td>
+                                    <td>Logstash reindex pipeline</td>
+                                    <td>On-Prem &rarr; AWS (단방향)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong>Redis / ElastiCache</strong>
+                            Redis(ElastiCache)는 캐시 용도이므로 데이터 동기화를 수행하지 않습니다.
+                            각 리전에서 독립적으로 캐시를 워밍업하며, cache miss 시 DB에서 재로드합니다.
+                        </div>
+
+                        <h4>Direct Connect 구성</h4>
+<pre><code><span class="hl-cm"># Direct Connect 경로</span>
+On-Prem DC
+    <span class="hl-cm">|--- Direct Connect 10Gbps ---></span> AWS us-west-2 VPC
+                                        <span class="hl-cm">|</span>
+                                   EC2 Sync Connector
+                                   (Debezium, MirrorMaker2, Custom Agent)
+                                        <span class="hl-cm">|</span>
+                                   AWS Data Stores
+                                   (DSQL, DocumentDB, MSK, OpenSearch)</code><span class="code-label">text</span></pre>
+
+                        <p>
+                            EC2 Sync Connector는 <strong>Step 6에서 제거</strong>됩니다.
+                            On-Prem 트래픽이 0%가 되면 CDC 동기화가 더 이상 필요하지 않으며,
+                            이후에는 AWS 네이티브 리전간 동기화만 활성 상태로 유지됩니다.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="page-nav">
+                    <a href="step-0.html">
+                        <span class="label">Previous</span>
+                        <span class="title">&larr; Step 0: 초기 상태</span>
+                    </a>
+                    <a href="step-2.html" class="next">
+                        <span class="label">Next</span>
+                        <span class="title">Step 2: us-east-1 배포 &rarr;</span>
+                    </a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#argocd" class="toc-link"><span class="lang-ko">ArgoCD App of Apps</span><span class="lang-en">ArgoCD App of Apps</span></a>
+            <a href="#design-principles" class="toc-link"><span class="lang-ko">멀티리전 설계 원칙</span><span class="lang-en">Multi-Region Design</span></a>
+            <a href="#sync-connector" class="toc-link">EC2 Sync Connector</a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

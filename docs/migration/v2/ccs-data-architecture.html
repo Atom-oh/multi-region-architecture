@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCS Data Architecture - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>CCS Data Architecture</span></div>
+
+                <h1>CCS Data Architecture</h1>
+                <p class="lead">
+                    The CCDI (Connected Car Data Interface) is the data collection and processing layer for all vehicle telemetry.
+                    This section covers the current and target architecture, data tiering, Gen2/Gen3 processing differences, and personal information management.
+                </p>
+
+                <!-- ===== Card 1: CCDI Architecture ===== -->
+                <h2 id="ccdi-architecture">CCDI Architecture</h2>
+
+                <div class="tech-card" data-tag="Architecture">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">CCDI Architecture &mdash; AS-IS vs TO-BE</span>
+                        <span class="tech-card-tag Architecture">Architecture</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <strong>CCDI (Connected Car Data Interface)</strong> is the central data layer responsible for collecting,
+                            processing, and serving vehicle telemetry data. It handles all incoming signals from connected vehicles
+                            and distributes processed data to downstream services.
+                        </p>
+
+                        <h4>AS-IS Architecture</h4>
+<pre><code>4 CBU (Connected Business Units)
+       |
+       v
+   Kafka Cluster
+       |
+       v
+   CCDI (Data Processing Layer)
+       |
+       +---> MongoDB (Primary Store)
+       |
+       +---> Redis (Cache Layer)
+       |
+       v
+   Backend Services
+       |
+       +---> ESB (Enterprise Service Bus)
+       |
+       +---> Java + Spring Applications
+
+<span class="hl-cm"># Issues:</span>
+- ESB differs per corporation (inconsistent integration)
+- Monolithic services, MSA modernization planned
+- Standard pattern: Cache(Redis) + NoSQL(MongoDB) per service
+- Problem: unnecessary data stored, cost optimization needed</code><span class="code-label">text</span></pre>
+
+                        <h4>TO-BE Architecture</h4>
+<pre><code>4 CBU (Connected Business Units)
+       |
+       v
+   MSK (Managed Kafka)
+       |
+       v
+   CCDI (EKS - Containerized)
+       |
+       +---> ElastiCache/Redis (Hot Tier)
+       |           TTL: minutes
+       |           Use: VSS latest state
+       |
+       +---> MongoDB Atlas (Warm Tier)
+       |           Retention: 3-7 days
+       |           Use: Service queries
+       |
+       +---> S3 + Athena (Cold Tier)
+                   Retention: Permanent
+                   Use: Historical analysis</code><span class="code-label">text</span></pre>
+
+                        <h4>Component Comparison</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Component</th><th>AS-IS</th><th>TO-BE</th><th>Benefit</th></tr></thead>
+                            <tbody>
+                                <tr><td>Message Queue</td><td>On-Prem Kafka</td><td>Amazon MSK</td><td>Managed, auto-scaling</td></tr>
+                                <tr><td>Processing</td><td>VM-based CCDI</td><td>EKS (Containerized)</td><td>Elastic scaling, portability</td></tr>
+                                <tr><td>Hot Storage</td><td>Redis (self-managed)</td><td>ElastiCache</td><td>Multi-AZ, auto-failover</td></tr>
+                                <tr><td>Warm Storage</td><td>MongoDB (HDD)</td><td>MongoDB Atlas (SSD)</td><td>IOPS, managed backups</td></tr>
+                                <tr><td>Cold Storage</td><td>None (data lost)</td><td>S3 + Athena</td><td>Permanent history, analytics</td></tr>
+                                <tr><td>Integration</td><td>ESB (varies by corp)</td><td>API Gateway + MSA</td><td>Standardized, decoupled</td></tr>
+                            </tbody>
+                        </table>
+
+                        <!-- AS-IS vs TO-BE Architecture Toggle -->
+                        <div style="margin: 16px 0;">
+                            <div style="display: flex; justify-content: center; margin-bottom: 12px;">
+                                <button id="arch-toggle-btn" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 16px; cursor: pointer; color: var(--text-primary); font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                    <span id="arch-toggle-label">Showing: AS-IS</span>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                </button>
+                            </div>
+                            <div style="position: relative; height: 220px;">
+                                <svg id="arch-asis" width="100%" viewBox="0 0 650 200" style="max-width: 650px; position: absolute; top: 0; left: 50%; transform: translateX(-50%); transition: opacity 0.4s;">
+                                    <!-- AS-IS Architecture -->
+                                    <rect x="20" y="10" width="80" height="35" rx="4" fill="var(--bg-card)" stroke="#f59e0b" stroke-width="2"/>
+                                    <text x="60" y="32" fill="var(--text-primary)" font-size="11" text-anchor="middle">4 CBUs</text>
+
+                                    <path d="M 100 27 L 140 27" stroke="var(--border)" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+                                    <rect x="140" y="10" width="90" height="35" rx="4" fill="var(--bg-card)" stroke="#ef4444" stroke-width="2"/>
+                                    <text x="185" y="32" fill="var(--text-primary)" font-size="11" text-anchor="middle">Kafka</text>
+
+                                    <path d="M 230 27 L 270 27" stroke="var(--border)" stroke-width="2"/>
+
+                                    <rect x="270" y="10" width="90" height="35" rx="4" fill="var(--bg-card)" stroke="#8b5cf6" stroke-width="2"/>
+                                    <text x="315" y="32" fill="var(--text-primary)" font-size="11" text-anchor="middle">CCDI</text>
+
+                                    <path d="M 315 45 L 315 70" stroke="var(--border)" stroke-width="2"/>
+                                    <path d="M 315 70 L 185 70 L 185 90" stroke="var(--border)" stroke-width="2"/>
+                                    <path d="M 315 70 L 445 70 L 445 90" stroke="var(--border)" stroke-width="2"/>
+
+                                    <rect x="130" y="90" width="110" height="35" rx="4" fill="var(--bg-card)" stroke="#22c55e" stroke-width="2"/>
+                                    <text x="185" y="112" fill="var(--text-primary)" font-size="11" text-anchor="middle">MongoDB (HDD)</text>
+
+                                    <rect x="390" y="90" width="110" height="35" rx="4" fill="var(--bg-card)" stroke="#3b82f6" stroke-width="2"/>
+                                    <text x="445" y="112" fill="var(--text-primary)" font-size="11" text-anchor="middle">Redis</text>
+
+                                    <path d="M 185 125 L 185 150" stroke="var(--border)" stroke-width="2"/>
+
+                                    <rect x="100" y="150" width="170" height="35" rx="4" fill="var(--bg-card)" stroke="#ec4899" stroke-width="2"/>
+                                    <text x="185" y="172" fill="var(--text-primary)" font-size="11" text-anchor="middle">ESB + Java/Spring</text>
+
+                                    <text x="550" y="30" fill="#ef4444" font-size="12" font-weight="600">AS-IS</text>
+                                    <text x="550" y="50" fill="var(--text-muted)" font-size="10">On-Prem</text>
+
+                                    <defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="var(--border)"/></marker></defs>
+                                </svg>
+
+                                <svg id="arch-tobe" width="100%" viewBox="0 0 650 200" style="max-width: 650px; position: absolute; top: 0; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.4s;">
+                                    <!-- TO-BE Architecture -->
+                                    <rect x="20" y="10" width="80" height="35" rx="4" fill="var(--bg-card)" stroke="#f59e0b" stroke-width="2"/>
+                                    <text x="60" y="32" fill="var(--text-primary)" font-size="11" text-anchor="middle">4 CBUs</text>
+
+                                    <path d="M 100 27 L 140 27" stroke="var(--border)" stroke-width="2"/>
+
+                                    <rect x="140" y="10" width="90" height="35" rx="4" fill="#ef444433" stroke="#ef4444" stroke-width="2"/>
+                                    <text x="185" y="32" fill="#ef4444" font-size="11" text-anchor="middle">MSK</text>
+
+                                    <path d="M 230 27 L 270 27" stroke="var(--border)" stroke-width="2"/>
+
+                                    <rect x="270" y="10" width="110" height="35" rx="4" fill="#8b5cf633" stroke="#8b5cf6" stroke-width="2"/>
+                                    <text x="325" y="32" fill="#8b5cf6" font-size="11" text-anchor="middle">CCDI (EKS)</text>
+
+                                    <path d="M 325 45 L 325 65" stroke="var(--border)" stroke-width="2"/>
+                                    <path d="M 325 65 L 120 65 L 120 90" stroke="var(--border)" stroke-width="2"/>
+                                    <path d="M 325 65 L 325 90" stroke="var(--border)" stroke-width="2"/>
+                                    <path d="M 325 65 L 530 65 L 530 90" stroke="var(--border)" stroke-width="2"/>
+
+                                    <rect x="50" y="90" width="140" height="45" rx="4" fill="#ef444422" stroke="#ef4444" stroke-width="2"/>
+                                    <text x="120" y="108" fill="#ef4444" font-size="10" font-weight="600" text-anchor="middle">HOT</text>
+                                    <text x="120" y="124" fill="var(--text-secondary)" font-size="10" text-anchor="middle">ElastiCache (TTL: min)</text>
+
+                                    <rect x="255" y="90" width="140" height="45" rx="4" fill="#3b82f622" stroke="#3b82f6" stroke-width="2"/>
+                                    <text x="325" y="108" fill="#3b82f6" font-size="10" font-weight="600" text-anchor="middle">WARM</text>
+                                    <text x="325" y="124" fill="var(--text-secondary)" font-size="10" text-anchor="middle">MongoDB Atlas (3-7d)</text>
+
+                                    <rect x="460" y="90" width="140" height="45" rx="4" fill="#64748b22" stroke="#64748b" stroke-width="2"/>
+                                    <text x="530" y="108" fill="#64748b" font-size="10" font-weight="600" text-anchor="middle">COLD</text>
+                                    <text x="530" y="124" fill="var(--text-secondary)" font-size="10" text-anchor="middle">S3 + Athena</text>
+
+                                    <rect x="205" y="155" width="240" height="35" rx="4" fill="#22c55e22" stroke="#22c55e" stroke-width="2"/>
+                                    <text x="325" y="177" fill="#22c55e" font-size="11" text-anchor="middle">API Gateway + MSA</text>
+
+                                    <text x="30" y="175" fill="#22c55e" font-size="12" font-weight="600">TO-BE</text>
+                                    <text x="30" y="190" fill="var(--text-muted)" font-size="10">AWS Cloud</text>
+                                </svg>
+                            </div>
+                        </div>
+                        <script>
+                        (function() {
+                            let showingAsis = true;
+                            const btn = document.getElementById('arch-toggle-btn');
+                            const label = document.getElementById('arch-toggle-label');
+                            const asis = document.getElementById('arch-asis');
+                            const tobe = document.getElementById('arch-tobe');
+                            if (!btn || !asis || !tobe) return;
+
+                            btn.addEventListener('click', function() {
+                                showingAsis = !showingAsis;
+                                asis.style.opacity = showingAsis ? '1' : '0';
+                                tobe.style.opacity = showingAsis ? '0' : '1';
+                                label.textContent = showingAsis ? 'Showing: AS-IS' : 'Showing: TO-BE';
+                            });
+                        })();
+                        </script>
+
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong>Cost Optimization Opportunity</strong>
+                            Current architecture stores all data uniformly. The tiered approach reduces storage costs by 60-70%
+                            while maintaining fast access for recent data.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 2: Data Tiering ===== -->
+                <h2 id="data-tiering">Data Tiering Strategy</h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Data Tiering Strategy &mdash; Hot/Warm/Cold</span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            Data flows through three tiers based on access patterns and age.
+                            Two parallel lifecycles operate: <strong>DB retention</strong> (3 days) and <strong>S3 archive</strong> (permanent).
+                        </p>
+
+                        <h4>Tier Definitions</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Tier</th><th>Storage</th><th>Retention</th><th>Latency</th><th>Use Case</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Hot</strong></td>
+                                    <td>ElastiCache (Redis)</td>
+                                    <td>TTL: minutes</td>
+                                    <td>P99 &lt; 1ms</td>
+                                    <td>VSS latest state, real-time queries</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Warm</strong></td>
+                                    <td>MongoDB Atlas / DocumentDB</td>
+                                    <td>3-7 days</td>
+                                    <td>P99 &lt; 50ms</td>
+                                    <td>Service data, recent history</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Cold</strong></td>
+                                    <td>S3 + Athena</td>
+                                    <td>Permanent</td>
+                                    <td>Seconds (query)</td>
+                                    <td>Historical analysis, compliance</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Data Flow</h4>
+<pre><code>Kafka Topic (VSS data)
+       |
+       +---> [Hot] Redis: SET vss:{vin} {latest_state} EX 300
+       |
+       +---> [Warm] MongoDB: insert with TTL index (3 days)
+       |
+       +---> [Cold] S3: Firehose delivery (Parquet format)
+                    |
+                    +---> Glue Catalog ---> Athena queries
+
+<span class="hl-cm"># Two parallel lifecycles:</span>
+1. DB Retention:  Kafka -> Redis (5min) -> MongoDB (3 days) -> DELETE
+2. S3 Archive:    Kafka -> Firehose -> S3 (permanent) -> Athena
+
+<span class="hl-cm"># Note: History data currently OFF</span>
+# Plan to activate S3+Athena tier for compliance and analytics</code><span class="code-label">text</span></pre>
+
+                        <h4>Volume Estimates</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Tier</th><th>Daily Volume</th><th>Monthly Volume</th><th>Retention Size</th></tr></thead>
+                            <tbody>
+                                <tr><td>Hot (Redis)</td><td>~5GB</td><td>N/A (rolling)</td><td>~5GB active</td></tr>
+                                <tr><td>Warm (MongoDB)</td><td>~50GB</td><td>~1.5TB</td><td>~150GB (3-day)</td></tr>
+                                <tr><td>Cold (S3 raw)</td><td>~10TB</td><td>~300TB</td><td>Permanent (compressed)</td></tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Hot/Warm/Cold Stacked Bar Chart -->
+                        <div style="margin: 16px 0;">
+                            <svg id="tier-bar-chart" width="100%" viewBox="0 0 600 200" style="max-width: 600px;">
+                                <!-- Chart title -->
+                                <text x="300" y="20" fill="var(--text-primary)" font-size="13" font-weight="600" text-anchor="middle">Data Volume by Tier</text>
+
+                                <!-- Y-axis labels -->
+                                <text x="115" y="75" fill="var(--text-secondary)" font-size="11" text-anchor="end">Daily Volume</text>
+                                <text x="115" y="145" fill="var(--text-secondary)" font-size="11" text-anchor="end">Retention Size</text>
+
+                                <!-- Daily Volume bar (total ~10TB for scale purposes: 5GB hot, 50GB warm, ~10TB cold) -->
+                                <g id="bar-daily">
+                                    <!-- Hot segment (5GB / 10TB = 0.05% - show minimum visible) -->
+                                    <rect id="bar-daily-hot" x="130" y="55" width="0" height="30" fill="#ef4444" rx="2"/>
+                                    <!-- Warm segment (50GB / 10TB = 0.5%) -->
+                                    <rect id="bar-daily-warm" x="138" y="55" width="0" height="30" fill="#3b82f6" rx="2"/>
+                                    <!-- Cold segment (10TB / 10TB = 100%) -->
+                                    <rect id="bar-daily-cold" x="158" y="55" width="0" height="30" fill="#64748b" rx="2"/>
+                                </g>
+
+                                <!-- Daily labels -->
+                                <text id="label-daily-hot" x="134" y="95" fill="#ef4444" font-size="9" text-anchor="middle" style="opacity:0">5GB</text>
+                                <text id="label-daily-warm" x="148" y="95" fill="#3b82f6" font-size="9" text-anchor="middle" style="opacity:0">50GB</text>
+                                <text id="label-daily-cold" x="360" y="75" fill="#64748b" font-size="10" text-anchor="middle" style="opacity:0">~10TB</text>
+
+                                <!-- Retention Size bar (5GB hot, 150GB warm, permanent cold shown as ~500GB for visualization) -->
+                                <g id="bar-retention">
+                                    <rect id="bar-ret-hot" x="130" y="125" width="0" height="30" fill="#ef4444" rx="2"/>
+                                    <rect id="bar-ret-warm" x="138" y="125" width="0" height="30" fill="#3b82f6" rx="2"/>
+                                    <rect id="bar-ret-cold" x="205" y="125" width="0" height="30" fill="#64748b" rx="2"/>
+                                </g>
+
+                                <!-- Retention labels -->
+                                <text id="label-ret-hot" x="134" y="165" fill="#ef4444" font-size="9" text-anchor="middle" style="opacity:0">5GB</text>
+                                <text id="label-ret-warm" x="170" y="165" fill="#3b82f6" font-size="9" text-anchor="middle" style="opacity:0">150GB</text>
+                                <text id="label-ret-cold" x="380" y="145" fill="#64748b" font-size="10" text-anchor="middle" style="opacity:0">Permanent</text>
+
+                                <!-- Legend -->
+                                <rect x="180" y="180" width="12" height="12" fill="#ef4444" rx="2"/>
+                                <text x="197" y="190" fill="var(--text-secondary)" font-size="10">Hot (Redis)</text>
+                                <rect x="280" y="180" width="12" height="12" fill="#3b82f6" rx="2"/>
+                                <text x="297" y="190" fill="var(--text-secondary)" font-size="10">Warm (MongoDB)</text>
+                                <rect x="400" y="180" width="12" height="12" fill="#64748b" rx="2"/>
+                                <text x="417" y="190" fill="var(--text-secondary)" font-size="10">Cold (S3)</text>
+                            </svg>
+                        </div>
+                        <script>
+                        (function() {
+                            function animateBars() {
+                                const duration = 1000;
+                                const start = performance.now();
+
+                                // Daily volume targets (scaled for visualization)
+                                const dailyHot = { el: 'bar-daily-hot', target: 8, label: 'label-daily-hot' };
+                                const dailyWarm = { el: 'bar-daily-warm', target: 20, label: 'label-daily-warm' };
+                                const dailyCold = { el: 'bar-daily-cold', target: 350, label: 'label-daily-cold' };
+
+                                // Retention targets
+                                const retHot = { el: 'bar-ret-hot', target: 8, label: 'label-ret-hot' };
+                                const retWarm = { el: 'bar-ret-warm', target: 67, label: 'label-ret-warm' };
+                                const retCold = { el: 'bar-ret-cold', target: 280, label: 'label-ret-cold' };
+
+                                const all = [dailyHot, dailyWarm, dailyCold, retHot, retWarm, retCold];
+
+                                function animate(now) {
+                                    const elapsed = now - start;
+                                    const progress = Math.min(elapsed / duration, 1);
+                                    const eased = 1 - Math.pow(1 - progress, 3);
+
+                                    all.forEach(function(item) {
+                                        const el = document.getElementById(item.el);
+                                        const label = document.getElementById(item.label);
+                                        if (el) el.setAttribute('width', item.target * eased);
+                                        if (label && progress > 0.5) label.style.opacity = '1';
+                                    });
+
+                                    if (progress < 1) requestAnimationFrame(animate);
+                                }
+                                requestAnimationFrame(animate);
+                            }
+
+                            setTimeout(animateBars, 300);
+                        })();
+                        </script>
+
+                        <h4>Cost Comparison (per GB/month)</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Storage</th><th>Cost</th><th>Best For</th></tr></thead>
+                            <tbody>
+                                <tr><td>ElastiCache (Redis)</td><td>~$0.125/GB-hour</td><td>Sub-millisecond access</td></tr>
+                                <tr><td>MongoDB Atlas (M30)</td><td>~$0.10/GB</td><td>Complex queries</td></tr>
+                                <tr><td>S3 Standard</td><td>$0.023/GB</td><td>Frequent access cold data</td></tr>
+                                <tr><td>S3 Glacier IR</td><td>$0.004/GB</td><td>Compliance archives</td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong>S3 Intelligent-Tiering</strong>
+                            For cold tier, consider S3 Intelligent-Tiering to automatically move data between access tiers
+                            based on usage patterns. No retrieval fees for frequent access tier.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 3: Gen2 vs Gen3 ===== -->
+                <h2 id="gen2-gen3">Gen2 vs Gen3 Processing</h2>
+
+                <div class="tech-card" data-tag="Architecture">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Gen2 vs Gen3 &mdash; CCS 1.0 (TCP) vs CCS 2.0 (MQTT)</span>
+                        <span class="tech-card-tag Architecture">Architecture</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            Two generations of connected car systems coexist with fundamentally different protocols and data volumes.
+                            <strong>VSS (Vehicle Signal Specification)</strong> is the largest and most critical dataset across both generations.
+                        </p>
+
+                        <h4>Generation Comparison</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Aspect</th><th>Gen2 (CCS 1.0)</th><th>Gen3 (CCS 2.0)</th></tr></thead>
+                            <tbody>
+                                <tr><td>Protocol</td><td>TCP (proprietary)</td><td>MQTT (standard)</td></tr>
+                                <tr><td>Fleet Size</td><td>2-3M vehicles</td><td>0.6M vehicles (growing)</td></tr>
+                                <tr><td>Data per Vehicle</td><td>Baseline (1x)</td><td>5x vs Gen1</td></tr>
+                                <tr><td>Kafka Topics</td><td>gen2-vss-*, gen2-event-*</td><td>gen3-vss-*, gen3-event-*</td></tr>
+                                <tr><td>Schema Format</td><td>Legacy binary</td><td>Protobuf / Avro</td></tr>
+                                <tr><td>Processing</td><td>Legacy CCDI</td><td>Modernized CCDI</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Data Volume Comparison</h4>
+<pre><code><span class="hl-cm"># Per-vehicle data rates</span>
+Gen2 vehicle:  ~50 KB/minute  (basic telemetry)
+Gen3 vehicle:  ~250 KB/minute (rich sensors, ADAS data)
+
+<span class="hl-cm"># Fleet total (current)</span>
+Gen2: 2.5M vehicles x 50 KB/min  = ~125 GB/min = ~180 TB/day
+Gen3: 0.6M vehicles x 250 KB/min = ~150 GB/min = ~216 TB/day
+
+<span class="hl-cm"># Projection (2026)</span>
+Gen2: Stable (legacy fleet)
+Gen3: 2M vehicles x 250 KB/min = ~500 GB/min = ~720 TB/day
+
+<span class="hl-cm"># Implication</span>
+Gen3 growth drives ALL capacity planning decisions</code><span class="code-label">text</span></pre>
+
+                        <h4>Processing Architecture</h4>
+<pre><code><span class="hl-cm"># Gen2 Path (Legacy)</span>
+Vehicle --[TCP]--> TCP Gateway --> Kafka (gen2-*) --> CCDI v1 --> MongoDB
+
+<span class="hl-cm"># Gen3 Path (Modern)</span>
+Vehicle --[MQTT]--> IoT Core --> Kafka (gen3-*) --> CCDI v2 --> Tiered Storage
+
+<span class="hl-cm"># Unified View</span>
+Both paths --> Kafka --> Unified CCDI (EKS) --> Common Data Lake</code><span class="code-label">text</span></pre>
+
+                        <h4>VSS (Vehicle Signal Specification)</h4>
+                        <p>
+                            VSS is the standardized data model for vehicle signals. It represents the largest data volume
+                            and requires the lowest latency for real-time applications.
+                        </p>
+                        <table class="info-table">
+                            <thead><tr><th>Signal Category</th><th>Examples</th><th>Update Frequency</th></tr></thead>
+                            <tbody>
+                                <tr><td>Powertrain</td><td>Speed, RPM, fuel level</td><td>100ms - 1s</td></tr>
+                                <tr><td>Body</td><td>Door status, lights, wipers</td><td>On change</td></tr>
+                                <tr><td>ADAS</td><td>Lane departure, collision warning</td><td>50ms (Gen3 only)</td></tr>
+                                <tr><td>Location</td><td>GPS, heading, altitude</td><td>1s</td></tr>
+                                <tr><td>Battery (EV)</td><td>SoC, temperature, range</td><td>10s</td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong>Capacity Planning</strong>
+                            Gen3 fleet expansion is the primary driver for infrastructure scaling.
+                            Plan for 3x current capacity to handle 2026 projections with 30% headroom.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 4: PI Management ===== -->
+                <h2 id="pi-management">Personal Information Management</h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Personal Information (PI) &amp; VIN Management</span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            Kafka messages contain <strong>VIN (Vehicle Identification Number)</strong> as the primary identifier.
+                            Whether VIN constitutes PI under US regulations requires legal confirmation, but the architecture
+                            must support PI-compliant data handling regardless.
+                        </p>
+
+                        <h4>Data Classification</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Data Type</th><th>Examples</th><th>PI Status (US)</th><th>Encryption</th></tr></thead>
+                            <tbody>
+                                <tr><td>VIN</td><td>Vehicle identifier</td><td>TBD (legal review)</td><td>At-rest + In-transit</td></tr>
+                                <tr><td>Location</td><td>GPS coordinates, routes</td><td>Likely PI</td><td>At-rest + In-transit</td></tr>
+                                <tr><td>Driving Behavior</td><td>Speed patterns, braking</td><td>Likely PI</td><td>At-rest + In-transit</td></tr>
+                                <tr><td>User Preferences</td><td>Seat position, climate</td><td>Likely PI</td><td>At-rest + In-transit</td></tr>
+                                <tr><td>Vehicle Telemetry</td><td>Engine data, tire pressure</td><td>Not PI</td><td>At-rest</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4>VIN ID-Based Management Framework</h4>
+<pre><code><span class="hl-cm"># Proposed unified approach (Korea/US)</span>
+
+1. VIN Tokenization
+   Raw VIN --> Tokenization Service --> Token ID
+   Token ID used in all downstream processing
+   VIN-to-Token mapping stored in secured vault
+
+2. Data Segregation
+   PI Data:     Separate Kafka topics (pi-*)
+   Non-PI Data: Standard topics (telemetry-*)
+
+3. Access Control
+   PI topics:     IAM + SASL/SCRAM + audit logging
+   Non-PI topics: Standard IAM authentication
+
+<span class="hl-cm"># Migration note:</span>
+As long as VIN locations are identified in data flows,
+migration proceeds without major blockers.
+Tokenization can be implemented incrementally.</code><span class="code-label">text</span></pre>
+
+                        <h4>Encryption Strategy</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Layer</th><th>Encryption</th><th>Key Management</th></tr></thead>
+                            <tbody>
+                                <tr><td>In-Transit</td><td>TLS 1.3</td><td>ACM certificates</td></tr>
+                                <tr><td>EBS Volumes</td><td>AES-256</td><td>KMS (per-region keys)</td></tr>
+                                <tr><td>S3 Objects</td><td>SSE-KMS</td><td>KMS (per-region keys)</td></tr>
+                                <tr><td>RDS/Aurora</td><td>AES-256</td><td>KMS (per-region keys)</td></tr>
+                                <tr><td>MSK at-rest</td><td>AES-256</td><td>KMS (per-region keys)</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4>KMS Key Architecture</h4>
+<pre><code><span class="hl-cm"># Per-region KMS keys (no cross-region key sharing)</span>
+
+us-east-1:
+  - alias/ccs-ebs-key      (EBS encryption)
+  - alias/ccs-s3-key       (S3 encryption)
+  - alias/ccs-rds-key      (Aurora encryption)
+  - alias/ccs-msk-key      (MSK encryption)
+
+us-west-2:
+  - alias/ccs-ebs-key      (EBS encryption)
+  - alias/ccs-s3-key       (S3 encryption)
+  - alias/ccs-rds-key      (Aurora encryption)
+  - alias/ccs-msk-key      (MSK encryption)
+
+<span class="hl-cm"># Cross-region key policy</span>
+- S3 replication: destination uses destination-region key
+- Aurora Global: each region uses own KMS key
+- No key material crosses regions</code><span class="code-label">text</span></pre>
+
+                        <div class="callout workshop" style="margin-top:12px;">
+                            <strong>HAEA Workshop Request #5</strong>
+                            PI handling in Kafka requires decision:
+                            (1) VIN tokenization strategy, (2) PI topic segregation policy, (3) US legal determination on VIN as PI.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="availability.html"><span class="label">Previous</span><span class="title">&larr; Availability Architecture</span></a>
+                    <a href="index.html" class="next"><span class="label">Next</span><span class="title">Home &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#ccdi-architecture" class="toc-link">CCDI Architecture</a>
+            <a href="#data-tiering" class="toc-link">Data Tiering Strategy</a>
+            <a href="#gen2-gen3" class="toc-link">Gen2 vs Gen3</a>
+            <a href="#pi-management" class="toc-link">PI Management</a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

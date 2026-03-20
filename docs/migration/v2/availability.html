@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCS Availability Architecture - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>Availability</span></div>
+
+                <h1>CCS Availability Architecture</h1>
+                <p class="lead">
+                    CCS availability is non-negotiable &mdash; P1 incidents report directly to the Chairman.
+                    This section covers incident response, network connectivity, DR/failover strategy, and the MongoDB migration path.
+                </p>
+
+                <!-- ===== Card 1: P1 Incident Response ===== -->
+                <h2 id="incident-response">P1 Incident Response Framework</h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">CCS P1 Incident Response Framework</span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            CCS operates under an <strong>"Everyday CIO"</strong> reporting structure where P1 incidents escalate directly to the Chairman.
+                            This creates zero tolerance for service outages and requires stringent SLAs across all operational metrics.
+                        </p>
+
+                        <h4>Incident Severity Classification</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Severity</th><th>Definition</th><th>Response Time</th><th>Escalation</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>P1</strong></td><td>Service down / complete outage</td><td>Immediate</td><td>Chairman + CIO</td></tr>
+                                <tr><td><strong>P2</strong></td><td>Degraded performance / partial outage</td><td>&lt; 15 min</td><td>VP Engineering</td></tr>
+                                <tr><td><strong>P3</strong></td><td>Minor impact / single feature affected</td><td>&lt; 1 hour</td><td>Team Lead</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Operational KPIs</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Metric</th><th>Target</th><th>Current</th><th>Notes</th></tr></thead>
+                            <tbody>
+                                <tr><td>P1 Count</td><td>0</td><td>-</td><td>Zero tolerance policy</td></tr>
+                                <tr><td>MTTR (Mean Time To Recovery)</td><td>&lt; 15 min</td><td>-</td><td>From detection to resolution</td></tr>
+                                <tr><td>MTTD (Mean Time To Detect)</td><td>&lt; 5 min</td><td>-</td><td>CloudWatch + PagerDuty integration</td></tr>
+                                <tr><td>Drop Rate</td><td>&le; 0.01%</td><td>-</td><td>Vehicle connection drops</td></tr>
+                                <tr><td>P95 Latency</td><td>&lt; 200ms</td><td>-</td><td>API response time</td></tr>
+                                <tr><td>Peak Headroom</td><td>30%</td><td>-</td><td>Capacity buffer above peak load</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Autoscale Reaction Requirements</h4>
+<pre><code><span class="hl-cm"># Karpenter NodePool scaling targets</span>
+Scale-up trigger:    CPU > 70% for 2 minutes
+Scale-up reaction:   < 90 seconds (node ready)
+Scale-down trigger:  CPU < 30% for 10 minutes
+Scale-down reaction: Gradual (respect PDB)
+
+<span class="hl-cm"># HPA pod scaling targets</span>
+Scale-up trigger:    CPU > 60% for 30 seconds
+Scale-up reaction:   < 30 seconds (pod ready)
+Min replicas:        3 (critical services)
+Max replicas:        50 (based on load testing)</code><span class="code-label">text</span></pre>
+
+                        <h4>Monitoring Stack</h4>
+<pre><code>CloudWatch Alarms
+       |
+       v
+   SNS Topic  -->  PagerDuty  -->  On-Call Engineer
+       |                                   |
+       v                                   v
+   Slack #ccs-alerts              War Room (P1 only)
+       |
+       v
+   Grafana Dashboard (real-time visibility)</code><span class="code-label">text</span></pre>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong>Chairman Direct Report</strong>
+                            Any P1 incident triggers an automatic report to the Chairman within 30 minutes.
+                            Post-mortem required within 24 hours with root cause analysis and preventive measures.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 2: Verizon Network ===== -->
+                <h2 id="network-connectivity">Verizon Private Network Connectivity</h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Verizon Private Network to AWS Connectivity</span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            Vehicle connectivity flows through <strong>Verizon Private IP (PIP)</strong> network.
+                            The migration requires establishing secure connectivity from Verizon to AWS while maintaining the existing On-Prem path.
+                        </p>
+
+                        <h4>Current Path (AS-IS)</h4>
+<pre><code>Vehicle (LTE/5G)
+       |
+       v
+Verizon Private IP Network
+       |
+       v
+LA Equinix DC (Colocation)
+       |
+       v
+HCloud (On-Prem Infrastructure)
+       |
+       v
+Backend Services (ESB, Java+Spring)</code><span class="code-label">text</span></pre>
+
+                        <h4>Target Options (TO-BE)</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Option</th><th>Path</th><th>Pros</th><th>Cons</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>A) Direct Connect</strong></td>
+                                    <td>Vehicle &rarr; Verizon PIP &rarr; AWS DX &rarr; VPC &rarr; EKS</td>
+                                    <td>Dedicated bandwidth, predictable latency</td>
+                                    <td>DX setup lead time (~4-8 weeks)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>B) Wavelength</strong></td>
+                                    <td>Vehicle &rarr; Verizon &rarr; AWS Wavelength Zone &rarr; VPC</td>
+                                    <td>Ultra-low latency, no extra cost for compute</td>
+                                    <td>Limited instance types, storage constraints</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Korea Precedent (Completed 2025.04)</h4>
+                        <p>
+                            Korea deployment successfully connected 3 carriers to AWS via Direct Connect Gateway:
+                        </p>
+<pre><code>SKT  ---+
+        |
+KT   ---+---> DXGW ---> VPC (ap-northeast-2)
+        |
+LGU+ ---+
+
+<span class="hl-cm"># Benefits achieved:</span>
+- No DX rework when adding new VPCs
+- Cross-region support (single DXGW serves multiple regions)
+- Simplified network architecture</code><span class="code-label">text</span></pre>
+
+                        <h4>VPC IPAM for Public IP Management</h4>
+<pre><code><span class="hl-cm"># Problem: Public IP quota exhaustion</span>
+Original allocation: /29 (8 IPs) per region
+Required:            /26 (64 IPs) per region
+
+<span class="hl-cm"># Solution: VPC IPAM</span>
+- Centralized IP address management
+- Automated allocation from regional pools
+- Quota increase approved: /29 -> /26
+- Enables future multi-region expansion</code><span class="code-label">text</span></pre>
+
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong>Recommendation</strong>
+                            Use Direct Connect Gateway (Option A) for production traffic.
+                            Wavelength can be evaluated for latency-critical edge use cases (e.g., real-time vehicle commands).
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 3: DR/Failover ===== -->
+                <h2 id="dr-failover">Multi-Region DR/Failover Strategy</h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Multi-Region DR/Failover Strategy</span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            Current CCS status: <strong>NO DR capability</strong> &mdash; the prevailing mentality is "respond via OTA" after incidents occur.
+                            The AWS migration introduces Active-Active architecture with automatic failover via Route53 health checks.
+                        </p>
+
+                        <h4>Route53 Health Check + Latency Routing</h4>
+                        <p><code>terraform/modules/edge/route53/main.tf</code></p>
+<pre><code><span class="hl-cm"># Health Check (per region)</span>
+<span class="hl-kw">resource</span> <span class="hl-str">"aws_route53_health_check"</span> <span class="hl-str">"regional"</span> {
+  for_each = var.lb_dns_names
+
+  fqdn              = each.value
+  port              = <span class="hl-num">80</span>
+  type              = <span class="hl-str">"HTTP"</span>
+  resource_path     = var.health_check_path
+  request_interval  = var.health_check_interval
+  failure_threshold = var.health_check_failure_threshold
+
+  tags = <span class="hl-fn">merge</span>(var.tags, {
+    Name   = <span class="hl-str">"${var.environment}-${each.key}-health-check"</span>
+    Region = each.key
+  })
+}
+
+<span class="hl-cm"># Latency-based Routing (per region)</span>
+<span class="hl-kw">resource</span> <span class="hl-str">"aws_route53_record"</span> <span class="hl-str">"api_latency"</span> {
+  for_each = var.lb_dns_names
+
+  zone_id = var.zone_id
+  name    = <span class="hl-str">"api-internal.${data.aws_route53_zone.main.name}"</span>
+  type    = <span class="hl-str">"A"</span>
+
+  alias {
+    name                   = each.value
+    zone_id                = var.lb_zone_ids[each.key]
+    evaluate_target_health = <span class="hl-num">true</span>
+  }
+
+  set_identifier = each.key
+
+  latency_routing_policy {
+    region = each.key
+  }
+
+  health_check_id = aws_route53_health_check.regional[each.key].id
+}
+
+<span class="hl-cm"># CloudWatch Alarm for Health Check monitoring</span>
+<span class="hl-kw">resource</span> <span class="hl-str">"aws_cloudwatch_metric_alarm"</span> <span class="hl-str">"health_check"</span> {
+  for_each = var.lb_dns_names
+
+  alarm_name          = <span class="hl-str">"${var.environment}-${each.key}-health-check-alarm"</span>
+  comparison_operator = <span class="hl-str">"LessThanThreshold"</span>
+  evaluation_periods  = <span class="hl-num">2</span>
+  metric_name         = <span class="hl-str">"HealthCheckStatus"</span>
+  namespace           = <span class="hl-str">"AWS/Route53"</span>
+  period              = <span class="hl-num">60</span>
+  threshold           = <span class="hl-num">1</span>
+  treat_missing_data  = <span class="hl-str">"breaching"</span>
+}</code><span class="code-label">hcl</span></pre>
+
+                        <h4>RTO/RPO by Component</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Component</th><th>RTO</th><th>RPO</th><th>Failover Method</th></tr></thead>
+                            <tbody>
+                                <tr><td>Route53 DNS</td><td>~60s</td><td>0</td><td>Health check auto-failover</td></tr>
+                                <tr><td>Aurora Global</td><td>~120s</td><td>&lt; 1s</td><td>Secondary promotion</td></tr>
+                                <tr><td>DSQL Active-Active</td><td>0s</td><td>0</td><td>No failover needed (active-active)</td></tr>
+                                <tr><td>DocumentDB Global</td><td>~60s</td><td>~5s</td><td>Manual promotion required</td></tr>
+                                <tr><td>MSK Replicator</td><td>~30s</td><td>~2-5s</td><td>Consumer group rebalance</td></tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Failover Timeline Animation -->
+                        <div style="margin: 16px 0;">
+                            <svg id="failover-timeline" width="100%" viewBox="0 0 700 280" style="max-width: 700px;">
+                                <defs>
+                                    <linearGradient id="timeline-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" style="stop-color:var(--accent);stop-opacity:0.3" />
+                                        <stop offset="100%" style="stop-color:var(--accent);stop-opacity:0" />
+                                    </linearGradient>
+                                    <filter id="glow">
+                                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                        <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                    </filter>
+                                </defs>
+                                <!-- Timeline vertical line -->
+                                <line x1="80" y1="30" x2="80" y2="250" stroke="var(--border)" stroke-width="3" stroke-linecap="round"/>
+
+                                <!-- T+0s -->
+                                <circle id="ft-dot-0" cx="80" cy="50" r="12" fill="var(--bg-card)" stroke="var(--border)" stroke-width="2"/>
+                                <text x="100" y="45" fill="var(--text-primary)" font-size="13" font-weight="600">T+0s</text>
+                                <text x="100" y="62" fill="var(--text-secondary)" font-size="12">Health Check fails (3 consecutive)</text>
+                                <rect id="ft-status-0" x="520" y="38" width="90" height="24" rx="4" fill="var(--bg-card)" stroke="var(--border)"/>
+                                <text id="ft-label-0" x="565" y="55" fill="var(--text-muted)" font-size="11" text-anchor="middle">DETECTING</text>
+
+                                <!-- T+30s -->
+                                <circle id="ft-dot-1" cx="80" cy="100" r="12" fill="var(--bg-card)" stroke="var(--border)" stroke-width="2"/>
+                                <text x="100" y="95" fill="var(--text-primary)" font-size="13" font-weight="600">T+30s</text>
+                                <text x="100" y="112" fill="var(--text-secondary)" font-size="12">Route53 marks us-east-1 unhealthy</text>
+                                <rect id="ft-status-1" x="520" y="88" width="90" height="24" rx="4" fill="var(--bg-card)" stroke="var(--border)"/>
+                                <text id="ft-label-1" x="565" y="105" fill="var(--text-muted)" font-size="11" text-anchor="middle">PENDING</text>
+
+                                <!-- T+60s -->
+                                <circle id="ft-dot-2" cx="80" cy="150" r="12" fill="var(--bg-card)" stroke="var(--border)" stroke-width="2"/>
+                                <text x="100" y="145" fill="var(--text-primary)" font-size="13" font-weight="600">T+60s</text>
+                                <text x="100" y="162" fill="var(--text-secondary)" font-size="12">DNS TTL expires, traffic routes to us-west-2</text>
+                                <rect id="ft-status-2" x="520" y="138" width="90" height="24" rx="4" fill="var(--bg-card)" stroke="var(--border)"/>
+                                <text id="ft-label-2" x="565" y="155" fill="var(--text-muted)" font-size="11" text-anchor="middle">PENDING</text>
+
+                                <!-- T+120s -->
+                                <circle id="ft-dot-3" cx="80" cy="200" r="12" fill="var(--bg-card)" stroke="var(--border)" stroke-width="2"/>
+                                <text x="100" y="195" fill="var(--text-primary)" font-size="13" font-weight="600">T+120s</text>
+                                <text x="100" y="212" fill="var(--text-secondary)" font-size="12">Full traffic serving from us-west-2</text>
+                                <rect id="ft-status-3" x="520" y="188" width="90" height="24" rx="4" fill="var(--bg-card)" stroke="var(--border)"/>
+                                <text id="ft-label-3" x="565" y="205" fill="var(--text-muted)" font-size="11" text-anchor="middle">PENDING</text>
+
+                                <!-- Animated pulse dot -->
+                                <circle id="ft-pulse" cx="80" cy="50" r="6" fill="var(--accent)" filter="url(#glow)">
+                                    <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
+                                </circle>
+
+                                <!-- Progress line -->
+                                <line id="ft-progress" x1="80" y1="50" x2="80" y2="50" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <script>
+                        (function() {
+                            const stages = [
+                                { y: 50, status: 'FAILED', color: '#ef4444' },
+                                { y: 100, status: 'UNHEALTHY', color: '#f59e0b' },
+                                { y: 150, status: 'REROUTING', color: '#3b82f6' },
+                                { y: 200, status: 'RECOVERED', color: '#22c55e' }
+                            ];
+                            let currentStage = 0;
+
+                            function animateFailover() {
+                                const pulse = document.getElementById('ft-pulse');
+                                const progress = document.getElementById('ft-progress');
+                                if (!pulse || !progress) return;
+
+                                currentStage = 0;
+                                progress.setAttribute('y2', '50');
+                                stages.forEach((_, i) => {
+                                    const dot = document.getElementById('ft-dot-' + i);
+                                    const status = document.getElementById('ft-status-' + i);
+                                    const label = document.getElementById('ft-label-' + i);
+                                    if (dot) { dot.setAttribute('fill', 'var(--bg-card)'); dot.setAttribute('stroke', 'var(--border)'); }
+                                    if (status) status.setAttribute('fill', 'var(--bg-card)');
+                                    if (label) { label.textContent = i === 0 ? 'DETECTING' : 'PENDING'; label.setAttribute('fill', 'var(--text-muted)'); }
+                                });
+
+                                function nextStage() {
+                                    if (currentStage >= stages.length) {
+                                        setTimeout(animateFailover, 3000);
+                                        return;
+                                    }
+                                    const stage = stages[currentStage];
+                                    pulse.setAttribute('cy', stage.y);
+                                    progress.setAttribute('y2', stage.y);
+
+                                    const dot = document.getElementById('ft-dot-' + currentStage);
+                                    const status = document.getElementById('ft-status-' + currentStage);
+                                    const label = document.getElementById('ft-label-' + currentStage);
+                                    if (dot) { dot.setAttribute('fill', stage.color); dot.setAttribute('stroke', stage.color); }
+                                    if (status) status.setAttribute('fill', stage.color + '33');
+                                    if (label) { label.textContent = stage.status; label.setAttribute('fill', stage.color); }
+
+                                    currentStage++;
+                                    setTimeout(nextStage, 1500);
+                                }
+                                nextStage();
+                            }
+
+                            setTimeout(animateFailover, 500);
+                        })();
+                        </script>
+
+                        <h4>Failover Sequence</h4>
+<pre><code><span class="hl-cm"># Automatic failover sequence (us-east-1 failure)</span>
+
+T+0s    Health Check fails (3 consecutive failures)
+        |
+T+30s   Route53 marks us-east-1 as unhealthy
+        |
+T+60s   DNS TTL expires, traffic routes to us-west-2
+        |
+        +---> Stateless services: Immediate recovery
+        |
+        +---> Aurora: Write forwarding to Primary
+        |     (or promote Secondary if Primary region down)
+        |
+        +---> DSQL: No action needed (active-active)
+        |
+T+120s  Full traffic serving from us-west-2
+
+<span class="hl-cm"># Manual actions (if Primary region down)</span>
+- Aurora: Initiate global database failover
+- DocumentDB: Promote secondary cluster
+- Update runbook status in PagerDuty</code><span class="code-label">text</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong>Active-Active Benefits</strong>
+                            With Route53 latency-based routing, both regions actively serve traffic.
+                            Failover is seamless &mdash; users are simply routed to the remaining healthy region.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 4: MongoDB Migration ===== -->
+                <h2 id="mongodb-migration">MongoDB I/O Bottleneck Migration</h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">MongoDB I/O Bottleneck to AWS Migration Path</span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            The current MongoDB deployment suffers from severe I/O bottlenecks due to legacy HDD storage,
+                            lack of host-level tuning, and 5x data volume increase from Gen1 to Gen3 vehicles.
+                        </p>
+
+                        <h4>Root Cause Analysis</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Factor</th><th>Issue</th><th>Impact</th></tr></thead>
+                            <tbody>
+                                <tr><td>Storage</td><td>HDD residual (not SSD)</td><td>IOPS bottleneck at ~500 IOPS</td></tr>
+                                <tr><td>Host Tuning</td><td>No FS/RAID/kernel optimization</td><td>Suboptimal I/O scheduling</td></tr>
+                                <tr><td>Data Growth</td><td>Gen3 vehicles 5x data vs Gen1</td><td>Storage capacity exhaustion</td></tr>
+                                <tr><td>Replication</td><td>Single replica set</td><td>No horizontal read scaling</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Current Load and Projections</h4>
+<pre><code><span class="hl-cm"># Current (2025 Q2)</span>
+TPS:           20,000 - 30,000
+Storage:       ~8TB
+Growth rate:   ~500GB/month
+
+<span class="hl-cm"># Projected (2025 Q4)</span>
+TPS:           ~40,000 (Gen3 fleet expansion)
+Storage:       ~12TB
+IOPS needed:   10,000+ (sustained)</code><span class="code-label">text</span></pre>
+
+                        <h4>Migration Timeline</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Phase</th><th>Timeline</th><th>Action</th><th>Status</th></tr></thead>
+                            <tbody>
+                                <tr><td>Short-term</td><td>2025.10</td><td>HDD &rarr; SSD + Redis cache layer</td><td>Completed</td></tr>
+                                <tr><td>Mid-term</td><td>2026.07</td><td>MongoDB Atlas on AWS (before license expiry)</td><td>Planning</td></tr>
+                                <tr><td>Long-term</td><td>2027+</td><td>Evaluate DocumentDB or DynamoDB</td><td>Analysis</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Database Option Comparison</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Criteria</th><th>MongoDB Atlas</th><th>DocumentDB</th><th>DynamoDB</th></tr></thead>
+                            <tbody>
+                                <tr><td>MongoDB Compatibility</td><td>100% (native)</td><td>~95% (API compatible)</td><td>0% (different model)</td></tr>
+                                <tr><td>Management</td><td>MongoDB Inc. managed</td><td>AWS managed</td><td>AWS managed</td></tr>
+                                <tr><td>Migration Effort</td><td>Low (same API)</td><td>Medium (test compatibility)</td><td>High (rewrite required)</td></tr>
+                                <tr><td>Global Replication</td><td>Atlas Global Clusters</td><td>Global Clusters (manual failover)</td><td>Global Tables (automatic)</td></tr>
+                                <tr><td>Cost Model</td><td>Instance + storage</td><td>Instance + I/O + storage</td><td>Capacity units (predictable)</td></tr>
+                                <tr><td>Best For</td><td>Complex queries, aggregations</td><td>MongoDB workloads on AWS</td><td>Key-value, high-scale simple access</td></tr>
+                            </tbody>
+                        </table>
+
+                        <!-- MongoDB Migration Decision Tree -->
+                        <div style="margin: 16px 0;">
+                            <svg id="mongo-decision-tree" width="100%" viewBox="0 0 700 320" style="max-width: 700px;">
+                                <defs>
+                                    <filter id="node-shadow">
+                                        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+                                    </filter>
+                                </defs>
+
+                                <!-- Root node -->
+                                <rect id="mdt-root" x="280" y="10" width="140" height="40" rx="6" fill="var(--bg-card)" stroke="var(--accent)" stroke-width="2" filter="url(#node-shadow)" style="cursor:pointer"/>
+                                <text x="350" y="35" fill="var(--text-primary)" font-size="13" font-weight="600" text-anchor="middle">MongoDB Migration</text>
+
+                                <!-- Connecting lines -->
+                                <path d="M 320 50 L 320 80 L 120 80 L 120 100" stroke="var(--border)" stroke-width="2" fill="none"/>
+                                <path d="M 350 50 L 350 80 L 350 100" stroke="var(--border)" stroke-width="2" fill="none"/>
+                                <path d="M 380 50 L 380 80 L 580 80 L 580 100" stroke="var(--border)" stroke-width="2" fill="none"/>
+
+                                <!-- MongoDB Atlas node -->
+                                <g id="mdt-atlas" style="cursor:pointer">
+                                    <rect x="40" y="100" width="160" height="45" rx="6" fill="var(--bg-card)" stroke="#10b981" stroke-width="2" filter="url(#node-shadow)"/>
+                                    <text x="120" y="120" fill="#10b981" font-size="12" font-weight="600" text-anchor="middle">MongoDB Atlas</text>
+                                    <text x="120" y="136" fill="var(--text-secondary)" font-size="10" text-anchor="middle">Recommended</text>
+                                </g>
+
+                                <!-- DocumentDB node -->
+                                <g id="mdt-docdb" style="cursor:pointer">
+                                    <rect x="270" y="100" width="160" height="45" rx="6" fill="var(--bg-card)" stroke="#3b82f6" stroke-width="2" filter="url(#node-shadow)"/>
+                                    <text x="350" y="120" fill="#3b82f6" font-size="12" font-weight="600" text-anchor="middle">DocumentDB</text>
+                                    <text x="350" y="136" fill="var(--text-secondary)" font-size="10" text-anchor="middle">AWS-Native</text>
+                                </g>
+
+                                <!-- DynamoDB node -->
+                                <g id="mdt-dynamo" style="cursor:pointer">
+                                    <rect x="500" y="100" width="160" height="45" rx="6" fill="var(--bg-card)" stroke="#f59e0b" stroke-width="2" filter="url(#node-shadow)"/>
+                                    <text x="580" y="120" fill="#f59e0b" font-size="12" font-weight="600" text-anchor="middle">DynamoDB</text>
+                                    <text x="580" y="136" fill="var(--text-secondary)" font-size="10" text-anchor="middle">Key-Value</text>
+                                </g>
+
+                                <!-- Detail panels (initially hidden) -->
+                                <g id="mdt-detail-atlas" style="opacity:0">
+                                    <rect x="20" y="160" width="200" height="150" rx="6" fill="var(--bg-card)" stroke="#10b981" stroke-width="1"/>
+                                    <text x="35" y="182" fill="#10b981" font-size="11" font-weight="600">Pros:</text>
+                                    <text x="35" y="198" fill="var(--text-secondary)" font-size="10">100% MongoDB compatible</text>
+                                    <text x="35" y="212" fill="var(--text-secondary)" font-size="10">Complex aggregations supported</text>
+                                    <text x="35" y="226" fill="var(--text-secondary)" font-size="10">Global Clusters available</text>
+                                    <text x="35" y="246" fill="#ef4444" font-size="11" font-weight="600">Cons:</text>
+                                    <text x="35" y="262" fill="var(--text-secondary)" font-size="10">Separate vendor relationship</text>
+                                    <text x="35" y="276" fill="var(--text-secondary)" font-size="10">Instance-based pricing</text>
+                                    <text x="35" y="296" fill="var(--text-muted)" font-size="10" font-style="italic">Best for: Complex queries</text>
+                                </g>
+
+                                <g id="mdt-detail-docdb" style="opacity:0">
+                                    <rect x="250" y="160" width="200" height="150" rx="6" fill="var(--bg-card)" stroke="#3b82f6" stroke-width="1"/>
+                                    <text x="265" y="182" fill="#3b82f6" font-size="11" font-weight="600">Pros:</text>
+                                    <text x="265" y="198" fill="var(--text-secondary)" font-size="10">AWS managed service</text>
+                                    <text x="265" y="212" fill="var(--text-secondary)" font-size="10">~95% API compatible</text>
+                                    <text x="265" y="226" fill="var(--text-secondary)" font-size="10">Integrated with AWS ecosystem</text>
+                                    <text x="265" y="246" fill="#ef4444" font-size="11" font-weight="600">Cons:</text>
+                                    <text x="265" y="262" fill="var(--text-secondary)" font-size="10">Manual failover for global</text>
+                                    <text x="265" y="276" fill="var(--text-secondary)" font-size="10">Some features unsupported</text>
+                                    <text x="265" y="296" fill="var(--text-muted)" font-size="10" font-style="italic">Best for: AWS-centric teams</text>
+                                </g>
+
+                                <g id="mdt-detail-dynamo" style="opacity:0">
+                                    <rect x="480" y="160" width="200" height="150" rx="6" fill="var(--bg-card)" stroke="#f59e0b" stroke-width="1"/>
+                                    <text x="495" y="182" fill="#f59e0b" font-size="11" font-weight="600">Pros:</text>
+                                    <text x="495" y="198" fill="var(--text-secondary)" font-size="10">Fully serverless</text>
+                                    <text x="495" y="212" fill="var(--text-secondary)" font-size="10">Auto Global Tables</text>
+                                    <text x="495" y="226" fill="var(--text-secondary)" font-size="10">Predictable pricing</text>
+                                    <text x="495" y="246" fill="#ef4444" font-size="11" font-weight="600">Cons:</text>
+                                    <text x="495" y="262" fill="var(--text-secondary)" font-size="10">Complete API rewrite needed</text>
+                                    <text x="495" y="276" fill="var(--text-secondary)" font-size="10">No complex queries</text>
+                                    <text x="495" y="296" fill="var(--text-muted)" font-size="10" font-style="italic">Best for: Simple key-value</text>
+                                </g>
+                            </svg>
+                        </div>
+                        <script>
+                        (function() {
+                            const nodes = ['atlas', 'docdb', 'dynamo'];
+                            let activeNode = null;
+
+                            nodes.forEach(function(node) {
+                                const el = document.getElementById('mdt-' + node);
+                                const detail = document.getElementById('mdt-detail-' + node);
+                                if (!el || !detail) return;
+
+                                el.addEventListener('click', function() {
+                                    if (activeNode === node) {
+                                        detail.style.opacity = '0';
+                                        activeNode = null;
+                                    } else {
+                                        nodes.forEach(function(n) {
+                                            const d = document.getElementById('mdt-detail-' + n);
+                                            if (d) d.style.opacity = n === node ? '1' : '0';
+                                        });
+                                        activeNode = node;
+                                    }
+                                });
+
+                                el.addEventListener('mouseenter', function() {
+                                    if (!activeNode) detail.style.opacity = '1';
+                                });
+
+                                el.addEventListener('mouseleave', function() {
+                                    if (!activeNode) detail.style.opacity = '0';
+                                });
+                            });
+                        })();
+                        </script>
+
+                        <div class="callout workshop" style="margin-top:12px;">
+                            <strong>HAEA Workshop Request #3</strong>
+                            MongoDB migration path decision required: Atlas vs DocumentDB vs DynamoDB.
+                            Key considerations: Enterprise license expiry (2026.07), query complexity, operational ownership preference.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="msk-operations.html"><span class="label">Previous</span><span class="title">&larr; MSK Operations</span></a>
+                    <a href="ccs-data-architecture.html" class="next"><span class="label">Next</span><span class="title">CCS Data Architecture &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#incident-response" class="toc-link">P1 Incident Response</a>
+            <a href="#network-connectivity" class="toc-link">Verizon Network Connectivity</a>
+            <a href="#dr-failover" class="toc-link">DR/Failover Strategy</a>
+            <a href="#mongodb-migration" class="toc-link">MongoDB Migration</a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

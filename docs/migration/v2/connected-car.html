@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connected Car 레이턴시 - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>Connected Car 레이턴시</span></div>
+
+                <h1><span class="lang-ko">Connected Car 서비스와 레이턴시</span><span class="lang-en">Connected Car Services and Latency</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">CCS (Connected Car Services)에서 멀티리전은 선택이 아닌 필수입니다.
+                    차량 Telemetry 수집 주기 10초, P99 &lt; 200ms 응답 보장이 핵심입니다.</span><span class="lang-en">For CCS (Connected Car Services), multi-region is not optional but essential.
+                    The key is 10-second vehicle telemetry collection interval and P99 &lt; 200ms response guarantee.</span>
+                </p>
+
+                <div class="callout warning">
+                    <strong><span class="lang-ko">레이턴시 = 안전</span><span class="lang-en">Latency = Safety</span></strong>
+                    <span class="lang-ko">자율주행 보조 기능에서 100ms 지연은 시속 100km 기준 약 2.8m의 차이입니다.
+                    경로 재탐색, 위험 알림, OTA 업데이트 등 모든 커넥티드 기능에서 레이턴시는 안전과 직결됩니다.</span><span class="lang-en">In autonomous driving assist features, 100ms delay equals about 2.8m difference at 100km/h.
+                    Latency is directly linked to safety in all connected features: route recalculation, hazard alerts, OTA updates.</span>
+                </div>
+
+                <!-- ===== E2E Latency Budget ===== -->
+                <h2 id="latency-budget"><span class="lang-ko">E2E 레이턴시 버짓 — CCS Vehicle Telemetry</span><span class="lang-en">E2E Latency Budget — CCS Vehicle Telemetry</span></h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">E2E 레이턴시 버짓 — CCS Vehicle Telemetry</span><span class="lang-en">E2E Latency Budget — CCS Vehicle Telemetry</span></span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">CCS Vehicle Telemetry는 스펙상 60초 주기지만 실제 운영은 <strong>10초 주기</strong>로 수집됩니다.
+                            현재 경로와 To-Be 경로를 비교합니다.</span><span class="lang-en">CCS Vehicle Telemetry spec is 60-second intervals, but actual operation uses <strong>10-second intervals</strong>.
+                            We compare the current path with the To-Be path.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">현재 (As-Is) vs To-Be 경로</span><span class="lang-en">Current (As-Is) vs To-Be Path</span></h4>
+<pre><code><span class="hl-cm"># As-Is: 현재 CCS 텔레메트리 경로</span>
+Vehicle &rarr; Verizon PIP &rarr; LA Equinix DC (HCloud) &rarr; Service
+
+<span class="hl-cm"># To-Be: AWS 마이그레이션 후</span>
+Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</code><span class="code-label">text</span></pre>
+
+                        <h4><span class="lang-ko">CCS Fleet 현황</span><span class="lang-en">CCS Fleet Status</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">세대</span><span class="lang-en">Gen</span></th><th><span class="lang-ko">프로토콜</span><span class="lang-en">Protocol</span></th><th><span class="lang-ko">차량 수</span><span class="lang-en">Vehicles</span></th><th><span class="lang-ko">특징</span><span class="lang-en">Features</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>Gen2</td>
+                                    <td>TCP</td>
+                                    <td>2-3M 대</td>
+                                    <td><span class="lang-ko">레거시, 안정적</span><span class="lang-en">Legacy, stable</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Gen3</td>
+                                    <td>MQTT</td>
+                                    <td>0.6M 대</td>
+                                    <td><span class="lang-ko">신규 차량, 양방향</span><span class="lang-en">New vehicles, bidirectional</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">E2E 레이턴시 구간 분해</span><span class="lang-en">E2E Latency Segment Breakdown</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">구간</span><span class="lang-en">Segment</span></th><th>P50</th><th>P99</th><th><span class="lang-ko">최적화</span><span class="lang-en">Optimization</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>Vehicle &rarr; Cell Tower</td>
+                                    <td>10ms</td>
+                                    <td>50ms</td>
+                                    <td><span class="lang-ko">제어 불가 (LTE/5G 네트워크 품질)</span><span class="lang-en">Uncontrollable (LTE/5G network quality)</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Cell &rarr; CloudFront PoP</td>
+                                    <td>5ms</td>
+                                    <td>15ms</td>
+                                    <td><span class="lang-ko">CloudFront 엣지 캐싱</span><span class="lang-en">CloudFront edge caching</span></td>
+                                </tr>
+                                <tr>
+                                    <td>CloudFront &rarr; NLB (Origin)</td>
+                                    <td>2ms</td>
+                                    <td>10ms</td>
+                                    <td><span class="lang-ko">같은 리전 내 origin</span><span class="lang-en">Same region origin</span></td>
+                                </tr>
+                                <tr>
+                                    <td>NLB &rarr; api-gateway Pod</td>
+                                    <td>1ms</td>
+                                    <td>3ms</td>
+                                    <td><span class="lang-ko">VPC 내부 통신</span><span class="lang-en">VPC internal traffic</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Pod &rarr; Data Store</strong></td>
+                                    <td><strong>5ms</strong></td>
+                                    <td><strong>20ms</strong></td>
+                                    <td><strong><span class="lang-ko">ElastiCache 캐시 히트 시 &lt;1ms</span><span class="lang-en">ElastiCache cache hit &lt;1ms</span></strong></td>
+                                </tr>
+                                <tr style="font-weight:600;">
+                                    <td>Total</td>
+                                    <td>23ms</td>
+                                    <td>98ms</td>
+                                    <td><span class="lang-ko">버짓 200ms 이내</span><span class="lang-en">Within 200ms budget</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div style="margin: 16px 0;">
+                            <svg id="latency-waterfall-svg" width="100%" viewBox="0 0 520 280" style="max-width: 520px; display: block; margin: 0 auto;">
+                                <!-- Title -->
+                                <text x="260" y="20" text-anchor="middle" fill="var(--text-primary)" font-size="12" font-weight="600">
+                                    <tspan class="lang-ko">E2E 레이턴시 Waterfall (P50 / P99)</tspan><tspan class="lang-en">E2E Latency Waterfall (P50 / P99)</tspan>
+                                </text>
+
+                                <!-- Y-axis labels -->
+                                <text x="10" y="58" fill="var(--text-secondary)" font-size="10">Vehicle→Cell</text>
+                                <text x="10" y="93" fill="var(--text-secondary)" font-size="10">Cell→CloudFront</text>
+                                <text x="10" y="128" fill="var(--text-secondary)" font-size="10">CloudFront→NLB</text>
+                                <text x="10" y="163" fill="var(--text-secondary)" font-size="10">NLB→Pod</text>
+                                <text x="10" y="198" fill="var(--text-secondary)" font-size="10">Pod→DataStore</text>
+                                <text x="10" y="243" fill="var(--text-primary)" font-size="11" font-weight="600">Total</text>
+
+                                <!-- Scale: 0-100ms, width 300px (3px per ms) -->
+                                <!-- P50 bars (darker) -->
+                                <rect class="waterfall-bar" data-delay="0" x="110" y="45" width="0" height="16" rx="3" fill="var(--tag-operations)" data-target="30"/>
+                                <rect class="waterfall-bar" data-delay="1" x="140" y="80" width="0" height="16" rx="3" fill="var(--tag-architecture)" data-target="15"/>
+                                <rect class="waterfall-bar" data-delay="2" x="155" y="115" width="0" height="16" rx="3" fill="var(--tag-network)" data-target="6"/>
+                                <rect class="waterfall-bar" data-delay="3" x="161" y="150" width="0" height="16" rx="3" fill="var(--accent)" data-target="3"/>
+                                <rect class="waterfall-bar" data-delay="4" x="164" y="185" width="0" height="16" rx="3" fill="var(--tag-database)" data-target="15"/>
+
+                                <!-- P99 bars (lighter, behind) -->
+                                <rect class="waterfall-bar-p99" data-delay="0" x="110" y="45" width="0" height="16" rx="3" fill="var(--tag-operations)" opacity="0.3" data-target="150"/>
+                                <rect class="waterfall-bar-p99" data-delay="1" x="260" y="80" width="0" height="16" rx="3" fill="var(--tag-architecture)" opacity="0.3" data-target="45"/>
+                                <rect class="waterfall-bar-p99" data-delay="2" x="305" y="115" width="0" height="16" rx="3" fill="var(--tag-network)" opacity="0.3" data-target="30"/>
+                                <rect class="waterfall-bar-p99" data-delay="3" x="335" y="150" width="0" height="16" rx="3" fill="var(--accent)" opacity="0.3" data-target="9"/>
+                                <rect class="waterfall-bar-p99" data-delay="4" x="344" y="185" width="0" height="16" rx="3" fill="var(--tag-database)" opacity="0.3" data-target="60"/>
+
+                                <!-- Total bar -->
+                                <rect class="waterfall-bar" data-delay="5" x="110" y="230" width="0" height="20" rx="3" fill="var(--accent)" data-target="69"/>
+                                <rect class="waterfall-bar-p99" data-delay="5" x="110" y="230" width="0" height="20" rx="3" fill="var(--tag-operations)" opacity="0.4" data-target="294"/>
+
+                                <!-- Value labels (appear after animation) -->
+                                <text class="waterfall-label" x="145" y="57" fill="var(--text-primary)" font-size="9" opacity="0">10ms</text>
+                                <text class="waterfall-label" x="160" y="92" fill="var(--text-primary)" font-size="9" opacity="0">5ms</text>
+                                <text class="waterfall-label" x="166" y="127" fill="var(--text-primary)" font-size="9" opacity="0">2ms</text>
+                                <text class="waterfall-label" x="169" y="162" fill="var(--text-primary)" font-size="9" opacity="0">1ms</text>
+                                <text class="waterfall-label" x="184" y="197" fill="var(--text-primary)" font-size="9" opacity="0">5ms</text>
+                                <text class="waterfall-label" x="185" y="245" fill="var(--bg-card)" font-size="10" font-weight="600" opacity="0">P50: 23ms</text>
+
+                                <!-- P99 labels -->
+                                <text class="waterfall-label-p99" x="420" y="57" fill="var(--text-muted)" font-size="9" opacity="0">P99: 50ms</text>
+                                <text class="waterfall-label-p99" x="420" y="92" fill="var(--text-muted)" font-size="9" opacity="0">P99: 15ms</text>
+                                <text class="waterfall-label-p99" x="420" y="127" fill="var(--text-muted)" font-size="9" opacity="0">P99: 10ms</text>
+                                <text class="waterfall-label-p99" x="420" y="162" fill="var(--text-muted)" font-size="9" opacity="0">P99: 3ms</text>
+                                <text class="waterfall-label-p99" x="420" y="197" fill="var(--text-muted)" font-size="9" opacity="0">P99: 20ms</text>
+                                <text class="waterfall-label-p99" x="420" y="245" fill="var(--text-secondary)" font-size="10" font-weight="600" opacity="0">P99: 98ms</text>
+
+                                <!-- Budget line at 200ms -->
+                                <line x1="410" y1="35" x2="410" y2="260" stroke="var(--tag-operations)" stroke-width="2" stroke-dasharray="4,4" opacity="0.5"/>
+                                <text x="410" y="272" text-anchor="middle" fill="var(--tag-operations)" font-size="9">200ms budget</text>
+
+                                <!-- Scale markers -->
+                                <text x="110" y="272" fill="var(--text-muted)" font-size="8">0</text>
+                                <text x="210" y="272" fill="var(--text-muted)" font-size="8">33ms</text>
+                                <text x="310" y="272" fill="var(--text-muted)" font-size="8">66ms</text>
+                            </svg>
+                        </div>
+                        <script>
+                        (function() {
+                            const bars = document.querySelectorAll('.waterfall-bar');
+                            const barsP99 = document.querySelectorAll('.waterfall-bar-p99');
+                            const labels = document.querySelectorAll('.waterfall-label');
+                            const labelsP99 = document.querySelectorAll('.waterfall-label-p99');
+                            let animated = false;
+
+                            function animateWaterfall() {
+                                if (animated) return;
+                                animated = true;
+
+                                bars.forEach((bar, i) => {
+                                    const target = parseFloat(bar.dataset.target);
+                                    const delay = parseInt(bar.dataset.delay) * 200;
+                                    setTimeout(() => {
+                                        bar.style.transition = 'width 0.6s ease-out';
+                                        bar.setAttribute('width', target);
+                                        if (labels[i]) {
+                                            setTimeout(() => { labels[i].style.opacity = '1'; }, 400);
+                                        }
+                                    }, delay);
+                                });
+
+                                barsP99.forEach((bar, i) => {
+                                    const target = parseFloat(bar.dataset.target);
+                                    const delay = parseInt(bar.dataset.delay) * 200 + 100;
+                                    setTimeout(() => {
+                                        bar.style.transition = 'width 0.6s ease-out';
+                                        bar.setAttribute('width', target);
+                                        if (labelsP99[i]) {
+                                            setTimeout(() => { labelsP99[i].style.opacity = '1'; }, 400);
+                                        }
+                                    }, delay);
+                                });
+                            }
+
+                            const observer = new IntersectionObserver((entries) => {
+                                entries.forEach(entry => {
+                                    if (entry.isIntersecting) animateWaterfall();
+                                });
+                            }, { threshold: 0.5 });
+
+                            observer.observe(document.getElementById('latency-waterfall-svg'));
+                        })();
+                        </script>
+
+                        <div class="callout tip">
+                            <strong><span class="lang-ko">CCDI 부하 패턴</span><span class="lang-en">CCDI Load Pattern</span></strong>
+                            <span class="lang-ko">CCDI (Connected Car Data Ingestion)는 피크 시간대(10AM-1PM) 메모리 사용률 90-100%,
+                            비피크 시간대 20% 수준입니다. 피크 대비 5배 용량 차이를 HPA로 대응합니다.</span><span class="lang-en">CCDI (Connected Car Data Ingestion) reaches 90-100% memory utilization during peak hours (10AM-1PM),
+                            and 20% during off-peak. HPA handles the 5x capacity difference between peak and off-peak.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Region Routing ===== -->
+                <h2 id="region-routing"><span class="lang-ko">차량 리전 라우팅 — CCS North America</span><span class="lang-en">Vehicle Region Routing — CCS North America</span></h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Vehicle Region Routing — CCS North America</span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Route53 latency-based routing으로 차량 위치에 따라 가장 가까운 리전으로 자동 라우팅합니다.
+                            현재 LA Equinix DC가 중앙 허브이지만, AWS 전환 후 2개 리전으로 분산됩니다.</span><span class="lang-en">Route53 latency-based routing automatically routes to the nearest region based on vehicle location.
+                            Currently LA Equinix DC is the central hub, but after AWS migration it will be distributed across 2 regions.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">리전별 차량 분포</span><span class="lang-en">Vehicle Distribution by Region</span></h4>
+<pre><code><span class="hl-cm"># CCS North America 리전 커버리지</span>
+
+<span class="hl-key">us-west-2 (Oregon):</span>
+  커버리지: West Coast (CA, OR, WA, NV, AZ, CO, UT...)
+  차량 비중: ~35%
+  평균 RTT: 10-30ms (서부 도시 기준)
+  현재 허브: LA Equinix DC → Verizon Private Network
+
+<span class="hl-key">us-east-1 (N. Virginia):</span>
+  커버리지: East + Central (NY, FL, TX, IL, GA, OH...)
+  차량 비중: ~65%
+  평균 RTT: 10-40ms (동부 도시 기준)
+  신규 구축: AWS Direct Connect
+
+<span class="hl-cm"># 한국 참조 사례 (2025.04 완료)</span>
+  3개 통신사 (SKT, KT, LGU+) → DXGW → AWS
+  Private Network 구성 완료</code><span class="code-label">text</span></pre>
+
+                        <h4><span class="lang-ko">Cross-Country 핸드오버</span><span class="lang-en">Cross-Country Handover</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">시나리오</span><span class="lang-en">Scenario</span></th><th><span class="lang-ko">동작</span><span class="lang-en">Behavior</span></th><th><span class="lang-ko">사용자 영향</span><span class="lang-en">User Impact</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="lang-ko">LA에서 운행 시작</span><span class="lang-en">Start driving in LA</span></td>
+                                    <td><span class="lang-ko">us-west-2로 라우팅</span><span class="lang-en">Route to us-west-2</span></td>
+                                    <td><span class="lang-ko">없음 (최저 지연)</span><span class="lang-en">None (lowest latency)</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">Denver 통과 중</span><span class="lang-en">Passing through Denver</span></td>
+                                    <td><span class="lang-ko">DNS 갱신 시 us-east-1로 전환</span><span class="lang-en">Switch to us-east-1 on DNS refresh</span></td>
+                                    <td><span class="lang-ko">없음 (세션 유지)</span><span class="lang-en">None (session maintained)</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">NY 도착</span><span class="lang-en">Arrive in NY</span></td>
+                                    <td><span class="lang-ko">us-east-1 안정적 사용</span><span class="lang-en">Stable us-east-1 usage</span></td>
+                                    <td><span class="lang-ko">없음</span><span class="lang-en">None</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">리전 장애 발생</span><span class="lang-en">Region failure occurs</span></td>
+                                    <td><span class="lang-ko">Health Check 실패 → fallback</span><span class="lang-en">Health Check failure → fallback</span></td>
+                                    <td><span class="lang-ko">~60-120s 전환 지연</span><span class="lang-en">~60-120s switch delay</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout info">
+                            <strong><span class="lang-ko">Verizon Private Network 토폴로지</span><span class="lang-en">Verizon Private Network Topology</span></strong>
+                            <span class="lang-ko">현재 CCS는 Verizon PIP (Private Interconnect Point)를 통해 LA Equinix DC로 직접 연결됩니다.
+                            AWS 전환 시 Verizon PIP → AWS Direct Connect → NLB 경로로 변경됩니다.</span><span class="lang-en">Currently CCS connects directly to LA Equinix DC via Verizon PIP (Private Interconnect Point).
+                            After AWS migration, the path changes to Verizon PIP → AWS Direct Connect → NLB.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Critical API Classification ===== -->
+                <h2 id="critical-apis">CCS Critical API 분류</h2>
+
+                <div class="tech-card" data-tag="Architecture">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">CCS Critical API Classification</span>
+                        <span class="tech-card-tag Architecture">Architecture</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">CCS API를 레이턴시 요구사항에 따라 3개 등급으로 분류합니다.
+                            현재 20-30K TPS, 연말까지 40K TPS 예상입니다.</span><span class="lang-en">CCS APIs are classified into 3 tiers based on latency requirements.
+                            Currently 20-30K TPS, expected to reach 40K TPS by year-end.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">API 레이턴시 등급</span><span class="lang-en">API Latency Tiers</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">등급</span><span class="lang-en">Tier</span></th><th><span class="lang-ko">P99 목표</span><span class="lang-en">P99 Target</span></th><th><span class="lang-ko">API 예시</span><span class="lang-en">API Examples</span></th><th><span class="lang-ko">데이터 소스</span><span class="lang-en">Data Source</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="color:var(--tag-operations);font-weight:600;">Critical (&lt;100ms)</td>
+                                    <td>100ms</td>
+                                    <td><span class="lang-ko">실시간 차량 상태 (VSS), 긴급 알림</span><span class="lang-en">Real-time vehicle status (VSS), emergency alerts</span></td>
+                                    <td><span class="lang-ko">ElastiCache (필수 캐시 히트)</span><span class="lang-en">ElastiCache (required cache hit)</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="color:var(--tag-architecture);font-weight:600;">Standard (&lt;300ms)</td>
+                                    <td>300ms</td>
+                                    <td><span class="lang-ko">Navigation 경로 요청, POI 검색, EV 충전소 탐색</span><span class="lang-en">Navigation route requests, POI search, EV charging station lookup</span></td>
+                                    <td><span class="lang-ko">OpenSearch / Aurora (캐시 선호)</span><span class="lang-en">OpenSearch / Aurora (cache preferred)</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="color:var(--tag-network);font-weight:600;">Relaxed (&lt;1s)</td>
+                                    <td>1000ms</td>
+                                    <td><span class="lang-ko">OTA 업데이트 체크, 원격 차량 제어, 주행 리포트</span><span class="lang-en">OTA update check, remote vehicle control, driving reports</span></td>
+                                    <td><span class="lang-ko">Aurora / DocumentDB (직접 조회 OK)</span><span class="lang-en">Aurora / DocumentDB (direct query OK)</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>VSS (Vehicle Status Service) 캐싱 패턴</h4>
+<pre><code><span class="hl-cm"># Critical API - Cache-Aside with Hot VSS Data</span>
+<span class="hl-kw">async function</span> <span class="hl-fn">getVehicleStatus</span>(vehicleId) {
+  <span class="hl-kw">const</span> cacheKey = <span class="hl-str">`vss:${vehicleId}:status`</span>
+
+  <span class="hl-cm">// 1. ElastiCache 조회 (P99 &lt; 1ms)</span>
+  <span class="hl-kw">let</span> status = <span class="hl-kw">await</span> redis.get(cacheKey)
+  <span class="hl-kw">if</span> (status) <span class="hl-kw">return</span> JSON.parse(status)   <span class="hl-cm">// Cache HIT</span>
+
+  <span class="hl-cm">// 2. Aurora 조회 (P99 ~15ms)</span>
+  status = <span class="hl-kw">await</span> aurora.query(<span class="hl-str">`SELECT * FROM vehicle_status WHERE ...`</span>)
+
+  <span class="hl-cm">// 3. Hot data 캐시 저장 (TTL: 10초 - 텔레메트리 주기와 동일)</span>
+  <span class="hl-kw">await</span> redis.set(cacheKey, JSON.stringify(status), <span class="hl-str">'EX'</span>, <span class="hl-num">10</span>)
+  <span class="hl-kw">return</span> status
+}</code><span class="code-label">javascript</span></pre>
+
+                        <h4>TPS 증가 대응</h4>
+<pre><code><span class="hl-cm"># 현재 → 연말 TPS 증가 계획</span>
+
+<span class="hl-key">현재:</span> 20-30K TPS
+<span class="hl-key">연말:</span> 40K TPS (예상)
+<span class="hl-key">증가율:</span> ~33-100%
+
+<span class="hl-cm"># 대응 전략</span>
+1. ElastiCache 클러스터 수평 확장 (샤드 추가)
+2. Read Replica 활용 (Aurora Reader Endpoint)
+3. HPA min replica 상향 조정</code><span class="code-label">text</span></pre>
+
+                        <div class="callout tip">
+                            <strong><span class="lang-ko">핵심: VSS Hot Data 캐싱</span><span class="lang-en">Key: VSS Hot Data Caching</span></strong>
+                            <span class="lang-ko">실시간 차량 상태(VSS)는 가장 빈번하게 조회되는 데이터입니다.
+                            ElastiCache에 Hot VSS 데이터를 유지하고, 캐시 히트율 95% 이상을 목표로 합니다.</span><span class="lang-en">Real-time vehicle status (VSS) is the most frequently queried data.
+                            Maintain hot VSS data in ElastiCache, targeting 95%+ cache hit rate.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="data-sync.html"><span class="label">Previous</span><span class="title">&larr; 데이터 동기화 노하우</span></a>
+                    <a href="route-cache.html" class="next"><span class="label">Next</span><span class="title">GIS Route Cache &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#latency-budget" class="toc-link"><span class="lang-ko">E2E 레이턴시 버짓</span><span class="lang-en">E2E Latency Budget</span></a>
+            <a href="#region-routing" class="toc-link"><span class="lang-ko">차량 리전 라우팅</span><span class="lang-en">Vehicle Region Routing</span></a>
+            <a href="#critical-apis" class="toc-link">CCS Critical API</a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

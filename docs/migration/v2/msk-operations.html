@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSK Multi-Region Operations - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>MSK Operations</span></div>
+
+                <h1>MSK Multi-Region Operations</h1>
+                <p class="lead">
+                    <span class="lang-ko">CCS Connected Car 데이터 파이프라인을 위한 MSK 클러스터 운영 가이드입니다.
+                    North America 트래픽 규모에 맞는 사이징, 리전 간 복제, CCDI 데이터 플로우 아키텍처를 다룹니다.</span><span class="lang-en">MSK cluster operations guide for CCS Connected Car data pipeline.
+                    Covers sizing for North America traffic scale, cross-region replication, and CCDI data flow architecture.</span>
+                </p>
+
+                <!-- ===== Card 1: MSK Sizing ===== -->
+                <h2 id="msk-sizing"><span class="lang-ko">MSK 클러스터 사이징</span><span class="lang-en">MSK Cluster Sizing</span></h2>
+
+                <div class="tech-card" data-tag="Infrastructure">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">MSK Cluster Sizing - CCS North America Traffic</span>
+                        <span class="tech-card-tag Infrastructure">Infrastructure</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">현재 MSK 클러스터는 8개 브로커, 50MB/s 처리량, 6K consumer lag으로 운영 중입니다.
+                            Gen2(TCP, 2-3M 차량)와 Gen3(MQTT, 0.6M 차량)에서 4개 CBU를 통해 데이터가 수집됩니다.</span><span class="lang-en">Current MSK cluster runs 8 brokers, 50MB/s throughput, with 6K consumer lag.
+                            Data is collected via 4 CBUs from Gen2 (TCP, 2-3M vehicles) and Gen3 (MQTT, 0.6M vehicles).</span>
+                        </p>
+
+                        <h4><span class="lang-ko">일일 트래픽 볼륨</span><span class="lang-en">Daily Traffic Volume</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th><span class="lang-ko">데이터 타입</span><span class="lang-en">Data Type</span></th><th><span class="lang-ko">일일 레코드 수</span><span class="lang-en">Daily Records</span></th><th><span class="lang-ko">메시지 크기</span><span class="lang-en">Message Size</span></th><th><span class="lang-ko">일일 볼륨</span><span class="lang-en">Daily Volume</span></th><th>Retention</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><strong>VSS (Vehicle Signal)</strong></td><td>230M</td><td>~2KB</td><td>~460GB</td><td>3 days</td></tr>
+                                <tr><td><strong>Location</strong></td><td>100M</td><td>~500B</td><td>~50GB</td><td>7 days</td></tr>
+                                <tr><td><strong>Driving Info</strong></td><td>50M</td><td>~1KB</td><td>~50GB</td><td>7 days</td></tr>
+                                <tr><td><strong>Events/Alerts</strong></td><td>10M</td><td>~1KB</td><td>~10GB</td><td>14 days</td></tr>
+                            </tbody>
+                        </table>
+                        <p><strong>Total: ~10TB/day (replication factor 3 포함)</strong></p>
+
+                        <h4><span class="lang-ko">브로커 사이징 공식</span><span class="lang-en">Broker Sizing Formula</span></h4>
+<pre><code><span class="hl-cm"># Broker 수 계산</span>
+brokers = (peak_throughput × replication_factor) / (broker_throughput × 0.7)
+
+<span class="hl-cm"># 현재 구성</span>
+peak_throughput = 150 MB/s
+replication_factor = 3
+broker_throughput = 100 MB/s  <span class="hl-cm"># kafka.m5.2xlarge</span>
+safety_margin = 0.7
+
+brokers = (150 × 3) / (100 × 0.7) = 450 / 70 ≈ <span class="hl-num">7</span> → <span class="hl-num">8</span> (3 AZ 분산)</code><span class="code-label">text</span></pre>
+
+                        <h4><span class="lang-ko">인증 설정</span><span class="lang-en">Authentication Configuration</span></h4>
+                        <p><span class="lang-ko">SASL/SCRAM 인증을 port 9096에서 사용합니다.</span><span class="lang-en">Uses SASL/SCRAM authentication on port 9096.</span></p>
+<pre><code><span class="hl-cm"># MSK 브로커 접속 (SASL/SCRAM)</span>
+bootstrap.servers=b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:<span class="hl-num">9096</span>
+security.protocol=SASL_SSL
+sasl.mechanism=SCRAM-SHA-512
+sasl.jaas.config=...  <span class="hl-cm"># AWS Secrets Manager에서 credential 로드</span></code><span class="code-label">properties</span></pre>
+                    </div>
+                </div>
+
+                <!-- ===== Card 2: MSK Replicator ===== -->
+                <h2 id="msk-replicator"><span class="lang-ko">MSK Replicator 구성</span><span class="lang-en">MSK Replicator Configuration</span></h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">MSK Replicator - Cross-Region Topic Replication</span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">MSK Replicator는 us-east-1과 us-west-2 간 토픽 복제를 자동화합니다.
+                            Consumer group offset 동기화로 리전 장애 시 다른 리전에서 처리를 이어받을 수 있습니다.</span><span class="lang-en">MSK Replicator automates topic replication between us-east-1 and us-west-2.
+                            Consumer group offset synchronization allows another region to take over processing during regional failures.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">Terraform 구성</span><span class="lang-en">Terraform Configuration</span></h4>
+                        <p><code>terraform/modules/data/msk/main.tf</code></p>
+<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"aws_msk_replicator"</span> <span class="hl-str">"this"</span> {
+  count = var.enable_replicator ? <span class="hl-num">1</span> : <span class="hl-num">0</span>
+
+  replicator_name = <span class="hl-str">"${var.environment}-msk-replicator-${var.region}"</span>
+
+  kafka_cluster {
+    amazon_msk_cluster {
+      msk_cluster_arn = var.source_cluster_arn
+    }
+    vpc_config {
+      subnet_ids          = var.data_subnet_ids
+      security_groups_ids = [var.security_group_id]
+    }
+  }
+
+  kafka_cluster {
+    amazon_msk_cluster {
+      msk_cluster_arn = var.target_cluster_arn
+    }
+    vpc_config {
+      subnet_ids          = var.data_subnet_ids
+      security_groups_ids = [var.security_group_id]
+    }
+  }
+
+  replication_info_list {
+    source_kafka_cluster_arn = var.source_cluster_arn
+    target_kafka_cluster_arn = var.target_cluster_arn
+    target_compression_type  = <span class="hl-str">"GZIP"</span>  <span class="hl-cm"># 리전 간 전송 비용 최적화</span>
+
+    topic_replication {
+      topics_to_replicate = var.replicator_topics
+
+      copy_access_control_lists_for_topics = <span class="hl-num">true</span>
+      copy_topic_configurations            = <span class="hl-num">true</span>
+      detect_and_copy_new_topics           = <span class="hl-num">true</span>
+    }
+
+    consumer_group_replication {
+      consumer_groups_to_replicate        = [<span class="hl-str">".*"</span>]
+      synchronise_consumer_group_offsets  = <span class="hl-num">true</span>  <span class="hl-cm"># 장애 복구 핵심</span>
+      detect_and_copy_new_consumer_groups = <span class="hl-num">true</span>
+    }
+  }
+
+  service_execution_role_arn = aws_iam_role.msk_replicator[<span class="hl-num">0</span>].arn
+}</code><span class="code-label">hcl</span></pre>
+
+                        <h4><span class="lang-ko">핵심 설정 포인트</span><span class="lang-en">Key Configuration Points</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th><span class="lang-ko">설정</span><span class="lang-en">Setting</span></th><th><span class="lang-ko">값</span><span class="lang-en">Value</span></th><th><span class="lang-ko">설명</span><span class="lang-en">Description</span></th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>detect_and_copy_new_topics</td><td>true</td><td><span class="lang-ko">신규 토픽 자동 복제</span><span class="lang-en">Auto-replicate new topics</span></td></tr>
+                                <tr><td>synchronise_consumer_group_offsets</td><td>true</td><td><span class="lang-ko">offset 동기화로 failover 지원</span><span class="lang-en">Support failover via offset sync</span></td></tr>
+                                <tr><td>target_compression_type</td><td>GZIP</td><td><span class="lang-ko">리전 간 전송 비용 절감</span><span class="lang-en">Reduce cross-region transfer costs</span></td></tr>
+                                <tr><td>copy_topic_configurations</td><td>true</td><td><span class="lang-ko">토픽 설정(retention 등) 동기화</span><span class="lang-en">Sync topic settings (retention, etc.)</span></td></tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Reactive MSK Replicator Diagram -->
+                        <div style="margin: 16px 0;">
+                            <svg id="msk-replicator-flow" width="100%" viewBox="0 0 650 220" style="max-width: 650px;">
+                                <!-- Background -->
+                                <rect width="650" height="220" fill="var(--bg-card)" rx="8"/>
+
+                                <!-- us-east-1 MSK Cluster -->
+                                <g id="msk-east">
+                                    <rect x="40" y="60" width="180" height="100" rx="8" fill="var(--bg-card)" stroke="var(--accent)" stroke-width="2"/>
+                                    <text x="130" y="85" text-anchor="middle" fill="var(--text-primary)" font-size="12" font-weight="600">us-east-1</text>
+                                    <text x="130" y="100" text-anchor="middle" fill="var(--text-muted)" font-size="10">MSK Primary</text>
+                                    <!-- Topics -->
+                                    <rect x="55" y="110" width="70" height="18" rx="3" fill="var(--tag-database)" opacity="0.3"/>
+                                    <text x="90" y="123" text-anchor="middle" fill="var(--text-secondary)" font-size="9">vss-data</text>
+                                    <rect x="135" y="110" width="70" height="18" rx="3" fill="var(--tag-operations)" opacity="0.3"/>
+                                    <text x="170" y="123" text-anchor="middle" fill="var(--text-secondary)" font-size="9">location</text>
+                                    <rect x="55" y="135" width="150" height="18" rx="3" fill="var(--tag-network)" opacity="0.3"/>
+                                    <text x="130" y="148" text-anchor="middle" fill="var(--text-secondary)" font-size="9">driving-info</text>
+                                </g>
+
+                                <!-- us-west-2 MSK Cluster -->
+                                <g id="msk-west">
+                                    <rect x="430" y="60" width="180" height="100" rx="8" fill="var(--bg-card)" stroke="var(--tag-operations)" stroke-width="2"/>
+                                    <text x="520" y="85" text-anchor="middle" fill="var(--text-primary)" font-size="12" font-weight="600">us-west-2</text>
+                                    <text x="520" y="100" text-anchor="middle" fill="var(--text-muted)" font-size="10">MSK Secondary</text>
+                                    <!-- Topics -->
+                                    <rect x="445" y="110" width="70" height="18" rx="3" fill="var(--tag-database)" opacity="0.3"/>
+                                    <text x="480" y="123" text-anchor="middle" fill="var(--text-secondary)" font-size="9">vss-data</text>
+                                    <rect x="525" y="110" width="70" height="18" rx="3" fill="var(--tag-operations)" opacity="0.3"/>
+                                    <text x="560" y="123" text-anchor="middle" fill="var(--text-secondary)" font-size="9">location</text>
+                                    <rect x="445" y="135" width="150" height="18" rx="3" fill="var(--tag-network)" opacity="0.3"/>
+                                    <text x="520" y="148" text-anchor="middle" fill="var(--text-secondary)" font-size="9">driving-info</text>
+                                </g>
+
+                                <!-- Replicator box -->
+                                <rect x="270" y="85" width="110" height="50" rx="6" fill="var(--bg-card)" stroke="var(--border)" stroke-width="2"/>
+                                <text x="325" y="107" text-anchor="middle" fill="var(--text-primary)" font-size="10" font-weight="600">MSK Replicator</text>
+                                <text x="325" y="122" text-anchor="middle" fill="var(--text-muted)" font-size="9">GZIP compression</text>
+
+                                <!-- Connection lines -->
+                                <line x1="220" y1="110" x2="270" y2="110" stroke="var(--border)" stroke-width="2"/>
+                                <line x1="380" y1="110" x2="430" y2="110" stroke="var(--border)" stroke-width="2"/>
+
+                                <!-- Animated data packets -->
+                                <circle r="5" fill="var(--tag-database)" class="data-packet">
+                                    <animate attributeName="cx" values="220;270;380;430" dur="2s" repeatCount="indefinite"/>
+                                    <animate attributeName="cy" values="110;110;110;110" dur="2s" repeatCount="indefinite"/>
+                                    <animate attributeName="opacity" values="1;1;1;0" dur="2s" repeatCount="indefinite"/>
+                                </circle>
+                                <circle r="5" fill="var(--tag-operations)" class="data-packet">
+                                    <animate attributeName="cx" values="220;270;380;430" dur="2s" begin="0.4s" repeatCount="indefinite"/>
+                                    <animate attributeName="cy" values="110;110;110;110" dur="2s" begin="0.4s" repeatCount="indefinite"/>
+                                    <animate attributeName="opacity" values="1;1;1;0" dur="2s" begin="0.4s" repeatCount="indefinite"/>
+                                </circle>
+                                <circle r="5" fill="var(--tag-network)" class="data-packet">
+                                    <animate attributeName="cx" values="220;270;380;430" dur="2s" begin="0.8s" repeatCount="indefinite"/>
+                                    <animate attributeName="cy" values="110;110;110;110" dur="2s" begin="0.8s" repeatCount="indefinite"/>
+                                    <animate attributeName="opacity" values="1;1;1;0" dur="2s" begin="0.8s" repeatCount="indefinite"/>
+                                </circle>
+
+                                <!-- Consumer Group Offset Sync indicator -->
+                                <g id="offset-sync">
+                                    <rect x="270" y="170" width="110" height="30" rx="4" fill="var(--bg-card)" stroke="var(--accent)" stroke-width="1" stroke-dasharray="4"/>
+                                    <text x="325" y="189" text-anchor="middle" fill="var(--accent)" font-size="9">Offset Sync</text>
+                                    <circle id="sync-indicator" cx="360" cy="185" r="4" fill="var(--accent)">
+                                        <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite"/>
+                                    </circle>
+                                </g>
+
+                                <!-- Labels -->
+                                <text x="130" y="45" text-anchor="middle" fill="var(--text-secondary)" font-size="10">Primary (Write)</text>
+                                <text x="520" y="45" text-anchor="middle" fill="var(--text-secondary)" font-size="10">Secondary (Read)</text>
+                            </svg>
+                        </div>
+                        <script>
+                        (function() {
+                            const svg = document.getElementById('msk-replicator-flow');
+                            if (!svg) return;
+                            const eastCluster = svg.querySelector('#msk-east rect');
+                            const westCluster = svg.querySelector('#msk-west rect');
+                            let toggle = false;
+                            setInterval(() => {
+                                toggle = !toggle;
+                                eastCluster.setAttribute('stroke-width', toggle ? '3' : '2');
+                                westCluster.setAttribute('stroke-width', toggle ? '2' : '3');
+                            }, 1500);
+                        })();
+                        </script>
+
+                        <h4><span class="lang-ko">복제 모니터링 메트릭</span><span class="lang-en">Replication Monitoring Metrics</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th>Metric</th><th><span class="lang-ko">임계값</span><span class="lang-en">Threshold</span></th><th><span class="lang-ko">알람 조건</span><span class="lang-en">Alarm Condition</span></th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>ReplicationLatency</td><td>&lt; 5s</td><td><span class="lang-ko">지연 시간 5초 초과 시 경고</span><span class="lang-en">Alert when latency exceeds 5s</span></td></tr>
+                                <tr><td>MessageLagCount</td><td>&lt; 10000</td><td><span class="lang-ko">lag 10K 초과 시 경고</span><span class="lang-en">Alert when lag exceeds 10K</span></td></tr>
+                                <tr><td>BytesInPerSec</td><td><span class="lang-ko">모니터링</span><span class="lang-en">Monitor</span></td><td><span class="lang-ko">처리량 급감 시 경고</span><span class="lang-en">Alert on throughput drop</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ===== Card 3: CCDI Data Pipeline ===== -->
+                <h2 id="ccdi-pipeline"><span class="lang-ko">CCDI 데이터 파이프라인</span><span class="lang-en">CCDI Data Pipeline</span></h2>
+
+                <div class="tech-card" data-tag="Architecture">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">CCDI Data Pipeline Architecture</span>
+                        <span class="tech-card-tag Architecture">Architecture</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">CCDI는 VSS(Vehicle Signal Spec), Location, Driving Information 세 가지 서비스 데이터 타입을 처리합니다.
+                            History 데이터는 현재 OFF 상태이며, S3+Athena 기반으로 활성화 예정입니다.</span><span class="lang-en">CCDI processes three service data types: VSS (Vehicle Signal Spec), Location, and Driving Information.
+                            History data is currently OFF and will be enabled using S3+Athena.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">데이터 타입별 특성</span><span class="lang-en">Data Type Characteristics</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th><span class="lang-ko">데이터 타입</span><span class="lang-en">Data Type</span></th><th><span class="lang-ko">볼륨</span><span class="lang-en">Volume</span></th><th><span class="lang-ko">중요도</span><span class="lang-en">Priority</span></th><th><span class="lang-ko">처리 요구사항</span><span class="lang-en">Processing Requirements</span></th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><strong>VSS</strong></td><td><span class="lang-ko">가장 큼</span><span class="lang-en">Largest</span></td><td>Critical</td><td><span class="lang-ko">실시간 처리, 최신값 캐시 필수</span><span class="lang-en">Real-time processing, latest value cache required</span></td></tr>
+                                <tr><td><strong>Location</strong></td><td><span class="lang-ko">중간</span><span class="lang-en">Medium</span></td><td>High</td><td><span class="lang-ko">위치 기반 서비스 지원</span><span class="lang-en">Location-based service support</span></td></tr>
+                                <tr><td><strong>Driving Info</strong></td><td><span class="lang-ko">작음</span><span class="lang-en">Small</span></td><td>Medium</td><td><span class="lang-ko">분석/리포팅 용도</span><span class="lang-en">Analytics/reporting use</span></td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">데이터 티어링 아키텍처</span><span class="lang-en">Data Tiering Architecture</span></h4>
+<pre><code><span class="hl-cm">┌─────────────────────────────────────────────────────────────────┐</span>
+<span class="hl-cm">│                      Data Tiering Flow                          │</span>
+<span class="hl-cm">└─────────────────────────────────────────────────────────────────┘</span>
+
+     <span class="hl-str">CBU (4개)</span>
+         │
+         ▼
+   <span class="hl-key">┌─────────────┐</span>
+   <span class="hl-key">│    MSK      │</span>  ◄── Ingestion Layer (Kafka)
+   <span class="hl-key">└──────┬──────┘</span>
+          │
+          ├─────────────────────┬─────────────────────┐
+          ▼                     ▼                     ▼
+   <span class="hl-num">┌─────────────┐</span>      <span class="hl-str">┌─────────────┐</span>      <span class="hl-cm">┌─────────────┐</span>
+   <span class="hl-num">│ ElastiCache │</span>      <span class="hl-str">│  DocumentDB │</span>      <span class="hl-cm">│     S3      │</span>
+   <span class="hl-num">│   (Valkey)  │</span>      <span class="hl-str">│   (MongoDB) │</span>      <span class="hl-cm">│   (Parquet) │</span>
+   <span class="hl-num">└─────────────┘</span>      <span class="hl-str">└─────────────┘</span>      <span class="hl-cm">└─────────────┘</span>
+        <span class="hl-num">HOT</span>                 <span class="hl-str">WARM</span>                 <span class="hl-cm">COLD</span>
+   VSS 최신값 캐시       3-7일 데이터          영구 보관
+   &lt; 1ms 응답             분석 쿼리            Athena 쿼리</code><span class="code-label">text</span></pre>
+
+                        <h4><span class="lang-ko">데이터 라이프사이클</span><span class="lang-en">Data Lifecycle</span></h4>
+                        <ul>
+                            <li><strong>HOT (ElastiCache/Valkey)</strong>: <span class="lang-ko">VSS 최신값만 캐시, TTL 없음 (항상 최신 상태 유지)</span><span class="lang-en">Cache only VSS latest values, no TTL (always keep current)</span></li>
+                            <li><strong>WARM (DocumentDB)</strong>: <span class="lang-ko">3-7일 보관, 실시간 분석 쿼리 지원</span><span class="lang-en">3-7 day retention, supports real-time analytics queries</span></li>
+                            <li><strong>COLD (S3)</strong>: <span class="lang-ko">영구 보관, Parquet 포맷, Athena/Glue로 분석</span><span class="lang-en">Permanent storage, Parquet format, analyze with Athena/Glue</span></li>
+                        </ul>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">History 데이터 활성화 계획</span><span class="lang-en">History Data Activation Plan</span></strong>
+                            <span class="lang-ko">현재 History 데이터는 OFF 상태입니다.
+                            S3 Intelligent-Tiering + Athena 쿼리 기반으로 비용 효율적인 장기 보관 솔루션을 구축 예정입니다.</span><span class="lang-en">History data is currently OFF.
+                            A cost-effective long-term storage solution will be built using S3 Intelligent-Tiering + Athena queries.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 4: Kafka Migration Case Study ===== -->
+                <h2 id="kafka-migration"><span class="lang-ko">On-Prem Kafka 마이그레이션</span><span class="lang-en">On-Prem Kafka Migration</span></h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">On-Prem Kafka to MSK Migration - Korea CCS Case Study</span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Korea CCS는 2025년 6월에 On-Prem Kafka에서 MSK로 마이그레이션을 완료했습니다.
+                            North America 마이그레이션의 참고 사례로 활용합니다.</span><span class="lang-en">Korea CCS completed migration from On-Prem Kafka to MSK in June 2025.
+                            Used as a reference case for North America migration.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">마이그레이션 타임라인</span><span class="lang-en">Migration Timeline</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th><span class="lang-ko">일정</span><span class="lang-en">Date</span></th><th><span class="lang-ko">마일스톤</span><span class="lang-en">Milestone</span></th><th><span class="lang-ko">상세</span><span class="lang-en">Details</span></th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><span class="lang-ko">2024년 9월</span><span class="lang-en">Sep 2024</span></td><td><span class="lang-ko">ServiceHub AWS 이전 완료</span><span class="lang-en">ServiceHub AWS migration complete</span></td><td><span class="lang-ko">애플리케이션 레이어 선행 이전</span><span class="lang-en">Application layer migrated first</span></td></tr>
+                                <tr><td><span class="lang-ko">2025년 4월</span><span class="lang-en">Apr 2025</span></td><td><span class="lang-ko">3개 통신사 Direct Connect 완료</span><span class="lang-en">3 carrier Direct Connect complete</span></td><td><span class="lang-ko">DXGW 패턴으로 네트워크 구성</span><span class="lang-en">Network configured with DXGW pattern</span></td></tr>
+                                <tr><td><span class="lang-ko">2025년 6월</span><span class="lang-en">Jun 2025</span></td><td><span class="lang-ko">Kafka → MSK 마이그레이션 완료</span><span class="lang-en">Kafka to MSK migration complete</span></td><td>MirrorMaker2 → MSK Replicator</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">마이그레이션 경로</span><span class="lang-en">Migration Path</span></h4>
+<pre><code><span class="hl-cm"># Phase 1: Initial Sync (MirrorMaker2)</span>
+On-Prem Kafka ──MirrorMaker2──▶ MSK (신규)
+     │                              │
+     ▼                              ▼
+  Producer                     Consumer (검증)
+
+<span class="hl-cm"># Phase 2: Production Cutover (MSK Replicator)</span>
+On-Prem Kafka ──MSK Replicator──▶ MSK (Production)
+                    │
+                    ▼
+         Consumer Group Offset Sync
+                    │
+                    ▼
+           Zero-Downtime Cutover</code><span class="code-label">text</span></pre>
+
+                        <h4><span class="lang-ko">비용 비교</span><span class="lang-en">Cost Comparison</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th><span class="lang-ko">항목</span><span class="lang-en">Item</span></th><th>On-Prem Kafka</th><th>MSK Managed</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><span class="lang-ko">인프라 비용</span><span class="lang-en">Infra Cost</span></td><td><span class="lang-ko">$15K/월 (HW 감가)</span><span class="lang-en">$15K/mo (HW depreciation)</span></td><td><span class="lang-ko">$12K/월</span><span class="lang-en">$12K/mo</span></td></tr>
+                                <tr><td><span class="lang-ko">운영 인력</span><span class="lang-en">Ops Staff</span></td><td>2 FTE</td><td>0.3 FTE</td></tr>
+                                <tr><td><span class="lang-ko">업그레이드 다운타임</span><span class="lang-en">Upgrade Downtime</span></td><td><span class="lang-ko">4시간/분기</span><span class="lang-en">4hr/quarter</span></td><td>0 (Rolling)</td></tr>
+                                <tr><td><span class="lang-ko">모니터링 구축</span><span class="lang-en">Monitoring Setup</span></td><td><span class="lang-ko">자체 구축 필요</span><span class="lang-en">Self-build required</span></td><td><span class="lang-ko">CloudWatch 통합</span><span class="lang-en">CloudWatch integrated</span></td></tr>
+                                <tr><td><span class="lang-ko">DR 구성</span><span class="lang-en">DR Config</span></td><td><span class="lang-ko">수동 (MirrorMaker)</span><span class="lang-en">Manual (MirrorMaker)</span></td><td><span class="lang-ko">MSK Replicator 자동</span><span class="lang-en">MSK Replicator auto</span></td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">보안 구성</span><span class="lang-en">Security Configuration</span></h4>
+<pre><code><span class="hl-cm"># SASL/SCRAM 인증 + VPC Security Group</span>
+security.protocol=SASL_SSL
+sasl.mechanism=SCRAM-SHA-512
+
+<span class="hl-cm"># Security Group Rules</span>
+- Inbound: VPC CIDR → 9096 (SASL_SSL)
+- Inbound: VPC CIDR → 9094 (TLS)
+- Outbound: All (replication, ZK)</code><span class="code-label">properties</span></pre>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong>Lessons Learned</strong>
+                            <ul style="margin:8px 0 0 0;padding-left:20px;">
+                                <li><span class="lang-ko">Consumer Group offset 동기화는 cutover 전에 충분히 테스트할 것</span><span class="lang-en">Thoroughly test consumer group offset sync before cutover</span></li>
+                                <li><span class="lang-ko">Topic configuration (retention, partitions)은 사전에 MSK에 동일하게 생성</span><span class="lang-en">Pre-create identical topic configurations (retention, partitions) in MSK</span></li>
+                                <li><span class="lang-ko">SASL credential rotation 자동화 필수 (Secrets Manager + Lambda)</span><span class="lang-en">SASL credential rotation automation required (Secrets Manager + Lambda)</span></li>
+                                <li><span class="lang-ko">MirrorMaker2에서 MSK Replicator 전환 시 일시적 lag 증가 예상</span><span class="lang-en">Expect temporary lag increase when switching from MirrorMaker2 to MSK Replicator</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="eks-operations.html"><span class="label">Previous</span><span class="title">&larr; EKS Operations</span></a>
+                    <a href="availability.html" class="next"><span class="label">Next</span><span class="title">Availability &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#msk-sizing" class="toc-link"><span class="lang-ko">MSK 클러스터 사이징</span><span class="lang-en">MSK Cluster Sizing</span></a>
+            <a href="#msk-replicator" class="toc-link"><span class="lang-ko">MSK Replicator</span><span class="lang-en">MSK Replicator</span></a>
+            <a href="#ccdi-pipeline" class="toc-link"><span class="lang-ko">CCDI 데이터 파이프라인</span><span class="lang-en">CCDI Data Pipeline</span></a>
+            <a href="#kafka-migration" class="toc-link"><span class="lang-ko">Kafka 마이그레이션</span><span class="lang-en">Kafka Migration</span></a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>On-Prem to AWS Multi-Region Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Mobile sidebar toggle -->
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="doc-main">
+            <div class="doc-content">
+                <!-- Hero -->
+                <div class="hero-banner">
+                    <h1>On-Prem to AWS Multi-Region Migration</h1>
+                    <p><span class="lang-ko">On-Prem DC에서 AWS us-west-2 / us-east-1 듀얼 리전으로의 단계별 마이그레이션 가이드</span><span class="lang-en">Step-by-step migration guide from On-Prem DC to AWS us-west-2 / us-east-1 dual-region</span></p>
+                    <div class="hero-meta">
+                        <span>7 Steps</span>
+                        <span>20 Microservices</span>
+                        <span>5 Data Stores</span>
+                        <span>~1 Hour Session</span>
+                    </div>
+                </div>
+
+                <!-- Overview -->
+                <h2 id="overview"><span class="lang-ko">프로젝트 개요</span><span class="lang-en">Project Overview</span></h2>
+                <p class="lead">
+                    <span class="lang-ko">이 문서는 On-Prem 데이터센터에서 운영중인 쇼핑몰 플랫폼을 AWS 멀티리전 아키텍처로 마이그레이션하는 전체 과정을 다룹니다.</span><span class="lang-en">This document covers the end-to-end migration process from an On-Prem datacenter to AWS multi-region architecture.</span>
+                </p>
+
+                <div class="callout info">
+                    <strong><span class="lang-ko">핵심 목표</span><span class="lang-en">Key Objectives</span></strong>
+                    Write-Primary / Read-Local 패턴의 Active-Active 멀티리전 구성. CloudFront + WAF를 통한 글로벌 트래픽 관리. 무중단 마이그레이션을 위한 7단계 점진적 전환.
+                </div>
+
+                <table class="info-table">
+                    <thead>
+                        <tr>
+                            <th><span class="lang-ko">항목</span><span class="lang-en">Item</span></th>
+                            <th><span class="lang-ko">내용</span><span class="lang-en">Details</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>AWS Account</td><td><code>180294183052</code></td></tr>
+                        <tr><td>Domain</td><td><code>*.atomai.click</code> (wildcard cert)</td></tr>
+                        <tr><td>Primary Region</td><td>us-east-1 (N. Virginia)</td></tr>
+                        <tr><td>Secondary Region</td><td>us-west-2 (Oregon)</td></tr>
+                        <tr><td>EKS Cluster</td><td><code>multi-region-mall</code> (v1.35)</td></tr>
+                        <tr><td>IaC (Infrastructure as Code)</td><td>Terraform >= 1.9 + Kustomize + ArgoCD</td></tr>
+                    </tbody>
+                </table>
+
+                <!-- Architecture Diagram -->
+                <h2 id="architecture"><span class="lang-ko">아키텍처 다이어그램</span><span class="lang-en">Architecture Diagram</span></h2>
+                <p><span class="lang-ko">Step 버튼을 클릭하면 마이그레이션 진행 상태를 시각적으로 확인할 수 있습니다.</span><span class="lang-en">Click the Step buttons to visualize migration progress.</span></p>
+
+                <!-- Step Nav (compact) -->
+                <nav class="step-nav-compact">
+                    <button class="step-btn active" onclick="setStep(0)"><span class="num">0</span><span class="lbl">초기 상태</span></button>
+                    <button class="step-btn" onclick="setStep(1)"><span class="num">1</span><span class="lbl">West 배포</span></button>
+                    <button class="step-btn" onclick="setStep(2)"><span class="num">2</span><span class="lbl">East 배포</span></button>
+                    <button class="step-btn" onclick="setStep(3)"><span class="num">3</span><span class="lbl">동기화</span></button>
+                    <button class="step-btn" onclick="setStep(4)"><span class="num">4</span><span class="lbl">7:1.5:1.5</span></button>
+                    <button class="step-btn" onclick="setStep(5)"><span class="num">5</span><span class="lbl">5:2.5:2.5</span></button>
+                    <button class="step-btn" onclick="setStep(6)"><span class="num">6</span><span class="lbl">Full AWS</span></button>
+                </nav>
+
+                <div class="card" style="padding:16px;">
+                    <div class="diagram-container">
+                        <svg class="architecture-svg" viewBox="0 0 900 620" id="arch-diagram">
+                            <defs>
+                                <linearGradient id="cloudfront-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:0.2"/>
+                                    <stop offset="100%" style="stop-color:#6366F1;stop-opacity:0.1"/>
+                                </linearGradient>
+                                <linearGradient id="onprem-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#F59E0B;stop-opacity:0.15"/>
+                                    <stop offset="100%" style="stop-color:#D97706;stop-opacity:0.1"/>
+                                </linearGradient>
+                                <linearGradient id="west-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:0.15"/>
+                                    <stop offset="100%" style="stop-color:#2563EB;stop-opacity:0.1"/>
+                                </linearGradient>
+                                <linearGradient id="east-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#10B981;stop-opacity:0.15"/>
+                                    <stop offset="100%" style="stop-color:#059669;stop-opacity:0.1"/>
+                                </linearGradient>
+                                <marker id="arrowhead" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto">
+                                    <polygon points="0 0, 6 2.5, 0 5" fill="var(--color-cloudfront)"/>
+                                </marker>
+                                <marker id="arrowhead-sync" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                                    <polygon points="0 0, 8 3, 0 6" fill="var(--color-sync)"/>
+                                </marker>
+                            </defs>
+
+                            <!-- CloudFront -->
+                            <g id="cloudfront-group">
+                                <rect x="350" y="10" width="200" height="50" rx="8" fill="url(#cloudfront-grad)" stroke="var(--color-cloudfront)" stroke-width="2"/>
+                                <text x="450" y="40" class="component-text" fill="var(--color-cloudfront)" font-size="14" font-weight="600">CloudFront + WAF</text>
+                            </g>
+
+                            <!-- On-Prem DC -->
+                            <g id="onprem-region" class="step-element visible">
+                                <rect x="30" y="90" width="250" height="490" rx="12" fill="url(#onprem-grad)" stroke="var(--color-onprem)" stroke-width="2"/>
+                                <text x="155" y="115" class="svg-text" font-size="14" font-weight="600" text-anchor="middle" fill="var(--color-onprem)">On-Prem DC (us-west)</text>
+                                <rect x="50" y="135" width="90" height="35" class="component-box" fill="rgba(245,158,11,0.3)" stroke="var(--color-onprem)"/><text x="95" y="157" class="component-text" fill="var(--text-primary)">Router</text>
+                                <rect x="170" y="135" width="90" height="35" class="component-box" fill="rgba(245,158,11,0.3)" stroke="var(--color-onprem)"/><text x="215" y="157" class="component-text" fill="var(--text-primary)">Firewall</text>
+                                <rect x="50" y="185" width="210" height="60" class="component-box" fill="rgba(245,158,11,0.2)" stroke="var(--color-onprem)"/>
+                                <text x="155" y="208" class="component-text" fill="var(--text-primary)">EKS Cluster</text>
+                                <text x="155" y="228" class="component-text" fill="var(--text-secondary)" font-size="9">20 Microservices</text>
+                                <rect x="50" y="260" width="210" height="30" class="component-box" fill="rgba(245,158,11,0.25)" stroke="var(--color-onprem)"/><text x="155" y="280" class="component-text" fill="var(--text-primary)" font-size="10">PostgreSQL</text>
+                                <rect x="50" y="298" width="210" height="30" class="component-box" fill="rgba(245,158,11,0.25)" stroke="var(--color-onprem)"/><text x="155" y="318" class="component-text" fill="var(--text-primary)" font-size="10">MongoDB</text>
+                                <rect x="50" y="336" width="210" height="30" class="component-box" fill="rgba(245,158,11,0.25)" stroke="var(--color-onprem)"/><text x="155" y="356" class="component-text" fill="var(--text-primary)" font-size="10">Kafka</text>
+                                <rect x="50" y="374" width="210" height="30" class="component-box" fill="rgba(245,158,11,0.25)" stroke="var(--color-onprem)"/><text x="155" y="394" class="component-text" fill="var(--text-primary)" font-size="10">Redis</text>
+                                <rect x="50" y="412" width="210" height="30" class="component-box" fill="rgba(245,158,11,0.25)" stroke="var(--color-onprem)"/><text x="155" y="432" class="component-text" fill="var(--text-primary)" font-size="10">Elasticsearch</text>
+                            </g>
+
+                            <!-- us-west-2 -->
+                            <g id="west-region" class="step-element">
+                                <rect x="325" y="90" width="250" height="490" rx="12" fill="url(#west-grad)" stroke="var(--color-west)" stroke-width="2"/>
+                                <text x="450" y="115" class="svg-text" font-size="14" font-weight="600" text-anchor="middle" fill="var(--color-west)">us-west-2 (Oregon)</text>
+                                <rect x="345" y="135" width="90" height="35" class="component-box" fill="rgba(59,130,246,0.3)" stroke="var(--color-west)"/><text x="390" y="157" class="component-text" fill="var(--text-primary)">IGW</text>
+                                <rect x="465" y="135" width="90" height="35" class="component-box" fill="rgba(59,130,246,0.3)" stroke="var(--color-west)"/><text x="510" y="157" class="component-text" fill="var(--text-primary)">NAT GW</text>
+                                <rect x="345" y="185" width="210" height="60" class="component-box" fill="rgba(59,130,246,0.2)" stroke="var(--color-west)"/>
+                                <text x="450" y="205" class="component-text" fill="var(--text-primary)">EKS + Karpenter</text>
+                                <text x="450" y="225" class="component-text" fill="var(--text-secondary)" font-size="9">20 Microservices</text>
+                                <rect x="345" y="260" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="280" class="component-text" fill="var(--text-primary)" font-size="10">DSQL</text>
+                                <rect x="345" y="298" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="318" class="component-text" fill="var(--text-primary)" font-size="10">DocumentDB</text>
+                                <rect x="345" y="336" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="356" class="component-text" fill="var(--text-primary)" font-size="10">MSK</text>
+                                <rect x="345" y="374" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="394" class="component-text" fill="var(--text-primary)" font-size="10">ElastiCache</text>
+                                <rect x="345" y="412" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="432" class="component-text" fill="var(--text-primary)" font-size="10">OpenSearch</text>
+                            </g>
+
+                            <!-- us-east-1 -->
+                            <g id="east-region" class="step-element">
+                                <rect x="620" y="90" width="250" height="490" rx="12" fill="url(#east-grad)" stroke="var(--color-east)" stroke-width="2"/>
+                                <text x="745" y="115" class="svg-text" font-size="14" font-weight="600" text-anchor="middle" fill="var(--color-east)">us-east-1 (N. Virginia)</text>
+                                <rect x="640" y="135" width="90" height="35" class="component-box" fill="rgba(16,185,129,0.3)" stroke="var(--color-east)"/><text x="685" y="157" class="component-text" fill="var(--text-primary)">IGW</text>
+                                <rect x="760" y="135" width="90" height="35" class="component-box" fill="rgba(16,185,129,0.3)" stroke="var(--color-east)"/><text x="805" y="157" class="component-text" fill="var(--text-primary)">NAT GW</text>
+                                <rect x="640" y="185" width="210" height="60" class="component-box" fill="rgba(16,185,129,0.2)" stroke="var(--color-east)"/>
+                                <text x="745" y="205" class="component-text" fill="var(--text-primary)">EKS + Karpenter</text>
+                                <text x="745" y="225" class="component-text" fill="var(--text-secondary)" font-size="9">20 Microservices</text>
+                                <rect x="640" y="260" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="280" class="component-text" fill="var(--text-primary)" font-size="10">DSQL</text>
+                                <rect x="640" y="298" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="318" class="component-text" fill="var(--text-primary)" font-size="10">DocumentDB</text>
+                                <rect x="640" y="336" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="356" class="component-text" fill="var(--text-primary)" font-size="10">MSK</text>
+                                <rect x="640" y="374" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="394" class="component-text" fill="var(--text-primary)" font-size="10">ElastiCache</text>
+                                <rect x="640" y="412" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="432" class="component-text" fill="var(--text-primary)" font-size="10">OpenSearch</text>
+                            </g>
+
+                            <!-- Traffic Arrows -->
+                            <g id="traffic-arrows">
+                                <path id="arrow-onprem" class="traffic-arrow step-element visible" d="M400 60 L155 90" stroke="var(--color-onprem)" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+                                <path id="arrow-west" class="traffic-arrow step-element" d="M450 60 L450 90" stroke="var(--color-west)" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)"/>
+                                <path id="arrow-east" class="traffic-arrow step-element" d="M500 60 L745 90" stroke="var(--color-east)" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)"/>
+                            </g>
+
+                            <!-- Direct Connect -->
+                            <g id="direct-connect" class="step-element">
+                                <line x1="280" y1="500" x2="325" y2="500" stroke="var(--color-sync)" stroke-width="3" stroke-dasharray="5,3"/>
+                                <text x="302" y="520" class="component-text" fill="var(--color-sync)" font-size="8">Direct Connect</text>
+                            </g>
+
+                            <!-- Sync: On-Prem <-> West -->
+                            <g id="sync-onprem-west" class="step-element">
+                                <line class="sync-line" x1="260" y1="275" x2="345" y2="275" stroke="var(--color-sync)" stroke-width="2"/>
+                                <rect x="275" y="265" width="50" height="20" rx="4" fill="var(--bg-card)" stroke="var(--color-sync)"/><text x="300" y="279" class="component-text" fill="var(--color-sync)" font-size="8">CDC</text>
+                                <line class="sync-line" x1="260" y1="313" x2="345" y2="313" stroke="var(--color-sync)" stroke-width="2"/>
+                                <line class="sync-line" x1="260" y1="351" x2="345" y2="351" stroke="var(--color-sync)" stroke-width="2"/>
+                                <rect x="270" y="341" width="60" height="20" rx="4" fill="var(--bg-card)" stroke="var(--color-sync)"/><text x="300" y="355" class="component-text" fill="var(--color-sync)" font-size="7">CDC Sink</text>
+                                <rect x="50" y="460" width="210" height="25" rx="4" fill="rgba(6,182,212,0.2)" stroke="var(--color-sync)"/><text x="155" y="477" class="component-text" fill="var(--color-sync)" font-size="9">EC2 Sync Connectors</text>
+                            </g>
+
+                            <!-- Sync: West <-> East -->
+                            <g id="sync-west-east" class="step-element">
+                                <line x1="555" y1="275" x2="640" y2="275" stroke="var(--color-sync)" stroke-width="2" opacity="0.4"/>
+                                <rect x="568" y="262" width="60" height="26" rx="4" fill="var(--bg-card)" stroke="var(--color-sync)" stroke-dasharray="3,2"/>
+                                <text x="598" y="273" class="component-text" fill="var(--color-sync)" font-size="7">AWS Native</text>
+                                <text x="598" y="284" class="component-text" fill="var(--color-sync)" font-size="6">(Active-Active)</text>
+                                <line class="sync-line" x1="555" y1="313" x2="640" y2="313" stroke="var(--color-sync)" stroke-width="2"/>
+                                <rect x="570" y="303" width="55" height="20" rx="4" fill="var(--bg-card)" stroke="var(--color-sync)"/><text x="597" y="317" class="component-text" fill="var(--color-sync)" font-size="7">Global</text>
+                                <line class="sync-line" x1="555" y1="351" x2="640" y2="351" stroke="var(--color-sync)" stroke-width="2"/>
+                                <rect x="570" y="341" width="55" height="20" rx="4" fill="var(--bg-card)" stroke="var(--color-sync)"/><text x="597" y="355" class="component-text" fill="var(--color-sync)" font-size="7">Replicator</text>
+                                <text x="597" y="392" class="component-text" fill="var(--color-inactive)" font-size="7">(No Sync)</text>
+                                <line class="sync-line" x1="555" y1="427" x2="640" y2="427" stroke="var(--color-sync)" stroke-width="2"/>
+                                <rect x="570" y="417" width="55" height="20" rx="4" fill="var(--bg-card)" stroke="var(--color-sync)"/><text x="597" y="431" class="component-text" fill="var(--color-sync)" font-size="7">CCR</text>
+                                <rect x="500" y="460" width="100" height="25" rx="4" fill="rgba(6,182,212,0.2)" stroke="var(--color-sync)"/><text x="550" y="477" class="component-text" fill="var(--color-sync)" font-size="9">AWS Native Sync</text>
+                            </g>
+
+                            <!-- Traffic Labels -->
+                            <g id="traffic-labels">
+                                <text id="label-onprem" x="270" y="70" class="component-text step-element visible" fill="var(--color-onprem)" font-size="12" font-weight="600">100%</text>
+                                <text id="label-west" x="450" y="78" class="component-text step-element" fill="var(--color-west)" font-size="12" font-weight="600">10%</text>
+                                <text id="label-east" x="630" y="70" class="component-text step-element" fill="var(--color-east)" font-size="12" font-weight="600">0%</text>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <!-- Traffic Bar -->
+                    <div style="padding: 0 8px;">
+                        <div class="traffic-bar">
+                            <div class="traffic-segment onprem" id="bar-onprem" style="width:100%"><span>On-Prem: 100%</span></div>
+                            <div class="traffic-segment west" id="bar-west" style="width:0%"><span></span></div>
+                            <div class="traffic-segment east" id="bar-east" style="width:0%"><span></span></div>
+                        </div>
+                        <div class="traffic-legend">
+                            <div class="legend-item"><div class="legend-dot onprem"></div><span>On-Prem DC</span></div>
+                            <div class="legend-item"><div class="legend-dot west"></div><span>us-west-2</span></div>
+                            <div class="legend-item"><div class="legend-dot east"></div><span>us-east-1</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Traffic Flow -->
+                <h2 id="traffic-flow"><span class="lang-ko">트래픽 흐름</span><span class="lang-en">Traffic Flow</span></h2>
+                <div class="callout tip">
+                    <strong><span class="lang-ko">End-to-End 트래픽 경로</span><span class="lang-en">End-to-End Traffic Path</span></strong>
+                    User &rarr; mall.atomai.click &rarr; CloudFront + WAF &rarr; api-internal.atomai.click (Route53 latency-based) &rarr; NLB (Network Load Balancer, CloudFront prefix list SG (Security Group)) &rarr; api-gateway pods (EKS)<br><small>WAF는 AWS Managed Rules (SQL Injection, XSS, Common Rule Set)로 OWASP Top 10 공격을 차단합니다.</small>
+                </div>
+
+                <!-- Data Sync Summary -->
+                <h2 id="data-sync"><span class="lang-ko">데이터 동기화 요약</span><span class="lang-en">Data Synchronization Summary</span></h2>
+                <p><span class="lang-ko">5개 데이터 저장소의 On-Prem에서 AWS로의 매핑과 리전간 동기화 방식입니다.</span><span class="lang-en">Mapping of 5 data stores from On-Prem to AWS and their cross-region sync methods.</span></p>
+
+                <table class="info-table">
+                    <thead>
+                        <tr>
+                            <th>On-Prem</th>
+                            <th>AWS</th>
+                            <th><span class="lang-ko">리전간 동기화</span><span class="lang-en">Cross-Region Sync</span></th>
+                            <th><span class="lang-ko">방식</span><span class="lang-en">Method</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>PostgreSQL</td><td>Aurora DSQL</td><td>Active-Active</td><td>AWS Native Peer Linking</td></tr>
+                        <tr><td>MongoDB</td><td>DocumentDB</td><td>Primary-Replica</td><td>Global Cluster</td></tr>
+                        <tr><td>Kafka</td><td>MSK</td><td>Topic Replication</td><td>MSK Replicator</td></tr>
+                        <tr><td>Redis</td><td>ElastiCache (Valkey)</td><td><span class="lang-ko">독립 운영</span><span class="lang-en">Independent</span></td><td>Global Datastore (DR용 비동기 복제)</td></tr>
+                        <tr><td>Elasticsearch</td><td>OpenSearch</td><td>Index Replication</td><td>Cross-Cluster Replication (CCR)</td></tr>
+                    </tbody>
+                </table>
+
+                <!-- Step TOC -->
+                <h2 id="steps"><span class="lang-ko">마이그레이션 단계</span><span class="lang-en">Migration Steps</span></h2>
+                <p><span class="lang-ko">각 Step을 클릭하면 상세 가이드 페이지로 이동합니다.</span><span class="lang-en">Click each step to navigate to the detailed guide.</span></p>
+
+                <div class="step-grid">
+                    <a href="step-0.html" class="step-card">
+                        <div class="step-icon s0">0</div>
+                        <div class="step-card-body">
+                            <h3><span class="lang-ko">초기 상태 - On-Prem Only</span><span class="lang-en">Initial State - On-Prem Only</span></h3>
+                            <p><span class="lang-ko">20개 마이크로서비스, 5개 데이터 저장소가 단일 DC에서 운영</span><span class="lang-en">20 microservices, 5 data stores running in a single DC</span></p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(234,179,8,0.15);color:var(--tag-architecture);">Architecture</span>
+                                <span style="background:rgba(59,130,246,0.15);color:var(--tag-database);">Database</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="step-1.html" class="step-card">
+                        <div class="step-icon s1">1</div>
+                        <div class="step-card-body">
+                            <h3><span class="lang-ko">us-west-2 배포 + 듀얼 오리진 (9:1)</span><span class="lang-en">us-west-2 Deploy + Dual Origin (9:1)</span></h3>
+                            <p><span class="lang-ko">CloudFront 듀얼 오리진, ArgoCD GitOps, EC2 Sync Connector</span><span class="lang-en">CloudFront dual origin, ArgoCD GitOps, EC2 Sync Connector</span></p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(168,85,247,0.15);color:var(--tag-gitops);">GitOps</span>
+                                <span style="background:rgba(234,179,8,0.15);color:var(--tag-architecture);">Architecture</span>
+                                <span style="background:rgba(59,130,246,0.15);color:var(--tag-database);">Database</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="step-2.html" class="step-card">
+                        <div class="step-icon s2">2</div>
+                        <div class="step-card-body">
+                            <h3><span class="lang-ko">us-east-1 배포 (인프라 준비)</span><span class="lang-en">us-east-1 Deploy (Infra Ready)</span></h3>
+                            <p><span class="lang-ko">Karpenter NodePool 전략, EC2NodeClass 구성</span><span class="lang-en">Karpenter NodePool strategy, EC2NodeClass configuration</span></p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(6,182,212,0.15);color:var(--tag-infrastructure);">Infrastructure</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="step-3.html" class="step-card">
+                        <div class="step-icon s3">3</div>
+                        <div class="step-card-body">
+                            <h3><span class="lang-ko">리전간 동기화 활성화</span><span class="lang-en">Cross-Region Sync Activation</span></h3>
+                            <p>DSQL Active-Active, MSK Replicator, DocumentDB Global Cluster</p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(59,130,246,0.15);color:var(--tag-database);">Database</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="step-4.html" class="step-card">
+                        <div class="step-icon s4">4</div>
+                        <div class="step-card-body">
+                            <h3><span class="lang-ko">트래픽 분산 시작 (7:1.5:1.5)</span><span class="lang-en">Traffic Distribution Start (7:1.5:1.5)</span></h3>
+                            <p><span class="lang-ko">Latency-based 라우팅, Failover 메커니즘, Canary 배포</span><span class="lang-en">Latency-based routing, Failover mechanism, Canary deployment</span></p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(16,185,129,0.15);color:var(--tag-network);">Network</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="step-5.html" class="step-card">
+                        <div class="step-icon s5">5</div>
+                        <div class="step-card-body">
+                            <h3><span class="lang-ko">AWS 트래픽 확대 (5:2.5:2.5)</span><span class="lang-en">AWS Traffic Scale-Up (5:2.5:2.5)</span></h3>
+                            <p>OTel Collector Pipeline, Grafana Tempo + CloudWatch</p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(249,115,22,0.15);color:var(--tag-observability);">Observability</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="step-6.html" class="step-card">
+                        <div class="step-icon s6">6</div>
+                        <div class="step-card-body">
+                            <h3><span class="lang-ko">On-Prem 종료 - Full AWS</span><span class="lang-en">On-Prem Shutdown - Full AWS</span></h3>
+                            <p><span class="lang-ko">On-Prem 해제 체크리스트, 최종 아키텍처</span><span class="lang-en">On-Prem decommission checklist, final architecture</span></p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(239,68,68,0.15);color:var(--tag-operations);">Operations</span>
+                                <span style="background:rgba(234,179,8,0.15);color:var(--tag-architecture);">Architecture</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Deep Dive -->
+                <h2 id="deep-dive">Deep Dive Sessions</h2>
+                <p><span class="lang-ko">아래 Deep Dive 세션은 동일한 멀티리전 아키텍처 패턴을 Connected Car Service(CCS)에 적용한 사례입니다. 쇼핑몰 마이그레이션과 동일한 인프라 패턴을 다른 도메인에서 어떻게 활용하는지 보여줍니다.</span><span class="lang-en">The Deep Dive sessions below apply the same multi-region architecture patterns to Connected Car Service (CCS). They demonstrate how the same infrastructure patterns from the shopping mall migration can be applied to different domains.</span></p>
+
+                <div class="step-grid">
+                    <a href="multi-region.html" class="step-card">
+                        <div class="step-icon" style="background:rgba(234,179,8,0.15);color:var(--tag-architecture);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
+                        </div>
+                        <div class="step-card-body">
+                            <h3>CCS Multi-Region</h3>
+                            <p>CAP theorem, blast radius, cost — applied to CCS services</p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(234,179,8,0.15);color:var(--tag-architecture);">Architecture</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="data-sync.html" class="step-card">
+                        <div class="step-icon" style="background:rgba(59,130,246,0.15);color:var(--tag-database);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        </div>
+                        <div class="step-card-body">
+                            <h3>CCDI Data Sync</h3>
+                            <p>VSS 230M records/day, replication lag SLA, conflict resolution</p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(59,130,246,0.15);color:var(--tag-database);">Database</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="connected-car.html" class="step-card">
+                        <div class="step-icon" style="background:rgba(16,185,129,0.15);color:var(--tag-network);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17h2m10 0h2M12 17h.01"/><path d="M3 9l2-4h14l2 4M3 9v8h18V9"/></svg>
+                        </div>
+                        <div class="step-card-body">
+                            <h3>Connected Car Latency</h3>
+                            <p>Verizon PIP, 10-second telemetry, P99 &lt; 200ms budget</p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(16,185,129,0.15);color:var(--tag-network);">Network</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="route-cache.html" class="step-card">
+                        <div class="step-icon" style="background:rgba(6,182,212,0.15);color:var(--tag-infrastructure);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        </div>
+                        <div class="step-card-body">
+                            <h3>GIS Route Cache</h3>
+                            <p>Traffic Info + Road Guide cache strategy for navigation</p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(6,182,212,0.15);color:var(--tag-infrastructure);">Infrastructure</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="eks-operations.html" class="step-card">
+                        <div class="step-icon" style="background:rgba(6,182,212,0.15);color:var(--tag-infrastructure);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+                        </div>
+                        <div class="step-card-body">
+                            <h3>EKS Operations</h3>
+                            <p>Multi-region cluster ops, KEDA autoscaling, Karpenter NodePools</p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(6,182,212,0.15);color:var(--tag-infrastructure);">Infrastructure</span>
+                                <span style="background:rgba(239,68,68,0.15);color:var(--tag-operations);">Operations</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="msk-operations.html" class="step-card">
+                        <div class="step-icon" style="background:rgba(59,130,246,0.15);color:var(--tag-database);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        </div>
+                        <div class="step-card-body">
+                            <h3>MSK Operations</h3>
+                            <p>Broker sizing for CCS, Replicator, CCDI data pipeline</p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(59,130,246,0.15);color:var(--tag-database);">Database</span>
+                                <span style="background:rgba(6,182,212,0.15);color:var(--tag-infrastructure);">Infrastructure</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="availability.html" class="step-card">
+                        <div class="step-icon" style="background:rgba(16,185,129,0.15);color:var(--tag-network);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div class="step-card-body">
+                            <h3>Availability Architecture</h3>
+                            <p>P1 incident response, Verizon→AWS connectivity, DR/Failover</p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(16,185,129,0.15);color:var(--tag-network);">Network</span>
+                                <span style="background:rgba(239,68,68,0.15);color:var(--tag-operations);">Operations</span>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="ccs-data-architecture.html" class="step-card">
+                        <div class="step-icon" style="background:rgba(59,130,246,0.15);color:var(--tag-database);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                        </div>
+                        <div class="step-card-body">
+                            <h3>CCS Data Architecture</h3>
+                            <p>CCDI AS-IS/TO-BE, Hot/Warm/Cold tiering, Gen2 vs Gen3</p>
+                            <div class="step-card-tags">
+                                <span style="background:rgba(59,130,246,0.15);color:var(--tag-database);">Database</span>
+                                <span style="background:rgba(234,179,8,0.15);color:var(--tag-architecture);">Architecture</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Next -->
+                <div class="page-nav">
+                    <div></div>
+                    <a href="step-0.html" class="next">
+                        <span class="label">Next</span>
+                        <span class="title">Step 0: 초기 상태 &rarr;</span>
+                    </a>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right TOC -->
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#overview" class="toc-link"><span class="lang-ko">프로젝트 개요</span><span class="lang-en">Project Overview</span></a>
+            <a href="#architecture" class="toc-link"><span class="lang-ko">아키텍처 다이어그램</span><span class="lang-en">Architecture Diagram</span></a>
+            <a href="#traffic-flow" class="toc-link"><span class="lang-ko">트래픽 흐름</span><span class="lang-en">Traffic Flow</span></a>
+            <a href="#data-sync" class="toc-link"><span class="lang-ko">데이터 동기화 요약</span><span class="lang-en">Data Sync Summary</span></a>
+            <a href="#steps" class="toc-link"><span class="lang-ko">마이그레이션 단계</span><span class="lang-en">Migration Steps</span></a>
+            <a href="#deep-dive" class="toc-link">Deep Dive Sessions</a>
+        </aside>
+    </div>
+
+    <script>
+        // === Step configs (same as original) ===
+        const stepConfigs = [
+            { traffic:{onprem:100,west:0,east:0}, regions:{onprem:true,west:false,east:false}, arrows:{onprem:3,west:0,east:0}, sync:{onpremWest:false,westEast:false}, directConnect:false },
+            { traffic:{onprem:90,west:10,east:0}, regions:{onprem:true,west:true,east:false}, arrows:{onprem:2.5,west:1.5,east:0}, sync:{onpremWest:true,westEast:false}, directConnect:true },
+            { traffic:{onprem:90,west:10,east:0}, regions:{onprem:true,west:true,east:true}, arrows:{onprem:2.5,west:1.5,east:0}, sync:{onpremWest:true,westEast:false}, directConnect:true },
+            { traffic:{onprem:90,west:10,east:0}, regions:{onprem:true,west:true,east:true}, arrows:{onprem:2.5,west:1.5,east:0}, sync:{onpremWest:true,westEast:true}, directConnect:true },
+            { traffic:{onprem:70,west:15,east:15}, regions:{onprem:true,west:true,east:true}, arrows:{onprem:2,west:1.5,east:1.5}, sync:{onpremWest:true,westEast:true}, directConnect:true },
+            { traffic:{onprem:50,west:25,east:25}, regions:{onprem:true,west:true,east:true}, arrows:{onprem:1.5,west:2,east:2}, sync:{onpremWest:true,westEast:true}, directConnect:true },
+            { traffic:{onprem:0,west:50,east:50}, regions:{onprem:false,west:true,east:true}, arrows:{onprem:0,west:2.5,east:2.5}, sync:{onpremWest:false,westEast:true}, directConnect:false }
+        ];
+
+        let currentStep = 0;
+
+        function setStep(step) {
+            currentStep = step;
+            const c = stepConfigs[step];
+
+            document.querySelectorAll('.step-nav-compact .step-btn').forEach((btn, i) => btn.classList.toggle('active', i === step));
+
+            // Traffic bar
+            const barO = document.getElementById('bar-onprem'), barW = document.getElementById('bar-west'), barE = document.getElementById('bar-east');
+            barO.style.width = c.traffic.onprem + '%'; barW.style.width = c.traffic.west + '%'; barE.style.width = c.traffic.east + '%';
+            barO.querySelector('span').textContent = c.traffic.onprem > 0 ? `On-Prem: ${c.traffic.onprem}%` : '';
+            barW.querySelector('span').textContent = c.traffic.west > 0 ? `West: ${c.traffic.west}%` : '';
+            barE.querySelector('span').textContent = c.traffic.east > 0 ? `East: ${c.traffic.east}%` : '';
+
+            // Regions
+            toggle('onprem-region', c.regions.onprem); toggle('west-region', c.regions.west); toggle('east-region', c.regions.east);
+
+            // Arrows
+            ['onprem','west','east'].forEach(k => {
+                const a = document.getElementById('arrow-'+k);
+                if (a) { toggle('arrow-'+k, c.arrows[k]>0); a.setAttribute('stroke-width', c.arrows[k]); }
+            });
+
+            // Labels
+            const lO = document.getElementById('label-onprem'), lW = document.getElementById('label-west'), lE = document.getElementById('label-east');
+            if (lO) { toggle('label-onprem', c.traffic.onprem>0); lO.textContent = c.traffic.onprem+'%'; }
+            if (lW) { toggle('label-west', c.traffic.west>0); lW.textContent = c.traffic.west+'%'; }
+            if (lE) { toggle('label-east', c.traffic.east>0); lE.textContent = c.traffic.east+'%'; }
+
+            // Sync & Direct Connect
+            toggle('sync-onprem-west', c.sync.onpremWest); toggle('sync-west-east', c.sync.westEast); toggle('direct-connect', c.directConnect);
+        }
+
+        function toggle(id, vis) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('visible', vis);
+        }
+
+        // === Keyboard nav ===
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowRight' && currentStep < 6) setStep(currentStep + 1);
+            else if (e.key === 'ArrowLeft' && currentStep > 0) setStep(currentStep - 1);
+        });
+
+        // === Init diagram on load ===
+        document.addEventListener('DOMContentLoaded', () => setStep(0));
+    </script>
+    <script src="shared.js"></script>
+</body>
+</html>

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCDI Data Synchronization - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>CCDI Data Synchronization</span></div>
+
+                <h1><span class="lang-ko">CCDI 데이터 동기화</span><span class="lang-en">CCDI Data Synchronization</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">CCDI(Connected Car Data Integration)의 핵심은 차량 데이터의 <strong>허용 지연(SLA)</strong>을 정의하는 것입니다.
+                    VSS(Vehicle Signal Specification) 데이터 유형별로 다른 복제 전략을 적용합니다.</span><span class="lang-en">The core of CCDI (Connected Car Data Integration) is defining the <strong>allowable lag (SLA)</strong> for vehicle data.
+                    Different replication strategies are applied based on VSS (Vehicle Signal Specification) data types.</span>
+                </p>
+
+                <!-- ===== Replication Lag SLA ===== -->
+                <h2 id="replication-lag">CCDI Replication Lag SLA</h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">CCDI 데이터 유형별 허용 지연과 모니터링</span><span class="lang-en">CCDI Per-Data-Type Allowable Lag and Monitoring</span></span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">CCDI는 차량에서 수집되는 다양한 신호(VSS)를 처리합니다.
+                            데이터 유형별 <strong>중요도와 허용 지연</strong>이 다르며, 이에 맞는 복제 전략을 선택합니다.</span><span class="lang-en">CCDI processes various signals (VSS) collected from vehicles.
+                            Each data type has different <strong>importance and allowable lag</strong>, and we select appropriate replication strategies accordingly.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">CCDI 데이터 유형별 SLA</span><span class="lang-en">CCDI Per-Data-Type SLA</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th>Data Type</th><th><span class="lang-ko">허용 지연</span><span class="lang-en">Allowable Lag</span></th><th><span class="lang-ko">중요도</span><span class="lang-en">Importance</span></th><th><span class="lang-ko">복제 방식</span><span class="lang-en">Replication Method</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>VSS Data (Vehicle Status)</td>
+                                    <td><strong>&lt;1s</strong></td>
+                                    <td>Critical</td>
+                                    <td>Aurora Global + Write Forwarding</td>
+                                </tr>
+                                <tr>
+                                    <td>Location Data</td>
+                                    <td><strong>&lt;5s</strong></td>
+                                    <td>Near-realtime</td>
+                                    <td>MSK Replicator (low latency)</td>
+                                </tr>
+                                <tr>
+                                    <td>Driving Info</td>
+                                    <td><strong>&lt;10s</strong></td>
+                                    <td>Analytics</td>
+                                    <td>MSK Replicator (batch)</td>
+                                </tr>
+                                <tr>
+                                    <td>Vehicle Config</td>
+                                    <td><strong>&lt;30s</strong></td>
+                                    <td>Low frequency</td>
+                                    <td>DocumentDB Global Cluster</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div style="margin: 16px 0;">
+                            <svg id="replication-lag-svg" width="100%" viewBox="0 0 500 200" style="max-width: 500px; display: block; margin: 0 auto;">
+                                <!-- Background -->
+                                <rect x="0" y="0" width="500" height="200" fill="transparent"/>
+
+                                <!-- Y-axis labels -->
+                                <text x="10" y="45" fill="var(--text-secondary)" font-size="11" font-weight="500">VSS Data</text>
+                                <text x="10" y="85" fill="var(--text-secondary)" font-size="11" font-weight="500">Location</text>
+                                <text x="10" y="125" fill="var(--text-secondary)" font-size="11" font-weight="500">Driving Info</text>
+                                <text x="10" y="165" fill="var(--text-secondary)" font-size="11" font-weight="500">Vehicle Config</text>
+
+                                <!-- Bar backgrounds (max 30s scale) -->
+                                <rect x="110" y="32" width="350" height="20" rx="4" fill="var(--border)" opacity="0.3"/>
+                                <rect x="110" y="72" width="350" height="20" rx="4" fill="var(--border)" opacity="0.3"/>
+                                <rect x="110" y="112" width="350" height="20" rx="4" fill="var(--border)" opacity="0.3"/>
+                                <rect x="110" y="152" width="350" height="20" rx="4" fill="var(--border)" opacity="0.3"/>
+
+                                <!-- Animated bars (width calculated: value/30 * 350) -->
+                                <rect class="lag-bar" data-target="11.67" x="110" y="32" width="0" height="20" rx="4" fill="var(--tag-operations)"/>
+                                <rect class="lag-bar" data-target="58.33" x="110" y="72" width="0" height="20" rx="4" fill="var(--tag-architecture)"/>
+                                <rect class="lag-bar" data-target="116.67" x="110" y="112" width="0" height="20" rx="4" fill="var(--tag-network)"/>
+                                <rect class="lag-bar" data-target="350" x="110" y="152" width="0" height="20" rx="4" fill="var(--accent)"/>
+
+                                <!-- Value labels -->
+                                <text class="lag-value" data-value="<1s" x="125" y="47" fill="var(--bg-card)" font-size="11" font-weight="600" opacity="0">&lt;1s</text>
+                                <text class="lag-value" data-value="<5s" x="125" y="87" fill="var(--bg-card)" font-size="11" font-weight="600" opacity="0">&lt;5s</text>
+                                <text class="lag-value" data-value="<10s" x="125" y="127" fill="var(--bg-card)" font-size="11" font-weight="600" opacity="0">&lt;10s</text>
+                                <text class="lag-value" data-value="<30s" x="125" y="167" fill="var(--bg-card)" font-size="11" font-weight="600" opacity="0">&lt;30s</text>
+
+                                <!-- Scale markers -->
+                                <text x="110" y="190" fill="var(--text-muted)" font-size="9">0s</text>
+                                <text x="225" y="190" fill="var(--text-muted)" font-size="9">10s</text>
+                                <text x="340" y="190" fill="var(--text-muted)" font-size="9">20s</text>
+                                <text x="450" y="190" fill="var(--text-muted)" font-size="9">30s</text>
+
+                                <!-- Title -->
+                                <text x="250" y="18" text-anchor="middle" fill="var(--text-primary)" font-size="12" font-weight="600">
+                                    <tspan class="lang-ko">복제 지연 허용치</tspan><tspan class="lang-en">Replication Lag Tolerance</tspan>
+                                </text>
+                            </svg>
+                        </div>
+                        <script>
+                        (function() {
+                            const bars = document.querySelectorAll('.lag-bar');
+                            const values = document.querySelectorAll('.lag-value');
+                            let animated = false;
+
+                            function animateBars() {
+                                if (animated) return;
+                                animated = true;
+
+                                bars.forEach((bar, i) => {
+                                    const target = parseFloat(bar.dataset.target);
+                                    setTimeout(() => {
+                                        bar.style.transition = 'width 0.8s ease-out';
+                                        bar.setAttribute('width', target);
+                                        values[i].style.transition = 'opacity 0.3s ease-in';
+                                        values[i].style.opacity = '1';
+                                    }, i * 150);
+                                });
+                            }
+
+                            // Trigger animation when visible
+                            const observer = new IntersectionObserver((entries) => {
+                                entries.forEach(entry => {
+                                    if (entry.isIntersecting) animateBars();
+                                });
+                            }, { threshold: 0.5 });
+
+                            observer.observe(document.getElementById('replication-lag-svg'));
+                        })();
+                        </script>
+
+                        <h4><span class="lang-ko">데이터 볼륨</span><span class="lang-en">Data Volume</span></h4>
+<pre><code><span class="hl-cm"># Daily Data Volume (CCDI Production)</span>
+
+<span class="hl-key">VSS Data:</span>      <span class="hl-num">230M</span> records/day   <span class="hl-cm"># ~50GB compressed</span>
+<span class="hl-key">Location:</span>      <span class="hl-num">100M</span> records/day   <span class="hl-cm"># ~20GB compressed</span>
+<span class="hl-key">Driving Info:</span>   <span class="hl-num">50M</span> records/day   <span class="hl-cm"># ~10GB compressed</span>
+<span class="hl-key">Vehicle Config:</span>  <span class="hl-num">1M</span> records/day   <span class="hl-cm"># ~500MB (low volume)</span>
+
+<span class="hl-cm"># Peak throughput</span>
+<span class="hl-key">VSS ingest:</span>    <span class="hl-num">5,000</span> records/sec (peak: <span class="hl-num">15,000</span>/sec)
+<span class="hl-key">Location:</span>      <span class="hl-num">2,000</span> records/sec (peak: <span class="hl-num">8,000</span>/sec)</code><span class="code-label">text</span></pre>
+
+                        <h4><span class="lang-ko">CloudWatch 모니터링</span><span class="lang-en">CloudWatch Monitoring</span></h4>
+<pre><code><span class="hl-cm"># Per-data-type lag monitoring</span>
+
+<span class="hl-cm"># Aurora Global Database</span>
+Metric: <span class="hl-str">AuroraGlobalDBReplicationLag</span>
+Alarm:  &gt; <span class="hl-num">1000</span>ms for <span class="hl-num">3</span> datapoints → P2 alert
+
+<span class="hl-cm"># MSK Replicator</span>
+Metric: <span class="hl-str">ReplicationLatency</span>
+Alarm:  &gt; <span class="hl-num">5000</span>ms for <span class="hl-num">5</span> datapoints → P3 alert
+
+<span class="hl-cm"># DocumentDB Global Cluster</span>
+Metric: <span class="hl-str">GlobalClusterReplicaLag</span>
+Alarm:  &gt; <span class="hl-num">30000</span>ms for <span class="hl-num">5</span> datapoints → P4 alert</code><span class="code-label">text</span></pre>
+
+                        <div class="callout warning">
+                            <strong><span class="lang-ko">Lag Spike 대응</span><span class="lang-en">Lag Spike Response</span></strong>
+                            <span class="lang-ko">VSS 복제 지연이 1초를 초과하면 차량 상태 조회에 영향을 줍니다.
+                            원인(네트워크, 대량 write, DB 리소스)을 파악하고,
+                            필요 시 트래픽을 Primary 리전으로 집중시키는 긴급 대응이 필요합니다.</span><span class="lang-en">When VSS replication lag exceeds 1 second, vehicle status queries are affected.
+                            Identify the cause (network, bulk writes, DB resources) and
+                            implement emergency response by concentrating traffic to the Primary region if needed.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Conflict Resolution ===== -->
+                <h2 id="conflict-resolution">CCS Data Conflict Resolution</h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">CCDI 충돌 방지 설계와 해결 전략</span><span class="lang-en">CCDI Conflict Prevention Design and Resolution Strategy</span></span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">CCDI의 차량 텔레메트리 데이터는 본질적으로 <strong>append-only</strong>입니다.
+                            차량이 데이터를 생성하고 서버가 수신하는 단방향 흐름이므로 충돌이 거의 발생하지 않습니다.</span><span class="lang-en">CCDI vehicle telemetry data is inherently <strong>append-only</strong>.
+                            Since vehicles generate data and servers receive it in a one-way flow, conflicts rarely occur.</span>
+                        </p>
+
+                        <h4>CCDI Append-Only Pattern</h4>
+<pre><code><span class="hl-cm"># Vehicle telemetry is write-once</span>
+<span class="hl-cm"># No UPDATE, only INSERT</span>
+
+<span class="hl-kw">INSERT INTO</span> vss_data (
+    vin,           <span class="hl-cm"># Vehicle Identification Number</span>
+    timestamp,     <span class="hl-cm"># Immutable event time</span>
+    signal_type,
+    signal_value
+) <span class="hl-kw">VALUES</span> (?, ?, ?, ?);
+
+<span class="hl-cm"># Primary key: (vin, timestamp, signal_type)</span>
+<span class="hl-cm"># Same event from same vehicle = same key = idempotent</span></code><span class="code-label">text</span></pre>
+
+                        <h4>VIN-based Partitioning (Single-Writer Guarantee)</h4>
+<pre><code><span class="hl-cm"># VIN determines primary region</span>
+<span class="hl-cm"># Hash(VIN) % 2 → region affinity</span>
+
+VIN: <span class="hl-str">KMHXX00XXXX000001</span> → hash(<span class="hl-num">0x7A3F...</span>) % <span class="hl-num">2</span> = <span class="hl-num">0</span> → <span class="hl-str">us-east-1</span>
+VIN: <span class="hl-str">KMHXX00XXXX000002</span> → hash(<span class="hl-num">0x8B2E...</span>) % <span class="hl-num">2</span> = <span class="hl-num">1</span> → <span class="hl-str">us-west-2</span>
+
+<span class="hl-cm"># Benefits:</span>
+<span class="hl-cm"># 1. Single writer per VIN → no conflicts</span>
+<span class="hl-cm"># 2. All data for a vehicle in one region → no cross-region joins</span>
+<span class="hl-cm"># 3. Predictable failover (VIN→region mapping is deterministic)</span></code><span class="code-label">text</span></pre>
+
+                        <h4>Shared State Conflict Resolution</h4>
+                        <table class="info-table">
+                            <thead><tr><th>Data Type</th><th><span class="lang-ko">충돌 가능성</span><span class="lang-en">Conflict Possibility</span></th><th><span class="lang-ko">해결 전략</span><span class="lang-en">Resolution Strategy</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>Vehicle Telemetry (CCDI)</td>
+                                    <td><span class="lang-ko">없음</span><span class="lang-en">None</span></td>
+                                    <td>Append-only, VIN partitioning</td>
+                                </tr>
+                                <tr>
+                                    <td>User Preferences</td>
+                                    <td><span class="lang-ko">낮음</span><span class="lang-en">Low</span></td>
+                                    <td>DSQL Optimistic Concurrency</td>
+                                </tr>
+                                <tr>
+                                    <td>Service Configs</td>
+                                    <td><span class="lang-ko">낮음</span><span class="lang-en">Low</span></td>
+                                    <td>DSQL + Last-Write-Wins</td>
+                                </tr>
+                                <tr>
+                                    <td>MSK Events</td>
+                                    <td><span class="lang-ko">없음</span><span class="lang-en">None</span></td>
+                                    <td>Topic-per-region + consumer group sync</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>MSK Consumer Group Offset Sync</h4>
+<pre><code><span class="hl-cm"># MSK Replicator syncs consumer group offsets</span>
+<span class="hl-cm"># Enables cross-region failover without reprocessing</span>
+
+<span class="hl-key">Source:</span>      us-east-1 (ccdi.vss topic)
+<span class="hl-key">Target:</span>      us-west-2 (ccdi.vss.replica topic)
+<span class="hl-key">Offset sync:</span> Enabled (consumer group: ccdi-processor)
+
+<span class="hl-cm"># Failover scenario:</span>
+<span class="hl-cm"># 1. us-east-1 down</span>
+<span class="hl-cm"># 2. Consumer switches to us-west-2</span>
+<span class="hl-cm"># 3. Resumes from synced offset (no duplicate processing)</span></code><span class="code-label">text</span></pre>
+                    </div>
+                </div>
+
+                <!-- ===== Initial Migration ===== -->
+                <h2 id="initial-migration">CCDI Initial Data Migration Strategy</h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">CCDI 초기 데이터 이관 계획과 Korea CCS 선례</span><span class="lang-en">CCDI Initial Data Migration Plan and Korea CCS Precedent</span></span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">CCDI 초기 이관은 <strong>Full snapshot + CDC catch-up + Validation</strong> 3단계로 진행합니다.
+                            Korea CCS의 2025.06 Kafka→MSK 마이그레이션 경험을 반영합니다.</span><span class="lang-en">CCDI initial migration proceeds in 3 phases: <strong>Full snapshot + CDC catch-up + Validation</strong>.
+                            This incorporates lessons from Korea CCS's 2025.06 Kafka→MSK migration.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">이관 대상 데이터 볼륨</span><span class="lang-en">Migration Target Data Volume</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th>Store</th><th>Volume</th><th><span class="lang-ko">이관 방식</span><span class="lang-en">Migration Method</span></th><th><span class="lang-ko">예상 시간</span><span class="lang-en">Est. Time</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>MongoDB (Vehicle Data)</td>
+                                    <td>~200GB</td>
+                                    <td>mongodump → S3 → DocumentDB</td>
+                                    <td><span class="lang-ko">~2-3시간</span><span class="lang-en">~2-3 hours</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Kafka (7d retention)</td>
+                                    <td>~1TB</td>
+                                    <td>MirrorMaker2 → MSK</td>
+                                    <td><span class="lang-ko">~1-2시간</span><span class="lang-en">~1-2 hours</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Redis (Hot cache)</td>
+                                    <td>~50GB</td>
+                                    <td><span class="lang-ko">Cache warming (cold start OK)</span><span class="lang-en">Cache warming (cold start OK)</span></td>
+                                    <td>N/A</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Phase Approach</h4>
+<pre><code><span class="hl-cm"># Phase 1: Full Snapshot (서비스 운영 중)</span>
+mongodump --oplog → S3 → mongorestore    <span class="hl-cm"># ~200GB, 2-3시간</span>
+MirrorMaker2 initial sync                 <span class="hl-cm"># ~1TB, 1-2시간</span>
+
+<span class="hl-cm"># Phase 2: CDC Catch-up (스냅샷 이후 변경분)</span>
+MongoDB Change Stream → DocumentDB        <span class="hl-cm"># oplog 기반 tailing</span>
+MirrorMaker2 continuous                   <span class="hl-cm"># offset 기반 sync</span>
+
+<span class="hl-cm"># Phase 3: Validation</span>
+Document count comparison                 <span class="hl-cm"># collection별 count 일치</span>
+Sample document hash                      <span class="hl-cm"># 랜덤 샘플 해시 비교</span>
+API response comparison                   <span class="hl-cm"># 주요 API 응답 diff</span>
+
+<span class="hl-cm"># Phase 4: Cutover</span>
+DNS switch (Route53 weighted → 100%)      <span class="hl-cm"># ~60s propagation</span>
+MirrorMaker2 reverse (new primary→old)    <span class="hl-cm"># 롤백 대비</span></code><span class="code-label">text</span></pre>
+
+                        <h4>Korea CCS 선례 (2025.06)</h4>
+<pre><code><span class="hl-cm"># Korea CCS Kafka→MSK Migration (2025.06)</span>
+
+<span class="hl-key">Volume:</span>        <span class="hl-num">800GB</span> (5-day retention)
+<span class="hl-key">Throughput:</span>    <span class="hl-num">30MB/s</span> sustained
+<span class="hl-key">Duration:</span>      <span class="hl-num">4</span> hours (initial sync) + <span class="hl-num">2</span> hours (validation)
+<span class="hl-key">Downtime:</span>      <span class="hl-num">0</span> (zero downtime migration)
+
+<span class="hl-cm"># Lessons learned:</span>
+<span class="hl-cm"># 1. MirrorMaker2 consumer lag monitoring 필수</span>
+<span class="hl-cm"># 2. Topic config 사전 복제 (retention, partitions)</span>
+<span class="hl-cm"># 3. Consumer group offset sync 검증 후 cutover</span></code><span class="code-label">text</span></pre>
+
+                        <h4>Direct Connect Bandwidth</h4>
+<pre><code><span class="hl-cm"># Direct Connect: 10Gbps dedicated</span>
+
+<span class="hl-key">Theoretical:</span>   <span class="hl-num">10Gbps</span> = <span class="hl-num">1.25GB/s</span> = <span class="hl-num">1TB</span> in ~<span class="hl-num">15</span>min
+<span class="hl-key">Effective:</span>     <span class="hl-num">~60-70%</span> utilization = <span class="hl-num">1TB</span> in ~<span class="hl-num">1-2</span>hr
+
+<span class="hl-cm"># Best practices:</span>
+<span class="hl-cm"># - 야간 (04:00-06:00 KST) 이관으로 서비스 영향 최소화</span>
+<span class="hl-cm"># - 병렬 스트림 (4-8 threads) 으로 대역폭 활용 극대화</span>
+<span class="hl-cm"># - S3 Transfer Acceleration 비활성화 (Direct Connect 경유)</span></code><span class="code-label">text</span></pre>
+
+                        <div class="callout tip">
+                            <strong>Redis Cache Warming</strong>
+                            <span class="lang-ko">Redis 캐시는 이관하지 않습니다. Cold start 후 자연스럽게 warm-up됩니다.
+                            Critical 경로(GIS route cache)는 cutover 전 pre-warming 스크립트로 주요 키를 미리 로드합니다.</span><span class="lang-en">Redis cache is not migrated. It naturally warms up after a cold start.
+                            Critical paths (GIS route cache) pre-load key data via pre-warming scripts before cutover.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="multi-region.html"><span class="label">Previous</span><span class="title">&larr; CCS Multi-Region</span></a>
+                    <a href="connected-car.html" class="next"><span class="label">Next</span><span class="title">Connected Car Latency &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#replication-lag" class="toc-link">CCDI Replication Lag SLA</a>
+            <a href="#conflict-resolution" class="toc-link">CCS Conflict Resolution</a>
+            <a href="#initial-migration" class="toc-link">CCDI Initial Migration</a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

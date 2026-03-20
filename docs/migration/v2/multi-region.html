@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCS Multi-Region Architecture - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>CCS Multi-Region Architecture</span></div>
+
+                <h1><span class="lang-ko">CCS Multi-Region 아키텍처</span><span class="lang-en">CCS Multi-Region Architecture</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">Connected Car Service(CCS)의 멀티리전 아키텍처는 차량 데이터의 특성을 반영합니다.
+                    서비스별 CAP 선택, 장애 격리 전략, 그리고 차량 텔레메트리 데이터 전송 비용을 중심으로 설계합니다.</span><span class="lang-en">The multi-region architecture for Connected Car Service (CCS) reflects the characteristics of vehicle data.
+                    We design around per-service CAP selection, failure isolation strategies, and vehicle telemetry data transfer costs.</span>
+                </p>
+
+                <!-- ===== CAP Theorem Applied to CCS ===== -->
+                <h2 id="cap-theorem">CAP Theorem Applied to CCS Services</h2>
+
+                <div class="tech-card" data-tag="Architecture">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">CCS 서비스별 CAP 선택과 PACELC 확장</span><span class="lang-en">CCS Per-Service CAP Selection and PACELC Extension</span></span>
+                        <span class="tech-card-tag Architecture">Architecture</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">CCS는 차량 데이터(CCDI), 내비게이션(GIS), 콘텐츠(CPX), 연결 관리(ServiceHub), OTA 업데이트(CUS) 등
+                            다양한 서비스로 구성됩니다. 각 서비스의 데이터 특성에 따라 <strong>CP vs AP</strong> 선택이 달라집니다.</span><span class="lang-en">CCS consists of various services including vehicle data (CCDI), navigation (GIS), content (CPX), connection management (ServiceHub), and OTA updates (CUS).
+                            The <strong>CP vs AP</strong> choice varies based on each service's data characteristics.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">CCS 서비스별 CAP 선택</span><span class="lang-en">CCS Per-Service CAP Selection</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th>Service</th><th><span class="lang-ko">선택</span><span class="lang-en">Choice</span></th><th><span class="lang-ko">이유</span><span class="lang-en">Reason</span></th><th><span class="lang-ko">구현</span><span class="lang-en">Implementation</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>CCDI (VSS Data)</td>
+                                    <td><strong>CP</strong></td>
+                                    <td><span class="lang-ko">Vehicle Status 데이터 무결성 필수</span><span class="lang-en">Vehicle Status data integrity required</span></td>
+                                    <td>Aurora Global + Write Forwarding</td>
+                                </tr>
+                                <tr>
+                                    <td>GIS Navigation</td>
+                                    <td><strong>AP</strong></td>
+                                    <td><span class="lang-ko">레이턴시 우선, 캐시된 경로 허용</span><span class="lang-en">Latency priority, cached routes allowed</span></td>
+                                    <td><span class="lang-ko">ElastiCache 리전별 독립</span><span class="lang-en">ElastiCache independent per region</span></td>
+                                </tr>
+                                <tr>
+                                    <td>CPX Content</td>
+                                    <td><strong>AP</strong></td>
+                                    <td><span class="lang-ko">가용성 > 데이터 신선도</span><span class="lang-en">Availability > Data freshness</span></td>
+                                    <td>CloudFront + S3 Cross-Region</td>
+                                </tr>
+                                <tr>
+                                    <td>ServiceHub</td>
+                                    <td><strong>CP</strong></td>
+                                    <td><span class="lang-ko">Connection 상태 신뢰성 필수</span><span class="lang-en">Connection state reliability required</span></td>
+                                    <td>DSQL Active-Active</td>
+                                </tr>
+                                <tr>
+                                    <td>CUS OTA Updates</td>
+                                    <td><strong>AP</strong></td>
+                                    <td>Eventual delivery OK</td>
+                                    <td>S3 + MSK Replicator</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>PACELC Extension for CCS</h4>
+<pre><code><span class="hl-cm"># PACELC: Partition 발생 시 A vs C, 정상 시 Latency vs Consistency</span>
+<span class="hl-cm"># Cross-region RTT: ~60ms (us-east-1 ↔ us-west-2)</span>
+
+<span class="hl-key">CCDI:</span>       P→C, E→C   <span class="hl-cm"># 항상 일관성 우선 (차량 데이터 무결성)</span>
+<span class="hl-key">GIS:</span>        P→A, E→L   <span class="hl-cm"># 정상 시에도 레이턴시 우선 (실시간 경로 안내)</span>
+<span class="hl-key">CPX:</span>        P→A, E→L   <span class="hl-cm"># 콘텐츠는 stale 허용, CDN 캐시 활용</span>
+<span class="hl-key">ServiceHub:</span> P→C, E→L   <span class="hl-cm"># 정상 시 레이턴시, 장애 시 일관성</span>
+<span class="hl-key">CUS:</span>        P→A, E→L   <span class="hl-cm"># OTA는 지연 허용, 최종 전달만 보장</span></code><span class="code-label">text</span></pre>
+
+                        <div class="callout tip">
+                            <strong>Cross-Region Latency Budget</strong>
+                            <span class="lang-ko">정상 상태에서 리전간 RTT ~60ms. CCDI Write Forwarding 추가 시 총 ~80-100ms.
+                            GIS 경로 탐색은 이 지연을 허용할 수 없어 리전별 독립 캐시를 사용합니다.</span><span class="lang-en">Cross-region RTT is ~60ms under normal conditions. With CCDI Write Forwarding, total latency is ~80-100ms.
+                            GIS route search cannot tolerate this delay, so we use independent caches per region.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Blast Radius ===== -->
+                <h2 id="blast-radius">Blast Radius per CCS Service</h2>
+
+                <div class="tech-card" data-tag="Architecture">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">CCS 서비스별 장애 영향 범위와 격리 전략</span><span class="lang-en">CCS Per-Service Blast Radius and Isolation Strategy</span></span>
+                        <span class="tech-card-tag Architecture">Architecture</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">CCS 멀티리전의 핵심 가치는 <strong>차량 서비스 연속성</strong>입니다.
+                            한 리전 장애가 다른 리전의 차량에 영향을 주지 않도록 격리 계층을 설계합니다.</span><span class="lang-en">The core value of CCS multi-region is <strong>vehicle service continuity</strong>.
+                            We design isolation layers to ensure a failure in one region does not affect vehicles in another region.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">격리 계층 (Isolation Layers)</span><span class="lang-en">Isolation Layers</span></h4>
+<pre><code><span class="hl-cm"># 장애 격리 계층 (안쪽 → 바깥쪽)</span>
+
+L1: <span class="hl-str">Pod-level</span>        <span class="hl-cm"># Pod crash → K8s 자동 재시작 (~5s)</span>
+L2: <span class="hl-str">Node-level</span>       <span class="hl-cm"># Node 장애 → Karpenter 대체 노드 (~60s)</span>
+L3: <span class="hl-str">AZ-level</span>         <span class="hl-cm"># AZ 장애 → Multi-AZ 자동 전환</span>
+L4: <span class="hl-str">Region-level</span>     <span class="hl-cm"># 리전 장애 → Route53 failover (~60-120s)</span>
+L5: <span class="hl-str">Global-level</span>     <span class="hl-cm"># CloudFront/WAF → 글로벌 엣지 방어</span></code><span class="code-label">text</span></pre>
+
+                        <div style="margin: 16px 0;">
+                            <svg id="blast-radius-svg" width="100%" viewBox="0 0 500 320" style="max-width: 500px; display: block; margin: 0 auto;">
+                                <!-- Concentric circles for blast radius layers -->
+                                <circle class="blast-ring" data-layer="5" cx="250" cy="160" r="145" fill="none" stroke="var(--text-muted)" stroke-width="2" opacity="0.3" style="cursor: pointer;"/>
+                                <circle class="blast-ring" data-layer="4" cx="250" cy="160" r="115" fill="none" stroke="var(--tag-operations)" stroke-width="2" opacity="0.4" style="cursor: pointer;"/>
+                                <circle class="blast-ring" data-layer="3" cx="250" cy="160" r="85" fill="none" stroke="var(--tag-architecture)" stroke-width="2" opacity="0.5" style="cursor: pointer;"/>
+                                <circle class="blast-ring" data-layer="2" cx="250" cy="160" r="55" fill="none" stroke="var(--tag-network)" stroke-width="2" opacity="0.6" style="cursor: pointer;"/>
+                                <circle class="blast-ring" data-layer="1" cx="250" cy="160" r="25" fill="var(--accent)" opacity="0.7" style="cursor: pointer;"/>
+
+                                <!-- Labels -->
+                                <text x="250" y="165" text-anchor="middle" fill="var(--bg-card)" font-size="10" font-weight="600">Pod</text>
+                                <text x="250" y="220" text-anchor="middle" fill="var(--text-secondary)" font-size="11">Node</text>
+                                <text x="250" y="250" text-anchor="middle" fill="var(--text-secondary)" font-size="11">AZ</text>
+                                <text x="250" y="280" text-anchor="middle" fill="var(--text-secondary)" font-size="11">Region</text>
+                                <text x="250" y="310" text-anchor="middle" fill="var(--text-muted)" font-size="11">Global</text>
+
+                                <!-- Recovery time tooltip area -->
+                                <rect id="blast-tooltip-bg" x="10" y="10" width="180" height="50" rx="6" fill="var(--bg-card)" stroke="var(--border)" opacity="0"/>
+                                <text id="blast-tooltip-layer" x="20" y="30" fill="var(--text-primary)" font-size="12" font-weight="600" opacity="0"></text>
+                                <text id="blast-tooltip-time" x="20" y="48" fill="var(--accent)" font-size="11" opacity="0"></text>
+                            </svg>
+                        </div>
+                        <script>
+                        (function() {
+                            const recoveryTimes = {
+                                1: { name: 'Pod-level', time: '~5s (K8s auto-restart)' },
+                                2: { name: 'Node-level', time: '~60s (Karpenter replacement)' },
+                                3: { name: 'AZ-level', time: 'Auto (Multi-AZ failover)' },
+                                4: { name: 'Region-level', time: '~60-120s (Route53 failover)' },
+                                5: { name: 'Global-level', time: 'Edge defense (CloudFront/WAF)' }
+                            };
+                            const rings = document.querySelectorAll('.blast-ring');
+                            const tooltipBg = document.getElementById('blast-tooltip-bg');
+                            const tooltipLayer = document.getElementById('blast-tooltip-layer');
+                            const tooltipTime = document.getElementById('blast-tooltip-time');
+
+                            rings.forEach(ring => {
+                                ring.addEventListener('mouseenter', function() {
+                                    const layer = this.dataset.layer;
+                                    const info = recoveryTimes[layer];
+                                    rings.forEach(r => r.style.opacity = r.dataset.layer === layer ? '1' : '0.2');
+                                    this.style.strokeWidth = '4';
+                                    tooltipBg.style.opacity = '1';
+                                    tooltipLayer.style.opacity = '1';
+                                    tooltipTime.style.opacity = '1';
+                                    tooltipLayer.textContent = info.name;
+                                    tooltipTime.textContent = info.time;
+                                });
+                                ring.addEventListener('mouseleave', function() {
+                                    rings.forEach(r => { r.style.opacity = ''; r.style.strokeWidth = '2'; });
+                                    tooltipBg.style.opacity = '0';
+                                    tooltipLayer.style.opacity = '0';
+                                    tooltipTime.style.opacity = '0';
+                                });
+                            });
+                        })();
+                        </script>
+
+                        <h4><span class="lang-ko">CCS 서비스별 장애 영향</span><span class="lang-en">CCS Per-Service Failure Impact</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th>Service</th><th><span class="lang-ko">장애 시 영향</span><span class="lang-en">Impact on Failure</span></th><th>Graceful Degradation</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>CCDI</td>
+                                    <td>Vehicle data delayed (not lost)</td>
+                                    <td><span class="lang-ko">MSK 버퍼링 → Primary 복구 시 catch-up</span><span class="lang-en">MSK buffering → catch-up on Primary recovery</span></td>
+                                </tr>
+                                <tr>
+                                    <td>GIS</td>
+                                    <td>Navigation degraded</td>
+                                    <td><span class="lang-ko">캐시된 경로로 fallback, 재탐색 지연</span><span class="lang-en">Fallback to cached routes, re-search delayed</span></td>
+                                </tr>
+                                <tr>
+                                    <td>ServiceHub</td>
+                                    <td>New connections dropped</td>
+                                    <td><span class="lang-ko">기존 연결 유지, 신규 연결만 영향</span><span class="lang-en">Existing connections maintained, only new connections affected</span></td>
+                                </tr>
+                                <tr>
+                                    <td>CPX</td>
+                                    <td>Stale content served</td>
+                                    <td><span class="lang-ko">CloudFront 캐시에서 서비스 지속</span><span class="lang-en">Service continues from CloudFront cache</span></td>
+                                </tr>
+                                <tr>
+                                    <td>CUS</td>
+                                    <td>OTA delayed</td>
+                                    <td><span class="lang-ko">차량 측 재시도, 최종 전달 보장</span><span class="lang-en">Vehicle-side retry, eventual delivery guaranteed</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">Cross-Region 의존성 제거 원칙</span><span class="lang-en">Cross-Region Dependency Elimination Principles</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">원칙</span><span class="lang-en">Principle</span></th><th><span class="lang-ko">CCS 적용</span><span class="lang-en">CCS Application</span></th><th><span class="lang-ko">위반 시 영향</span><span class="lang-en">Violation Impact</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>No Cross-Region Sync Call</td>
+                                    <td><span class="lang-ko">GIS→CCDI 조회는 로컬 리전 복제본 사용</span><span class="lang-en">GIS→CCDI queries use local region replica</span></td>
+                                    <td><span class="lang-ko">타 리전 장애 시 내비게이션 중단</span><span class="lang-en">Navigation stops on other region failure</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Region-local Data Read</td>
+                                    <td><span class="lang-ko">차량 상태 조회는 Aurora Read Replica</span><span class="lang-en">Vehicle status queries use Aurora Read Replica</span></td>
+                                    <td><span class="lang-ko">Cross-region 60ms 지연 + 가용성 저하</span><span class="lang-en">Cross-region 60ms delay + reduced availability</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Async Replication</td>
+                                    <td><span class="lang-ko">CCDI→Analytics는 MSK 비동기 전송</span><span class="lang-en">CCDI→Analytics uses MSK async transfer</span></td>
+                                    <td><span class="lang-ko">동기 전송 시 차량 응답 지연</span><span class="lang-en">Sync transfer causes vehicle response delay</span></td>
+                                </tr>
+                                <tr>
+                                    <td>VIN-based Affinity</td>
+                                    <td><span class="lang-ko">차량별 Primary 리전 고정</span><span class="lang-en">Fixed Primary region per vehicle</span></td>
+                                    <td><span class="lang-ko">리전간 ping-pong으로 데이터 불일치</span><span class="lang-en">Data inconsistency from cross-region ping-pong</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ===== Cost Structure ===== -->
+                <h2 id="cost">CCS Multi-Region Cost Structure</h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">CCS 멀티리전 비용 구조와 최적화 전략</span><span class="lang-en">CCS Multi-Region Cost Structure and Optimization Strategy</span></span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">CCS 멀티리전은 단일 리전 대비 <strong>~1.8-2.2x</strong> 비용이 발생합니다.
+                            특히 차량 텔레메트리 데이터 전송량(10TB/day)과 MSK 복제(50MB/s)가 주요 비용 요소입니다.</span><span class="lang-en">CCS multi-region costs <strong>~1.8-2.2x</strong> compared to single region.
+                            Vehicle telemetry data transfer (10TB/day) and MSK replication (50MB/s) are the main cost drivers.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">비용 카테고리</span><span class="lang-en">Cost Categories</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">카테고리</span><span class="lang-en">Category</span></th><th><span class="lang-ko">단일 리전</span><span class="lang-en">Single Region</span></th><th><span class="lang-ko">멀티리전 (2)</span><span class="lang-en">Multi-Region (2)</span></th><th><span class="lang-ko">CCS 특이사항</span><span class="lang-en">CCS Specifics</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>Compute (EKS + Karpenter)</td><td>1x</td><td>~1.8x</td><td><span class="lang-ko">CCDI 워커 노드 집중</span><span class="lang-en">CCDI worker node concentration</span></td></tr>
+                                <tr><td>Database (Aurora, DocDB)</td><td>1x</td><td>~2x</td><td>VSS 데이터 230M rows/day</td></tr>
+                                <tr><td>Data Transfer (Cross-Region)</td><td>0</td><td>+$0.02/GB</td><td>10TB/day = ~$200/day</td></tr>
+                                <tr><td>MSK Replication</td><td>1x</td><td>~1.5x</td><td>50MB/s throughput</td></tr>
+                                <tr><td>Edge (CloudFront, WAF)</td><td>1x</td><td>1x</td><td><span class="lang-ko">글로벌 서비스 (공유)</span><span class="lang-en">Global services (shared)</span></td></tr>
+                                <tr><td>Observability</td><td>1x</td><td>~2x</td><td><span class="lang-ko">Tail-based sampling으로 절감</span><span class="lang-en">Reduced with tail-based sampling</span></td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">CCS 특화 비용 요소</span><span class="lang-en">CCS-Specific Cost Factors</span></h4>
+<pre><code><span class="hl-cm"># Vehicle Telemetry Data Transfer</span>
+Daily volume:     <span class="hl-num">10TB</span>/day
+Cross-region:     $<span class="hl-num">0.02</span>/GB × <span class="hl-num">10,000</span>GB = <span class="hl-str">$200/day</span>
+Monthly estimate: <span class="hl-str">~$6,000/month</span> (cross-region transfer only)
+
+<span class="hl-cm"># MSK Replication (Replicator)</span>
+Throughput:       <span class="hl-num">50</span>MB/s sustained
+Data replicated:  <span class="hl-num">~4.3TB</span>/day
+Replicator cost:  $<span class="hl-num">0.10</span>/GB = <span class="hl-str">~$430/day</span>
+
+<span class="hl-cm"># Total Cross-Region Data Cost</span>
+Monthly estimate: <span class="hl-str">~$19,000/month</span></code><span class="code-label">text</span></pre>
+
+                        <h4><span class="lang-ko">핵심 절감 전략</span><span class="lang-en">Key Cost Reduction Strategies</span></h4>
+<pre><code><span class="hl-cm"># 1. Karpenter Spot + Graviton (Compute 40% 절감)</span>
+capacity-type: [spot, on-demand]
+arch: [amd64, arm64]   <span class="hl-cm"># Graviton 자동 선택</span>
+
+<span class="hl-cm"># 2. ElastiCache 독립 운영 (Cross-Region Transfer 제거)</span>
+<span class="hl-cm"># GIS 경로 캐시는 리전별 독립 → 복제 비용 0</span>
+
+<span class="hl-cm"># 3. Tail-based Sampling (Observability 90% 절감)</span>
+errors:        <span class="hl-num">100</span>%   <span class="hl-cm"># 에러는 전체 저장</span>
+slow (>500ms): <span class="hl-num">100</span>%   <span class="hl-cm"># 느린 요청 전체 저장</span>
+default:       <span class="hl-num">10</span>%    <span class="hl-cm"># 정상 트레이스 10%만</span>
+
+<span class="hl-cm"># 4. MSK Topic-level Replication</span>
+<span class="hl-cm"># 모든 토픽이 아닌 cross-region 필수 토픽만 복제</span>
+replicated:    ccdi.vss, ccdi.location  <span class="hl-cm"># 필수</span>
+local-only:    analytics.*, logs.*      <span class="hl-cm"># 복제 제외</span></code><span class="code-label">text</span></pre>
+
+                        <div class="callout warning">
+                            <strong><span class="lang-ko">Data Transfer 비용 모니터링</span><span class="lang-en">Data Transfer Cost Monitoring</span></strong>
+                            <span class="lang-ko">CCS의 경우 데이터 전송 비용이 compute 비용의 30-40%에 달할 수 있습니다.
+                            CloudWatch에서 <code>DataTransfer-Regional-Bytes</code> 메트릭을 모니터링하고,
+                            비용 anomaly detection 알람을 설정하세요.</span><span class="lang-en">For CCS, data transfer costs can reach 30-40% of compute costs.
+                            Monitor the <code>DataTransfer-Regional-Bytes</code> metric in CloudWatch and
+                            set up cost anomaly detection alarms.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="step-6.html"><span class="label">Previous</span><span class="title">&larr; Step 6: Full AWS</span></a>
+                    <a href="data-sync.html" class="next"><span class="label">Next</span><span class="title">CCDI Data Sync &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#cap-theorem" class="toc-link">CAP Theorem Applied to CCS</a>
+            <a href="#blast-radius" class="toc-link">Blast Radius per CCS Service</a>
+            <a href="#cost" class="toc-link">CCS Cost Structure</a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

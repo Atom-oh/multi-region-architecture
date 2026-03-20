@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EKS Multi-Region Operations - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>EKS Operations</span></div>
+
+                <h1>EKS Multi-Region Operations</h1>
+                <p class="lead">
+                    <span class="lang-ko">us-east-1 (Primary)과 us-west-2 (Secondary) 리전에서 CCS 워크로드를 운영하기 위한 EKS 클러스터 관리 가이드입니다.
+                    업그레이드 전략, 오토스케일링, 노드 관리, GitOps 배포를 다룹니다.</span><span class="lang-en">EKS cluster management guide for operating CCS workloads in us-east-1 (Primary) and us-west-2 (Secondary) regions.
+                    Covers upgrade strategy, autoscaling, node management, and GitOps deployment.</span>
+                </p>
+
+                <!-- ===== Card 1: EKS Upgrade Strategy ===== -->
+                <h2 id="upgrade-strategy"><span class="lang-ko">EKS 클러스터 업그레이드 전략</span><span class="lang-en">EKS Cluster Upgrade Strategy</span></h2>
+
+                <div class="tech-card" data-tag="Infrastructure">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">EKS Multi-Region Cluster Upgrade Strategy</span>
+                        <span class="tech-card-tag Infrastructure">Infrastructure</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">멀티 리전 EKS 클러스터는 반드시 동일한 버전을 유지해야 합니다.
+                            현재 두 리전 모두 EKS 1.35를 운영 중이며, 순차적 업그레이드 전략으로 다운타임 없이 버전을 관리합니다.</span><span class="lang-en">Multi-region EKS clusters must maintain the same version.
+                            Both regions currently run EKS 1.35, with sequential upgrade strategy managing versions without downtime.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">순차적 업그레이드 절차</span><span class="lang-en">Sequential Upgrade Procedure</span></h4>
+                        <ol>
+                            <li><strong><span class="lang-ko">Secondary (us-west-2) 먼저 업그레이드</span><span class="lang-en">Upgrade Secondary (us-west-2) first</span></strong> &mdash; <span class="lang-ko">트래픽 비중이 낮은 리전에서 먼저 검증</span><span class="lang-en">Validate in lower-traffic region first</span></li>
+                            <li><strong><span class="lang-ko">24시간 안정화 관찰</span><span class="lang-en">24-hour stabilization observation</span></strong> &mdash; <span class="lang-ko">메트릭, 로그, 알람 모니터링</span><span class="lang-en">Monitor metrics, logs, alarms</span></li>
+                            <li><strong><span class="lang-ko">Primary (us-east-1) 업그레이드</span><span class="lang-en">Upgrade Primary (us-east-1)</span></strong> &mdash; <span class="lang-ko">Secondary 검증 완료 후 진행</span><span class="lang-en">Proceed after Secondary validation</span></li>
+                            <li><strong><span class="lang-ko">Addon 버전 동기화</span><span class="lang-en">Addon version sync</span></strong> &mdash; <span class="lang-ko">Control plane 업그레이드 후 addon도 함께 업그레이드</span><span class="lang-en">Upgrade addons after control plane upgrade</span></li>
+                        </ol>
+
+                        <!-- Reactive EKS Upgrade Sequence Diagram -->
+                        <div style="margin: 16px 0;">
+                            <svg id="eks-upgrade-flow" width="100%" viewBox="0 0 650 180" style="max-width: 650px;">
+                                <!-- Background -->
+                                <rect width="650" height="180" fill="var(--bg-card)" rx="8"/>
+
+                                <!-- Step boxes -->
+                                <g id="step-1" class="upgrade-step">
+                                    <rect x="30" y="60" width="120" height="60" rx="6" fill="var(--bg-card)" stroke="var(--border)" stroke-width="2"/>
+                                    <text x="90" y="85" text-anchor="middle" fill="var(--text-primary)" font-size="11" font-weight="600">us-west-2</text>
+                                    <text x="90" y="100" text-anchor="middle" fill="var(--text-muted)" font-size="10">Secondary</text>
+                                    <text x="90" y="115" text-anchor="middle" fill="var(--tag-operations)" font-size="9">Upgrade</text>
+                                </g>
+
+                                <g id="step-2" class="upgrade-step">
+                                    <rect x="190" y="60" width="120" height="60" rx="6" fill="var(--bg-card)" stroke="var(--border)" stroke-width="2"/>
+                                    <text x="250" y="85" text-anchor="middle" fill="var(--text-primary)" font-size="11" font-weight="600">24h Observe</text>
+                                    <text x="250" y="100" text-anchor="middle" fill="var(--text-muted)" font-size="10">Metrics/Logs</text>
+                                    <text x="250" y="115" text-anchor="middle" fill="var(--tag-database)" font-size="9">Monitoring</text>
+                                </g>
+
+                                <g id="step-3" class="upgrade-step">
+                                    <rect x="350" y="60" width="120" height="60" rx="6" fill="var(--bg-card)" stroke="var(--border)" stroke-width="2"/>
+                                    <text x="410" y="85" text-anchor="middle" fill="var(--text-primary)" font-size="11" font-weight="600">us-east-1</text>
+                                    <text x="410" y="100" text-anchor="middle" fill="var(--text-muted)" font-size="10">Primary</text>
+                                    <text x="410" y="115" text-anchor="middle" fill="var(--tag-operations)" font-size="9">Upgrade</text>
+                                </g>
+
+                                <g id="step-4" class="upgrade-step">
+                                    <rect x="510" y="60" width="110" height="60" rx="6" fill="var(--bg-card)" stroke="var(--border)" stroke-width="2"/>
+                                    <text x="565" y="85" text-anchor="middle" fill="var(--text-primary)" font-size="11" font-weight="600">Addon Sync</text>
+                                    <text x="565" y="100" text-anchor="middle" fill="var(--text-muted)" font-size="10">Both Regions</text>
+                                    <text x="565" y="115" text-anchor="middle" fill="var(--accent)" font-size="9">Complete</text>
+                                </g>
+
+                                <!-- Arrows -->
+                                <path d="M150 90 L185 90" stroke="var(--border)" stroke-width="2" marker-end="url(#arrowhead)"/>
+                                <path d="M310 90 L345 90" stroke="var(--border)" stroke-width="2" marker-end="url(#arrowhead)"/>
+                                <path d="M470 90 L505 90" stroke="var(--border)" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+                                <!-- Arrow marker -->
+                                <defs>
+                                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="var(--border)"/>
+                                    </marker>
+                                </defs>
+
+                                <!-- Step labels -->
+                                <text x="90" y="145" text-anchor="middle" fill="var(--text-secondary)" font-size="10">Step 1</text>
+                                <text x="250" y="145" text-anchor="middle" fill="var(--text-secondary)" font-size="10">Step 2</text>
+                                <text x="410" y="145" text-anchor="middle" fill="var(--text-secondary)" font-size="10">Step 3</text>
+                                <text x="565" y="145" text-anchor="middle" fill="var(--text-secondary)" font-size="10">Step 4</text>
+
+                                <!-- Current step indicator -->
+                                <circle id="current-indicator" cx="90" cy="35" r="8" fill="var(--accent)">
+                                    <animate attributeName="opacity" values="1;0.4;1" dur="1s" repeatCount="indefinite"/>
+                                </circle>
+                                <text id="current-label" x="90" y="25" text-anchor="middle" fill="var(--text-muted)" font-size="9">Current</text>
+                            </svg>
+                        </div>
+                        <script>
+                        (function() {
+                            const svg = document.getElementById('eks-upgrade-flow');
+                            if (!svg) return;
+                            const steps = svg.querySelectorAll('.upgrade-step rect');
+                            const indicator = svg.getElementById('current-indicator');
+                            const label = svg.getElementById('current-label');
+                            const positions = [90, 250, 410, 565];
+                            let currentStep = 0;
+                            setInterval(() => {
+                                steps.forEach((step, i) => {
+                                    step.setAttribute('stroke', i === currentStep ? 'var(--accent)' : 'var(--border)');
+                                    step.setAttribute('stroke-width', i === currentStep ? '3' : '2');
+                                });
+                                indicator.setAttribute('cx', positions[currentStep]);
+                                label.setAttribute('x', positions[currentStep]);
+                                currentStep = (currentStep + 1) % 4;
+                            }, 2000);
+                        })();
+                        </script>
+
+                        <h4><span class="lang-ko">EKS Addon 버전 고정</span><span class="lang-en">EKS Addon Version Pinning</span></h4>
+                        <p><span class="lang-ko">EKS 1.35에서 사용하는 addon 버전입니다. <code>eksbuild</code> suffix는 리전별로 다를 수 있습니다.</span><span class="lang-en">Addon versions used in EKS 1.35. The <code>eksbuild</code> suffix may differ by region.</span></p>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th>Addon</th><th>Version</th><th>us-east-1</th><th>us-west-2</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>vpc-cni</td><td>v1.21.1</td><td>eksbuild.3</td><td>eksbuild.1</td></tr>
+                                <tr><td>coredns</td><td>v1.13.2</td><td>eksbuild.5</td><td>eksbuild.3</td></tr>
+                                <tr><td>kube-proxy</td><td>v1.35.0</td><td>eksbuild.3</td><td>eksbuild.1</td></tr>
+                                <tr><td>ebs-csi</td><td>v1.56.0</td><td>eksbuild.1</td><td>eksbuild.1</td></tr>
+                                <tr><td>efs-csi</td><td>v2.3.0</td><td>eksbuild.1</td><td>eksbuild.1</td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">IRSA 필수</span><span class="lang-en">IRSA Required</span></strong>
+                            <span class="lang-ko">EKS 1.35에서는 IMDS 접근이 제한되어 EBS/EFS CSI 드라이버에 IRSA(IAM Roles for Service Accounts)가 필수입니다.
+                            Pod에서 EC2 메타데이터 서비스에 직접 접근할 수 없으므로, CSI 드라이버가 AWS API를 호출하려면 반드시 Service Account에 IAM Role을 연결해야 합니다.</span><span class="lang-en">In EKS 1.35, IMDS access is restricted, requiring IRSA (IAM Roles for Service Accounts) for EBS/EFS CSI drivers.
+                            Since pods cannot directly access EC2 metadata service, CSI drivers must have IAM Roles attached to Service Accounts to call AWS APIs.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 2: KEDA Autoscaling ===== -->
+                <h2 id="keda-autoscaling"><span class="lang-ko">CCDI 워크로드 오토스케일링</span><span class="lang-en">CCDI Workload Autoscaling</span></h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">CCDI Workload Autoscaling with KEDA</span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">현재 CCDI의 Pod 수는 Kafka 파티션 수와 1:1로 고정되어 있어 HPA가 적용되지 않습니다.
+                            피크 시간대(10AM-1PM)에는 메모리 사용률이 90-100%에 달하지만, 그 외 시간에는 20% 미만입니다.</span><span class="lang-en">Currently, CCDI pod count is fixed 1:1 with Kafka partition count, so HPA is not applied.
+                            Memory usage reaches 90-100% during peak hours (10AM-1PM), but stays below 20% at other times.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">현재 문제점</span><span class="lang-en">Current Issues</span></h4>
+                        <ul>
+                            <li><span class="lang-ko">Pod 수 = Kafka 파티션 수 (고정) &mdash; 탄력적 스케일링 불가</span><span class="lang-en">Pod count = Kafka partition count (fixed) - no elastic scaling</span></li>
+                            <li><span class="lang-ko">피크 시간대 메모리 부족 위험</span><span class="lang-en">Memory shortage risk during peak hours</span></li>
+                            <li><span class="lang-ko">비피크 시간대 리소스 낭비</span><span class="lang-en">Resource waste during off-peak hours</span></li>
+                        </ul>
+
+                        <h4><span class="lang-ko">KEDA ScaledObject 제안</span><span class="lang-en">KEDA ScaledObject Proposal</span></h4>
+                        <p><span class="lang-ko">Kafka consumer lag 기반 스케일링으로 워크로드에 맞는 탄력적 확장/축소를 구현합니다.</span><span class="lang-en">Implements elastic scaling based on Kafka consumer lag to match workload demands.</span></p>
+<pre><code><span class="hl-key">apiVersion:</span> keda.sh/v1alpha1
+<span class="hl-key">kind:</span> ScaledObject
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> ccdi-processor-scaler
+  <span class="hl-key">namespace:</span> ccdi
+<span class="hl-key">spec:</span>
+  <span class="hl-key">scaleTargetRef:</span>
+    <span class="hl-key">name:</span> ccdi-processor
+  <span class="hl-key">minReplicaCount:</span> <span class="hl-num">3</span>
+  <span class="hl-key">maxReplicaCount:</span> <span class="hl-num">30</span>
+  <span class="hl-key">cooldownPeriod:</span> <span class="hl-num">300</span>        <span class="hl-cm"># 5분 cooldown</span>
+  <span class="hl-key">pollingInterval:</span> <span class="hl-num">30</span>       <span class="hl-cm"># 30초마다 체크</span>
+  <span class="hl-key">triggers:</span>
+    - <span class="hl-key">type:</span> kafka
+      <span class="hl-key">metadata:</span>
+        <span class="hl-key">bootstrapServers:</span> <span class="hl-str">"b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096"</span>
+        <span class="hl-key">consumerGroup:</span> ccdi-processor-group
+        <span class="hl-key">topic:</span> vss-data
+        <span class="hl-key">lagThreshold:</span> <span class="hl-str">"1000"</span>   <span class="hl-cm"># lag 1000 초과 시 스케일 아웃</span>
+        <span class="hl-key">sasl:</span> scram_sha512
+        <span class="hl-key">tls:</span> enable</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">스케일링 파라미터</span><span class="lang-en">Scaling Parameters</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th><span class="lang-ko">파라미터</span><span class="lang-en">Parameter</span></th><th><span class="lang-ko">값</span><span class="lang-en">Value</span></th><th><span class="lang-ko">설명</span><span class="lang-en">Description</span></th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>minReplicaCount</td><td>3</td><td><span class="lang-ko">최소 Pod 수 (3 AZ 분산)</span><span class="lang-en">Min pods (distributed across 3 AZs)</span></td></tr>
+                                <tr><td>maxReplicaCount</td><td>30</td><td><span class="lang-ko">최대 Pod 수 (파티션 수 기준)</span><span class="lang-en">Max pods (based on partition count)</span></td></tr>
+                                <tr><td>cooldownPeriod</td><td>300s</td><td><span class="lang-ko">스케일 다운 대기 시간</span><span class="lang-en">Scale down wait time</span></td></tr>
+                                <tr><td>lagThreshold</td><td>1000</td><td><span class="lang-ko">스케일 트리거 lag 임계값</span><span class="lang-en">Scale trigger lag threshold</span></td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong>Consumer Group Rebalancing</strong>
+                            <span class="lang-ko">스케일링 시 consumer rebalancing을 최소화하려면 <code>partition.assignment.strategy=cooperative-sticky</code>를 사용하세요.
+                            Cooperative rebalancing은 전체 중단 없이 점진적으로 파티션을 재할당합니다.</span><span class="lang-en">To minimize consumer rebalancing during scaling, use <code>partition.assignment.strategy=cooperative-sticky</code>.
+                            Cooperative rebalancing reassigns partitions incrementally without full stop.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 3: Karpenter NodePools ===== -->
+                <h2 id="karpenter-nodepools">Karpenter 6 NodePools</h2>
+
+                <div class="tech-card" data-tag="Infrastructure">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Karpenter 6 NodePools - Multi-Region Considerations</span>
+                        <span class="tech-card-tag Infrastructure">Infrastructure</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Karpenter v1.9는 6개의 NodePool로 워크로드를 분리하여 비용 최적화와 성능을 동시에 달성합니다.
+                            리전별로 인스턴스 가용성과 AZ 매핑이 다를 수 있으므로 Spot 전략에 유연성이 필요합니다.</span><span class="lang-en">Karpenter v1.9 separates workloads into 6 NodePools to achieve both cost optimization and performance.
+                            Spot strategy needs flexibility as instance availability and AZ mapping may differ by region.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">NodePool 구성</span><span class="lang-en">NodePool Configuration</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th>NodePool</th><th><span class="lang-ko">용도</span><span class="lang-en">Purpose</span></th><th>Instance Family</th><th>Capacity</th><th>Weight</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><strong>general</strong></td><td><span class="lang-ko">범용 워크로드</span><span class="lang-en">General workloads</span></td><td>m6i/m6g/m7i/m7g, c6i/c6g/c7i/c7g, r6i/r6g/r7i/r7g</td><td>Spot + On-Demand</td><td>70</td></tr>
+                                <tr><td><strong>critical</strong></td><td><span class="lang-ko">결제/주문 미션 크리티컬</span><span class="lang-en">Payment/order mission-critical</span></td><td>m6i/m7i</td><td>On-Demand only</td><td>100</td></tr>
+                                <tr><td><strong>api-tier</strong></td><td><span class="lang-ko">API Gateway, 프론트 서비스</span><span class="lang-en">API Gateway, front services</span></td><td>c6i/c6g/c7i/c7g</td><td>Spot + On-Demand</td><td>80</td></tr>
+                                <tr><td><strong>worker-tier</strong></td><td><span class="lang-ko">백그라운드 프로세싱</span><span class="lang-en">Background processing</span></td><td>m6i/m6g</td><td>Spot preferred</td><td>50</td></tr>
+                                <tr><td><strong>batch-tier</strong></td><td><span class="lang-ko">배치 작업, 분석</span><span class="lang-en">Batch jobs, analytics</span></td><td>c6i/c6g</td><td>Spot only</td><td>30</td></tr>
+                                <tr><td><strong>memory-tier</strong></td><td><span class="lang-ko">캐시, 검색 엔진</span><span class="lang-en">Cache, search engine</span></td><td>r6i/r6g/r7i/r7g</td><td>Spot + On-Demand</td><td>60</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">General NodePool 정의</span><span class="lang-en">General NodePool Definition</span></h4>
+                        <p><code>k8s/infra/karpenter/general-nodepool.yaml</code></p>
+<pre><code><span class="hl-key">apiVersion:</span> karpenter.sh/v1
+<span class="hl-key">kind:</span> NodePool
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> general
+<span class="hl-key">spec:</span>
+  <span class="hl-key">template:</span>
+    <span class="hl-key">metadata:</span>
+      <span class="hl-key">labels:</span>
+        <span class="hl-key">node-pool:</span> general
+    <span class="hl-key">spec:</span>
+      <span class="hl-key">nodeClassRef:</span>
+        <span class="hl-key">group:</span> karpenter.k8s.aws
+        <span class="hl-key">kind:</span> EC2NodeClass
+        <span class="hl-key">name:</span> default
+      <span class="hl-key">requirements:</span>
+        - <span class="hl-key">key:</span> karpenter.sh/capacity-type
+          <span class="hl-key">operator:</span> In
+          <span class="hl-key">values:</span>
+            - <span class="hl-str">spot</span>
+            - <span class="hl-str">on-demand</span>
+        - <span class="hl-key">key:</span> kubernetes.io/arch
+          <span class="hl-key">operator:</span> In
+          <span class="hl-key">values:</span>
+            - <span class="hl-str">amd64</span>
+        - <span class="hl-key">key:</span> karpenter.k8s.aws/instance-family
+          <span class="hl-key">operator:</span> In
+          <span class="hl-key">values:</span>
+            - <span class="hl-str">m6i</span>
+            - <span class="hl-str">m6g</span>
+            - <span class="hl-str">m7i</span>
+            - <span class="hl-str">m7g</span>
+            - <span class="hl-str">c6i</span>
+            - <span class="hl-str">c6g</span>
+            - <span class="hl-str">c7i</span>
+            - <span class="hl-str">c7g</span>
+            - <span class="hl-str">r6i</span>
+            - <span class="hl-str">r6g</span>
+            - <span class="hl-str">r7i</span>
+            - <span class="hl-str">r7g</span>
+        - <span class="hl-key">key:</span> karpenter.k8s.aws/instance-size
+          <span class="hl-key">operator:</span> In
+          <span class="hl-key">values:</span>
+            - <span class="hl-str">large</span>
+            - <span class="hl-str">xlarge</span>
+            - <span class="hl-str">2xlarge</span>
+  <span class="hl-key">weight:</span> <span class="hl-num">70</span>
+  <span class="hl-key">limits:</span>
+    <span class="hl-key">cpu:</span> <span class="hl-str">"200"</span>
+    <span class="hl-key">memory:</span> 400Gi
+  <span class="hl-key">disruption:</span>
+    <span class="hl-key">consolidationPolicy:</span> WhenEmptyOrUnderutilized
+    <span class="hl-key">consolidateAfter:</span> 30s</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">EC2NodeClass 정의</span><span class="lang-en">EC2NodeClass Definition</span></h4>
+                        <p><code>k8s/infra/karpenter/ec2nodeclass.yaml</code></p>
+<pre><code><span class="hl-key">apiVersion:</span> karpenter.k8s.aws/v1
+<span class="hl-key">kind:</span> EC2NodeClass
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> default
+<span class="hl-key">spec:</span>
+  <span class="hl-key">amiSelectorTerms:</span>
+    - <span class="hl-key">alias:</span> al2023@latest      <span class="hl-cm"># Amazon Linux 2023 최신</span>
+  <span class="hl-key">blockDeviceMappings:</span>
+    - <span class="hl-key">deviceName:</span> /dev/xvda
+      <span class="hl-key">ebs:</span>
+        <span class="hl-key">volumeSize:</span> 100Gi
+        <span class="hl-key">volumeType:</span> gp3
+        <span class="hl-key">iops:</span> <span class="hl-num">3000</span>
+        <span class="hl-key">throughput:</span> <span class="hl-num">125</span>
+        <span class="hl-key">encrypted:</span> <span class="hl-num">true</span>
+        <span class="hl-key">deleteOnTermination:</span> <span class="hl-num">true</span>
+  <span class="hl-key">role:</span> multi-region-mall-node-group   <span class="hl-cm"># IAM role (글로벌, 양 리전 동일)</span>
+  <span class="hl-key">subnetSelectorTerms:</span>
+    - <span class="hl-key">tags:</span>
+        <span class="hl-key">Tier:</span> private              <span class="hl-cm"># private 서브넷만 사용</span>
+  <span class="hl-key">securityGroupSelectorTerms:</span>
+    - <span class="hl-key">tags:</span>
+        <span class="hl-key">karpenter.sh/discovery:</span> multi-region-mall
+  <span class="hl-key">tags:</span>
+    <span class="hl-key">Environment:</span> production
+    <span class="hl-key">ManagedBy:</span> karpenter</code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Spot + Graviton 전략</span><span class="lang-en">Spot + Graviton Strategy</span></strong>
+                            <span class="lang-ko">General NodePool은 amd64/arm64 모두 허용하여 Graviton 인스턴스를 활용합니다.
+                            Spot 인스턴스 중단 시 Karpenter가 자동으로 대체 노드를 프로비저닝하며,
+                            <code>consolidateAfter: 30s</code>로 빈 노드를 빠르게 정리합니다.</span><span class="lang-en">General NodePool allows both amd64/arm64 to utilize Graviton instances.
+                            When Spot instances are interrupted, Karpenter automatically provisions replacement nodes,
+                            and <code>consolidateAfter: 30s</code> quickly cleans up empty nodes.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Card 4: ArgoCD GitOps ===== -->
+                <h2 id="argocd-gitops"><span class="lang-ko">ArgoCD 멀티 클러스터 GitOps</span><span class="lang-en">ArgoCD Multi-Cluster GitOps</span></h2>
+
+                <div class="tech-card" data-tag="GitOps">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">ArgoCD Multi-Cluster GitOps Deployment</span>
+                        <span class="tech-card-tag GitOps">GitOps</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">ArgoCD ApplicationSet의 clusters generator를 사용하여 리전별 Application을 자동 생성합니다.
+                            Kustomize overlay로 리전별 엔드포인트(DSQL, DocumentDB, MSK, OpenSearch)를 주입합니다.</span><span class="lang-en">Uses ArgoCD ApplicationSet's clusters generator to automatically create per-region Applications.
+                            Injects region-specific endpoints (DSQL, DocumentDB, MSK, OpenSearch) via Kustomize overlays.</span>
+                        </p>
+
+                        <h4>ApplicationSet - Core Services</h4>
+                        <p><code>k8s/infra/argocd/apps/appset-core.yaml</code></p>
+<pre><code><span class="hl-key">apiVersion:</span> argoproj.io/v1alpha1
+<span class="hl-key">kind:</span> ApplicationSet
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> core-services
+  <span class="hl-key">namespace:</span> argocd
+<span class="hl-key">spec:</span>
+  <span class="hl-key">generators:</span>
+    - <span class="hl-key">clusters:</span>
+        <span class="hl-key">selector:</span>
+          <span class="hl-key">matchExpressions:</span>
+            - <span class="hl-key">key:</span> region
+              <span class="hl-key">operator:</span> Exists
+  <span class="hl-key">template:</span>
+    <span class="hl-key">metadata:</span>
+      <span class="hl-key">name:</span> <span class="hl-str">'core-{{metadata.labels.region}}'</span>
+    <span class="hl-key">spec:</span>
+      <span class="hl-key">project:</span> default
+      <span class="hl-key">source:</span>
+        <span class="hl-key">repoURL:</span> git@github.com:Atom-oh/multi-region-architecture.git
+        <span class="hl-key">targetRevision:</span> main
+        <span class="hl-key">path:</span> <span class="hl-str">'k8s/overlays/{{metadata.labels.region}}/core'</span>
+      <span class="hl-key">destination:</span>
+        <span class="hl-key">server:</span> <span class="hl-str">'{{server}}'</span>
+        <span class="hl-key">namespace:</span> core-services
+      <span class="hl-key">syncPolicy:</span>
+        <span class="hl-key">automated:</span>
+          <span class="hl-key">prune:</span> <span class="hl-num">true</span>
+          <span class="hl-key">selfHeal:</span> <span class="hl-num">true</span>
+        <span class="hl-key">syncOptions:</span>
+          - CreateNamespace=true
+        <span class="hl-key">retry:</span>
+          <span class="hl-key">limit:</span> <span class="hl-num">5</span>
+          <span class="hl-key">backoff:</span>
+            <span class="hl-key">duration:</span> 5s
+            <span class="hl-key">factor:</span> <span class="hl-num">2</span>
+            <span class="hl-key">maxDuration:</span> 3m</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Kustomize Overlay - 리전별 ConfigMap</span><span class="lang-en">Kustomize Overlay - Per-Region ConfigMap</span></h4>
+                        <p><code>k8s/overlays/us-east-1/kustomization.yaml</code> (발췌)</p>
+<pre><code><span class="hl-key">configMapGenerator:</span>
+  - <span class="hl-key">name:</span> region-config
+    <span class="hl-key">namespace:</span> platform
+    <span class="hl-key">literals:</span>
+      - REGION=us-east-1
+      - REGION_ROLE=PRIMARY
+      - DSQL_ENDPOINT=&lt;placeholder-until-apply&gt;.us-east-1.dsql.amazonaws.com
+      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.docdb.amazonaws.com
+      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com
+      - MSK_BROKERS=b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,...
+      - OPENSEARCH_ENDPOINT=https://vpc-production-os-use1-kpvt3o2c36ru7kyikdx6qoluk4.us-east-1.es.amazonaws.com
+
+<span class="hl-key">commonLabels:</span>
+  <span class="hl-key">region:</span> us-east-1
+  <span class="hl-key">region-role:</span> primary</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">CI/CD 파이프라인</span><span class="lang-en">CI/CD Pipeline</span></h4>
+                        <p><span class="lang-ko">GitLab On-Prem에서 AWS까지의 배포 흐름입니다.</span><span class="lang-en">Deployment flow from GitLab On-Prem to AWS.</span></p>
+                        <ol>
+                            <li><strong>GitLab On-Prem</strong> &mdash; <span class="lang-ko">소스 코드 커밋</span><span class="lang-en">Source code commit</span></li>
+                            <li><strong>GitLab CI</strong> &mdash; <span class="lang-ko">Docker 이미지 빌드</span><span class="lang-en">Docker image build</span></li>
+                            <li><strong>ECR Push</strong> &mdash; <span class="lang-ko">양 리전 ECR에 이미지 푸시</span><span class="lang-en">Push images to both region ECRs</span></li>
+                            <li><strong>ArgoCD Auto-Sync</strong> &mdash; <span class="lang-ko">이미지 태그 변경 감지 후 자동 배포</span><span class="lang-en">Auto-deploy after detecting image tag changes</span></li>
+                        </ol>
+
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong>HAEA CMC Workshop Request #1</strong>
+                            <span class="lang-ko">GitLab On-Prem에서 AWS까지 CI/CD 파이프라인 구축 워크샵이 요청되었습니다.
+                            GitLab Runner 설정, ECR 인증, ArgoCD Image Updater 통합을 다룰 예정입니다.</span><span class="lang-en">Workshop requested for building CI/CD pipeline from GitLab On-Prem to AWS.
+                            Will cover GitLab Runner setup, ECR authentication, and ArgoCD Image Updater integration.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="route-cache.html"><span class="label">Previous</span><span class="title">&larr; Route53 + Cache</span></a>
+                    <a href="msk-operations.html" class="next"><span class="label">Next</span><span class="title">MSK Operations &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#upgrade-strategy" class="toc-link"><span class="lang-ko">EKS 업그레이드 전략</span><span class="lang-en">EKS Upgrade Strategy</span></a>
+            <a href="#keda-autoscaling" class="toc-link"><span class="lang-ko">KEDA 오토스케일링</span><span class="lang-en">KEDA Autoscaling</span></a>
+            <a href="#karpenter-nodepools" class="toc-link">Karpenter NodePools</a>
+            <a href="#argocd-gitops" class="toc-link">ArgoCD GitOps</a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

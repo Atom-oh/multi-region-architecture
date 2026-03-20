@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIS Route Cache Strategy - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>GIS Route Cache</span></div>
+
+                <h1><span class="lang-ko">GIS Route Cache 전략</span><span class="lang-en">GIS Route Cache Strategy</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">GIS (Global Information Service)는 실시간 내비게이션 서비스입니다.
+                    Road Guide + Traffic Info를 조합하여 최적 경로를 제공하며, 리전별 독립 캐시로 비용과 지연을 최적화합니다.</span><span class="lang-en">GIS (Global Information Service) is a real-time navigation service.
+                    It combines Road Guide + Traffic Info to provide optimal routes, optimizing cost and latency with region-independent caching.</span>
+                </p>
+
+                <!-- ===== GIS Architecture ===== -->
+                <h2 id="gis-architecture"><span class="lang-ko">GIS 아키텍처 — Road Guide + Traffic Info</span><span class="lang-en">GIS Architecture — Road Guide + Traffic Info</span></h2>
+
+                <div class="tech-card" data-tag="Architecture">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">GIS Architecture — Road Guide + Traffic Info</span>
+                        <span class="tech-card-tag Architecture">Architecture</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">GIS는 실시간 내비게이션 서비스로, 세 가지 핵심 컴포넌트로 구성됩니다.
+                            각 서비스별로 Cache(Redis) + NoSQL(MongoDB) 세트를 구성하는 것이 표준 패턴입니다.</span><span class="lang-en">GIS is a real-time navigation service composed of three core components.
+                            The standard pattern is to configure a Cache(Redis) + NoSQL(MongoDB) set for each service.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">GIS 핵심 컴포넌트</span><span class="lang-en">GIS Core Components</span></h4>
+<pre><code><span class="hl-cm"># GIS = Global Information Service (실시간 내비게이션)</span>
+
+<span class="hl-key">Road Guide:</span>
+  - 정적 도로 네트워크 데이터
+  - 도로 구조, 차선, 교차로, 제한속도
+  - 변경 빈도: 낮음 (월 1-2회 업데이트)
+
+<span class="hl-key">Traffic Info:</span>
+  - 실시간 교통 혼잡도 데이터
+  - 구간별 평균 속도, 예상 소요시간
+  - 변경 빈도: 높음 (5분 주기 갱신)
+
+<span class="hl-key">Analytics:</span>
+  - 경로 최적화 알고리즘
+  - 과거 데이터 기반 예측
+  - ETA 정확도 향상
+
+<span class="hl-cm"># GSS (Global Search Service)</span>
+  - Autocomplete 검색
+  - 리전별 Edge Processing
+  - POI 검색 최적화</code><span class="code-label">text</span></pre>
+
+                        <h4><span class="lang-ko">표준 서비스 패턴</span><span class="lang-en">Standard Service Pattern</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">컴포넌트</span><span class="lang-en">Component</span></th><th>Cache</th><th>Storage</th><th><span class="lang-ko">문제점</span><span class="lang-en">Issues</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>Road Guide</td>
+                                    <td>Redis (ElastiCache)</td>
+                                    <td>MongoDB (DocumentDB)</td>
+                                    <td><span class="lang-ko">정적 데이터 과도한 캐싱</span><span class="lang-en">Excessive caching of static data</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Traffic Info</td>
+                                    <td>Redis (ElastiCache)</td>
+                                    <td>MongoDB (DocumentDB)</td>
+                                    <td><span class="lang-ko">중복 저장 비용</span><span class="lang-en">Duplicate storage costs</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Analytics</td>
+                                    <td>Redis (ElastiCache)</td>
+                                    <td>MongoDB (DocumentDB)</td>
+                                    <td><span class="lang-ko">불필요 데이터 누적</span><span class="lang-en">Unnecessary data accumulation</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Reactive Data Flow Diagram -->
+                        <div style="margin: 16px 0;">
+                            <svg id="gis-data-flow" width="100%" viewBox="0 0 600 200" style="max-width: 600px;">
+                                <!-- Background -->
+                                <rect width="600" height="200" fill="var(--bg-card)" rx="8"/>
+
+                                <!-- Nodes -->
+                                <g id="node-kafka" transform="translate(60, 100)">
+                                    <circle r="35" fill="var(--bg-card)" stroke="var(--accent)" stroke-width="2"/>
+                                    <circle r="35" fill="var(--accent)" opacity="0" class="pulse-ring"/>
+                                    <text y="5" text-anchor="middle" fill="var(--text-primary)" font-size="12" font-weight="600">Kafka</text>
+                                    <text y="18" text-anchor="middle" fill="var(--text-muted)" font-size="9">(MSK)</text>
+                                </g>
+
+                                <g id="node-redis" transform="translate(200, 100)">
+                                    <circle r="35" fill="var(--bg-card)" stroke="var(--tag-database)" stroke-width="2"/>
+                                    <circle r="35" fill="var(--tag-database)" opacity="0" class="pulse-ring"/>
+                                    <text y="5" text-anchor="middle" fill="var(--text-primary)" font-size="12" font-weight="600">Redis</text>
+                                    <text y="18" text-anchor="middle" fill="var(--text-muted)" font-size="9">(ElastiCache)</text>
+                                </g>
+
+                                <g id="node-mongo" transform="translate(380, 100)">
+                                    <circle r="35" fill="var(--bg-card)" stroke="var(--tag-operations)" stroke-width="2"/>
+                                    <circle r="35" fill="var(--tag-operations)" opacity="0" class="pulse-ring"/>
+                                    <text y="5" text-anchor="middle" fill="var(--text-primary)" font-size="12" font-weight="600">MongoDB</text>
+                                    <text y="18" text-anchor="middle" fill="var(--text-muted)" font-size="9">(DocumentDB)</text>
+                                </g>
+
+                                <g id="node-s3" transform="translate(540, 100)">
+                                    <circle r="35" fill="var(--bg-card)" stroke="var(--tag-network)" stroke-width="2"/>
+                                    <circle r="35" fill="var(--tag-network)" opacity="0" class="pulse-ring"/>
+                                    <text y="5" text-anchor="middle" fill="var(--text-primary)" font-size="12" font-weight="600">S3</text>
+                                    <text y="18" text-anchor="middle" fill="var(--text-muted)" font-size="9">(Tiering)</text>
+                                </g>
+
+                                <!-- Connection lines -->
+                                <line x1="95" y1="100" x2="165" y2="100" stroke="var(--border)" stroke-width="2" stroke-dasharray="4"/>
+                                <line x1="235" y1="100" x2="345" y2="100" stroke="var(--border)" stroke-width="2" stroke-dasharray="4"/>
+                                <line x1="415" y1="100" x2="505" y2="100" stroke="var(--border)" stroke-width="2" stroke-dasharray="4"/>
+
+                                <!-- Animated data packets -->
+                                <circle r="6" fill="var(--accent)" class="data-packet" id="packet1">
+                                    <animate attributeName="cx" values="95;165" dur="1s" repeatCount="indefinite"/>
+                                    <animate attributeName="cy" values="100;100" dur="1s" repeatCount="indefinite"/>
+                                    <animate attributeName="opacity" values="1;1;0" dur="1s" repeatCount="indefinite"/>
+                                </circle>
+                                <circle r="6" fill="var(--tag-database)" class="data-packet" id="packet2">
+                                    <animate attributeName="cx" values="235;345" dur="1.2s" begin="0.3s" repeatCount="indefinite"/>
+                                    <animate attributeName="cy" values="100;100" dur="1.2s" begin="0.3s" repeatCount="indefinite"/>
+                                    <animate attributeName="opacity" values="1;1;0" dur="1.2s" begin="0.3s" repeatCount="indefinite"/>
+                                </circle>
+                                <circle r="6" fill="var(--tag-operations)" class="data-packet" id="packet3">
+                                    <animate attributeName="cx" values="415;505" dur="1.5s" begin="0.6s" repeatCount="indefinite"/>
+                                    <animate attributeName="cy" values="100;100" dur="1.5s" begin="0.6s" repeatCount="indefinite"/>
+                                    <animate attributeName="opacity" values="1;1;0" dur="1.5s" begin="0.6s" repeatCount="indefinite"/>
+                                </circle>
+
+                                <!-- Labels -->
+                                <text x="130" y="75" text-anchor="middle" fill="var(--text-muted)" font-size="10">HOT</text>
+                                <text x="290" y="75" text-anchor="middle" fill="var(--text-muted)" font-size="10">WARM</text>
+                                <text x="460" y="75" text-anchor="middle" fill="var(--text-muted)" font-size="10">COLD</text>
+
+                                <!-- Tier labels -->
+                                <text x="130" y="170" text-anchor="middle" fill="var(--text-secondary)" font-size="9">&lt;1ms</text>
+                                <text x="290" y="170" text-anchor="middle" fill="var(--text-secondary)" font-size="9">3-7 days</text>
+                                <text x="460" y="170" text-anchor="middle" fill="var(--text-secondary)" font-size="9">Archive</text>
+                            </svg>
+                        </div>
+                        <script>
+                        (function() {
+                            const svg = document.getElementById('gis-data-flow');
+                            if (!svg) return;
+                            const nodes = svg.querySelectorAll('[id^="node-"]');
+                            let currentNode = 0;
+                            setInterval(() => {
+                                nodes.forEach((node, i) => {
+                                    const ring = node.querySelector('.pulse-ring');
+                                    if (ring) {
+                                        ring.style.transition = 'opacity 0.3s';
+                                        ring.style.opacity = i === currentNode ? '0.3' : '0';
+                                    }
+                                });
+                                currentNode = (currentNode + 1) % nodes.length;
+                            }, 1000);
+                        })();
+                        </script>
+
+                        <div class="callout warning">
+                            <strong><span class="lang-ko">현재 문제: 불필요 데이터 저장</span><span class="lang-en">Current Issue: Unnecessary Data Storage</span></strong>
+                            <span class="lang-ko">서비스별 Cache + NoSQL 세트를 무조건 적용하면서 불필요한 데이터가 누적됩니다.
+                            비용 최적화를 위해 데이터 특성에 맞는 TTL과 저장소 선택이 필요합니다.</span><span class="lang-en">Unnecessary data accumulates by unconditionally applying Cache + NoSQL sets per service.
+                            Cost optimization requires TTL and storage selection matched to data characteristics.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Traffic Info Cache Strategy ===== -->
+                <h2 id="traffic-cache"><span class="lang-ko">Traffic Info Cache 전략</span><span class="lang-en">Traffic Info Cache Strategy</span></h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Traffic Info Cache Strategy</span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Traffic Info와 Road Guide는 특성이 다르므로 TTL을 분리합니다.
+                            Geohash 기반 구간 캐싱으로 재사용률을 극대화합니다.</span><span class="lang-en">Traffic Info and Road Guide have different characteristics, so TTL is separated.
+                            Geohash-based segment caching maximizes reuse rate.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">데이터 유형별 TTL</span><span class="lang-en">TTL by Data Type</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">데이터</span><span class="lang-en">Data</span></th><th>TTL</th><th><span class="lang-ko">갱신 빈도</span><span class="lang-en">Update Freq</span></th><th><span class="lang-ko">이유</span><span class="lang-en">Reason</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:600;">Traffic Info</td>
+                                    <td>5분</td>
+                                    <td><span class="lang-ko">5분 주기</span><span class="lang-en">Every 5 min</span></td>
+                                    <td><span class="lang-ko">실시간 혼잡도, 짧은 유효기간</span><span class="lang-en">Real-time congestion, short validity</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;">Road Guide</td>
+                                    <td><span class="lang-ko">1시간</span><span class="lang-en">1 hour</span></td>
+                                    <td><span class="lang-ko">드물게</span><span class="lang-en">Rare</span></td>
+                                    <td><span class="lang-ko">도로 구조 변경 거의 없음</span><span class="lang-en">Road structure rarely changes</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">Geohash 기반 구간 캐싱</span><span class="lang-en">Geohash-Based Segment Caching</span></h4>
+<pre><code><span class="hl-cm"># Geohash 정밀도 6 = ~1.2km x 0.6km 셀</span>
+<span class="hl-cm"># 출발지-목적지(OD) 조합 대신 구간별 캐싱 → 재사용률 극대화</span>
+
+<span class="hl-key">Cache Key 구조:</span>
+  route:segment:{geohash_from}:{geohash_to}:{traffic_level}
+
+<span class="hl-key">Traffic Level 분리:</span>
+  - normal  : 일반 통행
+  - heavy   : 혼잡
+  - severe  : 심각한 정체
+
+<span class="hl-key">예시:</span>
+  route:segment:9q8yyk:9q8yym:normal    <span class="hl-cm"># LA 도심 (일반)</span>
+  route:segment:9q8yyk:9q8yym:heavy     <span class="hl-cm"># LA 도심 (혼잡)</span>
+  route:segment:9q8yyk:9q8yym:severe    <span class="hl-cm"># LA 도심 (심각)</span>
+
+<span class="hl-cm"># 혼잡도 변경 시 해당 traffic level 캐시만 교체</span>
+<span class="hl-cm"># 전체 무효화 방지 → 캐시 효율성 향상</span></code><span class="code-label">text</span></pre>
+
+                        <div class="callout tip">
+                            <strong><span class="lang-ko">Traffic Level 분리의 이점</span><span class="lang-en">Benefits of Traffic Level Separation</span></strong>
+                            <span class="lang-ko">같은 구간이라도 교통 상태(normal/heavy/severe)에 따라 별도 캐시 엔트리를 유지합니다.
+                            혼잡도가 변하면 해당 level의 캐시만 교체하여 불필요한 전체 무효화를 방지합니다.</span><span class="lang-en">Even for the same segment, separate cache entries are maintained based on traffic state (normal/heavy/severe).
+                            When congestion changes, only that level's cache is replaced, preventing unnecessary full invalidation.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Region-Independent Cache ===== -->
+                <h2 id="region-cache"><span class="lang-ko">리전별 독립 GIS Cache</span><span class="lang-en">Region-Independent GIS Cache</span></h2>
+
+                <div class="tech-card" data-tag="Infrastructure">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">Region-Independent GIS Cache</span>
+                        <span class="tech-card-tag Infrastructure">Infrastructure</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">ElastiCache를 <strong>리전간 동기화하지 않는</strong> 것은 의도적인 설계입니다.
+                            GIS 경로 캐시는 지역 특화 데이터이므로 리전별 독립이 더 효율적입니다.</span><span class="lang-en"><strong>Not synchronizing ElastiCache across regions</strong> is an intentional design.
+                            GIS route cache is region-specific data, so independent per-region operation is more efficient.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">리전별 캐시 크기</span><span class="lang-en">Cache Size by Region</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">리전</span><span class="lang-en">Region</span></th><th><span class="lang-ko">캐시 크기</span><span class="lang-en">Cache Size</span></th><th><span class="lang-ko">커버리지</span><span class="lang-en">Coverage</span></th><th><span class="lang-ko">특징</span><span class="lang-en">Features</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:600;">us-west-2</td>
+                                    <td>~30GB</td>
+                                    <td>West Coast 도로 네트워크</td>
+                                    <td><span class="lang-ko">CA, OR, WA 집중</span><span class="lang-en">CA, OR, WA focused</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;">us-east-1</td>
+                                    <td>~45GB</td>
+                                    <td>East + Central 도로 네트워크</td>
+                                    <td><span class="lang-ko">도로 밀도 높음</span><span class="lang-en">High road density</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">독립 운영의 이점</span><span class="lang-en">Benefits of Independent Operation</span></h4>
+<pre><code><span class="hl-cm"># ElastiCache 리전간 동기화 vs 독립 운영</span>
+
+<span class="hl-key">Cross-region 전송 비용:</span>
+  동기화: ~$0.02/GB (상당한 비용)
+  독립:   $0 (없음)
+
+<span class="hl-key">쓰기 레이턴시:</span>
+  동기화: +60ms (cross-region RTT 추가)
+  독립:   &lt;1ms (로컬 쓰기)
+
+<span class="hl-key">캐시 효율성:</span>
+  동기화: 낮음 (타 리전 데이터 불필요)
+  독립:   높음 (지역 특화 데이터만)
+
+<span class="hl-key">장애 격리:</span>
+  동기화: 복제 장애 시 양 리전 영향
+  독립:   완전 독립, 완전 격리</code><span class="code-label">text</span></pre>
+
+                        <h4><span class="lang-ko">Cache Warming 전략</span><span class="lang-en">Cache Warming Strategy</span></h4>
+<pre><code><span class="hl-cm"># Cold Start 방지를 위한 Cache Warming</span>
+
+<span class="hl-key">1. 주기적 Pre-load (매 5분):</span>
+   - DocumentDB에서 주요 구간 데이터 로드
+   - 인기 경로 기반 우선순위 적용
+
+<span class="hl-key">2. 배포 시 Seed Data:</span>
+   - Top-1000 인기 경로 사전 투입
+   - 배포 직후 캐시 미스 최소화
+
+<span class="hl-key">3. MSK Event Subscription:</span>
+   - traffic.events 토픽 구독
+   - road.events 토픽 구독
+   - 이벤트 기반 능동적 캐시 갱신</code><span class="code-label">text</span></pre>
+
+                        <div class="callout info">
+                            <strong><span class="lang-ko">설계 원칙: 지역 특화</span><span class="lang-en">Design Principle: Regional Specialization</span></strong>
+                            <span class="lang-ko">us-west-2는 I-5, I-405, US-101 등 서부 도로에 특화되고,
+                            us-east-1은 I-95, I-285, NJ Turnpike 등 동부 도로에 특화됩니다.
+                            교집합(중부 구간)은 차량 이동에 따라 자연스럽게 워밍업됩니다.</span><span class="lang-en">us-west-2 specializes in western roads like I-5, I-405, US-101,
+                            while us-east-1 specializes in eastern roads like I-95, I-285, NJ Turnpike.
+                            The intersection (central segments) warms up naturally as vehicles travel.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Cache Invalidation ===== -->
+                <h2 id="invalidation">GIS Cache Invalidation — Event-Driven</h2>
+
+                <div class="tech-card" data-tag="Database">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title">GIS Cache Invalidation — Event-Driven</span>
+                        <span class="tech-card-tag Database">Database</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">GIS Cache는 MSK 이벤트 기반으로 무효화됩니다.
+                            이벤트 유형에 따라 안전 영향도를 분류하고, 그에 맞는 무효화 지연을 적용합니다.</span><span class="lang-en">GIS Cache is invalidated based on MSK events.
+                            Safety impact is classified by event type, and appropriate invalidation delays are applied.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">MSK 토픽 구조</span><span class="lang-en">MSK Topic Structure</span></h4>
+<pre><code><span class="hl-cm"># traffic.events - 혼잡도 변경 이벤트</span>
+{
+  <span class="hl-str">"type"</span>: <span class="hl-str">"CONGESTION_CHANGE"</span>,
+  <span class="hl-str">"geohash"</span>: <span class="hl-str">"9q8yyk"</span>,
+  <span class="hl-str">"old_level"</span>: <span class="hl-str">"normal"</span>,
+  <span class="hl-str">"new_level"</span>: <span class="hl-str">"heavy"</span>,
+  <span class="hl-str">"timestamp"</span>: <span class="hl-str">"2026-03-20T10:30:00Z"</span>
+}
+
+<span class="hl-cm"># road.events - 도로 상태 변경 이벤트</span>
+{
+  <span class="hl-str">"type"</span>: <span class="hl-str">"ACCIDENT"</span>,          <span class="hl-cm">// 사고</span>
+  <span class="hl-str">"type"</span>: <span class="hl-str">"CONSTRUCTION"</span>,      <span class="hl-cm">// 공사</span>
+  <span class="hl-str">"type"</span>: <span class="hl-str">"ROAD_CLOSURE"</span>,      <span class="hl-cm">// 도로 폐쇄</span>
+  <span class="hl-str">"affected_segments"</span>: [<span class="hl-str">"9q8yyk:9q8yym"</span>, <span class="hl-str">"..."</span>],
+  <span class="hl-str">"invalidate_radius_km"</span>: <span class="hl-num">5</span>
+}</code><span class="code-label">json</span></pre>
+
+                        <h4><span class="lang-ko">이벤트별 무효화 정책</span><span class="lang-en">Invalidation Policy by Event</span></h4>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">이벤트</span><span class="lang-en">Event</span></th><th><span class="lang-ko">무효화 지연</span><span class="lang-en">Invalidation Delay</span></th><th><span class="lang-ko">영향 범위</span><span class="lang-en">Impact Scope</span></th><th><span class="lang-ko">안전 영향</span><span class="lang-en">Safety Impact</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="color:var(--tag-operations);font-weight:600;"><span class="lang-ko">사고 (ACCIDENT)</span><span class="lang-en">Accident</span></td>
+                                    <td>&lt;5s</td>
+                                    <td><span class="lang-ko">사고 지점 ± 반경 계산</span><span class="lang-en">Accident point ± radius</span></td>
+                                    <td><span class="lang-ko">높음 (즉시 우회 필요)</span><span class="lang-en">High (immediate detour needed)</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="color:var(--tag-operations);font-weight:600;"><span class="lang-ko">도로 폐쇄 (CLOSURE)</span><span class="lang-en">Road Closure</span></td>
+                                    <td>&lt;5s</td>
+                                    <td><span class="lang-ko">폐쇄 구간 전체</span><span class="lang-en">Entire closed section</span></td>
+                                    <td><span class="lang-ko">높음 (통행 불가)</span><span class="lang-en">High (impassable)</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="color:var(--tag-architecture);font-weight:600;"><span class="lang-ko">혼잡도 변경</span><span class="lang-en">Congestion Change</span></td>
+                                    <td>&lt;30s</td>
+                                    <td><span class="lang-ko">해당 구간</span><span class="lang-en">Affected segment</span></td>
+                                    <td><span class="lang-ko">중간 (경로 최적화)</span><span class="lang-en">Medium (route optimization)</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="color:var(--tag-network);font-weight:600;"><span class="lang-ko">공사 (CONSTRUCTION)</span><span class="lang-en">Construction</span></td>
+                                    <td>&lt;60s</td>
+                                    <td><span class="lang-ko">공사 구간 ± 2km</span><span class="lang-en">Construction area ± 2km</span></td>
+                                    <td><span class="lang-ko">낮음 (서행 구간)</span><span class="lang-en">Low (slow zone)</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">영향 구간 반경 계산</span><span class="lang-en">Affected Segment Radius Calculation</span></h4>
+<pre><code><span class="hl-cm"># 이벤트 수신 → 영향 구간 계산 → 캐시 무효화</span>
+
+<span class="hl-kw">def</span> <span class="hl-fn">invalidate_affected_segments</span>(event):
+    <span class="hl-cm"># 이벤트 타입별 영향 반경</span>
+    radius_map = {
+        <span class="hl-str">"ACCIDENT"</span>: <span class="hl-num">5</span>,      <span class="hl-cm"># 5km</span>
+        <span class="hl-str">"ROAD_CLOSURE"</span>: <span class="hl-num">10</span>, <span class="hl-cm"># 10km (우회로 포함)</span>
+        <span class="hl-str">"CONSTRUCTION"</span>: <span class="hl-num">2</span>,  <span class="hl-cm"># 2km</span>
+        <span class="hl-str">"CONGESTION"</span>: <span class="hl-num">0</span>      <span class="hl-cm"># 해당 구간만</span>
+    }
+
+    radius = radius_map.get(event.type, <span class="hl-num">1</span>)
+    affected = get_segments_in_radius(event.geohash, radius)
+
+    <span class="hl-kw">for</span> segment <span class="hl-kw">in</span> affected:
+        redis.delete(<span class="hl-str">f"route:segment:{segment}:*"</span>)</code><span class="code-label">python</span></pre>
+
+                        <div class="callout warning">
+                            <strong><span class="lang-ko">안전 우선 원칙</span><span class="lang-en">Safety First Principle</span></strong>
+                            <span class="lang-ko">사고, 도로 폐쇄 등 안전에 직접 영향을 주는 이벤트는 5초 이내에 캐시를 무효화합니다.
+                            이는 차량이 위험 구간으로 진입하기 전에 대체 경로를 안내하기 위함입니다.</span><span class="lang-en">Events that directly affect safety, such as accidents and road closures, invalidate the cache within 5 seconds.
+                            This is to guide vehicles to alternative routes before they enter dangerous areas.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="connected-car.html"><span class="label">Previous</span><span class="title">&larr; Connected Car Latency</span></a>
+                    <a href="eks-operations.html" class="next"><span class="label">Next</span><span class="title">EKS Operations &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title">On this page</div>
+            <a href="#gis-architecture" class="toc-link"><span class="lang-ko">GIS 아키텍처</span><span class="lang-en">GIS Architecture</span></a>
+            <a href="#traffic-cache" class="toc-link"><span class="lang-ko">Traffic Info Cache</span><span class="lang-en">Traffic Info Cache</span></a>
+            <a href="#region-cache" class="toc-link"><span class="lang-ko">리전별 독립 Cache</span><span class="lang-en">Region-Independent Cache</span></a>
+            <a href="#invalidation" class="toc-link"><span class="lang-ko">Cache Invalidation</span><span class="lang-en">Cache Invalidation</span></a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>
