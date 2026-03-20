@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-alb-controller
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            region: us-east-1
+        values:
+          roleSuffix: ""
+          vpcId: vpc-06c7b792a4010cfed
+    - clusters:
+        selector:
+          matchLabels:
+            region: us-west-2
+        values:
+          roleSuffix: "-us-west-2"
+          vpcId: vpc-0938160b63c0c785e
+  template:
+    metadata:
+      name: 'alb-controller-{{metadata.labels.region}}'
+    spec:
+      project: default
+      source:
+        chart: aws-load-balancer-controller
+        repoURL: https://aws.github.io/eks-charts
+        targetRevision: 3.1.0
+        helm:
+          valuesObject:
+            clusterName: multi-region-mall
+            region: '{{metadata.labels.region}}'
+            vpcId: '{{values.vpcId}}'
+            serviceAccount:
+              create: true
+              name: aws-load-balancer-controller
+              annotations:
+                eks.amazonaws.com/role-arn: 'arn:aws:iam::180294183052:role/multi-region-mall-alb-controller{{values.roleSuffix}}'
+      destination:
+        server: '{{server}}'
+        namespace: kube-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=false
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
