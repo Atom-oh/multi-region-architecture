@@ -28,6 +28,17 @@ spec:
                 - op: replace
                   path: /metadata/annotations/eks.amazonaws.com~1role-arn
                   value: "arn:aws:iam::180294183052:role/production-tempo-{{metadata.labels.region}}"
+            - target:
+                kind: Deployment
+                name: tempo
+              patch: |-
+                - op: replace
+                  path: /spec/template/spec/containers/0/env
+                  value:
+                    - name: AWS_REGION
+                      value: "{{metadata.labels.region}}"
+                    - name: TEMPO_S3_BUCKET
+                      value: "production-mall-tempo-traces-{{metadata.labels.region}}"
       destination:
         server: '{{server}}'
         namespace: observability
