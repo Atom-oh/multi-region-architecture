@@ -31,7 +31,7 @@ spec:
                 - name: OTEL_SERVICE_NAME
                   value: "synthetic-monitor"
                 - name: OTEL_EXPORTER_OTLP_ENDPOINT
-                  value: "http://otel-collector.platform.svc.cluster.local:4317"
+                  value: "http://tempo.observability.svc.cluster.local:4317"
                 - name: ORIGIN_REGION
                   value: "us-east-1"
               resources:
