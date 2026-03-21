@@ -21,9 +21,12 @@ spec:
         targetRevision: 0.115.0
         helm:
           valuesObject:
+            fullnameOverride: otel-collector
             image:
               repository: otel/opentelemetry-collector-contrib
             mode: daemonset
+            service:
+              enabled: true
             serviceAccount:
               annotations:
                 eks.amazonaws.com/role-arn: 'arn:aws:iam::180294183052:role/production-otel-collector-{{metadata.labels.region}}'
