@@ -20,6 +20,11 @@ patches:
       - op: replace
         path: /spec/jobTemplate/spec/template/spec/containers/0/image
         value: "180294183052.dkr.ecr.us-west-2.amazonaws.com/shopping-mall/synthetic-monitor:latest"
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/env/3
+        value:
+          name: ORIGIN_REGION
+          value: "us-west-2"
   - target:
       kind: Deployment
     patch: |-

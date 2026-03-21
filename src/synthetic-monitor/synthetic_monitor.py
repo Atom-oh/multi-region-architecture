@@ -19,6 +19,8 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 # ---------------------------------------------------------------------------
 BASE_URL = os.getenv("BASE_URL", "https://mall.atomai.click")
 OTEL_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector.platform.svc.cluster.local:4317")
+ORIGIN_REGION = os.getenv("ORIGIN_REGION", "unknown")
+ORIGIN_LABEL = "test-east" if "east" in ORIGIN_REGION else "test-west" if "west" in ORIGIN_REGION else f"test-{ORIGIN_REGION}"
 STEP_DELAY_MIN = float(os.getenv("STEP_DELAY_MIN", "0.5"))
 STEP_DELAY_MAX = float(os.getenv("STEP_DELAY_MAX", "1.0"))
 
@@ -53,7 +55,11 @@ logger.addHandler(handler)
 # ---------------------------------------------------------------------------
 # OpenTelemetry setup
 # ---------------------------------------------------------------------------
-resource = Resource.create({"service.name": os.getenv("OTEL_SERVICE_NAME", "synthetic-monitor")})
+resource = Resource.create({
+    "service.name": os.getenv("OTEL_SERVICE_NAME", "synthetic-monitor"),
+    "test.origin": ORIGIN_LABEL,
+    "aws.region": ORIGIN_REGION,
+})
 provider = TracerProvider(resource=resource)
 try:
     exporter = OTLPSpanExporter(endpoint=OTEL_ENDPOINT, insecure=True)
@@ -294,10 +300,10 @@ SCENARIOS = [
 
 def main():
     run_id = uuid.uuid4().hex[:8]
-    logger.info(f"Starting synthetic monitor run={run_id} base_url={BASE_URL}")
+    logger.info(f"Starting synthetic monitor run={run_id} origin={ORIGIN_LABEL} base_url={BASE_URL}")
 
     session = requests.Session()
-    session.headers.update({"User-Agent": f"SyntheticMonitor/{run_id}"})
+    session.headers.update({"User-Agent": f"SyntheticMonitor/{ORIGIN_LABEL}/{run_id}"})
 
     passed, failed = 0, 0
     for scenario_fn in SCENARIOS:
