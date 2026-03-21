@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-west-nlb
+  namespace: monitoring
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+    # Region-specific SG annotation patched by ArgoCD AppSet
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: prometheus
+    prometheus: prometheus-kube-prometheus-prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
