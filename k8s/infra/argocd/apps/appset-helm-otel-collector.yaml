@@ -24,6 +24,9 @@ spec:
             image:
               repository: otel/opentelemetry-collector-contrib
             mode: daemonset
+            serviceAccount:
+              annotations:
+                eks.amazonaws.com/role-arn: 'arn:aws:iam::180294183052:role/production-otel-collector-{{metadata.labels.region}}'
             presets:
               kubernetesAttributes:
                 enabled: true
@@ -55,11 +58,16 @@ spec:
                   timeout: 5s
               exporters:
                 otlp/tempo:
-                  endpoint: tempo.observability:4317
+                  endpoint: tempo.observability.svc.cluster.local:4317
                   tls:
                     insecure: true
                 awsxray:
                   region: '{{metadata.labels.region}}'
+                prometheus:
+                  endpoint: 0.0.0.0:8889
+                  namespace: otel
+                  resource_to_telemetry_conversion:
+                    enabled: true
               service:
                 pipelines:
                   traces:
@@ -69,7 +77,7 @@ spec:
                   metrics:
                     receivers: [otlp]
                     processors: [batch]
-                    exporters: [otlp/tempo]
+                    exporters: [prometheus]
       destination:
         server: '{{server}}'
         namespace: platform

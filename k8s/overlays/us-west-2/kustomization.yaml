@@ -10,6 +10,7 @@ resources:
   - ../../services/platform
   - ../../infra/karpenter
   - ../../infra/otel-collector
+  - ../../infra/tempo
   - ../../infra/argocd/argocd-server-nlb.yaml
 
 

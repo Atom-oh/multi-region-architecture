@@ -313,3 +313,13 @@ module "tempo_storage" {
   oidc_provider_url = module.eks.oidc_provider_url
   tags              = var.tags
 }
+
+module "otel_collector_irsa" {
+  source = "../../../modules/observability/otel-collector-irsa"
+
+  environment       = var.environment
+  region            = var.region
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+  tags              = var.tags
+}

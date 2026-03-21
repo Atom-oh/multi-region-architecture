@@ -8,6 +8,8 @@ resources:
   - appset-business.yaml
   - appset-platform.yaml
   - appset-infra.yaml
+  - appset-tempo.yaml
+  - appset-storageclass.yaml
   - appset-helm-karpenter.yaml
   - appset-helm-external-secrets.yaml
   - appset-helm-prometheus.yaml

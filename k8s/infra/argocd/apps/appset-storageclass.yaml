@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: storageclass
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: region
+              operator: Exists
+  template:
+    metadata:
+      name: 'storageclass-{{metadata.labels.region}}'
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:Atom-oh/multi-region-architecture.git
+        targetRevision: main
+        path: k8s/infra/storageclass
+      destination:
+        server: '{{server}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
