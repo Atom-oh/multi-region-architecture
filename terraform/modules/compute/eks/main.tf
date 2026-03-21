@@ -130,43 +130,17 @@ resource "aws_security_group_rule" "eks_cluster_sg_alb_ingress" {
   description              = "Allow HTTP from ALB to EKS nodes"
 }
 
-# Allow NLB to reach ArgoCD pods on port 8080 via the EKS-managed cluster security group
-resource "aws_security_group_rule" "eks_cluster_sg_nlb_argocd_ingress" {
+# Allow all traffic from NLB to EKS nodes (ArgoCD 8080, Grafana 3000, api-gateway 80, etc.)
+resource "aws_security_group_rule" "eks_cluster_sg_nlb_ingress" {
   count = var.nlb_security_group_id != "" ? 1 : 0
 
   type                     = "ingress"
-  from_port                = 8080
-  to_port                  = 8080
-  protocol                 = "tcp"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
   security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
   source_security_group_id = var.nlb_security_group_id
-  description              = "Allow ArgoCD from NLB to EKS nodes"
-}
-
-# Allow NLB to reach Grafana pods on port 3000 via the EKS-managed cluster security group
-resource "aws_security_group_rule" "eks_cluster_sg_nlb_grafana_ingress" {
-  count = var.nlb_security_group_id != "" ? 1 : 0
-
-  type                     = "ingress"
-  from_port                = 3000
-  to_port                  = 3000
-  protocol                 = "tcp"
-  security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
-  source_security_group_id = var.nlb_security_group_id
-  description              = "Allow Grafana from NLB to EKS nodes"
-}
-
-# Allow NLB to reach api-gateway pods on port 80 via the EKS-managed cluster security group
-resource "aws_security_group_rule" "eks_cluster_sg_nlb_api_ingress" {
-  count = var.nlb_security_group_id != "" ? 1 : 0
-
-  type                     = "ingress"
-  from_port                = 80
-  to_port                  = 80
-  protocol                 = "tcp"
-  security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
-  source_security_group_id = var.nlb_security_group_id
-  description              = "Allow HTTP from NLB to EKS nodes (api-gateway)"
+  description              = "All traffic from NLB to EKS nodes"
 }
 
 # OIDC Provider for IRSA

@@ -32,7 +32,7 @@ patches:
     patch: |-
       - op: add
         path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-security-groups
-        value: "sg-0bfd63c6e6188327b"
+        value: "sg-07fa08075444bda59"
       - op: add
         path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-ssl-cert
         value: "arn:aws:acm:us-west-2:180294183052:certificate/18ed9116-1f33-4cfa-b922-9fde952ea169"
