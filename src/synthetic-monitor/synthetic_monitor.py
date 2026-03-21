@@ -172,10 +172,10 @@ def s3_shopping_cart(session: requests.Session):
         api(session, "GET", f"/api/v1/inventory/{product_id1}", name, "check_inventory")
         delay()
         api(session, "POST", f"/api/v1/carts/{user_id}", name, "add_item_1",
-            {"product_id": product_id1, "quantity": 1})
+            {"product_id": product_id1, "name": "Synthetic Product A", "quantity": 1, "price": 50000})
         delay()
         api(session, "POST", f"/api/v1/carts/{user_id}", name, "add_item_2",
-            {"product_id": product_id2, "quantity": 2})
+            {"product_id": product_id2, "name": "Synthetic Product B", "quantity": 2, "price": 30000})
         delay()
         api(session, "GET", f"/api/v1/carts/{user_id}", name, "get_cart")
         delay()
@@ -261,8 +261,8 @@ def s6_post_purchase(session: requests.Session):
         delay()
         api(session, "GET", f"/api/v1/returns/{return_id}", name, "get_return")
         delay()
-        api(session, "POST", "/api/v1/notifications/send", name, "send_notification",
-            {"user_id": user_id, "type": "order_update", "message": "Synthetic test notification"})
+        api(session, "POST", "/api/v1/notifications", name, "send_notification",
+            {"user_id": user_id, "type": "order_update", "title": "Test", "message": "Synthetic test notification"})
         delay()
         api(session, "GET", f"/api/v1/notifications/{user_id}", name, "get_notifications")
 
@@ -272,7 +272,7 @@ def s7_platform_and_analytics(session: requests.Session):
     name = "s7_platform_and_analytics"
     with tracer.start_as_current_span(name):
         api(session, "POST", "/api/v1/events", name, "publish_event",
-            {"topic": "synthetic.test", "payload": {"run_id": str(uuid.uuid4())}})
+            {"topic": "synthetic.test", "key": "synth-run", "data": {"run_id": str(uuid.uuid4())}})
         delay()
         api(session, "GET", "/api/v1/events/topics", name, "list_topics")
         delay()

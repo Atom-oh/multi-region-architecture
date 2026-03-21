@@ -172,21 +172,20 @@ public class Controller {
         int shippingFee = subtotal >= 50000 ? 0 : 3000;
         int finalPrice = subtotal - membershipDiscount - couponDiscount + shippingFee;
 
-        Map<String, Object> response = Map.ofEntries(
-            Map.entry("items", calculatedItems),
-            Map.entry("subtotal", subtotal),
-            Map.entry("product_discount", totalDiscount),
-            Map.entry("membership_discount", membershipDiscount),
-            Map.entry("membership_tier", membershipTier),
-            Map.entry("coupon_discount", couponDiscount),
-            Map.entry("coupon_code", couponCode),
-            Map.entry("coupon_message", couponMessage),
-            Map.entry("shipping_fee", shippingFee),
-            Map.entry("shipping_message", shippingFee == 0 ? "무료배송" : "50,000원 이상 구매시 무료배송"),
-            Map.entry("total_discount", totalDiscount + membershipDiscount + couponDiscount),
-            Map.entry("final_price", finalPrice),
-            Map.entry("currency", "KRW")
-        );
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("items", calculatedItems);
+        response.put("subtotal", subtotal);
+        response.put("product_discount", totalDiscount);
+        response.put("membership_discount", membershipDiscount);
+        response.put("membership_tier", membershipTier);
+        response.put("coupon_discount", couponDiscount);
+        response.put("coupon_code", couponCode);
+        response.put("coupon_message", couponMessage);
+        response.put("shipping_fee", shippingFee);
+        response.put("shipping_message", shippingFee == 0 ? "무료배송" : "50,000원 이상 구매시 무료배송");
+        response.put("total_discount", totalDiscount + membershipDiscount + couponDiscount);
+        response.put("final_price", finalPrice);
+        response.put("currency", "KRW");
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .body(response);
