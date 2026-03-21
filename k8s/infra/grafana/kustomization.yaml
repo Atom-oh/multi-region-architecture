@@ -3,3 +3,13 @@ kind: Kustomization
 
 resources:
   - grafana-nlb.yaml
+
+configMapGenerator:
+  - name: grafana-dashboard-synthetic-monitor
+    namespace: monitoring
+    files:
+      - dashboards/synthetic-monitor.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
