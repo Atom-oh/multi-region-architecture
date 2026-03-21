@@ -27,13 +27,14 @@ spec:
               persistence:
                 enabled: true
                 size: 10Gi
+                storageClassName: gp3
               datasources:
                 datasources.yaml:
                   apiVersion: 1
                   datasources:
                     - name: Tempo
                       type: tempo
-                      url: http://tempo.observability:3100
+                      url: http://tempo.observability:3200
                       access: proxy
                     - name: CloudWatch
                       type: cloudwatch
@@ -46,6 +47,7 @@ spec:
                 storageSpec:
                   volumeClaimTemplate:
                     spec:
+                      storageClassName: gp3
                       accessModes: ["ReadWriteOnce"]
                       resources:
                         requests:
