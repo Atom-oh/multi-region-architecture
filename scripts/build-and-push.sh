@@ -54,5 +54,18 @@ for svc in product-catalog analytics user-profile wishlist review shipping recom
 # Java Services (7)
 for svc in order payment user-account warehouse returns pricing seller; do build_java_service "$svc"; done
 
+# Synthetic Monitor (standalone Python — no mall_common)
+build_standalone_python() {
+    local svc=$1
+    local ecr_uri="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_PREFIX/$svc:$TAG"
+    echo "=== Building standalone Python: $svc ==="
+    cd "$SRC_DIR/$svc"
+    docker build -t "$svc:$TAG" . || { echo "FAILED: $svc build"; return 1; }
+    docker tag "$svc:$TAG" "$ecr_uri"
+    docker push "$ecr_uri" || { echo "FAILED: $svc push"; return 1; }
+    echo "=== $svc pushed ==="
+}
+build_standalone_python "synthetic-monitor"
+
 echo ""
-echo "=== All 20 services built and pushed successfully ==="
+echo "=== All services built and pushed successfully ==="

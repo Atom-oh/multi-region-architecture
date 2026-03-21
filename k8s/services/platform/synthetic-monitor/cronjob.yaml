@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: synthetic-monitor
+  namespace: platform
+  labels:
+    app: synthetic-monitor
+    tier: platform
+spec:
+  schedule: "*/2 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 90
+      template:
+        metadata:
+          labels:
+            app: synthetic-monitor
+            tier: platform
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: synthetic-monitor
+              image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/synthetic-monitor:latest
+              imagePullPolicy: Always
+              env:
+                - name: BASE_URL
+                  value: "https://mall.atomai.click"
+                - name: OTEL_SERVICE_NAME
+                  value: "synthetic-monitor"
+                - name: OTEL_EXPORTER_OTLP_ENDPOINT
+                  value: "http://otel-collector.platform.svc.cluster.local:4317"
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 100m
+                  memory: 128Mi

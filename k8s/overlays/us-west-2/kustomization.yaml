@@ -12,6 +12,7 @@ resources:
   - ../../infra/otel-collector
   - ../../infra/tempo
   - ../../infra/argocd/argocd-server-nlb.yaml
+  - ../../services/platform/synthetic-monitor
 
 
 namespace: ""
@@ -35,6 +36,13 @@ patches:
       - op: add
         path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-ssl-cert
         value: "arn:aws:acm:us-west-2:180294183052:certificate/18ed9116-1f33-4cfa-b922-9fde952ea169"
+  - target:
+      kind: CronJob
+      name: synthetic-monitor
+    patch: |-
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/image
+        value: "180294183052.dkr.ecr.us-west-2.amazonaws.com/shopping-mall/synthetic-monitor:latest"
   - target:
       kind: Deployment
     patch: |-

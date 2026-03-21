@@ -12,6 +12,7 @@ resources:
   - ../../infra/otel-collector
   - ../../infra/tempo
   - ../../infra/argocd/argocd-server-nlb.yaml
+  - ../../services/platform/synthetic-monitor
 
 
 namespace: ""
