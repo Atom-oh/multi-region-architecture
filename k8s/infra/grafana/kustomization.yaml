@@ -3,12 +3,21 @@ kind: Kustomization
 
 resources:
   - grafana-nlb.yaml
+  - prometheus-west-nlb.yaml
 
 configMapGenerator:
   - name: grafana-dashboard-synthetic-monitor
     namespace: monitoring
     files:
       - dashboards/synthetic-monitor.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-karpenter
+    namespace: monitoring
+    files:
+      - dashboards/karpenter.json
     options:
       disableNameSuffixHash: true
       labels:

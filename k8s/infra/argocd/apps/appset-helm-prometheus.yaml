@@ -27,6 +27,12 @@ spec:
                 enabled: true
                 size: 10Gi
                 storageClassName: gp3
+              sidecar:
+                dashboards:
+                  enabled: true
+                  label: grafana_dashboard
+                  labelValue: "1"
+                  searchNamespace: ALL
               grafana.ini:
                 server:
                   root_url: https://grafana.atomai.click
@@ -38,16 +44,27 @@ spec:
                     - name: Prometheus
                       orgId: 1
                   datasources:
-                    - name: Prometheus (local)
+                    - name: Prometheus (us-east-1)
                       type: prometheus
+                      uid: prometheus-east
                       url: http://prometheus-kube-prometheus-prometheus.monitoring:9090
                       access: proxy
-                      isDefault: true
+                      isDefault: false
+                    - name: Prometheus (us-west-2)
+                      type: prometheus
+                      uid: prometheus-west
+                      url: http://prometheus-west-nlb.monitoring:9090
+                      access: proxy
                     - name: Tempo
                       type: tempo
+                      uid: tempo
                       url: http://tempo.observability:3200
                       access: proxy
                       jsonData:
+                        tracesToMetrics:
+                          datasourceUid: prometheus-east
+                        serviceMap:
+                          datasourceUid: prometheus-east
                         nodeGraph:
                           enabled: true
                     - name: CloudWatch (us-east-1)
