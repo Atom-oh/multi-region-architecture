@@ -27,6 +27,15 @@ spec:
             mode: daemonset
             service:
               enabled: true
+            tolerations:
+              - operator: Exists
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                cpu: 500m
+                memory: 1Gi
             serviceAccount:
               annotations:
                 eks.amazonaws.com/role-arn: 'arn:aws:iam::180294183052:role/production-otel-collector-{{metadata.labels.region}}'
