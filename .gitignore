@@ -39,3 +39,4 @@ terraform/environments/production/us-west-2/tfplan
 webpage/node_modules/
 build/
 .docusaurus/
+*.pyc

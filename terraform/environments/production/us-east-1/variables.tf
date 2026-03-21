@@ -72,6 +72,18 @@ variable "argocd_nlb_zone_id" {
   default     = ""
 }
 
+variable "grafana_nlb_dns_name" {
+  description = "DNS name of the Grafana NLB (from kubectl get svc grafana-nlb -n monitoring). Empty to skip Route53 record creation."
+  type        = string
+  default     = ""
+}
+
+variable "grafana_nlb_zone_id" {
+  description = "Hosted zone ID of the Grafana NLB (NLB zone ID for Route53 alias)"
+  type        = string
+  default     = ""
+}
+
 variable "sns_topic_arn" {
   description = "SNS topic ARN for alarm notifications"
   type        = string

@@ -7,9 +7,18 @@ spec:
   generators:
     - clusters:
         selector:
-          matchExpressions:
-            - key: region
-              operator: Exists
+          matchLabels:
+            region: us-east-1
+        values:
+          grafana_enabled: "true"
+          grafana_replicas: "2"
+    - clusters:
+        selector:
+          matchLabels:
+            region: us-west-2
+        values:
+          grafana_enabled: "false"
+          grafana_replicas: "0"
   template:
     metadata:
       name: 'prometheus-{{metadata.labels.region}}'
@@ -22,24 +31,46 @@ spec:
         helm:
           valuesObject:
             grafana:
-              enabled: true
-              replicas: 2
+              enabled: '{{values.grafana_enabled}}'
+              replicas: '{{values.grafana_replicas}}'
               persistence:
                 enabled: true
                 size: 10Gi
                 storageClassName: gp3
+              grafana.ini:
+                server:
+                  root_url: https://grafana.atomai.click
+                  serve_from_sub_path: false
               datasources:
                 datasources.yaml:
                   apiVersion: 1
                   datasources:
+                    - name: Prometheus (local)
+                      type: prometheus
+                      url: http://prometheus-kube-prometheus-prometheus.monitoring:9090
+                      access: proxy
+                      isDefault: true
                     - name: Tempo
                       type: tempo
                       url: http://tempo.observability:3200
                       access: proxy
-                    - name: CloudWatch
+                      jsonData:
+                        tracesToLogsV2:
+                          datasourceUid: cloudwatch
+                          filterByTraceID: true
+                        serviceMap:
+                          datasourceUid: prometheus-local
+                        nodeGraph:
+                          enabled: true
+                    - name: CloudWatch (us-east-1)
+                      type: cloudwatch
+                      uid: cloudwatch
+                      jsonData:
+                        defaultRegion: us-east-1
+                    - name: CloudWatch (us-west-2)
                       type: cloudwatch
                       jsonData:
-                        defaultRegion: '{{metadata.labels.region}}'
+                        defaultRegion: us-west-2
             prometheus:
               prometheusSpec:
                 replicas: 2

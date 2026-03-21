@@ -352,6 +352,43 @@ resource "aws_route53_record" "argocd" {
   }
 }
 
+module "cloudfront_grafana" {
+  source = "../../../modules/edge/cloudfront-grafana"
+
+  environment     = var.environment
+  domain_name     = var.domain_name
+  acm_certificate_arn = var.acm_certificate_arn
+  waf_web_acl_arn = "" # WAF disabled — Grafana has its own auth
+  tags            = var.tags
+}
+
+# Grafana Route53 records (primary region only)
+resource "aws_route53_record" "grafana" {
+  zone_id = var.route53_zone_id
+  name    = "grafana.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = module.cloudfront_grafana.distribution_domain_name
+    zone_id                = module.cloudfront_grafana.distribution_hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "grafana_internal" {
+  count = var.grafana_nlb_dns_name != "" ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = "grafana-internal.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = var.grafana_nlb_dns_name
+    zone_id                = var.grafana_nlb_zone_id
+    evaluate_target_health = true
+  }
+}
+
 resource "aws_route53_record" "argocd_internal" {
   count = var.argocd_nlb_dns_name != "" ? 1 : 0
 

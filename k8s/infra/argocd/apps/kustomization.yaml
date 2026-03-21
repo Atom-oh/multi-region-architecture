@@ -16,3 +16,4 @@ resources:
   - appset-helm-fluent-bit.yaml
   - appset-helm-otel-collector.yaml
   - appset-helm-alb-controller.yaml
+  - appset-grafana-nlb.yaml
