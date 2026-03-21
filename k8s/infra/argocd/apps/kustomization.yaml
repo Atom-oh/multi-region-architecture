@@ -13,6 +13,7 @@ resources:
   - appset-helm-karpenter.yaml
   - appset-helm-external-secrets.yaml
   - appset-helm-prometheus.yaml
+  - appset-helm-prometheus-west.yaml
   - appset-helm-fluent-bit.yaml
   - appset-helm-otel-collector.yaml
   - appset-helm-alb-controller.yaml

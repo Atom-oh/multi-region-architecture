@@ -9,16 +9,6 @@ spec:
         selector:
           matchLabels:
             region: us-east-1
-        values:
-          grafana_enabled: "true"
-          grafana_replicas: "1"
-    - clusters:
-        selector:
-          matchLabels:
-            region: us-west-2
-        values:
-          grafana_enabled: "false"
-          grafana_replicas: "0"
   template:
     metadata:
       name: 'prometheus-{{metadata.labels.region}}'
@@ -31,8 +21,8 @@ spec:
         helm:
           valuesObject:
             grafana:
-              enabled: '{{values.grafana_enabled}}'
-              replicas: '{{values.grafana_replicas}}'
+              enabled: true
+              replicas: 1
               persistence:
                 enabled: true
                 size: 10Gi
@@ -44,6 +34,9 @@ spec:
               datasources:
                 datasources.yaml:
                   apiVersion: 1
+                  deleteDatasources:
+                    - name: Prometheus
+                      orgId: 1
                   datasources:
                     - name: Prometheus (local)
                       type: prometheus
@@ -55,20 +48,16 @@ spec:
                       url: http://tempo.observability:3200
                       access: proxy
                       jsonData:
-                        tracesToLogsV2:
-                          datasourceUid: cloudwatch
-                          filterByTraceID: true
-                        serviceMap:
-                          datasourceUid: prometheus-local
                         nodeGraph:
                           enabled: true
                     - name: CloudWatch (us-east-1)
                       type: cloudwatch
-                      uid: cloudwatch
+                      uid: cloudwatch-east
                       jsonData:
                         defaultRegion: us-east-1
                     - name: CloudWatch (us-west-2)
                       type: cloudwatch
+                      uid: cloudwatch-west
                       jsonData:
                         defaultRegion: us-west-2
             prometheus:
