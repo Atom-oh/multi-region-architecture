@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - ../../../services/platform
+  - ../../../services/platform/synthetic-monitor
 
 patches:
   - target:
@@ -12,6 +13,13 @@ patches:
       - op: replace
         path: /spec/targetGroupARN
         value: "arn:aws:elasticloadbalancing:us-west-2:180294183052:targetgroup/production-api-tg-us-west-2/6e707c837e2a626c"
+  - target:
+      kind: CronJob
+      name: synthetic-monitor
+    patch: |-
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/image
+        value: "180294183052.dkr.ecr.us-west-2.amazonaws.com/shopping-mall/synthetic-monitor:latest"
   - target:
       kind: Deployment
     patch: |-

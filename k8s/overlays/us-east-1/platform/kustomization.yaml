@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - ../../../services/platform
+  - ../../../services/platform/synthetic-monitor
 
 patches:
   - target:
