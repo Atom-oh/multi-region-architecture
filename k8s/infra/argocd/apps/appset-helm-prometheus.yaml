@@ -57,7 +57,7 @@ spec:
                       uid: prometheus-west
                       url: http://prometheus-west-nlb.monitoring:9090
                       access: proxy
-                    - name: Tempo
+                    - name: Tempo (us-east-1)
                       type: tempo
                       uid: tempo
                       url: http://tempo.observability:3200
@@ -67,6 +67,18 @@ spec:
                           datasourceUid: prometheus-east
                         serviceMap:
                           datasourceUid: prometheus-east
+                        nodeGraph:
+                          enabled: true
+                    - name: Tempo (us-west-2)
+                      type: tempo
+                      uid: tempo-west
+                      url: http://tempo-west-nlb.observability:3200
+                      access: proxy
+                      jsonData:
+                        tracesToMetrics:
+                          datasourceUid: prometheus-west
+                        serviceMap:
+                          datasourceUid: prometheus-west
                         nodeGraph:
                           enabled: true
                     - name: CloudWatch (us-east-1)

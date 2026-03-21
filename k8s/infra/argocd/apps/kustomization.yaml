@@ -18,3 +18,5 @@ resources:
   - appset-helm-otel-collector.yaml
   - appset-helm-alb-controller.yaml
   - appset-grafana-nlb.yaml
+  - appset-prometheus-west-nlb.yaml
+  - appset-tempo-west-nlb.yaml
