@@ -28,6 +28,8 @@ spec:
                 size: 10Gi
                 storageClassName: gp3
               sidecar:
+                datasources:
+                  defaultDatasourceEnabled: false
                 dashboards:
                   enabled: true
                   label: grafana_dashboard
@@ -49,7 +51,7 @@ spec:
                       uid: prometheus-east
                       url: http://prometheus-kube-prometheus-prometheus.monitoring:9090
                       access: proxy
-                      isDefault: false
+                      isDefault: true
                     - name: Prometheus (us-west-2)
                       type: prometheus
                       uid: prometheus-west
