@@ -17,55 +17,55 @@
       "type": "text"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
       "fieldConfig": {
         "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } }
       },
       "gridPos": { "h": 5, "w": 6, "x": 0, "y": 4 },
       "id": 2,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }], "limit": 100 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }], "limit": 100 }],
       "title": "Total Traces (last 1h)",
       "type": "stat"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
       "fieldConfig": {
         "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }] } }
       },
       "gridPos": { "h": 5, "w": 6, "x": 6, "y": 4 },
       "id": 3,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin-east", "tag": "test.origin", "operator": "=", "value": ["test-east"], "scope": "resource" }], "limit": 100 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin-east", "tag": "test.origin", "operator": "=", "value": ["test-east"], "scope": "resource" }], "limit": 100 }],
       "title": "Traces from test-east",
       "type": "stat"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
       "fieldConfig": {
         "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "blue", "value": null }] } }
       },
       "gridPos": { "h": 5, "w": 6, "x": 12, "y": 4 },
       "id": 4,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin-west", "tag": "test.origin", "operator": "=", "value": ["test-west"], "scope": "resource" }], "limit": 100 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin-west", "tag": "test.origin", "operator": "=", "value": ["test-west"], "scope": "resource" }], "limit": 100 }],
       "title": "Traces from test-west",
       "type": "stat"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
       "fieldConfig": {
         "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": null }] } }
       },
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 4 },
       "id": 5,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "status", "tag": "status", "operator": "=", "value": ["error"], "scope": "intrinsic" }], "limit": 100 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "status", "tag": "status", "operator": "=", "value": ["error"], "scope": "intrinsic" }], "limit": 100 }],
       "title": "Error Traces",
       "type": "stat"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -74,16 +74,16 @@
       },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 9 },
       "id": 6,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }], "limit": 200 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }], "limit": 200 }],
       "title": "Trace Duration Over Time",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 17 },
       "id": 7,
       "options": { "search": { "hide": false } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }], "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }], "limit": 50 }],
       "title": "Recent Traces — Synthetic Monitor",
       "type": "traces"
     },
@@ -96,23 +96,23 @@
       "type": "text"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 29 },
       "id": 8,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-east\" && name =~ \"s.*\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-east\" && name =~ \"s.*\"}", "limit": 50 }],
       "title": "test-east Scenario Traces",
       "type": "traces"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 29 },
       "id": 9,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\" && name =~ \"s.*\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\" && name =~ \"s.*\"}", "limit": 50 }],
       "title": "test-west Scenario Traces",
       "type": "traces"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -126,8 +126,8 @@
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 37 },
       "id": 10,
       "targets": [
-        { "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin", "tag": "test.origin", "operator": "=", "value": ["test-east"], "scope": "resource" }], "limit": 100 },
-        { "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin", "tag": "test.origin", "operator": "=", "value": ["test-west"], "scope": "resource" }], "limit": 100 }
+        { "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin", "tag": "test.origin", "operator": "=", "value": ["test-east"], "scope": "resource" }], "limit": 100 },
+        { "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin", "tag": "test.origin", "operator": "=", "value": ["test-west"], "scope": "resource" }], "limit": 100 }
       ],
       "title": "Latency Comparison: test-east vs test-west",
       "type": "timeseries"
