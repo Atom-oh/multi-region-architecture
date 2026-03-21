@@ -11,7 +11,7 @@ spec:
             region: us-east-1
         values:
           grafana_enabled: "true"
-          grafana_replicas: "2"
+          grafana_replicas: "1"
     - clusters:
         selector:
           matchLabels:
