@@ -7,17 +7,14 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-type: "external"
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
-    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
     # Region-specific annotations patched by ArgoCD AppSet:
     #   aws-load-balancer-security-groups (NLB SG with CloudFront prefix list)
-    #   aws-load-balancer-ssl-cert (regional ACM certificate)
 spec:
   type: LoadBalancer
   selector:
     app.kubernetes.io/name: grafana
   ports:
-    - name: https
-      port: 443
+    - name: http
+      port: 80
       targetPort: 3000
       protocol: TCP
