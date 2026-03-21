@@ -24,7 +24,7 @@
       "gridPos": { "h": 5, "w": 6, "x": 0, "y": 3 },
       "id": 2,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }], "limit": 100 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\"}", "tableType": "traces", "limit": 100 }],
       "title": "Total Traces (last 1h)",
       "type": "stat"
     },
@@ -36,7 +36,7 @@
       "gridPos": { "h": 5, "w": 6, "x": 6, "y": 3 },
       "id": 3,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin-east", "tag": "test.origin", "operator": "=", "value": ["test-east"], "scope": "resource" }], "limit": 100 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-east\"}", "tableType": "traces", "limit": 100 }],
       "title": "Traces from us-east-1",
       "type": "stat"
     },
@@ -48,7 +48,7 @@
       "gridPos": { "h": 5, "w": 6, "x": 12, "y": 3 },
       "id": 4,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin-west", "tag": "test.origin", "operator": "=", "value": ["test-west"], "scope": "resource" }], "limit": 100 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 100 }],
       "title": "Traces from us-west-2",
       "type": "stat"
     },
@@ -60,7 +60,7 @@
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 3 },
       "id": 5,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "status", "tag": "status", "operator": "=", "value": ["error"], "scope": "intrinsic" }], "limit": 100 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && status = error}", "tableType": "traces", "limit": 100 }],
       "title": "Error Traces",
       "type": "stat"
     },
@@ -74,7 +74,7 @@
       },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
       "id": 6,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }], "limit": 200 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\"}", "tableType": "traces", "limit": 200 }],
       "title": "Trace Duration Over Time",
       "type": "timeseries"
     },
@@ -93,8 +93,8 @@
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
       "id": 10,
       "targets": [
-        { "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin", "tag": "test.origin", "operator": "=", "value": ["test-east"], "scope": "resource" }], "limit": 100 },
-        { "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }, { "id": "origin", "tag": "test.origin", "operator": "=", "value": ["test-west"], "scope": "resource" }], "limit": 100 }
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-east\"}", "tableType": "traces", "limit": 100 },
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 100 }
       ],
       "title": "Latency Comparison: us-east-1 vs us-west-2",
       "type": "timeseries"
@@ -111,7 +111,7 @@
       "datasource": { "type": "tempo", "uid": "tempo" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 26 },
       "id": 11,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s1_.*\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s1_.*\"}", "tableType": "traces", "limit": 50 }],
       "title": "S1: Browse & Search",
       "type": "traces"
     },
@@ -119,7 +119,7 @@
       "datasource": { "type": "tempo", "uid": "tempo" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 26 },
       "id": 12,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s2_.*\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s2_.*\"}", "tableType": "traces", "limit": 50 }],
       "title": "S2: User Registration",
       "type": "traces"
     },
@@ -127,7 +127,7 @@
       "datasource": { "type": "tempo", "uid": "tempo" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 26 },
       "id": 13,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s3_.*\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s3_.*\"}", "tableType": "traces", "limit": 50 }],
       "title": "S3: Shopping Cart",
       "type": "traces"
     },
@@ -135,7 +135,7 @@
       "datasource": { "type": "tempo", "uid": "tempo" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 34 },
       "id": 14,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s4_.*\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s4_.*\"}", "tableType": "traces", "limit": 50 }],
       "title": "S4: Purchase Flow",
       "type": "traces"
     },
@@ -143,7 +143,7 @@
       "datasource": { "type": "tempo", "uid": "tempo" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 34 },
       "id": 15,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s5_.*\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s5_.*\"}", "tableType": "traces", "limit": 50 }],
       "title": "S5: Seller & Warehouse",
       "type": "traces"
     },
@@ -151,7 +151,7 @@
       "datasource": { "type": "tempo", "uid": "tempo" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 34 },
       "id": 16,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s6_.*\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s6_.*\"}", "tableType": "traces", "limit": 50 }],
       "title": "S6: Post-Purchase",
       "type": "traces"
     },
@@ -159,7 +159,7 @@
       "datasource": { "type": "tempo", "uid": "tempo" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 42 },
       "id": 17,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s7_.*\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name =~ \"s7_.*\"}", "tableType": "traces", "limit": 50 }],
       "title": "S7: Platform & Analytics",
       "type": "traces"
     },
@@ -181,7 +181,7 @@
         "color": { "mode": "scheme", "scheme": "Oranges" },
         "yAxis": { "unit": "ms" }
       },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceqlSearch", "filters": [{ "id": "service-name", "tag": "service.name", "operator": "=", "value": ["synthetic-monitor"], "scope": "resource" }], "limit": 500 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\"}", "tableType": "traces", "limit": 500 }],
       "title": "Latency Heatmap (all scenarios)",
       "type": "heatmap"
     },
@@ -198,7 +198,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
       "id": 8,
       "options": { "search": { "hide": false } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-east\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-east\"}", "tableType": "traces", "limit": 50 }],
       "title": "Recent Traces — us-east-1",
       "type": "traces"
     },
@@ -207,7 +207,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
       "id": 9,
       "options": { "search": { "hide": false } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 50 }],
       "title": "Recent Traces — us-west-2",
       "type": "traces"
     },
@@ -228,5 +228,5 @@
   "timezone": "utc",
   "title": "Synthetic Monitor - E2E User Journeys",
   "uid": "synthetic-monitor",
-  "version": 2
+  "version": 3
 }
