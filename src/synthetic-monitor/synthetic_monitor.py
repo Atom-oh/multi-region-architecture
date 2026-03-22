@@ -67,6 +67,8 @@ try:
 except Exception as e:
     logger.warning(f"OTel exporter init failed (traces will be local only): {e}")
 trace.set_tracer_provider(provider)
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+RequestsInstrumentor().instrument()
 tracer = trace.get_tracer("synthetic-monitor")
 propagator = TraceContextTextMapPropagator()
 
