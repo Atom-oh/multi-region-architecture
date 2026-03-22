@@ -158,6 +158,471 @@ source_region                  = var.is_primary ? <span class="hl-num">null</spa
 enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</span> : var.enable_write_forwarding</code><span class="code-label">hcl</span></pre>
 
                         <h4><span class="lang-ko">Failover 시나리오</span><span class="lang-en">Failover Scenarios</span></h4>
+
+                        <!-- Failover Canvas Visualization -->
+                        <div style="margin-bottom:16px;">
+                            <canvas id="failover-canvas" style="width:100%; display:block; border-radius:8px;"></canvas>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 4px 0;">
+                                <button onclick="setFailoverScenario(0)" id="fbtn-0" style="padding:6px 14px; border-radius:6px; border:1.5px solid var(--border-strong); background:var(--accent); color:#fff; cursor:pointer; font-size:13px; font-weight:600; transition:all .2s;">
+                                    <span class="lang-ko">정상</span><span class="lang-en">Normal</span>
+                                </button>
+                                <button onclick="setFailoverScenario(1)" id="fbtn-1" style="padding:6px 14px; border-radius:6px; border:1.5px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); cursor:pointer; font-size:13px; font-weight:500; transition:all .2s;">
+                                    <span class="lang-ko">us-east-1 장애</span><span class="lang-en">us-east-1 Failure</span>
+                                </button>
+                                <button onclick="setFailoverScenario(2)" id="fbtn-2" style="padding:6px 14px; border-radius:6px; border:1.5px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); cursor:pointer; font-size:13px; font-weight:500; transition:all .2s;">
+                                    <span class="lang-ko">us-west-2 장애</span><span class="lang-en">us-west-2 Failure</span>
+                                </button>
+                                <button onclick="setFailoverScenario(3)" id="fbtn-3" style="padding:6px 14px; border-radius:6px; border:1.5px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); cursor:pointer; font-size:13px; font-weight:500; transition:all .2s;">
+                                    <span class="lang-ko">Aurora Primary 장애</span><span class="lang-en">Aurora Primary Failure</span>
+                                </button>
+                                <button onclick="setFailoverScenario(4)" id="fbtn-4" style="padding:6px 14px; border-radius:6px; border:1.5px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); cursor:pointer; font-size:13px; font-weight:500; transition:all .2s;">
+                                    <span class="lang-ko">단일 AZ 장애</span><span class="lang-en">Single AZ Failure</span>
+                                </button>
+                            </div>
+                        </div>
+                        <script>
+                        (function() {
+                            var canvas = document.getElementById('failover-canvas');
+                            if (!canvas) return;
+                            var ctx = canvas.getContext('2d');
+                            var dpr = window.devicePixelRatio || 1;
+                            var W, H, nodes, edges, particles = [];
+                            var PARTICLE_SPEED = 1.0;
+                            var SPAWN_INTERVAL = 45;
+                            var frameCount = 0;
+                            var animId;
+                            var scenario = 0; // 0=normal, 1=east-fail, 2=west-fail, 3=aurora-fail, 4=az-fail
+                            var scenarioTime = 0; // animation progress 0→1
+                            var scenarioStart = 0;
+                            var SCENARIO_DURATION = 3000; // ms for full transition
+
+                            function getCSS(v) {
+                                return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+                            }
+
+                            function colors() {
+                                return {
+                                    bg: getCSS('--bg-card') || '#1E293B',
+                                    text: getCSS('--text-primary') || '#E2E8F0',
+                                    textSec: getCSS('--text-secondary') || '#94A3B8',
+                                    muted: getCSS('--text-muted') || '#64748B',
+                                    border: getCSS('--border-strong') || '#334155',
+                                    east: '#10B981',
+                                    west: '#3B82F6',
+                                    cf: '#8B5CF6',
+                                    route53: '#F59E0B',
+                                    fail: '#ef4444',
+                                    promote: '#10b981',
+                                    repl: '#06B6D4'
+                                };
+                            }
+
+                            function layout() {
+                                var rect = canvas.parentElement.getBoundingClientRect();
+                                W = rect.width;
+                                H = Math.max(320, Math.min(420, W * 0.48));
+                                canvas.width = W * dpr;
+                                canvas.height = H * dpr;
+                                canvas.style.height = H + 'px';
+                                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+                                var cx = W / 2;
+                                var padX = Math.max(20, W * 0.04);
+                                // Rows
+                                var r0 = H * 0.08;  // CloudFront + Route53
+                                var r1 = H * 0.26;  // Region headers
+                                var r2 = H * 0.46;  // EKS
+                                var r3 = H * 0.68;  // Data layer (Aurora, DocDB, MSK)
+                                var r4 = H * 0.88;  // Replication line
+
+                                var leftCx = padX + (cx - padX) * 0.5;
+                                var rightCx = cx + (cx - padX) * 0.5;
+
+                                var c = colors();
+                                nodes = {
+                                    cf:       { x: cx, y: r0, w: 160, h: 32, label: 'CloudFront + WAF', color: c.cf, type: 'pill' },
+                                    r53:      { x: cx, y: r0 + 42, w: 140, h: 28, label: 'Route53 DNS', color: c.route53, type: 'pill' },
+                                    eastReg:  { x: leftCx, y: r1, w: (cx - padX) * 0.88, h: H * 0.65, label: '', color: c.east, type: 'region' },
+                                    westReg:  { x: rightCx, y: r1, w: (cx - padX) * 0.88, h: H * 0.65, label: '', color: c.west, type: 'region' },
+                                    eastEks:  { x: leftCx, y: r2, w: 110, h: 34, label: 'EKS Pods', sub: 'us-east-1', color: c.east, type: 'box' },
+                                    westEks:  { x: rightCx, y: r2, w: 110, h: 34, label: 'EKS Pods', sub: 'us-west-2', color: c.west, type: 'box' },
+                                    eastAurora: { x: leftCx - 50, y: r3, w: 100, h: 30, label: 'Aurora (P)', color: c.east, type: 'box' },
+                                    eastDocdb:  { x: leftCx + 55, y: r3, w: 100, h: 30, label: 'DocDB (P)', color: c.east, type: 'box' },
+                                    westAurora: { x: rightCx - 50, y: r3, w: 100, h: 30, label: 'Aurora (S)', color: c.west, type: 'box' },
+                                    westDocdb:  { x: rightCx + 55, y: r3, w: 100, h: 30, label: 'DocDB (S)', color: c.west, type: 'box' },
+                                    eastAz1:  { x: leftCx - 40, y: r2 - 4, w: 8, h: 8, label: 'AZ-1', color: c.east, type: 'dot' },
+                                    eastAz2:  { x: leftCx + 40, y: r2 - 4, w: 8, h: 8, label: 'AZ-2', color: c.east, type: 'dot' }
+                                };
+
+                                edges = [
+                                    { from: 'cf', to: 'r53', color: c.cf },
+                                    { from: 'r53', to: 'eastEks', color: c.east, id: 'r53-east' },
+                                    { from: 'r53', to: 'westEks', color: c.west, id: 'r53-west' },
+                                    { from: 'eastEks', to: 'eastAurora', color: c.east },
+                                    { from: 'eastEks', to: 'eastDocdb', color: c.east },
+                                    { from: 'westEks', to: 'westAurora', color: c.west },
+                                    { from: 'westEks', to: 'westDocdb', color: c.west },
+                                    { from: 'eastAurora', to: 'westAurora', color: c.repl, id: 'repl-aurora', dashed: true },
+                                    { from: 'eastDocdb', to: 'westDocdb', color: c.repl, id: 'repl-docdb', dashed: true }
+                                ];
+
+                                particles = [];
+                                if (W > 0) draw();
+                            }
+
+                            function nodeCenter(n) { return { x: n.x, y: n.y }; }
+
+                            function isNodeFailed(key) {
+                                if (scenario === 1) return key.indexOf('east') === 0 && key !== 'eastReg';
+                                if (scenario === 2) return key.indexOf('west') === 0 && key !== 'westReg';
+                                if (scenario === 3) return key === 'eastAurora';
+                                if (scenario === 4) return key === 'eastAz1';
+                                return false;
+                            }
+
+                            function isRegionFailed(key) {
+                                if (scenario === 1) return key === 'eastReg';
+                                if (scenario === 2) return key === 'westReg';
+                                return false;
+                            }
+
+                            function isPromoted(key) {
+                                if (scenario === 3 && key === 'westAurora' && scenarioTime > 0.5) return true;
+                                return false;
+                            }
+
+                            function isEdgeActive(e) {
+                                if (scenario === 1 && e.id === 'r53-east') return false;
+                                if (scenario === 2 && e.id === 'r53-west') return false;
+                                if (scenario === 1 && (e.from.indexOf('east') === 0 || e.to.indexOf('east') === 0) && e.id !== 'repl-aurora' && e.id !== 'repl-docdb') return false;
+                                if (scenario === 2 && (e.from.indexOf('west') === 0 || e.to.indexOf('west') === 0) && e.id !== 'repl-aurora' && e.id !== 'repl-docdb') return false;
+                                return true;
+                            }
+
+                            function drawRegion(n, failed) {
+                                var c = colors();
+                                var hw = n.w / 2, hh = n.h / 2;
+                                ctx.save();
+                                var alpha = failed ? 0.06 : 0.04;
+                                var borderAlpha = failed ? 0.4 : 0.25;
+                                ctx.fillStyle = (failed ? c.fail : n.color) + (Math.round(alpha * 255)).toString(16).padStart(2, '0');
+                                ctx.strokeStyle = (failed ? c.fail : n.color) + (Math.round(borderAlpha * 255)).toString(16).padStart(2, '0');
+                                ctx.lineWidth = 1.5;
+                                ctx.beginPath();
+                                ctx.roundRect(n.x - hw, n.y, n.w, n.h, 10);
+                                ctx.fill();
+                                ctx.stroke();
+
+                                // Region label
+                                ctx.font = 'bold 12px -apple-system, sans-serif';
+                                ctx.fillStyle = (failed ? c.fail : n.color) + (failed ? '99' : '80');
+                                var label = n.x < W / 2 ? 'us-east-1' : 'us-west-2';
+                                ctx.textAlign = 'left';
+                                ctx.fillText(label, n.x - hw + 10, n.y + 16);
+
+                                if (failed) {
+                                    // Pulse effect
+                                    var pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+                                    ctx.strokeStyle = c.fail + (Math.round(pulse * 100 + 30)).toString(16).padStart(2, '0');
+                                    ctx.lineWidth = 2.5;
+                                    ctx.beginPath();
+                                    ctx.roundRect(n.x - hw, n.y, n.w, n.h, 10);
+                                    ctx.stroke();
+
+                                    // X mark
+                                    ctx.font = 'bold 28px -apple-system, sans-serif';
+                                    ctx.fillStyle = c.fail + 'cc';
+                                    ctx.textAlign = 'center';
+                                    ctx.textBaseline = 'middle';
+                                    ctx.fillText('✕', n.x, n.y + n.h / 2);
+                                }
+                                ctx.restore();
+                            }
+
+                            function drawPill(n, failed) {
+                                var c = colors();
+                                var hw = n.w / 2, hh = n.h / 2;
+                                ctx.save();
+                                ctx.shadowColor = n.color;
+                                ctx.shadowBlur = failed ? 0 : 8;
+                                ctx.fillStyle = n.color + '20';
+                                ctx.strokeStyle = failed ? c.fail + '60' : n.color;
+                                ctx.lineWidth = 1.5;
+                                ctx.beginPath();
+                                ctx.roundRect(n.x - hw, n.y - hh, n.w, n.h, hh);
+                                ctx.fill();
+                                ctx.stroke();
+                                ctx.shadowBlur = 0;
+
+                                ctx.font = 'bold 12px -apple-system, sans-serif';
+                                ctx.fillStyle = c.text;
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(n.label, n.x, n.y);
+                                ctx.restore();
+                            }
+
+                            function drawBox(n, failed, promoted) {
+                                var c = colors();
+                                var hw = n.w / 2, hh = n.h / 2;
+                                ctx.save();
+
+                                var nodeColor = promoted ? c.promote : (failed ? c.fail : n.color);
+                                var alpha = failed ? 0.15 : 0.12;
+                                ctx.fillStyle = nodeColor + (Math.round(alpha * 255)).toString(16).padStart(2, '0');
+                                ctx.strokeStyle = failed ? c.fail + '80' : (promoted ? c.promote : nodeColor);
+                                ctx.lineWidth = promoted ? 2.5 : 1.5;
+
+                                if (promoted) {
+                                    ctx.shadowColor = c.promote;
+                                    ctx.shadowBlur = 12;
+                                }
+
+                                ctx.beginPath();
+                                ctx.roundRect(n.x - hw, n.y - hh, n.w, n.h, 6);
+                                ctx.fill();
+                                ctx.stroke();
+                                ctx.shadowBlur = 0;
+
+                                // Label
+                                var label = n.label;
+                                if (promoted) label = label.replace('(S)', '(P) ★');
+                                if (failed && !promoted) {
+                                    var pulse = 0.5 + 0.5 * Math.sin(Date.now() / 250);
+                                    ctx.fillStyle = c.fail + (Math.round(pulse * 180 + 60)).toString(16).padStart(2, '0');
+                                } else {
+                                    ctx.fillStyle = promoted ? c.promote : c.text;
+                                }
+                                ctx.font = (promoted ? 'bold ' : '') + '11px -apple-system, sans-serif';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(label, n.x, n.y - (n.sub ? 5 : 0));
+
+                                if (n.sub) {
+                                    ctx.font = '10px -apple-system, sans-serif';
+                                    ctx.fillStyle = c.textSec;
+                                    ctx.fillText(n.sub, n.x, n.y + 9);
+                                }
+
+                                if (failed && !promoted) {
+                                    ctx.font = 'bold 16px -apple-system, sans-serif';
+                                    ctx.fillStyle = c.fail + 'cc';
+                                    ctx.fillText('✕', n.x + hw - 12, n.y - hh + 12);
+                                }
+                                ctx.restore();
+                            }
+
+                            function drawEdge(e) {
+                                var c = colors();
+                                var active = isEdgeActive(e);
+                                var from = nodeCenter(nodes[e.from]);
+                                var to = nodeCenter(nodes[e.to]);
+                                ctx.save();
+                                ctx.strokeStyle = active ? (e.color || c.muted) + 'aa' : c.muted + '30';
+                                ctx.lineWidth = active ? 1.5 : 1;
+                                if (e.dashed) ctx.setLineDash([5, 4]);
+                                ctx.beginPath();
+                                ctx.moveTo(from.x, from.y);
+                                ctx.lineTo(to.x, to.y);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+
+                                // Replication label
+                                if (e.dashed && active) {
+                                    var mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
+                                    ctx.font = '9px -apple-system, sans-serif';
+                                    ctx.fillStyle = c.repl + 'cc';
+                                    ctx.textAlign = 'center';
+                                    ctx.fillText('replication', mx, my - 6);
+                                }
+                                ctx.restore();
+                            }
+
+                            function spawnParticles() {
+                                var c = colors();
+                                // CF → Route53
+                                particles.push({ from: 'cf', to: 'r53', t: 0, color: c.cf });
+
+                                // Route53 → regions (based on scenario)
+                                if (scenario !== 1) particles.push({ from: 'r53', to: 'eastEks', t: 0, color: c.east });
+                                if (scenario !== 2) particles.push({ from: 'r53', to: 'westEks', t: 0, color: c.west });
+
+                                // Redirect particles for failed scenario
+                                if (scenario === 1) particles.push({ from: 'r53', to: 'westEks', t: 0, color: c.route53 });
+                                if (scenario === 2) particles.push({ from: 'r53', to: 'eastEks', t: 0, color: c.route53 });
+
+                                // EKS → DB (only for active regions)
+                                if (scenario !== 1) {
+                                    particles.push({ from: 'eastEks', to: 'eastAurora', t: 0, color: c.east + '88' });
+                                    particles.push({ from: 'eastEks', to: 'eastDocdb', t: 0, color: c.east + '88' });
+                                }
+                                if (scenario !== 2) {
+                                    particles.push({ from: 'westEks', to: 'westAurora', t: 0, color: c.west + '88' });
+                                    particles.push({ from: 'westEks', to: 'westDocdb', t: 0, color: c.west + '88' });
+                                }
+                            }
+
+                            function updateParticles() {
+                                var speed = PARTICLE_SPEED / 60;
+                                for (var i = particles.length - 1; i >= 0; i--) {
+                                    particles[i].t += speed;
+                                    if (particles[i].t >= 1) particles.splice(i, 1);
+                                }
+                            }
+
+                            function drawParticles() {
+                                particles.forEach(function(p) {
+                                    var from = nodeCenter(nodes[p.from]);
+                                    var to = nodeCenter(nodes[p.to]);
+                                    var x = from.x + (to.x - from.x) * p.t;
+                                    var y = from.y + (to.y - from.y) * p.t;
+                                    ctx.save();
+                                    ctx.beginPath();
+                                    ctx.arc(x, y, 3, 0, Math.PI * 2);
+                                    ctx.fillStyle = p.color;
+                                    ctx.shadowColor = p.color;
+                                    ctx.shadowBlur = 6;
+                                    ctx.fill();
+                                    ctx.restore();
+                                });
+                            }
+
+                            function drawStatusBar() {
+                                if (scenario === 0) return;
+                                var c = colors();
+                                var scenarios = [
+                                    null,
+                                    { label: 'us-east-1 Failure', detect: '~60s', rpo: 'DSQL: 0 / DocDB: <5s / MSK: <5s' },
+                                    { label: 'us-west-2 Failure', detect: '~60s', rpo: 'DSQL: 0 / DocDB: <5s / MSK: <5s' },
+                                    { label: 'Aurora Primary Failure', detect: '~120s', rpo: 'RPO < 1s' },
+                                    { label: 'Single AZ Failure', detect: '~30s', rpo: 'Data Loss: None' }
+                                ];
+                                var s = scenarios[scenario];
+                                var barW = W * 0.6, barH = 6;
+                                var barX = (W - barW) / 2, barY = H - 22;
+
+                                // Progress bar background
+                                ctx.fillStyle = c.border;
+                                ctx.beginPath();
+                                ctx.roundRect(barX, barY, barW, barH, 3);
+                                ctx.fill();
+
+                                // Progress bar fill
+                                var prog = Math.min(scenarioTime, 1);
+                                var progColor = prog < 0.4 ? c.fail : (prog < 0.7 ? c.route53 : c.promote);
+                                ctx.fillStyle = progColor;
+                                ctx.beginPath();
+                                ctx.roundRect(barX, barY, barW * prog, barH, 3);
+                                ctx.fill();
+
+                                // Labels
+                                ctx.font = 'bold 11px -apple-system, sans-serif';
+                                ctx.textAlign = 'center';
+                                ctx.fillStyle = scenarioTime < 0.5 ? c.fail : c.promote;
+                                ctx.fillText(scenarioTime < 0.4 ? '⚠ ' + s.label : scenarioTime < 0.7 ? '↻ Failover in progress...' : '✓ Recovered', W / 2, barY - 10);
+
+                                ctx.font = '10px -apple-system, sans-serif';
+                                ctx.fillStyle = c.textSec;
+                                ctx.fillText('Detection: ' + s.detect + '  |  ' + s.rpo, W / 2, barY + barH + 14);
+                            }
+
+                            function draw() {
+                                var c = colors();
+                                ctx.clearRect(0, 0, W, H);
+
+                                // Background
+                                ctx.fillStyle = c.bg;
+                                ctx.beginPath();
+                                ctx.roundRect(0, 0, W, H, 8);
+                                ctx.fill();
+
+                                // Draw edges first
+                                edges.forEach(drawEdge);
+
+                                // Draw regions
+                                drawRegion(nodes.eastReg, isRegionFailed('eastReg'));
+                                drawRegion(nodes.westReg, isRegionFailed('westReg'));
+
+                                // Draw nodes
+                                Object.keys(nodes).forEach(function(key) {
+                                    var n = nodes[key];
+                                    if (n.type === 'region') return;
+                                    if (n.type === 'dot') {
+                                        // AZ dots
+                                        var failed = isNodeFailed(key);
+                                        ctx.save();
+                                        ctx.beginPath();
+                                        ctx.arc(n.x, n.y, n.w, 0, Math.PI * 2);
+                                        ctx.fillStyle = failed ? c.fail : n.color + '60';
+                                        ctx.fill();
+                                        ctx.font = '9px -apple-system, sans-serif';
+                                        ctx.fillStyle = failed ? c.fail : c.textSec;
+                                        ctx.textAlign = 'center';
+                                        ctx.fillText(n.label, n.x, n.y - 12);
+                                        ctx.restore();
+                                        return;
+                                    }
+                                    var failed = isNodeFailed(key);
+                                    var promoted = isPromoted(key);
+                                    if (n.type === 'pill') drawPill(n, false);
+                                    else drawBox(n, failed, promoted);
+                                });
+
+                                // Draw particles
+                                drawParticles();
+
+                                // Status bar
+                                drawStatusBar();
+                            }
+
+                            function tick() {
+                                frameCount++;
+                                if (scenario > 0) {
+                                    scenarioTime = Math.min(1, (Date.now() - scenarioStart) / SCENARIO_DURATION);
+                                }
+                                if (frameCount % SPAWN_INTERVAL === 0) spawnParticles();
+                                updateParticles();
+                                if (W > 0) draw();
+                                animId = requestAnimationFrame(tick);
+                            }
+
+                            window.setFailoverScenario = function(s) {
+                                scenario = s;
+                                scenarioStart = Date.now();
+                                scenarioTime = s === 0 ? 0 : 0.01;
+                                particles = [];
+
+                                // Update button styles
+                                for (var i = 0; i <= 4; i++) {
+                                    var btn = document.getElementById('fbtn-' + i);
+                                    if (!btn) continue;
+                                    if (i === s) {
+                                        btn.style.background = 'var(--accent)';
+                                        btn.style.color = '#fff';
+                                        btn.style.fontWeight = '600';
+                                    } else {
+                                        btn.style.background = 'var(--bg-card)';
+                                        btn.style.color = 'var(--text-primary)';
+                                        btn.style.fontWeight = '500';
+                                    }
+                                }
+                            };
+
+                            function init() {
+                                layout();
+                                tick();
+                            }
+
+                            var ro = new ResizeObserver(function() { layout(); });
+                            ro.observe(canvas.parentElement);
+
+                            var mo = new MutationObserver(function() { if (W > 0) draw(); });
+                            mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+                            init();
+                        })();
+                        </script>
+
                         <table class="info-table">
                             <thead><tr><th><span class="lang-ko">시나리오</span><span class="lang-en">Scenario</span></th><th><span class="lang-ko">감지 시간</span><span class="lang-en">Detection Time</span></th><th><span class="lang-ko">복구 방법</span><span class="lang-en">Recovery Method</span></th><th><span class="lang-ko">데이터 손실</span><span class="lang-en">Data Loss</span></th></tr></thead>
                             <tbody>
