@@ -2,6 +2,7 @@ package valkey
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"time"
@@ -20,6 +21,7 @@ func New(host string, port int) (*Client, error) {
 		ReadTimeout:  3 * time.Second,
 		WriteTimeout: 3 * time.Second,
 		PoolSize:     20,
+		TLSConfig:    &tls.Config{},
 	})
 
 	// Add OTel tracing for automatic Redis span creation
