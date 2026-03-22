@@ -22,3 +22,27 @@ configMapGenerator:
       disableNameSuffixHash: true
       labels:
         grafana_dashboard: "1"
+  - name: grafana-dashboard-service-health
+    namespace: monitoring
+    files:
+      - dashboards/service-health.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-multi-region-comparison
+    namespace: monitoring
+    files:
+      - dashboards/multi-region-comparison.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-infrastructure-nodepools
+    namespace: monitoring
+    files:
+      - dashboards/infrastructure-nodepools.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
