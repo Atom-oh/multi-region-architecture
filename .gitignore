@@ -40,3 +40,11 @@ webpage/node_modules/
 build/
 .docusaurus/
 *.pyc
+__pycache__/
+
+# Go build binaries
+src/services/cart/cart
+src/services/inventory/inventory
+
+# Playwright MCP
+.playwright-mcp/
