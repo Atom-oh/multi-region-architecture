@@ -44,59 +44,22 @@
                             and distributes processed data to downstream services.</span>
                         </p>
 
-                        <h4><span class="lang-ko">AS-IS 아키텍처</span><span class="lang-en">AS-IS Architecture</span></h4>
-<pre><code>4 CBU (Connected Business Units)
-       |
-       v
-   Kafka Cluster
-       |
-       v
-   CCDI (Data Processing Layer)
-       |
-       +---> MongoDB (Primary Store)
-       |
-       +---> Redis (Cache Layer)
-       |
-       v
-   Backend Services
-       |
-       +---> ESB (Enterprise Service Bus)
-       |
-       +---> Java + Spring Applications
-
-<span class="hl-cm"># Issues:</span>
-- ESB differs per corporation (inconsistent integration)
-- Monolithic services, MSA modernization planned
-- Standard pattern: Cache(Redis) + NoSQL(MongoDB) per service
-- Problem: unnecessary data stored, cost optimization needed</code><span class="code-label">text</span></pre>
-
-                        <h4><span class="lang-ko">TO-BE 아키텍처</span><span class="lang-en">TO-BE Architecture</span></h4>
-<pre><code>4 CBU (Connected Business Units)
-       |
-       v
-   MSK (Managed Kafka)
-       |
-       v
-   CCDI (EKS - Containerized)
-       |
-       +---> ElastiCache/Redis (Hot Tier)
-       |           TTL: minutes
-       |           Use: VSS latest state
-       |
-       +---> MongoDB Atlas (Warm Tier, 검토 중)
-       |           Retention: 3-7 days
-       |           Use: Service queries
-       |
-       +---> S3 + Athena (Cold Tier)
-                   Retention: Permanent
-                   Use: Historical analysis</code><span class="code-label">text</span></pre>
+                        <div class="callout warning">
+                            <strong><span class="lang-ko">AS-IS 주요 문제점</span><span class="lang-en">AS-IS Key Issues</span></strong>
+                            <ul style="margin:8px 0 0 0; padding-left:20px;">
+                                <li><span class="lang-ko">ESB가 법인별로 상이 (일관성 없는 통합)</span><span class="lang-en">ESB differs per corporation (inconsistent integration)</span></li>
+                                <li><span class="lang-ko">모놀리식 서비스, MSA 현대화 예정</span><span class="lang-en">Monolithic services, MSA modernization planned</span></li>
+                                <li><span class="lang-ko">표준 패턴: Cache(Redis) + NoSQL(MongoDB) per service</span><span class="lang-en">Standard pattern: Cache(Redis) + NoSQL(MongoDB) per service</span></li>
+                                <li><span class="lang-ko">불필요한 데이터 저장, 비용 최적화 필요</span><span class="lang-en">Problem: unnecessary data stored, cost optimization needed</span></li>
+                            </ul>
+                        </div>
 
                         <h4><span class="lang-ko">컴포넌트 비교</span><span class="lang-en">Component Comparison</span></h4>
                         <table class="info-table">
                             <thead><tr><th><span class="lang-ko">컴포넌트</span><span class="lang-en">Component</span></th><th>AS-IS</th><th>TO-BE</th><th><span class="lang-ko">이점</span><span class="lang-en">Benefit</span></th></tr></thead>
                             <tbody>
                                 <tr><td><span class="lang-ko">메시지 큐</span><span class="lang-en">Message Queue</span></td><td>On-Prem Kafka</td><td>Amazon MSK</td><td><span class="lang-ko">관리형, 자동 스케일링</span><span class="lang-en">Managed, auto-scaling</span></td></tr>
-                                <tr><td><span class="lang-ko">처리</span><span class="lang-en">Processing</span></td><td>VM-based CCDI</td><td>EKS (Containerized)</td><td><span class="lang-ko">탄력적 스케일링, 이식성</span><span class="lang-en">Elastic scaling, portability</span></td></tr>
+                                <tr><td><span class="lang-ko">처리</span><span class="lang-en">Processing</span></td><td>On-Prem K8s CCDI</td><td>EKS (Containerized)</td><td><span class="lang-ko">관리형 컨트롤 플레인, 탄력적 스케일링</span><span class="lang-en">Managed control plane, elastic scaling</span></td></tr>
                                 <tr><td><span class="lang-ko">핫 스토리지</span><span class="lang-en">Hot Storage</span></td><td>Redis (self-managed)</td><td>ElastiCache</td><td><span class="lang-ko">Multi-AZ, 자동 장애조치</span><span class="lang-en">Multi-AZ, auto-failover</span></td></tr>
                                 <tr><td><span class="lang-ko">웜 스토리지</span><span class="lang-en">Warm Storage</span></td><td>MongoDB (HDD)</td><td>MongoDB Atlas (SSD)</td><td><span class="lang-ko">IOPS, 관리형 백업</span><span class="lang-en">IOPS, managed backups</span></td></tr>
                                 <tr><td><span class="lang-ko">콜드 스토리지</span><span class="lang-en">Cold Storage</span></td><td>None (data lost)</td><td>S3 + Athena</td><td><span class="lang-ko">영구 히스토리, 분석</span><span class="lang-en">Permanent history, analytics</span></td></tr>
@@ -678,6 +641,267 @@
                                 </tr>
                             </tbody>
                         </table>
+
+                        <!-- Processing Architecture Canvas -->
+                        <div style="position:relative; width:100%; margin:16px 0;">
+                            <canvas id="proc-arch-canvas" style="width:100%; display:block; border-radius:8px;"></canvas>
+                        </div>
+                        <div style="display:flex; gap:20px; flex-wrap:wrap; margin:4px 0 12px 0; font-size:13px;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#f59e0b;"></span>
+                                <span class="lang-ko">Gen2 레거시 (TCP)</span><span class="lang-en">Gen2 Legacy (TCP)</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#22c55e;"></span>
+                                <span class="lang-ko">Gen3 현대 (MQTT)</span><span class="lang-en">Gen3 Modern (MQTT)</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#8b5cf6;"></span>
+                                <span class="lang-ko">통합 경로</span><span class="lang-en">Unified Path</span>
+                            </div>
+                        </div>
+                        <script>
+                        (function() {
+                            var canvas = document.getElementById('proc-arch-canvas');
+                            if (!canvas) return;
+                            var ctx = canvas.getContext('2d');
+                            var dpr = window.devicePixelRatio || 1;
+                            var W, H, rows, particles = [];
+                            var PARTICLE_SPEED = 1.0;
+                            var SPAWN_INTERVAL = 70;
+                            var frameCount = 0;
+                            var animId;
+
+                            function getCSS(v) {
+                                return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+                            }
+
+                            function colors() {
+                                return {
+                                    bg: getCSS('--bg-card') || '#1E293B',
+                                    text: getCSS('--text-primary') || '#E2E8F0',
+                                    textSec: getCSS('--text-secondary') || '#94A3B8',
+                                    border: getCSS('--border-strong') || '#334155',
+                                    gen2: '#f59e0b',
+                                    gen3: '#22c55e',
+                                    unified: '#8b5cf6'
+                                };
+                            }
+
+                            function layout() {
+                                var rect = canvas.parentElement.getBoundingClientRect();
+                                W = rect.width;
+                                H = Math.max(220, W * 0.32);
+                                canvas.width = W * dpr;
+                                canvas.height = H * dpr;
+                                canvas.style.height = H + 'px';
+                                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+                                var nw = Math.min(100, W * 0.13);
+                                var nh = 32;
+                                var padX = nw / 2 + 6;
+                                var rowH = H / 3;
+                                var y1 = rowH * 0.5, y2 = rowH * 1.5, y3 = rowH * 2.5;
+
+                                // Compute even horizontal positions for each row
+                                function xPositions(count) {
+                                    var arr = [];
+                                    var usable = W - padX * 2;
+                                    for (var i = 0; i < count; i++) {
+                                        arr.push(padX + (usable / (count - 1)) * i);
+                                    }
+                                    return arr;
+                                }
+
+                                var gen2x = xPositions(5);
+                                var gen3x = xPositions(5);
+                                var unifiedX = xPositions(4);
+
+                                rows = [
+                                    {
+                                        label: 'Gen2 — Legacy',
+                                        color: '#f59e0b',
+                                        nodes: [
+                                            { x: gen2x[0], y: y1, w: nw, h: nh, label: 'Vehicle', color: '#f59e0b' },
+                                            { x: gen2x[1], y: y1, w: nw, h: nh, label: 'TCP Gateway', color: '#f59e0b' },
+                                            { x: gen2x[2], y: y1, w: nw, h: nh, label: 'Kafka', sub: 'gen2-*', color: '#f59e0b' },
+                                            { x: gen2x[3], y: y1, w: nw, h: nh, label: 'CCDI v1', color: '#f59e0b' },
+                                            { x: gen2x[4], y: y1, w: nw, h: nh, label: 'MongoDB', color: '#f59e0b' }
+                                        ]
+                                    },
+                                    {
+                                        label: 'Gen3 — Modern',
+                                        color: '#22c55e',
+                                        nodes: [
+                                            { x: gen3x[0], y: y2, w: nw, h: nh, label: 'Vehicle', color: '#22c55e' },
+                                            { x: gen3x[1], y: y2, w: nw, h: nh, label: 'IoT Core', sub: 'MQTT', color: '#22c55e' },
+                                            { x: gen3x[2], y: y2, w: nw, h: nh, label: 'Kafka', sub: 'gen3-*', color: '#22c55e' },
+                                            { x: gen3x[3], y: y2, w: nw, h: nh, label: 'CCDI v2', color: '#22c55e' },
+                                            { x: gen3x[4], y: y2, w: nw, h: nh, label: 'Tiered Store', color: '#22c55e' }
+                                        ]
+                                    },
+                                    {
+                                        label: 'Unified',
+                                        color: '#8b5cf6',
+                                        nodes: [
+                                            { x: unifiedX[0], y: y3, w: nw, h: nh, label: 'Both Paths', color: '#8b5cf6' },
+                                            { x: unifiedX[1], y: y3, w: nw, h: nh, label: 'Kafka', color: '#8b5cf6' },
+                                            { x: unifiedX[2], y: y3, w: nw + 20, h: nh, label: 'Unified CCDI', sub: 'EKS', color: '#8b5cf6' },
+                                            { x: unifiedX[3], y: y3, w: nw + 10, h: nh, label: 'Data Lake', color: '#8b5cf6' }
+                                        ]
+                                    }
+                                ];
+                            }
+
+                            function drawNode(n) {
+                                var c = colors();
+                                var x = n.x - n.w / 2, y = n.y - n.h / 2;
+                                ctx.shadowColor = n.color;
+                                ctx.shadowBlur = 10;
+                                ctx.fillStyle = n.color + '18';
+                                ctx.strokeStyle = n.color;
+                                ctx.lineWidth = 1.5;
+                                ctx.beginPath();
+                                ctx.roundRect(x, y, n.w, n.h, 5);
+                                ctx.fill();
+                                ctx.stroke();
+                                ctx.shadowBlur = 0;
+                                ctx.fillStyle = c.text;
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                if (n.sub) {
+                                    ctx.font = '600 11px "Noto Sans KR", sans-serif';
+                                    ctx.fillText(n.label, n.x, n.y - 5);
+                                    ctx.fillStyle = c.textSec;
+                                    ctx.font = '400 9px "Noto Sans KR", sans-serif';
+                                    ctx.fillText(n.sub, n.x, n.y + 8);
+                                } else {
+                                    ctx.font = '600 11px "Noto Sans KR", sans-serif';
+                                    ctx.fillText(n.label, n.x, n.y);
+                                }
+                            }
+
+                            function drawEdge(a, b, color) {
+                                var x1 = a.x + a.w / 2, y1 = a.y;
+                                var x2 = b.x - b.w / 2, y2 = b.y;
+                                ctx.strokeStyle = color + '40';
+                                ctx.lineWidth = 2;
+                                ctx.setLineDash([4, 4]);
+                                ctx.beginPath();
+                                ctx.moveTo(x1, y1);
+                                ctx.lineTo(x2, y2);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+                            }
+
+                            function drawRowLabel(row) {
+                                var c = colors();
+                                var firstNode = row.nodes[0];
+                                ctx.fillStyle = row.color;
+                                ctx.font = '700 10px "Noto Sans KR", sans-serif';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(row.label, firstNode.x, firstNode.y - firstNode.h / 2 - 12);
+                            }
+
+                            // Converge lines from Gen2/Gen3 Kafka to Unified "Both Paths"
+                            function drawConvergeLines() {
+                                if (!rows || rows.length < 3) return;
+                                var gen2Kafka = rows[0].nodes[2];
+                                var gen3Kafka = rows[1].nodes[2];
+                                var unifiedStart = rows[2].nodes[0];
+                                ctx.strokeStyle = '#8b5cf640';
+                                ctx.lineWidth = 1.5;
+                                ctx.setLineDash([3, 3]);
+                                ctx.beginPath();
+                                ctx.moveTo(gen2Kafka.x, gen2Kafka.y + gen2Kafka.h / 2);
+                                ctx.lineTo(unifiedStart.x, unifiedStart.y - unifiedStart.h / 2);
+                                ctx.stroke();
+                                ctx.beginPath();
+                                ctx.moveTo(gen3Kafka.x, gen3Kafka.y + gen3Kafka.h / 2);
+                                ctx.lineTo(unifiedStart.x, unifiedStart.y - unifiedStart.h / 2);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+                            }
+
+                            function spawnParticles() {
+                                rows.forEach(function(row) {
+                                    for (var i = 0; i < row.nodes.length - 1; i++) {
+                                        var a = row.nodes[i], b = row.nodes[i + 1];
+                                        particles.push({
+                                            x: a.x + a.w / 2, y: a.y,
+                                            tx: b.x - b.w / 2, ty: b.y,
+                                            color: row.color,
+                                            size: 2.5 + Math.random() * 1.5
+                                        });
+                                    }
+                                });
+                            }
+
+                            function updateParticles() {
+                                for (var i = particles.length - 1; i >= 0; i--) {
+                                    var p = particles[i];
+                                    var dx = p.tx - p.x, dy = p.ty - p.y;
+                                    var dist = Math.sqrt(dx * dx + dy * dy);
+                                    if (dist < 3) { particles.splice(i, 1); continue; }
+                                    var speed = PARTICLE_SPEED * (W / 600);
+                                    p.x += (dx / dist) * speed;
+                                    p.y += (dy / dist) * speed;
+                                }
+                            }
+
+                            function drawParticles() {
+                                particles.forEach(function(p) {
+                                    ctx.beginPath();
+                                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                                    ctx.fillStyle = p.color;
+                                    ctx.shadowColor = p.color;
+                                    ctx.shadowBlur = 8;
+                                    ctx.fill();
+                                    ctx.shadowBlur = 0;
+                                });
+                            }
+
+                            function draw() {
+                                if (!W || !H) return;
+                                ctx.clearRect(0, 0, W, H);
+                                rows.forEach(function(row) {
+                                    drawRowLabel(row);
+                                    for (var i = 0; i < row.nodes.length - 1; i++) {
+                                        drawEdge(row.nodes[i], row.nodes[i + 1], row.color);
+                                    }
+                                    row.nodes.forEach(drawNode);
+                                });
+                                drawConvergeLines();
+                                drawParticles();
+                            }
+
+                            function tick() {
+                                frameCount++;
+                                if (frameCount % SPAWN_INTERVAL === 0) spawnParticles();
+                                updateParticles();
+                                draw();
+                                animId = requestAnimationFrame(tick);
+                            }
+
+                            function init() {
+                                layout();
+                                particles = [];
+                                frameCount = 0;
+                                spawnParticles();
+                                if (animId) cancelAnimationFrame(animId);
+                                tick();
+                            }
+
+                            var ro = new ResizeObserver(function() { layout(); });
+                            ro.observe(canvas.parentElement);
+
+                            var mo = new MutationObserver(function() { if (W > 0) draw(); });
+                            mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+                            init();
+                        })();
+                        </script>
 
                         <h4>VSS (Vehicle Signal Specification)</h4>
                         <p>
