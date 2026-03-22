@@ -47,6 +47,9 @@ spec:
             - secretRef:
                 name: wishlist-secrets
                 optional: true
+            - secretRef:
+                name: documentdb-credentials
+                optional: true
           resources:
             requests:
               cpu: 125m

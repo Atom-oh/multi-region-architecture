@@ -47,6 +47,9 @@ spec:
             - secretRef:
                 name: shipping-secrets
                 optional: true
+            - secretRef:
+                name: aurora-credentials
+                optional: true
           resources:
             requests:
               cpu: 250m

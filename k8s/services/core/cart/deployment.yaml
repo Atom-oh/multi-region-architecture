@@ -46,6 +46,9 @@ spec:
             - secretRef:
                 name: cart-secrets
                 optional: true
+            - secretRef:
+                name: valkey-credentials
+                optional: true
           resources:
             requests:
               cpu: 250m

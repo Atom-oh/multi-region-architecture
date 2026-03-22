@@ -58,6 +58,9 @@ spec:
             - secretRef:
                 name: payment-secrets
                 optional: true
+            - secretRef:
+                name: aurora-credentials
+                optional: true
           resources:
             requests:
               cpu: 500m
