@@ -1,14 +1,22 @@
-"""Shipping Service - FastAPI Application with stub responses."""
+"""Shipping Service - FastAPI Application with Aurora PostgreSQL backend."""
 
-from datetime import datetime
+import logging
+import uuid
+from datetime import datetime, date
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
+logger = logging.getLogger(__name__)
+
 config = ServiceConfig(service_name="shipping")
 app = FastAPI(title="Shipping Service", version="1.0.0")
+
+# PostgreSQL connection pool (initialized on startup)
+_pg_pool = None
 
 # CORS middleware
 app.add_middleware(
@@ -117,14 +125,78 @@ TRACKING_MAP = {
 }
 
 
+def _row_to_shipment(row) -> dict:
+    """Convert asyncpg Row to shipment dict."""
+    return {
+        "id": str(row["id"]),
+        "order_id": str(row["order_id"]),
+        "carrier": row["carrier"],
+        "tracking_number": row["tracking_number"],
+        "status": row["status"],
+        "estimated_delivery": row["estimated_delivery"].isoformat() if row["estimated_delivery"] else None,
+        "shipped_at": row["shipped_at"].isoformat() if row["shipped_at"] else None,
+        "delivered_at": row["delivered_at"].isoformat() if row["delivered_at"] else None,
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+    }
+
+
 @app.get("/")
 async def root():
     return {"service": "shipping", "status": "running"}
 
 
+@app.get("/api/v1/shipments")
+async def list_shipments():
+    """List all shipments (DB with mock fallback)."""
+    if _pg_pool:
+        try:
+            async with _pg_pool.acquire() as conn:
+                rows = await conn.fetch(
+                    "SELECT * FROM shipments ORDER BY created_at DESC LIMIT 20"
+                )
+                return [_row_to_shipment(row) for row in rows]
+        except Exception as e:
+            logger.warning(f"DB query failed, using mock: {e}")
+    return list(MOCK_SHIPMENTS.values())
+
+
 @app.post("/api/v1/shipments")
 async def create_shipment(shipment: dict):
-    """Create a new shipment (stub - returns mock response)."""
+    """Create a new shipment (DB with mock fallback)."""
+    if _pg_pool:
+        try:
+            async with _pg_pool.acquire() as conn:
+                shipment_id = uuid.uuid4()
+                order_id = shipment.get("order_id")
+                if order_id:
+                    try:
+                        order_id = uuid.UUID(order_id)
+                    except ValueError:
+                        order_id = uuid.uuid4()
+                else:
+                    order_id = uuid.uuid4()
+                carrier = shipment.get("carrier", "CJ대한통운")
+                tracking = f"MRM{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+                estimated = shipment.get("estimated_delivery")
+                if estimated:
+                    estimated = date.fromisoformat(estimated[:10]) if isinstance(estimated, str) else estimated
+
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO shipments (id, order_id, carrier, tracking_number, status, estimated_delivery, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                    RETURNING *
+                    """,
+                    shipment_id, order_id, carrier, tracking, "preparing", estimated
+                )
+                result = _row_to_shipment(row)
+                result["created"] = True
+                result["message"] = "배송이 접수되었습니다"
+                return result
+        except Exception as e:
+            logger.warning(f"DB insert failed, using mock: {e}")
+
+    # Mock fallback
     shipment_id = f"SHIP-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
     tracking = f"MRM{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
     return {
@@ -144,10 +216,44 @@ async def create_shipment(shipment: dict):
 
 @app.get("/api/v1/shipments/{shipment_id}")
 async def get_shipment(shipment_id: str):
-    """Get shipment by ID."""
+    """Get shipment by ID (DB with mock fallback)."""
+    if _pg_pool:
+        try:
+            async with _pg_pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT * FROM shipments WHERE id::text = $1", shipment_id
+                )
+                if row:
+                    return _row_to_shipment(row)
+        except Exception as e:
+            logger.warning(f"DB query failed, using mock: {e}")
+
+    # Mock fallback
     if shipment_id in MOCK_SHIPMENTS:
         return MOCK_SHIPMENTS[shipment_id]
     raise HTTPException(status_code=404, detail="배송 정보를 찾을 수 없습니다")
+
+
+@app.get("/api/v1/shipments/order/{order_id}")
+async def get_shipments_by_order(order_id: str):
+    """Get shipments by order ID (DB with mock fallback)."""
+    if _pg_pool:
+        try:
+            async with _pg_pool.acquire() as conn:
+                rows = await conn.fetch(
+                    "SELECT * FROM shipments WHERE order_id::text = $1 ORDER BY created_at DESC",
+                    order_id
+                )
+                if rows:
+                    return [_row_to_shipment(row) for row in rows]
+        except Exception as e:
+            logger.warning(f"DB query failed, using mock: {e}")
+
+    # Mock fallback
+    results = [s for s in MOCK_SHIPMENTS.values() if s.get("order_id") == order_id]
+    if results:
+        return results
+    raise HTTPException(status_code=404, detail="주문에 대한 배송 정보를 찾을 수 없습니다")
 
 
 @app.put("/api/v1/shipments/{shipment_id}/status")
@@ -174,8 +280,35 @@ async def track_shipment(tracking_number: str):
 
 @app.on_event("startup")
 async def startup():
+    global _pg_pool
+    if config.db_host and config.db_host != "localhost":
+        try:
+            import asyncpg
+            _pg_pool = await asyncpg.create_pool(
+                host=config.db_host,
+                port=config.db_port if config.db_port != 27017 else 5432,
+                database=config.db_name or "mall",
+                user=config.db_user,
+                password=config.db_password,
+                ssl="require",
+                min_size=1,
+                max_size=5,
+            )
+            logger.info(f"Connected to Aurora PostgreSQL at {config.db_host}")
+        except Exception as e:
+            logger.warning(f"Aurora PostgreSQL unavailable, using mock data: {e}")
+    else:
+        logger.info("No DB_HOST configured, using mock data")
     set_started(True)
     set_ready(True)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    global _pg_pool
+    if _pg_pool:
+        await _pg_pool.close()
+        logger.info("Closed Aurora PostgreSQL connection pool")
 
 
 if __name__ == "__main__":

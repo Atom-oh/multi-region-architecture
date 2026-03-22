@@ -1,13 +1,17 @@
 """Recommendation Service - FastAPI Application with stub responses."""
 
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
+from mall_common.documentdb import connect, disconnect, get_db
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
+logger = logging.getLogger(__name__)
 config = ServiceConfig(service_name="recommendation")
 app = FastAPI(title="Recommendation Service", version="1.0.0")
+_db_connected = False
 
 # CORS middleware
 app.add_middleware(
@@ -222,9 +226,80 @@ async def get_user_recommendations(user_id: str, limit: int = 10):
     }
 
 
+@app.get("/api/v1/recommendations")
+async def get_recommendations(limit: int = 10):
+    """Get random product recommendations."""
+    if _db_connected:
+        try:
+            db = get_db()
+            pipeline = [{"$sample": {"size": limit}}]
+            cursor = db["products"].aggregate(pipeline)
+            products = []
+            async for doc in cursor:
+                doc["_id"] = str(doc["_id"])
+                products.append(doc)
+            return {
+                "recommendations": products,
+                "total": len(products),
+                "algorithm": "random_sample",
+            }
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
+    return {
+        "recommendations": MOCK_TRENDING[:limit],
+        "total": len(MOCK_TRENDING[:limit]),
+        "algorithm": "mock_trending",
+    }
+
+
+@app.get("/api/v1/recommendations/category/{category}")
+async def get_recommendations_by_category(category: str, limit: int = 10):
+    """Get product recommendations by category."""
+    if _db_connected:
+        try:
+            db = get_db()
+            cursor = db["products"].find({"category.slug": category}).limit(limit)
+            products = []
+            async for doc in cursor:
+                doc["_id"] = str(doc["_id"])
+                products.append(doc)
+            return {
+                "category": category,
+                "recommendations": products,
+                "total": len(products),
+            }
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
+    return {
+        "category": category,
+        "recommendations": MOCK_TRENDING[:limit],
+        "total": len(MOCK_TRENDING[:limit]),
+    }
+
+
 @app.get("/api/v1/recommendations/trending")
 async def get_trending(limit: int = 10, category: str = None):
     """Get trending products."""
+    if _db_connected:
+        try:
+            db = get_db()
+            pipeline = [{"$sample": {"size": limit}}]
+            cursor = db["products"].aggregate(pipeline)
+            products = []
+            async for doc in cursor:
+                doc["_id"] = str(doc["_id"])
+                products.append(doc)
+            return {
+                "trending": products,
+                "total": len(products),
+                "category": category,
+                "period": "last_7_days",
+            }
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
     products = MOCK_TRENDING
     return {
         "trending": products[:limit],
@@ -248,8 +323,21 @@ async def get_similar_products(product_id: str, limit: int = 5):
 
 @app.on_event("startup")
 async def startup():
+    global _db_connected
+    if config.documentdb_host != "localhost":
+        try:
+            await connect(config.documentdb_uri, config.db_name or "mall")
+            _db_connected = True
+            logger.info("Connected to DocumentDB")
+        except Exception as e:
+            logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
     set_started(True)
     set_ready(True)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await disconnect()
 
 
 if __name__ == "__main__":

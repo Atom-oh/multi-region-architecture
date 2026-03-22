@@ -1,14 +1,18 @@
 """Wishlist Service - FastAPI Application with stub responses."""
 
+import logging
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
+from mall_common.documentdb import connect, disconnect, get_db
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
+logger = logging.getLogger(__name__)
 config = ServiceConfig(service_name="wishlist")
 app = FastAPI(title="Wishlist Service", version="1.0.0")
+_db_connected = False
 
 # CORS middleware
 app.add_middleware(
@@ -111,6 +115,19 @@ async def root():
 @app.get("/api/v1/wishlists/{user_id}")
 async def get_wishlist(user_id: str):
     """Get user's wishlist."""
+    if _db_connected:
+        try:
+            db = get_db()
+            cursor = db["wishlists"].find({"userId": user_id}).limit(10)
+            wishlists = []
+            async for doc in cursor:
+                doc["_id"] = str(doc["_id"])
+                wishlists.append(doc)
+            if wishlists:
+                return wishlists[0] if len(wishlists) == 1 else {"user_id": user_id, "wishlists": wishlists}
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
     if user_id in MOCK_WISHLISTS:
         return MOCK_WISHLISTS[user_id]
     return {
@@ -151,8 +168,21 @@ async def remove_item(user_id: str, item_id: str):
 
 @app.on_event("startup")
 async def startup():
+    global _db_connected
+    if config.documentdb_host != "localhost":
+        try:
+            await connect(config.documentdb_uri, config.db_name or "mall")
+            _db_connected = True
+            logger.info("Connected to DocumentDB")
+        except Exception as e:
+            logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
     set_started(True)
     set_ready(True)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await disconnect()
 
 
 if __name__ == "__main__":

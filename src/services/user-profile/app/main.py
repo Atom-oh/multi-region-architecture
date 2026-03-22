@@ -1,13 +1,17 @@
 """User Profile Service - FastAPI Application with stub responses."""
 
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
+from mall_common.documentdb import connect, disconnect, get_db
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
+logger = logging.getLogger(__name__)
 config = ServiceConfig(service_name="user-profile")
 app = FastAPI(title="User Profile Service", version="1.0.0")
+_db_connected = False
 
 # CORS middleware
 app.add_middleware(
@@ -115,9 +119,37 @@ async def root():
     return {"service": "user-profile", "status": "running"}
 
 
+@app.get("/api/v1/profiles")
+async def list_profiles(limit: int = 50):
+    """List all user profiles."""
+    if _db_connected:
+        try:
+            db = get_db()
+            cursor = db["user_profiles"].find().limit(limit)
+            profiles = []
+            async for doc in cursor:
+                doc["_id"] = str(doc["_id"])
+                profiles.append(doc)
+            return {"profiles": profiles, "total": len(profiles)}
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
+    return {"profiles": list(MOCK_PROFILES.values())[:limit], "total": len(MOCK_PROFILES)}
+
+
 @app.get("/api/v1/profiles/{user_id}")
 async def get_profile(user_id: str):
     """Get user profile by ID."""
+    if _db_connected:
+        try:
+            db = get_db()
+            doc = await db["user_profiles"].find_one({"userId": user_id})
+            if doc:
+                doc["_id"] = str(doc["_id"])
+                return doc
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
     if user_id in MOCK_PROFILES:
         return MOCK_PROFILES[user_id]
     raise HTTPException(status_code=404, detail="프로필을 찾을 수 없습니다")
@@ -149,8 +181,21 @@ async def get_preferences(user_id: str):
 
 @app.on_event("startup")
 async def startup():
+    global _db_connected
+    if config.documentdb_host != "localhost":
+        try:
+            await connect(config.documentdb_uri, config.db_name or "mall")
+            _db_connected = True
+            logger.info("Connected to DocumentDB")
+        except Exception as e:
+            logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
     set_started(True)
     set_ready(True)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await disconnect()
 
 
 if __name__ == "__main__":

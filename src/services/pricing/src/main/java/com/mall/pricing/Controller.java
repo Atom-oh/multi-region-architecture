@@ -1,8 +1,11 @@
 package com.mall.pricing;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 import java.util.Map;
 
@@ -10,7 +13,11 @@ import java.util.Map;
 @CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 public class Controller {
 
+    @Autowired(required = false)
+    private JdbcTemplate jdbcTemplate;
+
     // Mock pricing data - consistent with shared product IDs
+    // Note: No pricing table in seed data, keeping mock pricing rules
     private static final Map<String, Map<String, Object>> PRODUCT_PRICES = Map.ofEntries(
         Map.entry("PRD-001", Map.of("name", "삼성 갤럭시 S25 울트라", "base_price", 1990000, "current_price", 1890000, "discount_percent", 5, "discount_amount", 100000)),
         Map.entry("PRD-002", Map.of("name", "나이키 에어맥스 97", "base_price", 219000, "current_price", 189000, "discount_percent", 14, "discount_amount", 30000)),

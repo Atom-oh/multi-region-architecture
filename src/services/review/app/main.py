@@ -1,14 +1,18 @@
 """Review Service - FastAPI Application with stub responses."""
 
+import logging
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
+from mall_common.documentdb import connect, disconnect, get_db
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
+logger = logging.getLogger(__name__)
 config = ServiceConfig(service_name="review")
 app = FastAPI(title="Review Service", version="1.0.0")
+_db_connected = False
 
 # CORS middleware
 app.add_middleware(
@@ -183,16 +187,33 @@ async def root():
 @app.get("/api/v1/reviews/product/{product_id}")
 async def get_product_reviews(product_id: str, limit: int = 10, offset: int = 0):
     """Get reviews for a product."""
-    reviews = [r for r in MOCK_REVIEWS if r["product_id"] == product_id]
-    avg_rating = sum(r["rating"] for r in reviews) / len(reviews) if reviews else 0
+    reviews = None
+    if _db_connected:
+        try:
+            db = get_db()
+            cursor = db["reviews"].find({"productId": product_id}).skip(offset).limit(limit)
+            reviews = []
+            async for doc in cursor:
+                doc["_id"] = str(doc["_id"])
+                reviews.append(doc)
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+            reviews = None
+
+    # Fallback to mock data
+    if reviews is None:
+        reviews = [r for r in MOCK_REVIEWS if r["product_id"] == product_id]
+        reviews = reviews[offset : offset + limit]
+
+    avg_rating = sum(r.get("rating", 0) for r in reviews) / len(reviews) if reviews else 0
 
     rating_dist = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
     for r in reviews:
-        rating_dist[r["rating"]] += 1
+        rating_dist[r.get("rating", 0)] = rating_dist.get(r.get("rating", 0), 0) + 1
 
     return {
         "product_id": product_id,
-        "reviews": reviews[offset : offset + limit],
+        "reviews": reviews,
         "total": len(reviews),
         "average_rating": round(avg_rating, 1),
         "rating_distribution": rating_dist,
@@ -203,7 +224,31 @@ async def get_product_reviews(product_id: str, limit: int = 10, offset: int = 0)
 
 @app.post("/api/v1/reviews")
 async def create_review(review: dict):
-    """Create a new review (stub - returns mock response)."""
+    """Create a new review."""
+    review_data = {
+        "productId": review.get("product_id", "unknown"),
+        "userId": review.get("user_id", "unknown"),
+        "rating": review.get("rating", 5),
+        "title": review.get("title", ""),
+        "content": review.get("content", ""),
+        "verifiedPurchase": False,
+        "helpfulVotes": 0,
+        "createdAt": datetime.utcnow(),
+    }
+    if _db_connected:
+        try:
+            db = get_db()
+            result = await db["reviews"].insert_one(review_data)
+            review_data["_id"] = str(result.inserted_id)
+            review_data["createdAt"] = review_data["createdAt"].isoformat()
+            return {
+                **review_data,
+                "created": True,
+                "message": "리뷰가 등록되었습니다",
+            }
+        except Exception as e:
+            logger.warning(f"DocumentDB insert failed: {e}, returning mock response")
+    # Fallback mock response
     return {
         "review_id": f"rev-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
         "product_id": review.get("product_id", "unknown"),
@@ -230,8 +275,21 @@ async def get_review(review_id: str):
 
 @app.on_event("startup")
 async def startup():
+    global _db_connected
+    if config.documentdb_host != "localhost":
+        try:
+            await connect(config.documentdb_uri, config.db_name or "mall")
+            _db_connected = True
+            logger.info("Connected to DocumentDB")
+        except Exception as e:
+            logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
     set_started(True)
     set_ready(True)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await disconnect()
 
 
 if __name__ == "__main__":

@@ -3,8 +3,10 @@ package valkey
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -19,6 +21,12 @@ func New(host string, port int) (*Client, error) {
 		WriteTimeout: 3 * time.Second,
 		PoolSize:     20,
 	})
+
+	// Add OTel tracing for automatic Redis span creation
+	if err := redisotel.InstrumentTracing(rdb); err != nil {
+		// Non-fatal, just log the error
+		log.Printf("valkey: failed to instrument tracing: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

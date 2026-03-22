@@ -1,14 +1,20 @@
 """Analytics Service - FastAPI Application with stub responses."""
 
+import logging
 from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
+from mall_common.documentdb import connect, disconnect, get_db
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
+logger = logging.getLogger(__name__)
+# pymongo.DESCENDING = -1
+DESCENDING = -1
 config = ServiceConfig(service_name="analytics")
 app = FastAPI(title="Analytics Service", version="1.0.0")
+_db_connected = False
 
 # CORS middleware
 app.add_middleware(
@@ -154,11 +160,67 @@ async def track_event(event: dict):
 @app.get("/api/v1/analytics/dashboard")
 async def get_dashboard(period: str = "today"):
     """Get analytics dashboard data."""
+    if _db_connected:
+        try:
+            db = get_db()
+            # Aggregation: count products by category
+            category_pipeline = [
+                {"$group": {"_id": "$category.slug", "count": {"$sum": 1}, "avgRating": {"$avg": "$rating"}}}
+            ]
+            category_cursor = db["products"].aggregate(category_pipeline)
+            categories = []
+            async for doc in category_cursor:
+                categories.append({
+                    "name": doc["_id"],
+                    "count": doc["count"],
+                    "avg_rating": round(doc.get("avgRating", 0) or 0, 1),
+                })
+            # Get total product count
+            total_products = await db["products"].count_documents({})
+            return {
+                "period": period,
+                "generated_at": datetime.utcnow().isoformat(),
+                "metrics": {
+                    **MOCK_DASHBOARD,
+                    "total_products": total_products,
+                    "categories_from_db": categories,
+                },
+                "currency": "KRW",
+            }
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
     return {
         "period": period,
         "generated_at": datetime.utcnow().isoformat(),
         "metrics": MOCK_DASHBOARD,
         "currency": "KRW",
+    }
+
+
+@app.get("/api/v1/analytics/top-products")
+async def get_top_products(limit: int = 10):
+    """Get top products by rating."""
+    if _db_connected:
+        try:
+            db = get_db()
+            cursor = db["products"].find().sort("rating", DESCENDING).limit(limit)
+            products = []
+            async for doc in cursor:
+                doc["_id"] = str(doc["_id"])
+                products.append(doc)
+            return {
+                "top_products": products,
+                "total": len(products),
+                "generated_at": datetime.utcnow().isoformat(),
+            }
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
+    return {
+        "top_products": MOCK_DASHBOARD.get("top_products", [])[:limit],
+        "total": len(MOCK_DASHBOARD.get("top_products", [])),
+        "generated_at": datetime.utcnow().isoformat(),
     }
 
 
@@ -176,8 +238,21 @@ async def list_reports(report_type: str = None, limit: int = 10):
 
 @app.on_event("startup")
 async def startup():
+    global _db_connected
+    if config.documentdb_host != "localhost":
+        try:
+            await connect(config.documentdb_uri, config.db_name or "mall")
+            _db_connected = True
+            logger.info("Connected to DocumentDB")
+        except Exception as e:
+            logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
     set_started(True)
     set_ready(True)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await disconnect()
 
 
 if __name__ == "__main__":

@@ -13,3 +13,4 @@ opentelemetry-instrumentation-fastapi>=0.46b0
 opentelemetry-instrumentation-httpx>=0.46b0
 opentelemetry-instrumentation-redis>=0.46b0
 opentelemetry-instrumentation-pymongo>=0.46b0
+asyncpg>=0.29.0

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/multi-region-mall/shared/pkg/config"
 )
@@ -16,7 +17,15 @@ func New(ctx context.Context, cfg *config.Config) (*Client, error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=require",
 		cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName)
 
-	pool, err := pgxpool.New(ctx, dsn)
+	pgxConfig, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("aurora parse config: %w", err)
+	}
+
+	// Add OTel tracing for automatic PostgreSQL span creation
+	pgxConfig.ConnConfig.Tracer = otelpgx.NewTracer()
+
+	pool, err := pgxpool.NewWithConfig(ctx, pgxConfig)
 	if err != nil {
 		return nil, fmt.Errorf("aurora connect: %w", err)
 	}

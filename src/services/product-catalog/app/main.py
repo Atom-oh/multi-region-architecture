@@ -1,13 +1,17 @@
 """Product Catalog Service - FastAPI Application."""
 
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
+from mall_common.documentdb import connect, disconnect, get_db
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
+logger = logging.getLogger(__name__)
 config = ServiceConfig(service_name="product-catalog")
 app = FastAPI(title="Product Catalog Service", version="1.0.0")
+_db_connected = False
 
 # CORS middleware
 app.add_middleware(
@@ -192,6 +196,27 @@ async def root():
 @app.get("/api/v1/products")
 async def list_products(category: str = None, limit: int = 10, offset: int = 0):
     """List all products with optional category filter."""
+    if _db_connected:
+        try:
+            db = get_db()
+            query = {}
+            if category:
+                query["category.slug"] = category
+            cursor = db["products"].find(query).skip(offset).limit(limit)
+            products = []
+            async for doc in cursor:
+                doc["_id"] = str(doc["_id"])
+                products.append(doc)
+            total = await db["products"].count_documents(query)
+            return {
+                "products": products,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
     products = MOCK_PRODUCTS
     if category:
         products = [p for p in products if p["category"] == category]
@@ -212,6 +237,16 @@ async def list_categories():
 @app.get("/api/v1/products/{product_id}")
 async def get_product(product_id: str):
     """Get a single product by ID."""
+    if _db_connected:
+        try:
+            db = get_db()
+            doc = await db["products"].find_one({"productId": product_id})
+            if doc:
+                doc["_id"] = str(doc["_id"])
+                return doc
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
     for product in MOCK_PRODUCTS:
         if product["id"] == product_id:
             return product
@@ -235,8 +270,21 @@ async def create_product(product: dict):
 
 @app.on_event("startup")
 async def startup():
+    global _db_connected
+    if config.documentdb_host != "localhost":
+        try:
+            await connect(config.documentdb_uri, config.db_name or "mall")
+            _db_connected = True
+            logger.info("Connected to DocumentDB")
+        except Exception as e:
+            logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
     set_started(True)
     set_ready(True)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await disconnect()
 
 
 if __name__ == "__main__":

@@ -1,14 +1,20 @@
 """Notification Service - FastAPI Application with stub responses."""
 
+import logging
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
+from mall_common.documentdb import connect, disconnect, get_db
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
+logger = logging.getLogger(__name__)
+# pymongo.DESCENDING = -1
+DESCENDING = -1
 config = ServiceConfig(service_name="notification")
 app = FastAPI(title="Notification Service", version="1.0.0")
+_db_connected = False
 
 # CORS middleware
 app.add_middleware(
@@ -174,6 +180,28 @@ async def create_notification(notification: dict):
 @app.get("/api/v1/notifications/{user_id}")
 async def get_notifications(user_id: str, unread_only: bool = False, limit: int = 20):
     """Get notifications for a user."""
+    if _db_connected:
+        try:
+            db = get_db()
+            query = {"userId": user_id}
+            if unread_only:
+                query["read"] = False
+            cursor = db["notifications"].find(query).sort("sentAt", DESCENDING).limit(limit)
+            notifications = []
+            async for doc in cursor:
+                doc["_id"] = str(doc["_id"])
+                notifications.append(doc)
+            # Get unread count
+            unread_count = await db["notifications"].count_documents({"userId": user_id, "read": False})
+            return {
+                "user_id": user_id,
+                "notifications": notifications,
+                "total": len(notifications),
+                "unread_count": unread_count,
+            }
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
+    # Fallback to mock data
     notifications = MOCK_NOTIFICATIONS.get(user_id, [])
     if unread_only:
         notifications = [n for n in notifications if not n["read"]]
@@ -200,8 +228,21 @@ async def mark_read(notification_id: str):
 
 @app.on_event("startup")
 async def startup():
+    global _db_connected
+    if config.documentdb_host != "localhost":
+        try:
+            await connect(config.documentdb_uri, config.db_name or "mall")
+            _db_connected = True
+            logger.info("Connected to DocumentDB")
+        except Exception as e:
+            logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
     set_started(True)
     set_ready(True)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await disconnect()
 
 
 if __name__ == "__main__":

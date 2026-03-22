@@ -2,16 +2,21 @@ package main
 
 import (
 	"context"
+	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/multi-region-mall/shared/pkg/aurora"
 	"github.com/multi-region-mall/shared/pkg/config"
 	"github.com/multi-region-mall/shared/pkg/health"
 	"github.com/multi-region-mall/shared/pkg/tracing"
 )
+
+// Global DB client - nil if DB unavailable (graceful degradation)
+var dbClient *aurora.Client
 
 type InventoryItem struct {
 	ProductID   string    `json:"product_id"`
@@ -62,6 +67,20 @@ func main() {
 		defer func() { _ = tp.Shutdown(ctx) }()
 	}
 
+	// Initialize Aurora DB connection (graceful fallback to mock if unavailable)
+	if cfg.DBHost != "" {
+		client, err := aurora.New(ctx, cfg)
+		if err != nil {
+			log.Printf("WARNING: Aurora DB unavailable, using mock data: %v", err)
+		} else {
+			dbClient = client
+			defer dbClient.Close()
+			log.Printf("INFO: Connected to Aurora DB at %s:%d", cfg.DBHost, cfg.DBPort)
+		}
+	} else {
+		log.Printf("INFO: No DB_HOST configured, using mock data")
+	}
+
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))
 	r.Use(corsMiddleware())
@@ -103,6 +122,24 @@ func getInventory(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		productID := c.Param("productId")
 
+		// Try DB query first if available
+		if dbClient != nil {
+			var item InventoryItem
+			err := dbClient.Pool.QueryRow(c.Request.Context(),
+				`SELECT product_id, sku, quantity_available, quantity_reserved, warehouse_id, reorder_point, last_restocked_at, updated_at
+				 FROM inventory WHERE product_id=$1`, productID).Scan(
+				&item.ProductID, &item.SKU, &item.Quantity, &item.Reserved,
+				&item.Warehouse, &item.Available, &item.Location, &item.LastUpdated)
+			if err == nil {
+				item.Available = item.Quantity - item.Reserved
+				c.JSON(http.StatusOK, item)
+				return
+			}
+			// Log DB error and fall through to mock data
+			log.Printf("DB query failed for product %s: %v", productID, err)
+		}
+
+		// Fallback to mock data
 		if item, exists := mockInventory[productID]; exists {
 			item.LastUpdated = time.Now()
 			c.JSON(http.StatusOK, item)
@@ -136,6 +173,35 @@ func updateStock(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		// Try DB update first if available
+		if dbClient != nil {
+			var updateSQL string
+			switch req.Operation {
+			case "set":
+				updateSQL = `UPDATE inventory SET quantity_available = $2, updated_at = NOW() WHERE product_id = $1 RETURNING product_id, sku, quantity_available, quantity_reserved, warehouse_id, updated_at`
+			case "add":
+				updateSQL = `UPDATE inventory SET quantity_available = quantity_available + $2, updated_at = NOW() WHERE product_id = $1 RETURNING product_id, sku, quantity_available, quantity_reserved, warehouse_id, updated_at`
+			case "subtract":
+				updateSQL = `UPDATE inventory SET quantity_available = quantity_available - $2, updated_at = NOW() WHERE product_id = $1 RETURNING product_id, sku, quantity_available, quantity_reserved, warehouse_id, updated_at`
+			}
+
+			var item InventoryItem
+			err := dbClient.Pool.QueryRow(c.Request.Context(), updateSQL, productID, req.Quantity).Scan(
+				&item.ProductID, &item.SKU, &item.Quantity, &item.Reserved, &item.Warehouse, &item.LastUpdated)
+			if err == nil {
+				item.Available = item.Quantity - item.Reserved
+				c.JSON(http.StatusOK, gin.H{
+					"message":   "재고가 업데이트되었습니다",
+					"operation": req.Operation,
+					"reason":    req.Reason,
+					"inventory": item,
+				})
+				return
+			}
+			log.Printf("DB update failed for product %s: %v", productID, err)
+		}
+
+		// Fallback to mock data
 		item, exists := mockInventory[productID]
 		if !exists {
 			item = InventoryItem{
@@ -176,6 +242,36 @@ func getLowStock(cfg *config.Config) gin.HandlerFunc {
 		thresholdStr := c.DefaultQuery("threshold", "20")
 		threshold, _ := strconv.Atoi(thresholdStr)
 
+		// Try DB query first if available
+		if dbClient != nil {
+			rows, err := dbClient.Pool.Query(c.Request.Context(),
+				`SELECT product_id, sku, quantity_available, quantity_reserved, warehouse_id, reorder_point, updated_at
+				 FROM inventory WHERE quantity_available < $1 ORDER BY quantity_available ASC`, threshold)
+			if err == nil {
+				defer rows.Close()
+				var items []InventoryItem
+				for rows.Next() {
+					var item InventoryItem
+					if err := rows.Scan(&item.ProductID, &item.SKU, &item.Quantity, &item.Reserved,
+						&item.Warehouse, &item.Available, &item.LastUpdated); err == nil {
+						item.Available = item.Quantity - item.Reserved
+						items = append(items, item)
+					}
+				}
+				if rows.Err() == nil {
+					c.JSON(http.StatusOK, gin.H{
+						"threshold": threshold,
+						"count":     len(items),
+						"items":     items,
+						"message":   "재고 부족 상품 목록입니다. 빠른 보충이 필요합니다.",
+					})
+					return
+				}
+			}
+			log.Printf("DB low stock query failed: %v", err)
+		}
+
+		// Fallback to mock data
 		c.JSON(http.StatusOK, gin.H{
 			"threshold": threshold,
 			"count":     len(lowStockItems),

@@ -31,11 +31,11 @@ class ProductRepository:
         self,
         skip: int = 0,
         limit: int = 20,
-        category_id: Optional[str] = None,
+        category_slug: Optional[str] = None,
     ) -> list[dict]:
         query = {}
-        if category_id:
-            query["category_id"] = category_id
+        if category_slug:
+            query["category.slug"] = category_slug
 
         cursor = self.products.find(query).skip(skip).limit(limit)
         products = []
@@ -45,7 +45,7 @@ class ProductRepository:
         return products
 
     async def get_product(self, product_id: str) -> Optional[dict]:
-        doc = await self.products.find_one({"_id": ObjectId(product_id)})
+        doc = await self.products.find_one({"productId": product_id})
         if doc:
             doc["_id"] = str(doc["_id"])
         return doc

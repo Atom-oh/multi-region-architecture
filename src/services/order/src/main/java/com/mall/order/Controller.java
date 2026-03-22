@@ -1,10 +1,14 @@
 package com.mall.order;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.*;
 
 @RestController
@@ -12,6 +16,9 @@ import java.util.*;
 public class Controller {
 
     private final RestTemplate restTemplate = new RestTemplate();
+
+    @Autowired(required = false)
+    private JdbcTemplate jdbcTemplate;
 
     @GetMapping("/")
     public Map<String, Object> root() {
@@ -71,8 +78,26 @@ public class Controller {
             "http://shipping.fulfillment.svc.cluster.local:80/api/v1/shipments",
             HttpMethod.POST, shippingBody, request);
 
+        String orderId = "ORD-NEW-001";
+        BigDecimal totalAmount = new BigDecimal(order.getOrDefault("total_amount", 0).toString());
+
+        // Try to insert into DB if available
+        if (jdbcTemplate != null) {
+            try {
+                UUID newOrderId = UUID.randomUUID();
+                jdbcTemplate.update(
+                    "INSERT INTO orders (id, user_id, status, total_amount, currency, created_at, updated_at) VALUES (?::uuid, ?::uuid, ?, ?, ?, NOW(), NOW())",
+                    newOrderId.toString(), userId.startsWith("USR-") ? UUID.randomUUID().toString() : userId,
+                    "pending", totalAmount, "KRW"
+                );
+                orderId = newOrderId.toString();
+            } catch (Exception e) {
+                // Fall back to mock ID
+            }
+        }
+
         Map<String, Object> response = new LinkedHashMap<>();
-        response.put("id", "ORD-NEW-001");
+        response.put("id", orderId);
         response.put("user_id", userId);
         response.put("items", items);
         response.put("total_amount", order.getOrDefault("total_amount", 0));
@@ -92,6 +117,34 @@ public class Controller {
 
     @GetMapping("/api/v1/orders")
     public ResponseEntity<List<Map<String, Object>>> getOrders() {
+        if (jdbcTemplate != null) {
+            try {
+                List<Map<String, Object>> orders = jdbcTemplate.queryForList(
+                    "SELECT id, user_id, status, total_amount, currency, created_at FROM orders ORDER BY created_at DESC LIMIT 20"
+                );
+                List<Map<String, Object>> result = new ArrayList<>();
+                for (Map<String, Object> row : orders) {
+                    Map<String, Object> order = new LinkedHashMap<>();
+                    order.put("id", row.get("id").toString());
+                    order.put("user_id", row.get("user_id") != null ? row.get("user_id").toString() : "USR-001");
+                    order.put("total_amount", row.get("total_amount"));
+                    order.put("currency", row.get("currency"));
+                    order.put("status", row.get("status"));
+                    order.put("status_display", getStatusDisplay((String) row.get("status")));
+                    order.put("created_at", row.get("created_at").toString());
+                    result.add(order);
+                }
+                if (!result.isEmpty()) {
+                    return ResponseEntity.ok()
+                        .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                        .body(result);
+                }
+            } catch (Exception e) {
+                // Fall back to mock data
+            }
+        }
+
+        // Mock data fallback
         List<Map<String, Object>> orders = List.of(
             Map.ofEntries(
                 Map.entry("id", "ORD-001"),
@@ -142,6 +195,38 @@ public class Controller {
 
     @GetMapping("/api/v1/orders/{id}")
     public ResponseEntity<Map<String, Object>> getOrder(@PathVariable String id) {
+        if (jdbcTemplate != null) {
+            try {
+                // Try to fetch from DB (handle both UUID and mock IDs)
+                List<Map<String, Object>> orders = jdbcTemplate.queryForList(
+                    "SELECT * FROM orders WHERE id::text = ?", id
+                );
+                if (!orders.isEmpty()) {
+                    Map<String, Object> row = orders.get(0);
+                    List<Map<String, Object>> items = jdbcTemplate.queryForList(
+                        "SELECT * FROM order_items WHERE order_id::text = ?", id
+                    );
+
+                    Map<String, Object> order = new LinkedHashMap<>();
+                    order.put("id", row.get("id").toString());
+                    order.put("user_id", row.get("user_id") != null ? row.get("user_id").toString() : "USR-001");
+                    order.put("items", items.isEmpty() ? List.of() : items);
+                    order.put("total_amount", row.get("total_amount"));
+                    order.put("currency", row.get("currency"));
+                    order.put("status", row.get("status"));
+                    order.put("status_display", getStatusDisplay((String) row.get("status")));
+                    order.put("created_at", row.get("created_at").toString());
+
+                    return ResponseEntity.ok()
+                        .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                        .body(order);
+                }
+            } catch (Exception e) {
+                // Fall back to mock data
+            }
+        }
+
+        // Mock data fallback
         Map<String, Object> order;
         switch (id) {
             case "ORD-001":
@@ -237,6 +322,37 @@ public class Controller {
 
     @GetMapping("/api/v1/orders/user/{userId}")
     public ResponseEntity<Map<String, Object>> getOrdersByUser(@PathVariable String userId) {
+        if (jdbcTemplate != null) {
+            try {
+                List<Map<String, Object>> orders = jdbcTemplate.queryForList(
+                    "SELECT id, total_amount, status, created_at FROM orders WHERE user_id::text = ?", userId
+                );
+                if (!orders.isEmpty()) {
+                    List<Map<String, Object>> result = new ArrayList<>();
+                    for (Map<String, Object> row : orders) {
+                        Map<String, Object> order = new LinkedHashMap<>();
+                        order.put("id", row.get("id").toString());
+                        order.put("total_amount", row.get("total_amount"));
+                        order.put("status", row.get("status"));
+                        order.put("status_display", getStatusDisplay((String) row.get("status")));
+                        order.put("created_at", row.get("created_at").toString());
+                        result.add(order);
+                    }
+                    Map<String, Object> response = Map.of(
+                        "user_id", userId,
+                        "orders", result,
+                        "total", result.size()
+                    );
+                    return ResponseEntity.ok()
+                        .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                        .body(response);
+                }
+            } catch (Exception e) {
+                // Fall back to mock data
+            }
+        }
+
+        // Mock data fallback
         List<Map<String, Object>> orders;
         switch (userId) {
             case "USR-001":
@@ -265,6 +381,19 @@ public class Controller {
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .body(response);
+    }
+
+    private String getStatusDisplay(String status) {
+        if (status == null) return "알 수 없음";
+        switch (status) {
+            case "pending": return "주문접수";
+            case "processing": return "상품준비중";
+            case "shipping": return "배송중";
+            case "delivered": return "배송완료";
+            case "cancelled": return "주문취소";
+            case "returned": return "반품완료";
+            default: return status;
+        }
     }
 
     @SuppressWarnings("unchecked")

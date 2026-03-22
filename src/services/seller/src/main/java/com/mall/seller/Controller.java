@@ -1,8 +1,11 @@
 package com.mall.seller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 import java.util.Map;
 
@@ -10,7 +13,11 @@ import java.util.Map;
 @CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 public class Controller {
 
+    @Autowired(required = false)
+    private JdbcTemplate jdbcTemplate;
+
     // Mock seller data - consistent with shared seller IDs
+    // Note: No sellers table in seed data, keeping mock seller data
     private static final Map<String, Map<String, Object>> SELLERS = Map.ofEntries(
         Map.entry("SEL-001", Map.ofEntries(
             Map.entry("id", "SEL-001"),
