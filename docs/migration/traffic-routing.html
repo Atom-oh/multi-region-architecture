@@ -407,7 +407,7 @@
                         </div>
                         <div class="ig-data-row" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12)"><span>Aurora PostgreSQL</span><span class="role" style="color:#10B981">Writer</span></div>
                         <div class="ig-data-row" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12)"><span>DocumentDB</span><span class="role" style="color:#10B981">Primary</span></div>
-                        <div class="ig-data-row" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12)"><span>ElastiCache Valkey</span><span class="role" style="color:#10B981">Primary</span></div>
+                        <div class="ig-data-row" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12)"><span>ElastiCache (Valkey)</span><span class="role" style="color:#10B981">Primary</span></div>
                         <div class="ig-data-row" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12)"><span>MSK Kafka</span><span class="role" style="color:#10B981">Active</span></div>
                         <div class="ig-data-row" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12)"><span>OpenSearch</span><span class="role" style="color:#10B981">Active</span></div>
                     </div>
@@ -418,7 +418,7 @@
                         </div>
                         <div class="ig-data-row" style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.12)"><span>Aurora PostgreSQL</span><span class="role" style="color:#3B82F6">Reader + Write Forward</span></div>
                         <div class="ig-data-row" style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.12)"><span>DocumentDB</span><span class="role" style="color:#3B82F6">Secondary</span></div>
-                        <div class="ig-data-row" style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.12)"><span>ElastiCache Valkey</span><span class="role" style="color:#3B82F6">Replica</span></div>
+                        <div class="ig-data-row" style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.12)"><span>ElastiCache (Valkey)</span><span class="role" style="color:#3B82F6">Replica</span></div>
                         <div class="ig-data-row" style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.12)"><span>MSK Kafka</span><span class="role" style="color:#3B82F6">Active</span></div>
                         <div class="ig-data-row" style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.12)"><span>OpenSearch</span><span class="role" style="color:#3B82F6">Active</span></div>
                     </div>
@@ -429,6 +429,15 @@
 
             </div>
         </main>
+        <aside class="doc-toc">
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
+            <a href="#traffic-flow" class="toc-link"><span class="lang-ko">E2E 트래픽 흐름</span><span class="lang-en">E2E Traffic Flow</span></a>
+            <a href="#security-layers" class="toc-link"><span class="lang-ko">보안 계층</span><span class="lang-en">Security Layers</span></a>
+            <a href="#latency" class="toc-link"><span class="lang-ko">리전별 레이턴시</span><span class="lang-en">Latency by Region</span></a>
+            <a href="#edge-caching" class="toc-link"><span class="lang-ko">엣지 캐싱 오프로드</span><span class="lang-en">Edge Caching Offload</span></a>
+            <a href="#distributed-trace" class="toc-link"><span class="lang-ko">분산 트레이스 체인</span><span class="lang-en">Distributed Trace Chain</span></a>
+            <a href="#data-pattern" class="toc-link">Write-Primary / Read-Local</a>
+        </aside>
     </div>
 
     <script src="shared.js"></script>

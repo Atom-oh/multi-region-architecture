@@ -173,7 +173,7 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                                     <span class="lang-ko">us-west-2 장애</span><span class="lang-en">us-west-2 Failure</span>
                                 </button>
                                 <button onclick="setFailoverScenario(3)" id="fbtn-3" style="padding:6px 14px; border-radius:6px; border:1.5px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); cursor:pointer; font-size:13px; font-weight:500; transition:all .2s;">
-                                    <span class="lang-ko">Aurora Primary 장애</span><span class="lang-en">Aurora Primary Failure</span>
+                                    <span class="lang-ko">DocDB Primary 장애</span><span class="lang-en">DocDB Primary Failure</span>
                                 </button>
                                 <button onclick="setFailoverScenario(4)" id="fbtn-4" style="padding:6px 14px; border-radius:6px; border:1.5px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); cursor:pointer; font-size:13px; font-weight:500; transition:all .2s;">
                                     <span class="lang-ko">단일 AZ 장애</span><span class="lang-en">Single AZ Failure</span>
@@ -246,9 +246,9 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                                     westReg:  { x: rightCx, y: r1, w: (cx - padX) * 0.88, h: H * 0.65, label: '', color: c.west, type: 'region' },
                                     eastEks:  { x: leftCx, y: r2, w: 110, h: 34, label: 'EKS Pods', sub: 'us-east-1', color: c.east, type: 'box' },
                                     westEks:  { x: rightCx, y: r2, w: 110, h: 34, label: 'EKS Pods', sub: 'us-west-2', color: c.west, type: 'box' },
-                                    eastAurora: { x: leftCx - 50, y: r3, w: 100, h: 30, label: 'Aurora (P)', color: c.east, type: 'box' },
+                                    eastDsql:   { x: leftCx - 50, y: r3, w: 100, h: 30, label: 'DSQL (A-A)', color: c.east, type: 'box' },
                                     eastDocdb:  { x: leftCx + 55, y: r3, w: 100, h: 30, label: 'DocDB (P)', color: c.east, type: 'box' },
-                                    westAurora: { x: rightCx - 50, y: r3, w: 100, h: 30, label: 'Aurora (S)', color: c.west, type: 'box' },
+                                    westDsql:   { x: rightCx - 50, y: r3, w: 100, h: 30, label: 'DSQL (A-A)', color: c.west, type: 'box' },
                                     westDocdb:  { x: rightCx + 55, y: r3, w: 100, h: 30, label: 'DocDB (S)', color: c.west, type: 'box' },
                                     eastAz1:  { x: leftCx - 40, y: r2 - 4, w: 8, h: 8, label: 'AZ-1', color: c.east, type: 'dot' },
                                     eastAz2:  { x: leftCx + 40, y: r2 - 4, w: 8, h: 8, label: 'AZ-2', color: c.east, type: 'dot' }
@@ -258,11 +258,11 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                                     { from: 'cf', to: 'r53', color: c.cf },
                                     { from: 'r53', to: 'eastEks', color: c.east, id: 'r53-east' },
                                     { from: 'r53', to: 'westEks', color: c.west, id: 'r53-west' },
-                                    { from: 'eastEks', to: 'eastAurora', color: c.east },
+                                    { from: 'eastEks', to: 'eastDsql', color: c.east },
                                     { from: 'eastEks', to: 'eastDocdb', color: c.east },
-                                    { from: 'westEks', to: 'westAurora', color: c.west },
+                                    { from: 'westEks', to: 'westDsql', color: c.west },
                                     { from: 'westEks', to: 'westDocdb', color: c.west },
-                                    { from: 'eastAurora', to: 'westAurora', color: c.repl, id: 'repl-aurora', dashed: true },
+                                    { from: 'eastDsql', to: 'westDsql', color: c.repl, id: 'repl-dsql', dashed: true },
                                     { from: 'eastDocdb', to: 'westDocdb', color: c.repl, id: 'repl-docdb', dashed: true }
                                 ];
 
@@ -275,7 +275,7 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                             function isNodeFailed(key) {
                                 if (scenario === 1) return key.indexOf('east') === 0 && key !== 'eastReg';
                                 if (scenario === 2) return key.indexOf('west') === 0 && key !== 'westReg';
-                                if (scenario === 3) return key === 'eastAurora';
+                                if (scenario === 3) return key === 'eastDocdb';
                                 if (scenario === 4) return key === 'eastAz1';
                                 return false;
                             }
@@ -287,15 +287,15 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                             }
 
                             function isPromoted(key) {
-                                if (scenario === 3 && key === 'westAurora' && scenarioTime > 0.5) return true;
+                                if (scenario === 3 && key === 'westDocdb' && scenarioTime > 0.5) return true;
                                 return false;
                             }
 
                             function isEdgeActive(e) {
                                 if (scenario === 1 && e.id === 'r53-east') return false;
                                 if (scenario === 2 && e.id === 'r53-west') return false;
-                                if (scenario === 1 && (e.from.indexOf('east') === 0 || e.to.indexOf('east') === 0) && e.id !== 'repl-aurora' && e.id !== 'repl-docdb') return false;
-                                if (scenario === 2 && (e.from.indexOf('west') === 0 || e.to.indexOf('west') === 0) && e.id !== 'repl-aurora' && e.id !== 'repl-docdb') return false;
+                                if (scenario === 1 && (e.from.indexOf('east') === 0 || e.to.indexOf('east') === 0) && e.id !== 'repl-dsql' && e.id !== 'repl-docdb') return false;
+                                if (scenario === 2 && (e.from.indexOf('west') === 0 || e.to.indexOf('west') === 0) && e.id !== 'repl-dsql' && e.id !== 'repl-docdb') return false;
                                 return true;
                             }
 
@@ -453,11 +453,11 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
 
                                 // EKS → DB (only for active regions)
                                 if (scenario !== 1) {
-                                    particles.push({ from: 'eastEks', to: 'eastAurora', t: 0, color: c.east + '88' });
+                                    particles.push({ from: 'eastEks', to: 'eastDsql', t: 0, color: c.east + '88' });
                                     particles.push({ from: 'eastEks', to: 'eastDocdb', t: 0, color: c.east + '88' });
                                 }
                                 if (scenario !== 2) {
-                                    particles.push({ from: 'westEks', to: 'westAurora', t: 0, color: c.west + '88' });
+                                    particles.push({ from: 'westEks', to: 'westDsql', t: 0, color: c.west + '88' });
                                     particles.push({ from: 'westEks', to: 'westDocdb', t: 0, color: c.west + '88' });
                                 }
                             }
@@ -494,7 +494,7 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                                     null,
                                     { label: 'us-east-1 Failure', detect: '~60s', rpo: 'DSQL: 0 / DocDB: <5s / MSK: <5s' },
                                     { label: 'us-west-2 Failure', detect: '~60s', rpo: 'DSQL: 0 / DocDB: <5s / MSK: <5s' },
-                                    { label: 'Aurora Primary Failure', detect: '~120s', rpo: 'RPO < 1s' },
+                                    { label: 'DocDB Primary Failure', detect: '~120s', rpo: 'RPO < 5s' },
                                     { label: 'Single AZ Failure', detect: '~30s', rpo: 'Data Loss: None' }
                                 ];
                                 var s = scenarios[scenario];
@@ -639,10 +639,10 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                                     <td><span class="lang-ko">DSQL: 없음 / DocumentDB: RPO &lt;5s / MSK: RPO &lt;5s</span><span class="lang-en">DSQL: None / DocumentDB: RPO &lt;5s / MSK: RPO &lt;5s</span></td>
                                 </tr>
                                 <tr>
-                                    <td><span class="lang-ko">Aurora Primary 장애</span><span class="lang-en">Aurora Primary failure</span></td>
+                                    <td><span class="lang-ko">DocDB Primary 장애</span><span class="lang-en">DocDB Primary failure</span></td>
                                     <td>~120s</td>
-                                    <td><span class="lang-ko">Global Database failover (Secondary 승격)</span><span class="lang-en">Global Database failover (Secondary promotion)</span></td>
-                                    <td>RPO (Recovery Point Objective) &lt; 1s</td>
+                                    <td><span class="lang-ko">Global Cluster failover (Secondary 승격)</span><span class="lang-en">Global Cluster failover (Secondary promotion)</span></td>
+                                    <td>RPO &lt; 5s</td>
                                 </tr>
                                 <tr>
                                     <td><span class="lang-ko">단일 AZ 장애</span><span class="lang-en">Single AZ failure</span></td>
