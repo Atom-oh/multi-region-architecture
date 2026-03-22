@@ -67,29 +67,34 @@
                         </table>
 
                         <h4><span class="lang-ko">오토스케일 반응 요구사항</span><span class="lang-en">Autoscale Reaction Requirements</span></h4>
-<pre><code><span class="hl-cm"># Karpenter NodePool scaling targets</span>
-Scale-up trigger:    CPU > 70% for 2 minutes
-Scale-up reaction:   < 90 seconds (node ready)
-Scale-down trigger:  CPU < 30% for 10 minutes
-Scale-down reaction: Gradual (respect PDB)
-
-<span class="hl-cm"># HPA pod scaling targets</span>
-Scale-up trigger:    CPU > 60% for 30 seconds
-Scale-up reaction:   < 30 seconds (pod ready)
-Min replicas:        3 (critical services)
-Max replicas:        50 (based on load testing)</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">컴포넌트</span><span class="lang-en">Component</span></th><th><span class="lang-ko">설정</span><span class="lang-en">Config</span></th><th><span class="lang-ko">목표</span><span class="lang-en">Target</span></th></tr></thead>
+                            <tbody>
+                                <tr><td colspan="3"><strong>Karpenter NodePool</strong></td></tr>
+                                <tr><td><span class="lang-ko">스케일 업 트리거</span><span class="lang-en">Scale-up trigger</span></td><td>CPU &gt; 70%</td><td><span class="lang-ko">2분간</span><span class="lang-en">for 2 minutes</span></td></tr>
+                                <tr><td><span class="lang-ko">스케일 업 반응</span><span class="lang-en">Scale-up reaction</span></td><td>&lt; 90 <span class="lang-ko">초</span><span class="lang-en">seconds</span></td><td><span class="lang-ko">노드 준비</span><span class="lang-en">node ready</span></td></tr>
+                                <tr><td><span class="lang-ko">스케일 다운 트리거</span><span class="lang-en">Scale-down trigger</span></td><td>CPU &lt; 30%</td><td><span class="lang-ko">10분간</span><span class="lang-en">for 10 minutes</span></td></tr>
+                                <tr><td><span class="lang-ko">스케일 다운 반응</span><span class="lang-en">Scale-down reaction</span></td><td><span class="lang-ko">점진적</span><span class="lang-en">Gradual</span></td><td><span class="lang-ko">PDB 준수</span><span class="lang-en">respect PDB</span></td></tr>
+                                <tr><td colspan="3"><strong>HPA Pod Scaling</strong></td></tr>
+                                <tr><td><span class="lang-ko">스케일 업 트리거</span><span class="lang-en">Scale-up trigger</span></td><td>CPU &gt; 60%</td><td><span class="lang-ko">30초간</span><span class="lang-en">for 30 seconds</span></td></tr>
+                                <tr><td><span class="lang-ko">스케일 업 반응</span><span class="lang-en">Scale-up reaction</span></td><td>&lt; 30 <span class="lang-ko">초</span><span class="lang-en">seconds</span></td><td><span class="lang-ko">파드 준비</span><span class="lang-en">pod ready</span></td></tr>
+                                <tr><td><span class="lang-ko">최소 레플리카</span><span class="lang-en">Min replicas</span></td><td>3</td><td><span class="lang-ko">중요 서비스</span><span class="lang-en">critical services</span></td></tr>
+                                <tr><td><span class="lang-ko">최대 레플리카</span><span class="lang-en">Max replicas</span></td><td>50</td><td><span class="lang-ko">부하 테스트 기반</span><span class="lang-en">based on load testing</span></td></tr>
+                            </tbody>
+                        </table>
 
                         <h4><span class="lang-ko">모니터링 스택</span><span class="lang-en">Monitoring Stack</span></h4>
-<pre><code>CloudWatch Alarms
-       |
-       v
-   SNS Topic  -->  PagerDuty  -->  On-Call Engineer
-       |                                   |
-       v                                   v
-   Slack #ccs-alerts              War Room (P1 only)
-       |
-       v
-   Grafana Dashboard (real-time visibility)</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">단계</span><span class="lang-en">Stage</span></th><th><span class="lang-ko">컴포넌트</span><span class="lang-en">Component</span></th><th><span class="lang-ko">목적</span><span class="lang-en">Purpose</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>1</td><td>CloudWatch Alarms</td><td><span class="lang-ko">지표 모니터링 및 임계값 감지</span><span class="lang-en">Metric monitoring and threshold detection</span></td></tr>
+                                <tr><td>2</td><td>SNS Topic</td><td><span class="lang-ko">알림 라우팅 및 팬아웃</span><span class="lang-en">Notification routing and fan-out</span></td></tr>
+                                <tr><td>3a</td><td>PagerDuty &rarr; <span class="lang-ko">당직 엔지니어</span><span class="lang-en">On-Call Engineer</span></td><td><span class="lang-ko">인시던트 관리 및 에스컬레이션</span><span class="lang-en">Incident management and escalation</span></td></tr>
+                                <tr><td>3b</td><td>Slack #ccs-alerts</td><td><span class="lang-ko">팀 알림 및 협업</span><span class="lang-en">Team notification and collaboration</span></td></tr>
+                                <tr><td>4</td><td>War Room <span class="lang-ko">(P1만 해당)</span><span class="lang-en">(P1 only)</span></td><td><span class="lang-ko">중대 인시던트 조율</span><span class="lang-en">Critical incident coordination</span></td></tr>
+                                <tr><td>5</td><td>Grafana Dashboard</td><td><span class="lang-ko">실시간 가시성</span><span class="lang-en">Real-time visibility</span></td></tr>
+                            </tbody>
+                        </table>
 
                         <div class="callout warning" style="margin-top:12px;">
                             <strong><span class="lang-ko">회장 직접 보고</span><span class="lang-en">Chairman Direct Report</span></strong>
@@ -115,19 +120,16 @@ Max replicas:        50 (based on load testing)</code><span class="code-label">t
                         </p>
 
                         <h4><span class="lang-ko">현재 경로 (AS-IS)</span><span class="lang-en">Current Path (AS-IS)</span></h4>
-<pre><code>Vehicle (LTE/5G)
-       |
-       v
-Verizon Private IP Network
-       |
-       v
-LA Equinix DC (Colocation)
-       |
-       v
-HCloud (On-Prem Infrastructure)
-       |
-       v
-Backend Services (ESB, Java+Spring)</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">홉</span><span class="lang-en">Hop</span></th><th><span class="lang-ko">컴포넌트</span><span class="lang-en">Component</span></th><th><span class="lang-ko">설명</span><span class="lang-en">Description</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>1</td><td><span class="lang-ko">차량</span><span class="lang-en">Vehicle</span> (LTE/5G)</td><td><span class="lang-ko">Gen1-Gen3 커넥티드 차량</span><span class="lang-en">Gen1-Gen3 connected vehicles</span></td></tr>
+                                <tr><td>2</td><td>Verizon Private IP Network</td><td><span class="lang-ko">프라이빗 셀룰러 네트워크</span><span class="lang-en">Private cellular network</span></td></tr>
+                                <tr><td>3</td><td>LA Equinix DC (<span class="lang-ko">코로케이션</span><span class="lang-en">Colocation</span>)</td><td><span class="lang-ko">네트워크 집계 지점</span><span class="lang-en">Network aggregation point</span></td></tr>
+                                <tr><td>4</td><td>HCloud (<span class="lang-ko">온프레미스 인프라</span><span class="lang-en">On-Prem Infrastructure</span>)</td><td><span class="lang-ko">레거시 데이터센터</span><span class="lang-en">Legacy datacenter</span></td></tr>
+                                <tr><td>5</td><td><span class="lang-ko">백엔드 서비스</span><span class="lang-en">Backend Services</span> (ESB, Java+Spring)</td><td><span class="lang-ko">애플리케이션 레이어</span><span class="lang-en">Application layer</span></td></tr>
+                            </tbody>
+                        </table>
 
                         <h4><span class="lang-ko">목표 옵션 (TO-BE)</span><span class="lang-en">Target Options (TO-BE)</span></h4>
                         <table class="info-table">
@@ -152,27 +154,40 @@ Backend Services (ESB, Java+Spring)</code><span class="code-label">text</span></
                         <p>
                             <span class="lang-ko">한국 배포에서 Direct Connect Gateway를 통해 3개 통신사를 AWS에 성공적으로 연결했습니다:</span><span class="lang-en">Korea deployment successfully connected 3 carriers to AWS via Direct Connect Gateway:</span>
                         </p>
-<pre><code>SKT  ---+
-        |
-KT   ---+---> DXGW (Direct Connect Gateway) ---> VPC (ap-northeast-2)
-        |
-LGU+ ---+
-
-<span class="hl-cm"># Benefits achieved:</span>
-- No DX rework when adding new VPCs
-- Cross-region support (single DXGW serves multiple regions)
-- Simplified network architecture</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">통신사</span><span class="lang-en">Carrier</span></th><th><span class="lang-ko">연결</span><span class="lang-en">Connection</span></th><th><span class="lang-ko">대상</span><span class="lang-en">Target</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>SKT</td><td rowspan="3">DXGW (Direct Connect Gateway)</td><td rowspan="3">VPC (ap-northeast-2)</td></tr>
+                                <tr><td>KT</td></tr>
+                                <tr><td>LGU+</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">달성된 이점</span><span class="lang-en">Benefits Achieved</span></strong>
+                            <ul>
+                                <li><span class="lang-ko">새 VPC 추가 시 DX 재작업 불필요</span><span class="lang-en">No DX rework when adding new VPCs</span></li>
+                                <li><span class="lang-ko">크로스 리전 지원 (단일 DXGW가 여러 리전 서비스)</span><span class="lang-en">Cross-region support (single DXGW serves multiple regions)</span></li>
+                                <li><span class="lang-ko">단순화된 네트워크 아키텍처</span><span class="lang-en">Simplified network architecture</span></li>
+                            </ul>
+                        </div>
 
                         <h4><span class="lang-ko">퍼블릭 IP 관리를 위한 VPC IPAM</span><span class="lang-en">VPC IPAM for Public IP Management</span></h4>
-<pre><code><span class="hl-cm"># Problem: Public IP quota exhaustion</span>
-Original allocation: /29 (8 IPs) per region
-Required:            /26 (64 IPs) per region
-
-<span class="hl-cm"># Solution: VPC IPAM</span>
-- Centralized IP address management
-- Automated allocation from regional pools
-- Quota increase approved: /29 -> /26
-- Enables future multi-region expansion</code><span class="code-label">text</span></pre>
+                        <div class="callout info">
+                            <strong><span class="lang-ko">문제: 퍼블릭 IP 할당량 고갈</span><span class="lang-en">Problem: Public IP Quota Exhaustion</span></strong>
+                            <table class="info-table" style="margin-top:8px;">
+                                <tbody>
+                                    <tr><td><span class="lang-ko">기존 할당</span><span class="lang-en">Original allocation</span></td><td>/29 (8 IPs) <span class="lang-ko">리전당</span><span class="lang-en">per region</span></td></tr>
+                                    <tr><td><span class="lang-ko">필요 용량</span><span class="lang-en">Required</span></td><td>/26 (64 IPs) <span class="lang-ko">리전당</span><span class="lang-en">per region</span></td></tr>
+                                    <tr><td><span class="lang-ko">할당량 증가</span><span class="lang-en">Quota increase</span></td><td>/29 &rarr; /26 <span class="lang-ko">승인됨</span><span class="lang-en">approved</span></td></tr>
+                                </tbody>
+                            </table>
+                            <p style="margin-top:8px;"><strong><span class="lang-ko">솔루션: VPC IPAM</span><span class="lang-en">Solution: VPC IPAM</span></strong></p>
+                            <ul>
+                                <li><span class="lang-ko">중앙 집중식 IP 주소 관리</span><span class="lang-en">Centralized IP address management</span></li>
+                                <li><span class="lang-ko">리전 풀에서 자동 할당</span><span class="lang-en">Automated allocation from regional pools</span></li>
+                                <li><span class="lang-ko">향후 멀티 리전 확장 지원</span><span class="lang-en">Enables future multi-region expansion</span></li>
+                            </ul>
+                        </div>
 
                         <div class="callout info" style="margin-top:12px;">
                             <strong><span class="lang-ko">권장사항</span><span class="lang-en">Recommendation</span></strong>
@@ -371,27 +386,27 @@ Required:            /26 (64 IPs) per region
                         </script>
 
                         <h4><span class="lang-ko">장애조치 시퀀스</span><span class="lang-en">Failover Sequence</span></h4>
-<pre><code><span class="hl-cm"># Automatic failover sequence (us-east-1 failure)</span>
-
-T+0s    Health Check fails (3 consecutive failures)
-        |
-T+30s   Route53 marks us-east-1 as unhealthy
-        |
-T+60s   DNS TTL expires, traffic routes to us-west-2
-        |
-        +---> Stateless services: Immediate recovery
-        |
-        +---> Aurora: Write forwarding to Primary
-        |     (or promote Secondary if Primary region down)
-        |
-        +---> DSQL: No action needed (active-active)
-        |
-T+120s  Full traffic serving from us-west-2
-
-<span class="hl-cm"># Manual actions (if Primary region down)</span>
-- Aurora: Initiate global database failover
-- DocumentDB: Promote secondary cluster
-- Update runbook status in PagerDuty</code><span class="code-label">text</span></pre>
+                        <p><span class="lang-ko">자동 장애조치 시퀀스 (us-east-1 장애 시)</span><span class="lang-en">Automatic failover sequence (us-east-1 failure)</span></p>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">시간</span><span class="lang-en">Time</span></th><th><span class="lang-ko">조치</span><span class="lang-en">Action</span></th><th><span class="lang-ko">세부사항</span><span class="lang-en">Detail</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>T+0s</td><td><span class="lang-ko">헬스 체크 실패</span><span class="lang-en">Health Check fails</span></td><td><span class="lang-ko">3회 연속 실패</span><span class="lang-en">3 consecutive failures</span></td></tr>
+                                <tr><td>T+30s</td><td><span class="lang-ko">Route53 상태 변경</span><span class="lang-en">Route53 status change</span></td><td><span class="lang-ko">us-east-1을 비정상으로 표시</span><span class="lang-en">Marks us-east-1 as unhealthy</span></td></tr>
+                                <tr><td>T+60s</td><td><span class="lang-ko">DNS TTL 만료</span><span class="lang-en">DNS TTL expires</span></td><td><span class="lang-ko">트래픽이 us-west-2로 라우팅</span><span class="lang-en">Traffic routes to us-west-2</span></td></tr>
+                                <tr><td>&nbsp;</td><td><span class="lang-ko">스테이트리스 서비스</span><span class="lang-en">Stateless services</span></td><td><span class="lang-ko">즉시 복구</span><span class="lang-en">Immediate recovery</span></td></tr>
+                                <tr><td>&nbsp;</td><td>Aurora</td><td><span class="lang-ko">Primary로 쓰기 포워딩 (또는 Primary 리전 다운 시 Secondary 승격)</span><span class="lang-en">Write forwarding to Primary (or promote Secondary if Primary region down)</span></td></tr>
+                                <tr><td>&nbsp;</td><td>DSQL</td><td><span class="lang-ko">조치 불필요 (active-active)</span><span class="lang-en">No action needed (active-active)</span></td></tr>
+                                <tr><td>T+120s</td><td><span class="lang-ko">완전 복구</span><span class="lang-en">Full recovery</span></td><td><span class="lang-ko">us-west-2에서 전체 트래픽 처리</span><span class="lang-en">Full traffic serving from us-west-2</span></td></tr>
+                            </tbody>
+                        </table>
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">수동 조치 (Primary 리전 다운 시)</span><span class="lang-en">Manual Actions (if Primary region down)</span></strong>
+                            <ul>
+                                <li><strong>Aurora:</strong> <span class="lang-ko">글로벌 데이터베이스 장애조치 시작</span><span class="lang-en">Initiate global database failover</span></li>
+                                <li><strong>DocumentDB:</strong> <span class="lang-ko">세컨더리 클러스터 승격</span><span class="lang-en">Promote secondary cluster</span></li>
+                                <li><strong>PagerDuty:</strong> <span class="lang-ko">런북 상태 업데이트</span><span class="lang-en">Update runbook status</span></li>
+                            </ul>
+                        </div>
 
                         <div class="callout tip" style="margin-top:12px;">
                             <strong><span class="lang-ko">Active-Active의 이점</span><span class="lang-en">Active-Active Benefits</span></strong>
@@ -428,15 +443,15 @@ T+120s  Full traffic serving from us-west-2
                         </table>
 
                         <h4><span class="lang-ko">현재 부하 및 전망</span><span class="lang-en">Current Load and Projections</span></h4>
-<pre><code><span class="hl-cm"># Current (2025 Q2)</span>
-TPS:           20,000 - 30,000
-Storage:       ~8TB
-Growth rate:   ~500GB/month
-
-<span class="hl-cm"># Projected (2025 Q4)</span>
-TPS:           ~40,000 (Gen3 fleet expansion)
-Storage:       ~12TB
-IOPS needed:   10,000+ (sustained)</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">지표</span><span class="lang-en">Metric</span></th><th><span class="lang-ko">현재 (2025 Q2)</span><span class="lang-en">Current (2025 Q2)</span></th><th><span class="lang-ko">전망 (2025 Q4)</span><span class="lang-en">Projected (2025 Q4)</span></th></tr></thead>
+                            <tbody>
+                                <tr><td>TPS</td><td>20,000 - 30,000</td><td>~40,000 <span class="lang-ko">(Gen3 플릿 확장)</span><span class="lang-en">(Gen3 fleet expansion)</span></td></tr>
+                                <tr><td><span class="lang-ko">스토리지</span><span class="lang-en">Storage</span></td><td>~8TB</td><td>~12TB</td></tr>
+                                <tr><td><span class="lang-ko">증가율</span><span class="lang-en">Growth rate</span></td><td>~500GB/<span class="lang-ko">월</span><span class="lang-en">month</span></td><td>-</td></tr>
+                                <tr><td><span class="lang-ko">필요 IOPS</span><span class="lang-en">IOPS needed</span></td><td>-</td><td>10,000+ (<span class="lang-ko">지속</span><span class="lang-en">sustained</span>)</td></tr>
+                            </tbody>
+                        </table>
 
                         <h4><span class="lang-ko">마이그레이션 타임라인</span><span class="lang-en">Migration Timeline</span></h4>
                         <table class="info-table">

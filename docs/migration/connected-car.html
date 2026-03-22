@@ -53,11 +53,27 @@
                         </p>
 
                         <h4><span class="lang-ko">현재 (As-Is) vs To-Be 경로</span><span class="lang-en">Current (As-Is) vs To-Be Path</span></h4>
-<pre><code><span class="hl-cm"># As-Is: Current CCS telemetry path</span>
-Vehicle &rarr; Verizon PIP &rarr; LA Equinix DC (HCloud) &rarr; Service
-
-<span class="hl-cm"># To-Be: After AWS migration</span>
-Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">경로</span><span class="lang-en">Path</span></th>
+                                    <th><span class="lang-ko">라우팅</span><span class="lang-en">Route</span></th>
+                                    <th><span class="lang-ko">레이턴시</span><span class="lang-en">Latency</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>As-Is</strong></td>
+                                    <td>Vehicle &rarr; Verizon PIP &rarr; LA Equinix DC (HCloud) &rarr; Service</td>
+                                    <td><span class="lang-ko">기준</span><span class="lang-en">Baseline</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>To-Be</strong></td>
+                                    <td>Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</td>
+                                    <td><span class="lang-ko">동등 또는 개선</span><span class="lang-en">Equal or improved</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
 
                         <h4><span class="lang-ko">CCS Fleet 현황</span><span class="lang-en">CCS Fleet Status</span></h4>
                         <table class="info-table">
@@ -254,23 +270,37 @@ Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</
                         </p>
 
                         <h4><span class="lang-ko">리전별 차량 분포</span><span class="lang-en">Vehicle Distribution by Region</span></h4>
-<pre><code><span class="hl-cm"># CCS North America Region Coverage</span>
-
-<span class="hl-key">us-west-2 (Oregon):</span>
-  Coverage: West Coast (CA, OR, WA, NV, AZ, CO, UT...)
-  Vehicle share: ~35%
-  Average RTT: 10-30ms (West Coast cities)
-  Current hub: LA Equinix DC → Verizon Private Network
-
-<span class="hl-key">us-east-1 (N. Virginia):</span>
-  Coverage: East + Central (NY, FL, TX, IL, GA, OH...)
-  Vehicle share: ~65%
-  Average RTT: 10-40ms (East Coast cities)
-  New deployment: AWS Direct Connect
-
-<span class="hl-cm"># Korea Reference Case (Completed 2025.04)</span>
-  3 carriers (SKT, KT, LGU+) → DXGW → AWS
-  Private Network setup complete</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">리전</span><span class="lang-en">Region</span></th>
+                                    <th><span class="lang-ko">커버리지</span><span class="lang-en">Coverage</span></th>
+                                    <th><span class="lang-ko">차량 비율</span><span class="lang-en">Vehicle Share</span></th>
+                                    <th><span class="lang-ko">평균 RTT</span><span class="lang-en">Avg RTT</span></th>
+                                    <th><span class="lang-ko">연결</span><span class="lang-en">Connection</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>us-west-2</strong> (Oregon)</td>
+                                    <td><span class="lang-ko">서부 해안 (CA, OR, WA, NV, AZ, CO, UT...)</span><span class="lang-en">West Coast (CA, OR, WA, NV, AZ, CO, UT...)</span></td>
+                                    <td>~35%</td>
+                                    <td>10-30ms</td>
+                                    <td>LA Equinix DC &rarr; Verizon Private Network</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>us-east-1</strong> (N. Virginia)</td>
+                                    <td><span class="lang-ko">동부 + 중부 (NY, FL, TX, IL, GA, OH...)</span><span class="lang-en">East + Central (NY, FL, TX, IL, GA, OH...)</span></td>
+                                    <td>~65%</td>
+                                    <td>10-40ms</td>
+                                    <td>AWS Direct Connect</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="callout info">
+                            <strong><span class="lang-ko">Korea 레퍼런스 케이스 (2025.04 완료)</span><span class="lang-en">Korea Reference Case (Completed 2025.04)</span></strong>
+                            <span class="lang-ko">3개 통신사 (SKT, KT, LGU+) &rarr; DXGW &rarr; AWS 경로로 Private Network 구축 완료</span><span class="lang-en">3 carriers (SKT, KT, LGU+) &rarr; DXGW &rarr; AWS - Private Network setup complete</span>
+                        </div>
 
                         <h4><span class="lang-ko">Cross-Country 핸드오버</span><span class="lang-en">Cross-Country Handover</span></h4>
                         <table class="info-table">
@@ -367,16 +397,32 @@ Vehicle &rarr; Verizon PIP &rarr; AWS Direct Connect &rarr; NLB &rarr; EKS Pod</
 }</code><span class="code-label">javascript</span></pre>
 
                         <h4><span class="lang-ko">TPS 증가 대응</span><span class="lang-en">TPS Growth Response</span></h4>
-<pre><code><span class="hl-cm"># Current → Year-end TPS Growth Plan</span>
-
-<span class="hl-key">Current:</span> 20-30K TPS
-<span class="hl-key">Year-end:</span> 40K TPS (expected)
-<span class="hl-key">Growth rate:</span> ~33-100%
-
-<span class="hl-cm"># Response Strategy</span>
-1. ElastiCache cluster horizontal scaling (add shards)
-2. Utilize Read Replicas (Aurora Reader Endpoint)
-3. Increase HPA min replicas</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">지표</span><span class="lang-en">Metric</span></th>
+                                    <th><span class="lang-ko">현재</span><span class="lang-en">Current</span></th>
+                                    <th><span class="lang-ko">연말 예상</span><span class="lang-en">Year-end Expected</span></th>
+                                    <th><span class="lang-ko">증가율</span><span class="lang-en">Growth Rate</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>TPS</td>
+                                    <td>20-30K</td>
+                                    <td>40K</td>
+                                    <td>~33-100%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="callout info">
+                            <strong><span class="lang-ko">대응 전략</span><span class="lang-en">Response Strategy</span></strong>
+                            <ol>
+                                <li><span class="lang-ko">ElastiCache 클러스터 수평 확장 (샤드 추가)</span><span class="lang-en">ElastiCache cluster horizontal scaling (add shards)</span></li>
+                                <li><span class="lang-ko">Read Replicas 활용 (Aurora Reader Endpoint)</span><span class="lang-en">Utilize Read Replicas (Aurora Reader Endpoint)</span></li>
+                                <li><span class="lang-ko">HPA 최소 레플리카 수 증가</span><span class="lang-en">Increase HPA min replicas</span></li>
+                            </ol>
+                        </div>
 
                         <div class="callout tip">
                             <strong><span class="lang-ko">핵심: VSS Hot Data 캐싱</span><span class="lang-en">Key: VSS Hot Data Caching</span></strong>

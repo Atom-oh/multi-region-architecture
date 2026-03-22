@@ -259,22 +259,229 @@
                         </table>
 
                         <h4><span class="lang-ko">데이터 흐름</span><span class="lang-en">Data Flow</span></h4>
-<pre><code>Kafka Topic (VSS data)
-       |
-       +---> [Hot] Redis: SET vss:{vin} {latest_state} EX 300
-       |
-       +---> [Warm] MongoDB: insert with TTL index (3 days)
-       |
-       +---> [Cold] S3: Firehose delivery (Parquet format)
-                    |
-                    +---> Glue Catalog ---> Athena queries
+                        <div style="position:relative; width:100%; margin:16px 0;">
+                            <canvas id="dataflow-canvas" style="width:100%; display:block; border-radius:8px;"></canvas>
+                        </div>
+                        <!-- Lifecycle legend -->
+                        <div style="display:flex; gap:24px; flex-wrap:wrap; margin:8px 0 12px 0; font-size:13px;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#ef4444;"></span>
+                                <span class="lang-ko">DB 보존: Kafka → Redis (5min) → MongoDB (3일) → DELETE</span>
+                                <span class="lang-en">DB Retention: Kafka → Redis (5min) → MongoDB (3 days) → DELETE</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#3b82f6;"></span>
+                                <span class="lang-ko">S3 아카이브: Kafka → Firehose → S3 (영구) → Athena</span>
+                                <span class="lang-en">S3 Archive: Kafka → Firehose → S3 (permanent) → Athena</span>
+                            </div>
+                        </div>
+                        <div class="callout info" style="margin-top:4px;">
+                            <strong><span class="lang-ko">참고</span><span class="lang-en">Note</span></strong>
+                            <span class="lang-ko">히스토리 데이터는 현재 OFF 상태입니다. 컴플라이언스 및 분석을 위해 S3+Athena 티어 활성화 예정입니다.</span>
+                            <span class="lang-en">History data is currently OFF. Plan to activate S3+Athena tier for compliance and analytics.</span>
+                        </div>
+                        <script>
+                        (function() {
+                            var canvas = document.getElementById('dataflow-canvas');
+                            if (!canvas) return;
+                            var ctx = canvas.getContext('2d');
+                            var dpr = window.devicePixelRatio || 1;
+                            var W, H, nodes, edges, particles = [];
+                            var PARTICLE_SPEED = 1.2;
+                            var SPAWN_INTERVAL = 60; // frames
+                            var frameCount = 0;
+                            var animId;
 
-<span class="hl-cm"># Two parallel lifecycles:</span>
-1. DB Retention:  Kafka -> Redis (5min) -> MongoDB (3 days) -> DELETE
-2. S3 Archive:    Kafka -> Firehose -> S3 (permanent) -> Athena
+                            function getCSS(v) {
+                                return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+                            }
 
-<span class="hl-cm"># Note: History data currently OFF</span>
-# Plan to activate S3+Athena tier for compliance and analytics</code><span class="code-label">text</span></pre>
+                            function colors() {
+                                return {
+                                    bg: getCSS('--bg-card') || '#1E293B',
+                                    text: getCSS('--text-primary') || '#E2E8F0',
+                                    textSec: getCSS('--text-secondary') || '#94A3B8',
+                                    muted: getCSS('--text-muted') || '#64748B',
+                                    border: getCSS('--border-strong') || '#334155',
+                                    hot: '#ef4444',
+                                    warm: '#3b82f6',
+                                    cold: '#64748b',
+                                    kafka: '#f59e0b',
+                                    glue: '#8b5cf6',
+                                    athena: '#22c55e'
+                                };
+                            }
+
+                            function layout() {
+                                var rect = canvas.parentElement.getBoundingClientRect();
+                                W = rect.width;
+                                H = Math.max(280, W * 0.42);
+                                canvas.width = W * dpr;
+                                canvas.height = H * dpr;
+                                canvas.style.height = H + 'px';
+                                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+                                var cx = W / 2, padX = W * 0.08;
+                                var row1 = H * 0.15, row2 = H * 0.52, row3 = H * 0.85;
+                                var col1 = padX + W * 0.12, col2 = cx, col3 = W - padX - W * 0.12;
+
+                                nodes = {
+                                    kafka:   { x: cx,   y: row1, w: 140, h: 40, label: 'Kafka Topic', sub: 'VSS data', color: '#f59e0b' },
+                                    redis:   { x: col1, y: row2, w: 120, h: 40, label: 'Redis',       sub: 'Hot · TTL 5min', color: '#ef4444' },
+                                    mongodb: { x: col2, y: row2, w: 130, h: 40, label: 'MongoDB',     sub: 'Warm · 3 days', color: '#3b82f6' },
+                                    s3:      { x: col3, y: row2, w: 120, h: 40, label: 'S3',          sub: 'Cold · Parquet', color: '#64748b' },
+                                    glue:    { x: col3 - 70, y: row3, w: 110, h: 36, label: 'Glue Catalog', sub: '', color: '#8b5cf6' },
+                                    athena:  { x: col3 + 70, y: row3, w: 110, h: 36, label: 'Athena',      sub: 'Queries', color: '#22c55e' }
+                                };
+
+                                edges = [
+                                    { from: 'kafka', to: 'redis',   color: '#ef4444' },
+                                    { from: 'kafka', to: 'mongodb', color: '#3b82f6' },
+                                    { from: 'kafka', to: 's3',      color: '#64748b' },
+                                    { from: 's3',    to: 'glue',    color: '#8b5cf6' },
+                                    { from: 'glue',  to: 'athena',  color: '#22c55e' }
+                                ];
+                            }
+
+                            function edgePoints(e) {
+                                var a = nodes[e.from], b = nodes[e.to];
+                                // from bottom of 'from' to top of 'to'
+                                var x1 = a.x, y1 = a.y + a.h / 2;
+                                var x2 = b.x, y2 = b.y - b.h / 2;
+                                // for glue->athena, left-to-right
+                                if (e.from === 'glue' && e.to === 'athena') {
+                                    x1 = a.x + a.w / 2; y1 = a.y;
+                                    x2 = b.x - b.w / 2; y2 = b.y;
+                                }
+                                return { x1: x1, y1: y1, x2: x2, y2: y2 };
+                            }
+
+                            function drawNode(n) {
+                                var c = colors();
+                                var x = n.x - n.w / 2, y = n.y - n.h / 2;
+                                // glow
+                                ctx.shadowColor = n.color;
+                                ctx.shadowBlur = 12;
+                                ctx.fillStyle = n.color + '18';
+                                ctx.strokeStyle = n.color;
+                                ctx.lineWidth = 1.5;
+                                ctx.beginPath();
+                                ctx.roundRect(x, y, n.w, n.h, 6);
+                                ctx.fill();
+                                ctx.stroke();
+                                ctx.shadowBlur = 0;
+                                // label
+                                ctx.fillStyle = c.text;
+                                ctx.font = '600 12px "Noto Sans KR", sans-serif';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                if (n.sub) {
+                                    ctx.fillText(n.label, n.x, n.y - 6);
+                                    ctx.fillStyle = c.textSec;
+                                    ctx.font = '400 10px "Noto Sans KR", sans-serif';
+                                    ctx.fillText(n.sub, n.x, n.y + 9);
+                                } else {
+                                    ctx.fillText(n.label, n.x, n.y);
+                                }
+                            }
+
+                            function drawEdge(e) {
+                                var p = edgePoints(e);
+                                ctx.strokeStyle = e.color + '40';
+                                ctx.lineWidth = 2;
+                                ctx.setLineDash([4, 4]);
+                                ctx.beginPath();
+                                ctx.moveTo(p.x1, p.y1);
+                                ctx.lineTo(p.x2, p.y2);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+                            }
+
+                            function spawnParticles() {
+                                edges.forEach(function(e) {
+                                    var p = edgePoints(e);
+                                    particles.push({
+                                        x: p.x1, y: p.y1,
+                                        tx: p.x2, ty: p.y2,
+                                        progress: 0,
+                                        color: e.color,
+                                        size: 3 + Math.random() * 2
+                                    });
+                                });
+                            }
+
+                            function updateParticles() {
+                                var dx, dy, dist;
+                                for (var i = particles.length - 1; i >= 0; i--) {
+                                    var p = particles[i];
+                                    dx = p.tx - p.x;
+                                    dy = p.ty - p.y;
+                                    dist = Math.sqrt(dx * dx + dy * dy);
+                                    if (dist < 3) {
+                                        particles.splice(i, 1);
+                                        continue;
+                                    }
+                                    p.x += (dx / dist) * PARTICLE_SPEED * (W / 600);
+                                    p.y += (dy / dist) * PARTICLE_SPEED * (W / 600);
+                                    p.progress = 1 - (Math.sqrt((p.tx - p.x) * (p.tx - p.x) + (p.ty - p.y) * (p.ty - p.y)) / Math.sqrt((p.tx - (p.x - dx)) * (p.tx - (p.x - dx)) + (p.ty - (p.y - dy)) * (p.ty - (p.y - dy))));
+                                }
+                            }
+
+                            function drawParticles() {
+                                particles.forEach(function(p) {
+                                    ctx.beginPath();
+                                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                                    ctx.fillStyle = p.color;
+                                    ctx.shadowColor = p.color;
+                                    ctx.shadowBlur = 8;
+                                    ctx.fill();
+                                    ctx.shadowBlur = 0;
+                                });
+                            }
+
+                            function draw() {
+                                if (!W || !H) return;
+                                ctx.clearRect(0, 0, W, H);
+                                edges.forEach(drawEdge);
+                                Object.keys(nodes).forEach(function(k) { drawNode(nodes[k]); });
+                                drawParticles();
+                            }
+
+                            function tick() {
+                                frameCount++;
+                                if (frameCount % SPAWN_INTERVAL === 0) spawnParticles();
+                                updateParticles();
+                                draw();
+                                animId = requestAnimationFrame(tick);
+                            }
+
+                            function init() {
+                                layout();
+                                particles = [];
+                                frameCount = 0;
+                                spawnParticles();
+                                if (animId) cancelAnimationFrame(animId);
+                                tick();
+                            }
+
+                            // Responsive
+                            var ro = new ResizeObserver(function() {
+                                var prevW = W;
+                                layout();
+                                if (W > 0 && !animId) {
+                                    spawnParticles();
+                                    tick();
+                                }
+                            });
+                            ro.observe(canvas.parentElement);
+
+                            // Theme change support
+                            var mo = new MutationObserver(function() { if (W > 0) draw(); });
+                            mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+                            init();
+                        })();
+                        </script>
 
                         <h4><span class="lang-ko">볼륨 예측</span><span class="lang-en">Volume Estimates</span></h4>
                         <table class="info-table">
@@ -419,30 +626,58 @@
                         </table>
 
                         <h4><span class="lang-ko">데이터 볼륨 비교</span><span class="lang-en">Data Volume Comparison</span></h4>
-<pre><code><span class="hl-cm"># Per-vehicle data rates</span>
-Gen2 vehicle:  ~50 KB/minute  (basic telemetry)
-Gen3 vehicle:  ~250 KB/minute (rich sensors, ADAS (Advanced Driver Assistance Systems) data)
-
-<span class="hl-cm"># Fleet total (current)</span>
-Gen2: 2.5M vehicles x 50 KB/min  = ~125 GB/min = ~180 TB/day
-Gen3: 0.6M vehicles x 250 KB/min = ~150 GB/min = ~216 TB/day
-
-<span class="hl-cm"># Projection (2026)</span>
-Gen2: Stable (legacy fleet)
-Gen3: 2M vehicles x 250 KB/min = ~500 GB/min = ~720 TB/day
-
-<span class="hl-cm"># Implication</span>
-Gen3 growth drives ALL capacity planning decisions</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">세대</span><span class="lang-en">Generation</span></th>
+                                    <th><span class="lang-ko">차량당 데이터</span><span class="lang-en">Per Vehicle</span></th>
+                                    <th><span class="lang-ko">현재 플릿 총량</span><span class="lang-en">Current Fleet Total</span></th>
+                                    <th><span class="lang-ko">2026 예측</span><span class="lang-en">2026 Projection</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Gen2</td>
+                                    <td><span class="lang-ko">~50 KB/분 (기본 텔레메트리)</span><span class="lang-en">~50 KB/min (basic telemetry)</span></td>
+                                    <td><span class="lang-ko">2.5M 대 × 50 KB/분 = ~125 GB/분 = ~180 TB/일</span><span class="lang-en">2.5M vehicles × 50 KB/min = ~125 GB/min = ~180 TB/day</span></td>
+                                    <td><span class="lang-ko">안정 (레거시 플릿)</span><span class="lang-en">Stable (legacy fleet)</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Gen3</td>
+                                    <td><span class="lang-ko">~250 KB/분 (풍부한 센서, ADAS 데이터)</span><span class="lang-en">~250 KB/min (rich sensors, ADAS data)</span></td>
+                                    <td><span class="lang-ko">0.6M 대 × 250 KB/분 = ~150 GB/분 = ~216 TB/일</span><span class="lang-en">0.6M vehicles × 250 KB/min = ~150 GB/min = ~216 TB/day</span></td>
+                                    <td><span class="lang-ko">2M 대 × 250 KB/분 = ~500 GB/분 = ~720 TB/일</span><span class="lang-en">2M vehicles × 250 KB/min = ~500 GB/min = ~720 TB/day</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="callout tip">
+                            <strong><span class="lang-ko">시사점</span><span class="lang-en">Implication</span></strong>
+                            <span class="lang-ko">Gen3 성장이 모든 용량 계획 결정을 주도합니다.</span><span class="lang-en">Gen3 growth drives ALL capacity planning decisions.</span>
+                        </div>
 
                         <h4><span class="lang-ko">처리 아키텍처</span><span class="lang-en">Processing Architecture</span></h4>
-<pre><code><span class="hl-cm"># Gen2 Path (Legacy)</span>
-Vehicle --[TCP]--> TCP Gateway --> Kafka (gen2-*) --> CCDI v1 --> MongoDB
-
-<span class="hl-cm"># Gen3 Path (Modern)</span>
-Vehicle --[MQTT]--> IoT Core --> Kafka (gen3-*) --> CCDI v2 --> Tiered Storage
-
-<span class="hl-cm"># Unified View</span>
-Both paths --> Kafka --> Unified CCDI (EKS) --> Common Data Lake</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">경로</span><span class="lang-en">Path</span></th>
+                                    <th><span class="lang-ko">데이터 흐름</span><span class="lang-en">Data Flow</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Gen2</strong> <span class="lang-ko">(레거시)</span><span class="lang-en">(Legacy)</span></td>
+                                    <td>Vehicle → TCP → TCP Gateway → Kafka (gen2-*) → CCDI v1 → MongoDB</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Gen3</strong> <span class="lang-ko">(현대)</span><span class="lang-en">(Modern)</span></td>
+                                    <td>Vehicle → MQTT → IoT Core → Kafka (gen3-*) → CCDI v2 → Tiered Storage</td>
+                                </tr>
+                                <tr>
+                                    <td><strong><span class="lang-ko">통합 뷰</span><span class="lang-en">Unified View</span></strong></td>
+                                    <td><span class="lang-ko">두 경로 모두</span><span class="lang-en">Both paths</span> → Kafka → Unified CCDI (EKS) → Common Data Lake</td>
+                                </tr>
+                            </tbody>
+                        </table>
 
                         <h4>VSS (Vehicle Signal Specification)</h4>
                         <p>
@@ -497,25 +732,31 @@ Both paths --> Kafka --> Unified CCDI (EKS) --> Common Data Lake</code><span cla
                         </table>
 
                         <h4><span class="lang-ko">VIN ID 기반 관리 프레임워크</span><span class="lang-en">VIN ID-Based Management Framework</span></h4>
-<pre><code><span class="hl-cm"># Proposed unified approach (Korea/US)</span>
-
-1. VIN Tokenization
-   Raw VIN --> Tokenization Service --> Token ID
-   Token ID used in all downstream processing
-   VIN-to-Token mapping stored in secured vault
-
-2. Data Segregation
-   PI Data:     Separate Kafka topics (pi-*)
-   Non-PI Data: Standard topics (telemetry-*)
-
-3. Access Control
-   PI topics:     IAM + SASL/SCRAM + audit logging
-   Non-PI topics: Standard IAM authentication
-
-<span class="hl-cm"># Migration note:</span>
-As long as VIN locations are identified in data flows,
-migration proceeds without major blockers.
-Tokenization can be implemented incrementally.</code><span class="code-label">text</span></pre>
+                        <div class="callout info">
+                            <strong><span class="lang-ko">제안된 통합 접근 방식 (한국/미국)</span><span class="lang-en">Proposed Unified Approach (Korea/US)</span></strong>
+                            <ol>
+                                <li>
+                                    <strong>VIN <span class="lang-ko">토큰화</span><span class="lang-en">Tokenization</span></strong><br>
+                                    <span class="lang-ko">Raw VIN → 토큰화 서비스 → Token ID. 모든 다운스트림 처리에서 Token ID 사용. VIN-to-Token 매핑은 보안 볼트에 저장.</span>
+                                    <span class="lang-en">Raw VIN → Tokenization Service → Token ID. Token ID used in all downstream processing. VIN-to-Token mapping stored in secured vault.</span>
+                                </li>
+                                <li>
+                                    <strong><span class="lang-ko">데이터 분리</span><span class="lang-en">Data Segregation</span></strong><br>
+                                    <span class="lang-ko">PI 데이터: 별도 Kafka 토픽 (pi-*). Non-PI 데이터: 표준 토픽 (telemetry-*).</span>
+                                    <span class="lang-en">PI Data: Separate Kafka topics (pi-*). Non-PI Data: Standard topics (telemetry-*).</span>
+                                </li>
+                                <li>
+                                    <strong><span class="lang-ko">접근 제어</span><span class="lang-en">Access Control</span></strong><br>
+                                    <span class="lang-ko">PI 토픽: IAM + SASL/SCRAM + 감사 로깅. Non-PI 토픽: 표준 IAM 인증.</span>
+                                    <span class="lang-en">PI topics: IAM + SASL/SCRAM + audit logging. Non-PI topics: Standard IAM authentication.</span>
+                                </li>
+                            </ol>
+                        </div>
+                        <div class="callout tip">
+                            <strong><span class="lang-ko">마이그레이션 참고</span><span class="lang-en">Migration Note</span></strong>
+                            <span class="lang-ko">데이터 흐름에서 VIN 위치가 식별되는 한, 마이그레이션은 주요 차단 요소 없이 진행됩니다. 토큰화는 점진적으로 구현할 수 있습니다.</span>
+                            <span class="lang-en">As long as VIN locations are identified in data flows, migration proceeds without major blockers. Tokenization can be implemented incrementally.</span>
+                        </div>
 
                         <h4><span class="lang-ko">암호화 전략</span><span class="lang-en">Encryption Strategy</span></h4>
                         <table class="info-table">
@@ -530,24 +771,51 @@ Tokenization can be implemented incrementally.</code><span class="code-label">te
                         </table>
 
                         <h4><span class="lang-ko">KMS 키 아키텍처</span><span class="lang-en">KMS Key Architecture</span></h4>
-<pre><code><span class="hl-cm"># Per-region KMS keys (no cross-region key sharing)</span>
-
-us-east-1:
-  - alias/ccs-ebs-key      (EBS encryption)
-  - alias/ccs-s3-key       (S3 encryption)
-  - alias/ccs-rds-key      (Aurora encryption)
-  - alias/ccs-msk-key      (MSK encryption)
-
-us-west-2:
-  - alias/ccs-ebs-key      (EBS encryption)
-  - alias/ccs-s3-key       (S3 encryption)
-  - alias/ccs-rds-key      (Aurora encryption)
-  - alias/ccs-msk-key      (MSK encryption)
-
-<span class="hl-cm"># Cross-region key policy</span>
-- S3 replication: destination uses destination-region key
-- Aurora Global: each region uses own KMS key
-- No key material crosses regions</code><span class="code-label">text</span></pre>
+                        <p><span class="lang-ko">리전별 KMS 키 (리전 간 키 공유 없음)</span><span class="lang-en">Per-region KMS keys (no cross-region key sharing)</span></p>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">키 별칭</span><span class="lang-en">Key Alias</span></th>
+                                    <th><span class="lang-ko">용도</span><span class="lang-en">Purpose</span></th>
+                                    <th>us-east-1</th>
+                                    <th>us-west-2</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>alias/ccs-ebs-key</td>
+                                    <td><span class="lang-ko">EBS 암호화</span><span class="lang-en">EBS encryption</span></td>
+                                    <td>&#10003;</td>
+                                    <td>&#10003;</td>
+                                </tr>
+                                <tr>
+                                    <td>alias/ccs-s3-key</td>
+                                    <td><span class="lang-ko">S3 암호화</span><span class="lang-en">S3 encryption</span></td>
+                                    <td>&#10003;</td>
+                                    <td>&#10003;</td>
+                                </tr>
+                                <tr>
+                                    <td>alias/ccs-rds-key</td>
+                                    <td><span class="lang-ko">Aurora 암호화</span><span class="lang-en">Aurora encryption</span></td>
+                                    <td>&#10003;</td>
+                                    <td>&#10003;</td>
+                                </tr>
+                                <tr>
+                                    <td>alias/ccs-msk-key</td>
+                                    <td><span class="lang-ko">MSK 암호화</span><span class="lang-en">MSK encryption</span></td>
+                                    <td>&#10003;</td>
+                                    <td>&#10003;</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="callout info">
+                            <strong><span class="lang-ko">리전 간 키 정책</span><span class="lang-en">Cross-Region Key Policy</span></strong>
+                            <ul>
+                                <li><span class="lang-ko">S3 복제: 대상 리전 키 사용</span><span class="lang-en">S3 replication: destination uses destination-region key</span></li>
+                                <li><span class="lang-ko">Aurora Global: 각 리전이 자체 KMS 키 사용</span><span class="lang-en">Aurora Global: each region uses own KMS key</span></li>
+                                <li><span class="lang-ko">키 자료는 리전 경계를 넘지 않음</span><span class="lang-en">No key material crosses regions</span></li>
+                            </ul>
+                        </div>
 
                         <div class="callout workshop" style="margin-top:12px;">
                             <strong>HAEA Workshop Request #5</strong>

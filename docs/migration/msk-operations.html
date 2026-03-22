@@ -60,16 +60,22 @@
                         <p><strong>Total: ~10TB/day <span class="lang-ko">(replication factor 3 포함)</span><span class="lang-en">(including replication factor 3)</span></strong></p>
 
                         <h4><span class="lang-ko">브로커 사이징 공식</span><span class="lang-en">Broker Sizing Formula</span></h4>
-<pre><code><span class="hl-cm"># Broker count calculation</span>
-brokers = (peak_throughput × replication_factor) / (broker_throughput × 0.7)
-
-<span class="hl-cm"># Current configuration</span>
-peak_throughput = 150 MB/s
-replication_factor = 3
-broker_throughput = 100 MB/s  <span class="hl-cm"># kafka.m5.2xlarge</span>
-safety_margin = 0.7
-
-brokers = (150 × 3) / (100 × 0.7) = 450 / 70 ≈ <span class="hl-num">7</span> → <span class="hl-num">8</span> (distributed across 3 AZs)</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th><span class="lang-ko">파라미터</span><span class="lang-en">Parameter</span></th><th><span class="lang-ko">값</span><span class="lang-en">Value</span></th><th><span class="lang-ko">설명</span><span class="lang-en">Description</span></th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>peak_throughput</td><td>150 MB/s</td><td><span class="lang-ko">피크 처리량</span><span class="lang-en">Peak throughput</span></td></tr>
+                                <tr><td>replication_factor</td><td>3</td><td><span class="lang-ko">복제 계수</span><span class="lang-en">Replication factor</span></td></tr>
+                                <tr><td>broker_throughput</td><td>100 MB/s</td><td><span class="lang-ko">브로커당 처리량 (kafka.m5.2xlarge)</span><span class="lang-en">Per-broker throughput (kafka.m5.2xlarge)</span></td></tr>
+                                <tr><td>safety_margin</td><td>0.7 (70%)</td><td><span class="lang-ko">안전 마진</span><span class="lang-en">Safety margin</span></td></tr>
+                            </tbody>
+                        </table>
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong><span class="lang-ko">계산 공식</span><span class="lang-en">Calculation Formula</span></strong><br>
+                            <span class="lang-ko">브로커 수 = (피크 처리량 × 복제 계수) / (브로커 처리량 × 안전 마진)</span><span class="lang-en">Brokers = (peak_throughput × replication_factor) / (broker_throughput × safety_margin)</span><br>
+                            <span class="lang-ko">결과: (150 × 3) / (100 × 0.7) = 450 / 70 ≈ 7 → <strong>8 브로커</strong> (3개 AZ에 분산)</span><span class="lang-en">Result: (150 × 3) / (100 × 0.7) = 450 / 70 ≈ 7 → <strong>8 brokers</strong> (distributed across 3 AZs)</span>
+                        </div>
 
                         <h4><span class="lang-ko">인증 설정</span><span class="lang-en">Authentication Configuration</span></h4>
                         <p><span class="lang-ko">SASL/SCRAM 인증을 port 9096에서 사용합니다.</span><span class="lang-en">Uses SASL/SCRAM authentication on port 9096.</span></p>
@@ -292,26 +298,20 @@ sasl.jaas.config=...  <span class="hl-cm"># load credentials from AWS Secrets Ma
                         </table>
 
                         <h4><span class="lang-ko">데이터 티어링 아키텍처</span><span class="lang-en">Data Tiering Architecture</span></h4>
-<pre><code><span class="hl-cm">┌─────────────────────────────────────────────────────────────────┐</span>
-<span class="hl-cm">│                      Data Tiering Flow                          │</span>
-<span class="hl-cm">└─────────────────────────────────────────────────────────────────┘</span>
-
-     <span class="hl-str">CBU (4 units)</span>
-         │
-         ▼
-   <span class="hl-key">┌─────────────┐</span>
-   <span class="hl-key">│    MSK      │</span>  ◄── Ingestion Layer (Kafka)
-   <span class="hl-key">└──────┬──────┘</span>
-          │
-          ├─────────────────────┬─────────────────────┐
-          ▼                     ▼                     ▼
-   <span class="hl-num">┌─────────────┐</span>      <span class="hl-str">┌─────────────┐</span>      <span class="hl-cm">┌─────────────┐</span>
-   <span class="hl-num">│ ElastiCache │</span>      <span class="hl-str">│  DocumentDB │</span>      <span class="hl-cm">│     S3      │</span>
-   <span class="hl-num">│   (Valkey)  │</span>      <span class="hl-str">│   (MongoDB) │</span>      <span class="hl-cm">│   (Parquet) │</span>
-   <span class="hl-num">└─────────────┘</span>      <span class="hl-str">└─────────────┘</span>      <span class="hl-cm">└─────────────┘</span>
-        <span class="hl-num">HOT</span>                 <span class="hl-str">WARM</span>                 <span class="hl-cm">COLD</span>
-   VSS Latest Cache    3-7 Day Data         Permanent
-   &lt; 1ms Response      Analytics Query      Athena Query</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th><span class="lang-ko">티어</span><span class="lang-en">Tier</span></th><th><span class="lang-ko">스토리지</span><span class="lang-en">Storage</span></th><th><span class="lang-ko">보관 기간</span><span class="lang-en">Retention</span></th><th><span class="lang-ko">용도</span><span class="lang-en">Use Case</span></th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><strong>HOT</strong></td><td>ElastiCache (Valkey)</td><td><span class="lang-ko">TTL 없음</span><span class="lang-en">No TTL</span></td><td><span class="lang-ko">VSS 최신값 캐시, &lt; 1ms 응답</span><span class="lang-en">VSS latest cache, &lt; 1ms response</span></td></tr>
+                                <tr><td><strong>WARM</strong></td><td>DocumentDB (MongoDB)</td><td><span class="lang-ko">3-7일</span><span class="lang-en">3-7 days</span></td><td><span class="lang-ko">분석 쿼리</span><span class="lang-en">Analytics query</span></td></tr>
+                                <tr><td><strong>COLD</strong></td><td>S3 (Parquet)</td><td><span class="lang-ko">영구</span><span class="lang-en">Permanent</span></td><td><span class="lang-ko">Athena 쿼리</span><span class="lang-en">Athena query</span></td></tr>
+                            </tbody>
+                        </table>
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong><span class="lang-ko">데이터 플로우</span><span class="lang-en">Data Flow</span></strong><br>
+                            <span class="lang-ko">CBU (4 units) → MSK (Ingestion Layer) → ElastiCache / DocumentDB / S3</span><span class="lang-en">CBU (4 units) → MSK (Ingestion Layer) → ElastiCache / DocumentDB / S3</span>
+                        </div>
 
                         <h4><span class="lang-ko">데이터 라이프사이클</span><span class="lang-en">Data Lifecycle</span></h4>
                         <ul>
@@ -358,20 +358,17 @@ sasl.jaas.config=...  <span class="hl-cm"># load credentials from AWS Secrets Ma
                         </table>
 
                         <h4><span class="lang-ko">마이그레이션 경로</span><span class="lang-en">Migration Path</span></h4>
-<pre><code><span class="hl-cm"># Phase 1: Initial Sync (MirrorMaker2)</span>
-On-Prem Kafka ──MirrorMaker2──▶ MSK (new)
-     │                              │
-     ▼                              ▼
-  Producer                     Consumer (validation)
-
-<span class="hl-cm"># Phase 2: Production Cutover (MSK Replicator)</span>
-On-Prem Kafka ──MSK Replicator──▶ MSK (Production)
-                    │
-                    ▼
-         Consumer Group Offset Sync
-                    │
-                    ▼
-           Zero-Downtime Cutover</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead>
+                                <tr><th><span class="lang-ko">단계</span><span class="lang-en">Phase</span></th><th><span class="lang-ko">작업</span><span class="lang-en">Task</span></th><th><span class="lang-ko">설명</span><span class="lang-en">Description</span></th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><strong>Phase 1</strong></td><td><span class="lang-ko">초기 동기화</span><span class="lang-en">Initial Sync</span></td><td><span class="lang-ko">On-Prem Kafka → MirrorMaker2 → MSK (신규), Consumer 검증</span><span class="lang-en">On-Prem Kafka → MirrorMaker2 → MSK (new), Consumer validation</span></td></tr>
+                                <tr><td><strong>Phase 2</strong></td><td><span class="lang-ko">프로덕션 전환</span><span class="lang-en">Production Cutover</span></td><td><span class="lang-ko">On-Prem Kafka → MSK Replicator → MSK (Production)</span><span class="lang-en">On-Prem Kafka → MSK Replicator → MSK (Production)</span></td></tr>
+                                <tr><td><strong>Phase 2a</strong></td><td><span class="lang-ko">오프셋 동기화</span><span class="lang-en">Offset Sync</span></td><td><span class="lang-ko">Consumer Group Offset 동기화</span><span class="lang-en">Consumer Group Offset synchronization</span></td></tr>
+                                <tr><td><strong>Phase 2b</strong></td><td><span class="lang-ko">무중단 전환</span><span class="lang-en">Zero-Downtime Cutover</span></td><td><span class="lang-ko">프로듀서/컨슈머를 MSK로 전환</span><span class="lang-en">Switch producers/consumers to MSK</span></td></tr>
+                            </tbody>
+                        </table>
 
                         <h4><span class="lang-ko">비용 비교</span><span class="lang-en">Cost Comparison</span></h4>
                         <table class="info-table">

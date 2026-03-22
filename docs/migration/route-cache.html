@@ -46,27 +46,31 @@
                         </p>
 
                         <h4><span class="lang-ko">GIS 핵심 컴포넌트</span><span class="lang-en">GIS Core Components</span></h4>
-<pre><code><span class="hl-cm"># GIS = Global Information Service (Real-time Navigation)</span>
-
-<span class="hl-key">Road Guide:</span>
-  - Static road network data
-  - Road structure, lanes, intersections, speed limits
-  - Update frequency: Low (1-2 updates per month)
-
-<span class="hl-key">Traffic Info:</span>
-  - Real-time traffic congestion data
-  - Average speed per segment, estimated travel time
-  - Update frequency: High (5-minute refresh cycle)
-
-<span class="hl-key">Analytics:</span>
-  - Route optimization algorithms
-  - Prediction based on historical data
-  - ETA accuracy improvement
-
-<span class="hl-cm"># GSS (Global Search Service)</span>
-  - Autocomplete search
-  - Region-specific Edge Processing
-  - POI search optimization</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">컴포넌트</span><span class="lang-en">Component</span></th><th><span class="lang-ko">설명</span><span class="lang-en">Description</span></th><th><span class="lang-ko">갱신 빈도</span><span class="lang-en">Update Frequency</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:600;">Road Guide</td>
+                                    <td><span class="lang-ko">정적 도로 네트워크 데이터 — 도로 구조, 차선, 교차로, 속도 제한</span><span class="lang-en">Static road network data — Road structure, lanes, intersections, speed limits</span></td>
+                                    <td><span class="lang-ko">낮음 (월 1-2회)</span><span class="lang-en">Low (1-2 updates per month)</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;">Traffic Info</td>
+                                    <td><span class="lang-ko">실시간 교통 혼잡 데이터 — 구간별 평균 속도, 예상 이동 시간</span><span class="lang-en">Real-time traffic congestion data — Average speed per segment, estimated travel time</span></td>
+                                    <td><span class="lang-ko">높음 (5분 주기)</span><span class="lang-en">High (5-minute refresh cycle)</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;">Analytics</td>
+                                    <td><span class="lang-ko">경로 최적화 알고리즘 — 히스토리 기반 예측, ETA 정확도 향상</span><span class="lang-en">Route optimization algorithms — Prediction based on historical data, ETA accuracy improvement</span></td>
+                                    <td>—</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;">GSS</td>
+                                    <td><span class="lang-ko">Global Search Service — 자동완성 검색, 리전별 Edge Processing, POI 검색 최적화</span><span class="lang-en">Global Search Service — Autocomplete search, Region-specific Edge Processing, POI search optimization</span></td>
+                                    <td>—</td>
+                                </tr>
+                            </tbody>
+                        </table>
 
                         <h4><span class="lang-ko">표준 서비스 패턴</span><span class="lang-en">Standard Service Pattern</span></h4>
                         <table class="info-table">
@@ -225,24 +229,30 @@
                         </table>
 
                         <h4><span class="lang-ko">Geohash 기반 구간 캐싱</span><span class="lang-en">Geohash-Based Segment Caching</span></h4>
-<pre><code><span class="hl-cm"># Geohash (technique to encode location as short string) precision 6 = ~1.2km x 0.6km cell</span>
-<span class="hl-cm"># Segment-based caching instead of Origin-Destination(OD) pairs → Maximize reuse rate</span>
-
-<span class="hl-key">Cache Key Structure:</span>
-  route:segment:{geohash_from}:{geohash_to}:{traffic_level}
-
-<span class="hl-key">Traffic Level Separation:</span>
-  - normal  : Normal traffic
-  - heavy   : Congested
-  - severe  : Severe congestion
-
-<span class="hl-key">Example:</span>
-  route:segment:9q8yyk:9q8yym:normal    <span class="hl-cm"># LA downtown (normal)</span>
-  route:segment:9q8yyk:9q8yym:heavy     <span class="hl-cm"># LA downtown (congested)</span>
-  route:segment:9q8yyk:9q8yym:severe    <span class="hl-cm"># LA downtown (severe)</span>
-
-<span class="hl-cm"># When congestion changes, only replace that traffic level's cache</span>
-<span class="hl-cm"># Prevent full invalidation → Improve cache efficiency</span></code><span class="code-label">text</span></pre>
+                        <div class="callout info">
+                            <strong><span class="lang-ko">Geohash 개념</span><span class="lang-en">Geohash Concept</span></strong>
+                            <p><span class="lang-ko">Geohash는 위치를 짧은 문자열로 인코딩하는 기술입니다. precision 6 = ~1.2km x 0.6km 셀.
+                            Origin-Destination(OD) 쌍 대신 구간 기반 캐싱으로 재사용률을 극대화합니다.</span><span class="lang-en">Geohash is a technique to encode location as a short string. Precision 6 = ~1.2km x 0.6km cell.
+                            Segment-based caching instead of Origin-Destination(OD) pairs maximizes reuse rate.</span></p>
+                        </div>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">항목</span><span class="lang-en">Item</span></th><th><span class="lang-ko">값 / 설명</span><span class="lang-en">Value / Description</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:600;"><span class="lang-ko">캐시 키 구조</span><span class="lang-en">Cache Key Structure</span></td>
+                                    <td><code>route:segment:{geohash_from}:{geohash_to}:{traffic_level}</code></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;">Traffic Level</td>
+                                    <td><code>normal</code> (<span class="lang-ko">정상</span><span class="lang-en">Normal</span>) / <code>heavy</code> (<span class="lang-ko">혼잡</span><span class="lang-en">Congested</span>) / <code>severe</code> (<span class="lang-ko">심각</span><span class="lang-en">Severe</span>)</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;"><span class="lang-ko">예시 (LA downtown)</span><span class="lang-en">Example (LA downtown)</span></td>
+                                    <td><code>route:segment:9q8yyk:9q8yym:normal</code><br><code>route:segment:9q8yyk:9q8yym:heavy</code><br><code>route:segment:9q8yyk:9q8yym:severe</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p style="margin-top:12px;"><span class="lang-ko">혼잡도가 변경되면 해당 traffic level의 캐시만 교체하여 전체 무효화를 방지하고 캐시 효율을 향상시킵니다.</span><span class="lang-en">When congestion changes, only that traffic level's cache is replaced, preventing full invalidation and improving cache efficiency.</span></p>
 
                         <div class="callout tip">
                             <strong><span class="lang-ko">Traffic Level 분리의 이점</span><span class="lang-en">Benefits of Traffic Level Separation</span></strong>
@@ -289,39 +299,50 @@
                         </table>
 
                         <h4><span class="lang-ko">독립 운영의 이점</span><span class="lang-en">Benefits of Independent Operation</span></h4>
-<pre><code><span class="hl-cm"># ElastiCache cross-region sync vs independent operation</span>
-
-<span class="hl-key">Cross-region Transfer Cost:</span>
-  Sync:        ~$0.02/GB (significant cost)
-  Independent: $0 (none)
-
-<span class="hl-key">Write Latency:</span>
-  Sync:        +60ms (cross-region RTT added)
-  Independent: &lt;1ms (local write)
-
-<span class="hl-key">Cache Efficiency:</span>
-  Sync:        Low (other region data unnecessary)
-  Independent: High (region-specific data only)
-
-<span class="hl-key">Fault Isolation:</span>
-  Sync:        Replication failure affects both regions
-  Independent: Fully independent, fully isolated</code><span class="code-label">text</span></pre>
+                        <table class="info-table">
+                            <thead><tr><th><span class="lang-ko">항목</span><span class="lang-en">Metric</span></th><th><span class="lang-ko">리전간 동기화</span><span class="lang-en">Cross-region Sync</span></th><th><span class="lang-ko">독립 운영</span><span class="lang-en">Independent</span></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:600;"><span class="lang-ko">리전간 전송 비용</span><span class="lang-en">Cross-region Transfer Cost</span></td>
+                                    <td><span class="lang-ko">~$0.02/GB (상당한 비용)</span><span class="lang-en">~$0.02/GB (significant cost)</span></td>
+                                    <td><span class="lang-ko">$0 (없음)</span><span class="lang-en">$0 (none)</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;"><span class="lang-ko">쓰기 지연</span><span class="lang-en">Write Latency</span></td>
+                                    <td><span class="lang-ko">+60ms (리전간 RTT 추가)</span><span class="lang-en">+60ms (cross-region RTT added)</span></td>
+                                    <td><span class="lang-ko">&lt;1ms (로컬 쓰기)</span><span class="lang-en">&lt;1ms (local write)</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;"><span class="lang-ko">캐시 효율</span><span class="lang-en">Cache Efficiency</span></td>
+                                    <td><span class="lang-ko">낮음 (다른 리전 데이터 불필요)</span><span class="lang-en">Low (other region data unnecessary)</span></td>
+                                    <td><span class="lang-ko">높음 (리전 특화 데이터만)</span><span class="lang-en">High (region-specific data only)</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;"><span class="lang-ko">장애 격리</span><span class="lang-en">Fault Isolation</span></td>
+                                    <td><span class="lang-ko">복제 실패 시 양쪽 리전 영향</span><span class="lang-en">Replication failure affects both regions</span></td>
+                                    <td><span class="lang-ko">완전 독립, 완전 격리</span><span class="lang-en">Fully independent, fully isolated</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
 
                         <h4><span class="lang-ko">Cache Warming 전략</span><span class="lang-en">Cache Warming Strategy</span></h4>
-<pre><code><span class="hl-cm"># Cache Warming to prevent Cold Start</span>
-
-<span class="hl-key">1. Periodic Pre-load (every 5 min):</span>
-   - Load major segment data from DocumentDB
-   - Apply priority based on popular routes
-
-<span class="hl-key">2. Seed Data on Deployment:</span>
-   - Pre-populate Top-1000 popular routes
-   - Minimize cache misses immediately after deployment
-
-<span class="hl-key">3. MSK Event Subscription:</span>
-   - Subscribe to traffic.events topic
-   - Subscribe to road.events topic
-   - Event-driven proactive cache refresh</code><span class="code-label">text</span></pre>
+                        <div class="callout tip">
+                            <strong><span class="lang-ko">Cold Start 방지를 위한 Cache Warming</span><span class="lang-en">Cache Warming to Prevent Cold Start</span></strong>
+                            <ol>
+                                <li>
+                                    <strong><span class="lang-ko">주기적 사전 로드 (5분마다)</span><span class="lang-en">Periodic Pre-load (every 5 min)</span></strong><br>
+                                    <span class="lang-ko">DocumentDB에서 주요 구간 데이터 로드, 인기 경로 기준 우선순위 적용</span><span class="lang-en">Load major segment data from DocumentDB, apply priority based on popular routes</span>
+                                </li>
+                                <li>
+                                    <strong><span class="lang-ko">배포 시 시드 데이터</span><span class="lang-en">Seed Data on Deployment</span></strong><br>
+                                    <span class="lang-ko">Top-1000 인기 경로 사전 적재, 배포 직후 캐시 미스 최소화</span><span class="lang-en">Pre-populate Top-1000 popular routes, minimize cache misses immediately after deployment</span>
+                                </li>
+                                <li>
+                                    <strong><span class="lang-ko">MSK 이벤트 구독</span><span class="lang-en">MSK Event Subscription</span></strong><br>
+                                    <span class="lang-ko">traffic.events, road.events 토픽 구독 — 이벤트 기반 선제적 캐시 갱신</span><span class="lang-en">Subscribe to traffic.events, road.events topics — Event-driven proactive cache refresh</span>
+                                </li>
+                            </ol>
+                        </div>
 
                         <div class="callout info">
                             <strong><span class="lang-ko">설계 원칙: 지역 특화</span><span class="lang-en">Design Principle: Regional Specialization</span></strong>
