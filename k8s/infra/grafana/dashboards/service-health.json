@@ -212,18 +212,18 @@
         "description": "Filter by namespace/domain",
         "hide": 0,
         "includeAll": true,
-        "allValue": "core|user|fulfillment|business|platform",
+        "allValue": "core-services|user-services|fulfillment|business-services|platform",
         "label": "Namespace",
         "multi": true,
         "name": "namespace",
         "options": [
-          { "selected": false, "text": "core", "value": "core" },
-          { "selected": false, "text": "user", "value": "user" },
+          { "selected": false, "text": "core-services", "value": "core-services" },
+          { "selected": false, "text": "user-services", "value": "user-services" },
           { "selected": false, "text": "fulfillment", "value": "fulfillment" },
-          { "selected": false, "text": "business", "value": "business" },
+          { "selected": false, "text": "business-services", "value": "business-services" },
           { "selected": false, "text": "platform", "value": "platform" }
         ],
-        "query": "core,user,fulfillment,business,platform",
+        "query": "core-services,user-services,fulfillment,business-services,platform",
         "type": "custom"
       }
     ]
