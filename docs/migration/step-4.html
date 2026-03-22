@@ -8,6 +8,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        .chart-container { position: relative; width: 100%; max-width: 480px; margin: 1.5rem auto; }
+        .chart-container canvas { width: 100% !important; height: auto !important; }
+        .chart-container-wide { position: relative; width: 100%; max-width: 640px; margin: 1.5rem auto; height: 300px; }
+    </style>
 </head>
 <body>
     <button class="sidebar-toggle" onclick="toggleSidebar()">
@@ -32,6 +38,9 @@
                 <div class="callout info">
                     <strong><span class="lang-ko">트래픽 분배</span><span class="lang-en">Traffic Distribution</span></strong>
                     On-Prem 70% / us-west-2 15% / us-east-1 15% &mdash; <span class="lang-ko">AWS 리전으로 30% 트래픽 전환</span><span class="lang-en">30% traffic shift to AWS regions</span>
+                    <div class="chart-container">
+                        <canvas id="trafficDonut"></canvas>
+                    </div>
                 </div>
 
                 <!-- ===== Card 4-1: Latency-based Routing ===== -->
@@ -217,6 +226,10 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                             </tbody>
                         </table>
 
+                        <div class="chart-container-wide">
+                            <canvas id="canaryBar"></canvas>
+                        </div>
+
                         <h4><span class="lang-ko">롤백 기준 (자동)</span><span class="lang-en">Rollback Criteria (Automatic)</span></h4>
 <pre><code><span class="hl-cm"># CloudWatch Alarm-based rollback trigger</span>
 Error Rate   > 1%     <span class="hl-cm"># Error rate exceeds 1% for 5 minutes</span>
@@ -247,5 +260,79 @@ Data Lag     > 30s    <span class="hl-cm"># Cross-region data sync delay exceeds
     </div>
 
     <script src="shared.js"></script>
+    <script>
+    (function() {
+        var fontStack = "'Noto Sans KR', sans-serif";
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = fontStack;
+        Chart.defaults.font.size = 12;
+
+        var tooltipStyle = {
+            backgroundColor: '#1e293b',
+            borderColor: '#334155',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 6
+        };
+
+        // Traffic Distribution Donut
+        new Chart(document.getElementById('trafficDonut'), {
+            type: 'doughnut',
+            data: {
+                labels: ['On-Prem (70%)', 'us-west-2 (15%)', 'us-east-1 (15%)'],
+                datasets: [{
+                    data: [70, 15, 15],
+                    backgroundColor: ['#64748b', '#34d399', '#a78bfa'],
+                    borderColor: '#1a1a2e',
+                    borderWidth: 2,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { padding: 16, usePointStyle: true, pointStyleWidth: 10, font: { size: 12 } }
+                    },
+                    tooltip: Object.assign({}, tooltipStyle, {
+                        callbacks: { label: function(ctx) { return ' ' + ctx.label; } }
+                    })
+                }
+            }
+        });
+
+        // Canary Deployment Stacked Bar
+        new Chart(document.getElementById('canaryBar'), {
+            type: 'bar',
+            data: {
+                labels: ['Step 1', 'Step 4', 'Step 5', 'Step 6'],
+                datasets: [
+                    { label: 'On-Prem', data: [90, 70, 50, 0], backgroundColor: '#64748b' },
+                    { label: 'us-west-2', data: [10, 15, 25, 50], backgroundColor: '#34d399' },
+                    { label: 'us-east-1', data: [0, 15, 25, 50], backgroundColor: '#a78bfa' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, grid: { display: false }, border: { color: '#334155' } },
+                    y: { stacked: true, max: 100, grid: { color: 'rgba(148,163,184,0.08)' }, border: { color: '#334155' }, ticks: { callback: function(v) { return v + '%'; } } }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { padding: 16, usePointStyle: true, pointStyleWidth: 10, font: { size: 12 } }
+                    },
+                    tooltip: Object.assign({}, tooltipStyle, {
+                        callbacks: { label: function(ctx) { return ' ' + ctx.dataset.label + ': ' + ctx.raw + '%'; } }
+                    })
+                }
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
