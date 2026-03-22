@@ -14,3 +14,4 @@ opentelemetry-instrumentation-redis>=0.46b0
 opentelemetry-instrumentation-pymongo>=0.46b0
 redis>=5.0.0
 motor>=3.3.0
+pymongo>=4.5,<4.8
