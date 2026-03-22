@@ -157,22 +157,72 @@
                         </table>
 
                         <h4><span class="lang-ko">트래픽 라우팅 계층</span><span class="lang-en">Traffic Routing Layers</span></h4>
-<pre><code>User
-  <span class="hl-cm">|</span>
-  <span class="hl-cm">v</span>
-CloudFront + WAF        <span class="hl-cm"># L7 global edge (static content caching + WAF security)</span>
-  <span class="hl-cm">|</span>
-  <span class="hl-cm">v</span>
-Route53 Latency-based   <span class="hl-cm"># DNS-level region selection</span>
-  <span class="hl-cm">|</span>
-  <span class="hl-cm">v</span>
-NLB (Network Load Balancer, per region)        <span class="hl-cm"># L4 load balancing (CloudFront prefix-list SG)</span>
-  <span class="hl-cm">|</span>
-  <span class="hl-cm">v</span>
-api-gateway pod         <span class="hl-cm"># Service mesh entry point</span>
-  <span class="hl-cm">|</span>
-  <span class="hl-cm">v</span>
-Internal services       <span class="hl-cm"># K8s Service DNS-based communication</span></code><span class="code-label">text</span></pre>
+                        <svg viewBox="0 0 700 420" style="width:100%;display:block;margin:12px 0" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <filter id="gl1"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                                <marker id="a1" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#06B6D4" opacity="0.5"/></marker>
+                            </defs>
+                            <style>
+                                .rt-node{font-family:'Noto Sans KR',sans-serif;font-weight:600}
+                                .rt-desc{font-family:'Noto Sans KR',sans-serif;font-size:10px;fill:#94A3B8}
+                                @keyframes rtdash{to{stroke-dashoffset:-16}}
+                                .rt-flow{stroke-dasharray:8 8;animation:rtdash 0.8s linear infinite}
+                            </style>
+
+                            <!-- User -->
+                            <rect x="265" y="8" width="170" height="36" rx="18" fill="rgba(148,163,184,0.08)" stroke="#94A3B8" stroke-width="1.5"/>
+                            <text x="350" y="31" text-anchor="middle" class="rt-node" font-size="13" fill="#E2E8F0">User / Client</text>
+
+                            <!-- Arrow -->
+                            <line x1="350" y1="44" x2="350" y2="72" stroke="#06B6D4" stroke-width="2" class="rt-flow" marker-end="url(#a1)"/>
+
+                            <!-- CloudFront + WAF -->
+                            <rect x="220" y="76" width="260" height="42" rx="10" fill="rgba(6,182,212,0.06)" stroke="#06B6D4" stroke-width="2"/>
+                            <text x="310" y="101" text-anchor="middle" class="rt-node" font-size="13" fill="#06B6D4">CloudFront</text>
+                            <line x1="355" y1="82" x2="355" y2="112" stroke="rgba(6,182,212,0.25)" stroke-width="1"/>
+                            <text x="410" y="101" text-anchor="middle" class="rt-node" font-size="13" fill="#F87171">WAF</text>
+                            <text x="540" y="101" class="rt-desc" fill="#64748B">L7 global edge + security</text>
+
+                            <line x1="350" y1="118" x2="350" y2="146" stroke="#8B5CF6" stroke-width="2" class="rt-flow" marker-end="url(#a1)"/>
+
+                            <!-- Route53 -->
+                            <rect x="230" y="150" width="240" height="38" rx="10" fill="rgba(139,92,246,0.06)" stroke="#8B5CF6" stroke-width="1.5"/>
+                            <text x="350" y="174" text-anchor="middle" class="rt-node" font-size="13" fill="#8B5CF6">Route 53 Latency-based</text>
+                            <text x="540" y="174" class="rt-desc" fill="#64748B">DNS-level region select</text>
+
+                            <line x1="350" y1="188" x2="350" y2="216" stroke="#10B981" stroke-width="2" class="rt-flow" marker-end="url(#a1)"/>
+
+                            <!-- NLB -->
+                            <rect x="210" y="220" width="280" height="38" rx="10" fill="rgba(16,185,129,0.06)" stroke="#10B981" stroke-width="1.5"/>
+                            <text x="350" y="244" text-anchor="middle" class="rt-node" font-size="13" fill="#10B981">NLB (per region)</text>
+                            <rect x="500" y="228" width="30" height="22" rx="4" fill="rgba(251,146,60,0.08)" stroke="#FB923C" stroke-width="1" stroke-dasharray="3 2"/>
+                            <text x="515" y="243" text-anchor="middle" font-size="8" font-weight="600" fill="#FB923C" font-family="'Noto Sans KR',sans-serif">SG</text>
+                            <text x="540" y="244" class="rt-desc" fill="#64748B">L4 LB + prefix-list SG</text>
+
+                            <line x1="350" y1="258" x2="350" y2="286" stroke="#F472B6" stroke-width="2" class="rt-flow" marker-end="url(#a1)"/>
+
+                            <!-- api-gateway -->
+                            <rect x="250" y="290" width="200" height="36" rx="8" fill="rgba(244,114,182,0.06)" stroke="#F472B6" stroke-width="1.5"/>
+                            <text x="350" y="313" text-anchor="middle" class="rt-node" font-size="13" fill="#F472B6">api-gateway pod</text>
+                            <text x="540" y="313" class="rt-desc" fill="#64748B">service mesh entry</text>
+
+                            <line x1="350" y1="326" x2="350" y2="354" stroke="#FACC15" stroke-width="2" class="rt-flow" marker-end="url(#a1)"/>
+
+                            <!-- Internal services -->
+                            <rect x="230" y="358" width="240" height="36" rx="8" fill="rgba(250,204,21,0.06)" stroke="#FACC15" stroke-width="1.5"/>
+                            <text x="350" y="381" text-anchor="middle" class="rt-node" font-size="13" fill="#FACC15">Internal Services</text>
+                            <text x="540" y="381" class="rt-desc" fill="#64748B">K8s Service DNS</text>
+
+                            <!-- Animated packet -->
+                            <circle r="3.5" fill="#06B6D4" filter="url(#gl1)">
+                                <animateMotion dur="3.5s" repeatCount="indefinite" path="M350,44 L350,76 L350,118 L350,150 L350,188 L350,220 L350,258 L350,290 L350,326 L350,358"/>
+                                <animate attributeName="opacity" values="0;1;1;1;0" dur="3.5s" repeatCount="indefinite"/>
+                            </circle>
+                            <circle r="3" fill="#06B6D4" filter="url(#gl1)">
+                                <animateMotion dur="3.5s" repeatCount="indefinite" path="M350,44 L350,76 L350,118 L350,150 L350,188 L350,220 L350,258 L350,290 L350,326 L350,358" begin="1.5s"/>
+                                <animate attributeName="opacity" values="0;1;1;1;0" dur="3.5s" repeatCount="indefinite" begin="1.5s"/>
+                            </circle>
+                        </svg>
                     </div>
                 </div>
 
@@ -233,15 +283,74 @@ Internal services       <span class="hl-cm"># K8s Service DNS-based communicatio
                         </div>
 
                         <h4><span class="lang-ko">Direct Connect 구성</span><span class="lang-en">Direct Connect Configuration</span></h4>
-<pre><code><span class="hl-cm"># Direct Connect path</span>
-On-Prem DC
-    <span class="hl-cm">|--- Direct Connect 10Gbps ---></span> AWS us-west-2 VPC
-                                        <span class="hl-cm">|</span>
-                                   EC2 Sync Connector
-                                   (Debezium, MirrorMaker2, Custom Agent)
-                                        <span class="hl-cm">|</span>
-                                   AWS Data Stores
-                                   (DSQL, DocumentDB, MSK, OpenSearch)</code><span class="code-label">text</span></pre>
+                        <svg viewBox="0 0 700 300" style="width:100%;display:block;margin:12px 0" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <marker id="a2" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#F59E0B" opacity="0.6"/></marker>
+                                <marker id="a3" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#3B82F6" opacity="0.6"/></marker>
+                            </defs>
+                            <style>
+                                @keyframes dcdash{to{stroke-dashoffset:-20}}
+                                .dc-flow{stroke-dasharray:10 10;animation:dcdash 1s linear infinite}
+                            </style>
+
+                            <!-- On-Prem DC -->
+                            <rect x="30" y="60" width="180" height="180" rx="14" fill="rgba(245,158,11,0.04)" stroke="#F59E0B" stroke-width="1.5"/>
+                            <text x="120" y="85" text-anchor="middle" font-size="13" font-weight="700" fill="#F59E0B" font-family="'Noto Sans KR',sans-serif">On-Prem DC</text>
+                            <text x="120" y="102" text-anchor="middle" font-size="10" fill="#64748B" font-family="'Noto Sans KR',sans-serif">(us-west region)</text>
+                            <!-- On-Prem datastores -->
+                            <rect x="50" y="115" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="131" text-anchor="middle" font-size="10" fill="#E2E8F0" font-family="'Noto Sans KR',sans-serif">PostgreSQL</text>
+                            <rect x="50" y="145" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="161" text-anchor="middle" font-size="10" fill="#E2E8F0" font-family="'Noto Sans KR',sans-serif">MongoDB</text>
+                            <rect x="50" y="175" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="191" text-anchor="middle" font-size="10" fill="#E2E8F0" font-family="'Noto Sans KR',sans-serif">Kafka / Elasticsearch</text>
+
+                            <!-- Direct Connect link -->
+                            <line x1="210" y1="150" x2="310" y2="150" stroke="#F59E0B" stroke-width="3" class="dc-flow" marker-end="url(#a2)"/>
+                            <rect x="225" y="130" width="70" height="18" rx="4" fill="rgba(245,158,11,0.12)" stroke="#F59E0B" stroke-width="1"/>
+                            <text x="260" y="143" text-anchor="middle" font-size="9" font-weight="600" fill="#F59E0B" font-family="'Noto Sans KR',sans-serif">10 Gbps</text>
+                            <text x="260" y="120" text-anchor="middle" font-size="10" font-weight="600" fill="#F59E0B" font-family="'Noto Sans KR',sans-serif">Direct Connect</text>
+
+                            <!-- AWS us-west-2 VPC -->
+                            <rect x="310" y="20" width="360" height="270" rx="14" fill="rgba(59,130,246,0.03)" stroke="#3B82F6" stroke-width="1.5"/>
+                            <text x="490" y="45" text-anchor="middle" font-size="13" font-weight="700" fill="#3B82F6" font-family="'Noto Sans KR',sans-serif">AWS us-west-2 VPC</text>
+
+                            <!-- EC2 Sync Connector -->
+                            <rect x="370" y="65" width="240" height="80" rx="10" fill="rgba(6,182,212,0.05)" stroke="#06B6D4" stroke-width="1.5"/>
+                            <text x="490" y="90" text-anchor="middle" font-size="12" font-weight="600" fill="#06B6D4" font-family="'Noto Sans KR',sans-serif">EC2 Sync Connector</text>
+                            <!-- CDC tools -->
+                            <rect x="380" y="100" width="68" height="20" rx="4" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.25)" stroke-width="0.8"/><text x="414" y="114" text-anchor="middle" font-size="8" fill="#94A3B8" font-family="'Noto Sans KR',sans-serif">Debezium</text>
+                            <rect x="455" y="100" width="68" height="20" rx="4" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.25)" stroke-width="0.8"/><text x="489" y="114" text-anchor="middle" font-size="8" fill="#94A3B8" font-family="'Noto Sans KR',sans-serif">MirrorMaker2</text>
+                            <rect x="530" y="100" width="68" height="20" rx="4" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.25)" stroke-width="0.8"/><text x="564" y="114" text-anchor="middle" font-size="8" fill="#94A3B8" font-family="'Noto Sans KR',sans-serif">Custom Agent</text>
+
+                            <!-- Arrow EC2 -> Data Stores -->
+                            <line x1="490" y1="145" x2="490" y2="170" stroke="#3B82F6" stroke-width="2" class="dc-flow" marker-end="url(#a3)"/>
+
+                            <!-- AWS Data Stores -->
+                            <rect x="340" y="175" width="300" height="100" rx="10" fill="rgba(59,130,246,0.04)" stroke="rgba(59,130,246,0.2)" stroke-width="1"/>
+                            <text x="490" y="196" text-anchor="middle" font-size="11" font-weight="600" fill="#3B82F6" font-family="'Noto Sans KR',sans-serif">AWS Data Stores</text>
+                            <rect x="355" y="205" width="65" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="387" y="220" text-anchor="middle" font-size="9" fill="#E2E8F0" font-family="'Noto Sans KR',sans-serif">DSQL</text>
+                            <rect x="428" y="205" width="65" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="460" y="220" text-anchor="middle" font-size="9" fill="#E2E8F0" font-family="'Noto Sans KR',sans-serif">DocDB</text>
+                            <rect x="501" y="205" width="65" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="533" y="220" text-anchor="middle" font-size="9" fill="#E2E8F0" font-family="'Noto Sans KR',sans-serif">MSK</text>
+                            <rect x="574" y="205" width="55" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="601" y="220" text-anchor="middle" font-size="9" fill="#E2E8F0" font-family="'Noto Sans KR',sans-serif">OS</text>
+                            <!-- Replication labels -->
+                            <text x="387" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">Debezium</text>
+                            <text x="460" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">Change Stream</text>
+                            <text x="533" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">MM2</text>
+                            <text x="601" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">Logstash</text>
+
+                            <!-- Animated data flow: On-Prem -> EC2 -->
+                            <circle r="3" fill="#F59E0B" filter="url(#gl1)">
+                                <animateMotion dur="2.5s" repeatCount="indefinite" path="M210,130 L310,130 L370,105 L490,105"/>
+                                <animate attributeName="opacity" values="0;1;1;0" dur="2.5s" repeatCount="indefinite"/>
+                            </circle>
+                            <circle r="3" fill="#F59E0B" filter="url(#gl1)">
+                                <animateMotion dur="2.5s" repeatCount="indefinite" path="M210,160 L310,160 L370,105 L490,105" begin="0.8s"/>
+                                <animate attributeName="opacity" values="0;1;1;0" dur="2.5s" repeatCount="indefinite" begin="0.8s"/>
+                            </circle>
+                            <!-- EC2 -> Data Stores -->
+                            <circle r="3" fill="#3B82F6" filter="url(#gl1)">
+                                <animateMotion dur="1.5s" repeatCount="indefinite" path="M490,145 L490,175 L490,210" begin="1.5s"/>
+                                <animate attributeName="opacity" values="0;1;0" dur="1.5s" repeatCount="indefinite" begin="1.5s"/>
+                            </circle>
+                        </svg>
 
                         <p>
                             <span class="lang-ko">EC2 Sync Connector는 <strong>Step 6에서 제거</strong>됩니다.

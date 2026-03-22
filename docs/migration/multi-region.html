@@ -276,36 +276,109 @@ L5: <span class="hl-str">Global-level</span>     <span class="hl-cm"># CloudFron
                         </table>
 
                         <h4><span class="lang-ko">CCS 특화 비용 요소</span><span class="lang-en">CCS-Specific Cost Factors</span></h4>
-<pre><code><span class="hl-cm"># Vehicle Telemetry Data Transfer</span>
-Daily volume:     <span class="hl-num">10TB</span>/day
-Cross-region:     $<span class="hl-num">0.02</span>/GB × <span class="hl-num">10,000</span>GB = <span class="hl-str">$200/day</span>
-Monthly estimate: <span class="hl-str">~$6,000/month</span> (cross-region transfer only)
-
-<span class="hl-cm"># MSK Replication (Replicator)</span>
-Throughput:       <span class="hl-num">50</span>MB/s sustained
-Data replicated:  <span class="hl-num">~4.3TB</span>/day
-Replicator cost:  $<span class="hl-num">0.09</span>/GB = <span class="hl-str">~$387/day</span>
-
-<span class="hl-cm"># Total Cross-Region Data Cost</span>
-Monthly estimate: <span class="hl-str">~$17,600/month</span></code><span class="code-label">text</span></pre>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin:16px 0;">
+                            <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:20px; position:relative; overflow:hidden;">
+                                <div style="position:absolute; top:0; left:0; right:0; height:3px; background:var(--color-sync);"></div>
+                                <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:8px;">
+                                    <span class="lang-ko">차량 텔레메트리 전송</span><span class="lang-en">Vehicle Telemetry Transfer</span>
+                                </div>
+                                <div style="font-size:1.75rem; font-weight:700; color:var(--color-sync); line-height:1.2;">~$6,000<span style="font-size:0.875rem; font-weight:400; color:var(--text-secondary);">/mo</span></div>
+                                <div style="margin-top:12px; font-size:0.8rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
+                                    <div style="display:flex; justify-content:space-between;"><span><span class="lang-ko">일일 볼륨</span><span class="lang-en">Daily volume</span></span><strong style="color:var(--text-primary);">10TB/day</strong></div>
+                                    <div style="display:flex; justify-content:space-between;"><span><span class="lang-ko">리전간 단가</span><span class="lang-en">Cross-region rate</span></span><strong style="color:var(--text-primary);">$0.02/GB</strong></div>
+                                </div>
+                            </div>
+                            <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:20px; position:relative; overflow:hidden;">
+                                <div style="position:absolute; top:0; left:0; right:0; height:3px; background:var(--color-west);"></div>
+                                <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:8px;">
+                                    <span class="lang-ko">MSK 복제 (Replicator)</span><span class="lang-en">MSK Replication (Replicator)</span>
+                                </div>
+                                <div style="font-size:1.75rem; font-weight:700; color:var(--color-west); line-height:1.2;">~$387<span style="font-size:0.875rem; font-weight:400; color:var(--text-secondary);">/day</span></div>
+                                <div style="margin-top:12px; font-size:0.8rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
+                                    <div style="display:flex; justify-content:space-between;"><span><span class="lang-ko">처리량</span><span class="lang-en">Throughput</span></span><strong style="color:var(--text-primary);">50MB/s</strong></div>
+                                    <div style="display:flex; justify-content:space-between;"><span><span class="lang-ko">일일 복제량</span><span class="lang-en">Data replicated</span></span><strong style="color:var(--text-primary);">~4.3TB/day</strong></div>
+                                    <div style="display:flex; justify-content:space-between;"><span><span class="lang-ko">단가</span><span class="lang-en">Unit cost</span></span><strong style="color:var(--text-primary);">$0.09/GB</strong></div>
+                                </div>
+                            </div>
+                            <div style="background:var(--card-bg); border:2px solid var(--color-onprem); border-radius:12px; padding:20px; position:relative; overflow:hidden;">
+                                <div style="position:absolute; top:0; left:0; right:0; height:3px; background:var(--color-onprem);"></div>
+                                <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:8px;">
+                                    <span class="lang-ko">총 리전간 데이터 비용</span><span class="lang-en">Total Cross-Region Data Cost</span>
+                                </div>
+                                <div style="font-size:2rem; font-weight:800; color:var(--color-onprem); line-height:1.2;">~$17,600<span style="font-size:0.875rem; font-weight:400; color:var(--text-secondary);">/mo</span></div>
+                                <div style="margin-top:10px; font-size:0.75rem; color:var(--text-secondary);">
+                                    <span class="lang-ko">텔레메트리 + MSK 복제 합산</span><span class="lang-en">Telemetry + MSK replication combined</span>
+                                </div>
+                            </div>
+                        </div>
 
                         <h4><span class="lang-ko">핵심 절감 전략</span><span class="lang-en">Key Cost Reduction Strategies</span></h4>
-<pre><code><span class="hl-cm"># 1. Karpenter Spot (40% compute savings, additional savings possible with Graviton)</span>
-capacity-type: [spot, on-demand]
-arch: [amd64]   <span class="hl-cm"># Currently amd64 only, arm64 (Graviton) can be added</span>
-
-<span class="hl-cm"># 2. Independent ElastiCache Operation (Eliminates Cross-Region Transfer)</span>
-<span class="hl-cm"># GIS route cache is independent per region → Zero replication cost</span>
-
-<span class="hl-cm"># 3. Tail-based Sampling (90% observability cost reduction)</span>
-errors:        <span class="hl-num">100</span>%   <span class="hl-cm"># Store all errors</span>
-slow (>500ms): <span class="hl-num">100</span>%   <span class="hl-cm"># Store all slow requests</span>
-default:       <span class="hl-num">10</span>%    <span class="hl-cm"># Only 10% of normal traces</span>
-
-<span class="hl-cm"># 4. MSK Topic-level Replication</span>
-<span class="hl-cm"># Replicate only cross-region essential topics, not all topics</span>
-replicated:    ccdi.vss, ccdi.location  <span class="hl-cm"># Required</span>
-local-only:    analytics.*, logs.*      <span class="hl-cm"># Excluded from replication</span></code><span class="code-label">text</span></pre>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin:16px 0;">
+                            <!-- Strategy 1: Karpenter Spot -->
+                            <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:18px; display:flex; gap:14px; align-items:flex-start;">
+                                <div style="min-width:36px; height:36px; border-radius:10px; background:var(--color-east); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem;">1</div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Karpenter Spot</div>
+                                    <div style="display:inline-block; background:var(--color-east); color:#fff; font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:99px; margin-bottom:8px;">
+                                        <span class="lang-ko">40% 컴퓨팅 절감</span><span class="lang-en">40% compute savings</span>
+                                    </div>
+                                    <div style="font-size:0.8rem; color:var(--text-secondary);">
+                                        <code style="font-size:0.75rem;">capacity-type: [spot, on-demand]</code><br>
+                                        <span class="lang-ko">현재 amd64, Graviton(arm64) 추가 가능</span><span class="lang-en">Currently amd64, Graviton (arm64) can be added</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Strategy 2: Independent ElastiCache -->
+                            <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:18px; display:flex; gap:14px; align-items:flex-start;">
+                                <div style="min-width:36px; height:36px; border-radius:10px; background:var(--color-west); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem;">2</div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">
+                                        <span class="lang-ko">ElastiCache 독립 운영</span><span class="lang-en">Independent ElastiCache</span>
+                                    </div>
+                                    <div style="display:inline-block; background:var(--color-west); color:#fff; font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:99px; margin-bottom:8px;">
+                                        <span class="lang-ko">리전간 전송 비용 제거</span><span class="lang-en">Zero replication cost</span>
+                                    </div>
+                                    <div style="font-size:0.8rem; color:var(--text-secondary);">
+                                        <span class="lang-ko">GIS 경로 캐시는 리전별 독립 → 복제 비용 0</span><span class="lang-en">GIS route cache is independent per region → Zero replication cost</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Strategy 3: Tail-based Sampling -->
+                            <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:18px; display:flex; gap:14px; align-items:flex-start;">
+                                <div style="min-width:36px; height:36px; border-radius:10px; background:var(--color-cloudfront); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem;">3</div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Tail-based Sampling</div>
+                                    <div style="display:inline-block; background:var(--color-cloudfront); color:#fff; font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:99px; margin-bottom:8px;">
+                                        <span class="lang-ko">90% 옵저버빌리티 절감</span><span class="lang-en">90% observability reduction</span>
+                                    </div>
+                                    <div style="font-size:0.8rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:3px;">
+                                        <div style="display:flex; justify-content:space-between;"><span>errors</span><strong style="color:var(--color-onprem);">100%</strong></div>
+                                        <div style="display:flex; justify-content:space-between;"><span>slow (&gt;500ms)</span><strong style="color:var(--color-onprem);">100%</strong></div>
+                                        <div style="display:flex; justify-content:space-between;"><span>default</span><strong style="color:var(--color-east);">10%</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Strategy 4: MSK Topic-level Replication -->
+                            <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:18px; display:flex; gap:14px; align-items:flex-start;">
+                                <div style="min-width:36px; height:36px; border-radius:10px; background:var(--color-sync); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem;">4</div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">
+                                        <span class="lang-ko">MSK 토픽 수준 복제</span><span class="lang-en">MSK Topic-level Replication</span>
+                                    </div>
+                                    <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:6px;">
+                                        <span class="lang-ko">필수 토픽만 선별 복제, 전체 토픽 복제 제외</span><span class="lang-en">Replicate only essential cross-region topics</span>
+                                    </div>
+                                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                        <span style="font-size:0.7rem; padding:2px 8px; border-radius:99px; background:var(--color-east); color:#fff; font-weight:500;">ccdi.vss</span>
+                                        <span style="font-size:0.7rem; padding:2px 8px; border-radius:99px; background:var(--color-east); color:#fff; font-weight:500;">ccdi.location</span>
+                                    </div>
+                                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
+                                        <span style="font-size:0.7rem; padding:2px 8px; border-radius:99px; background:var(--text-secondary); color:var(--bg-primary); font-weight:500; opacity:0.6;">analytics.*</span>
+                                        <span style="font-size:0.7rem; padding:2px 8px; border-radius:99px; background:var(--text-secondary); color:var(--bg-primary); font-weight:500; opacity:0.6;">logs.*</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         <div class="callout warning">
                             <strong><span class="lang-ko">Data Transfer 비용 모니터링</span><span class="lang-en">Data Transfer Cost Monitoring</span></strong>
