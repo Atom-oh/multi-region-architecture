@@ -54,11 +54,14 @@ module "vpc" {
 module "transit_gateway" {
   source = "../../../modules/networking/transit-gateway"
 
-  environment           = var.environment
-  vpc_ids               = [module.vpc.vpc_id]
-  attachment_subnet_ids = [module.vpc.private_subnet_ids]
-  create_peering        = false
-  tags                  = var.tags
+  environment             = var.environment
+  vpc_ids                 = [module.vpc.vpc_id]
+  attachment_subnet_ids   = [module.vpc.private_subnet_ids]
+  create_peering          = false
+  peer_cidr_block         = "10.1.0.0/16"
+  private_route_table_ids = module.vpc.private_route_table_ids
+  data_route_table_ids    = module.vpc.data_route_table_ids
+  tags                    = var.tags
 }
 
 module "security_groups" {

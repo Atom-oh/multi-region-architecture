@@ -48,6 +48,24 @@ variable "create_peering" {
   default     = false
 }
 
+variable "peer_cidr_block" {
+  description = "CIDR block of the peer VPC for cross-region routing"
+  type        = string
+  default     = ""
+}
+
+variable "private_route_table_ids" {
+  description = "List of private subnet route table IDs for cross-region routes"
+  type        = list(string)
+  default     = []
+}
+
+variable "data_route_table_ids" {
+  description = "List of data subnet route table IDs for cross-region routes"
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)

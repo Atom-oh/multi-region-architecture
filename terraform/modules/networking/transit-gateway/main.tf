@@ -66,3 +66,20 @@ resource "aws_ec2_transit_gateway_route" "peer" {
   transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.main.id
   transit_gateway_attachment_id  = aws_ec2_transit_gateway_peering_attachment.peer[0].id
 }
+
+#------------------------------------------------------------------------------
+# VPC Route Table Entries for Cross-Region Traffic via TGW
+#------------------------------------------------------------------------------
+resource "aws_route" "private_to_peer" {
+  count                  = var.peer_cidr_block != "" ? length(var.private_route_table_ids) : 0
+  route_table_id         = var.private_route_table_ids[count.index]
+  destination_cidr_block = var.peer_cidr_block
+  transit_gateway_id     = aws_ec2_transit_gateway.main.id
+}
+
+resource "aws_route" "data_to_peer" {
+  count                  = var.peer_cidr_block != "" ? length(var.data_route_table_ids) : 0
+  route_table_id         = var.data_route_table_ids[count.index]
+  destination_cidr_block = var.peer_cidr_block
+  transit_gateway_id     = aws_ec2_transit_gateway.main.id
+}

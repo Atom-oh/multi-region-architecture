@@ -3,7 +3,6 @@ kind: Kustomization
 
 resources:
   - grafana-nlb.yaml
-  - prometheus-west-nlb.yaml
 
 patches:
   - target:

@@ -67,6 +67,9 @@ module "transit_gateway" {
   create_peering          = true
   peer_region             = "us-east-1"
   peer_transit_gateway_id = data.terraform_remote_state.primary.outputs.transit_gateway_id
+  peer_cidr_block         = "10.0.0.0/16"
+  private_route_table_ids = module.vpc.private_route_table_ids
+  data_route_table_ids    = module.vpc.data_route_table_ids
   tags                    = var.tags
 }
 
