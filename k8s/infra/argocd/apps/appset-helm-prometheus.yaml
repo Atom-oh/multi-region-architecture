@@ -51,7 +51,7 @@ spec:
                     - name: Prometheus (us-east-1)
                       type: prometheus
                       uid: prometheus-east
-                      url: http://prometheus-kube-prometheus-prometheus.monitoring:9090
+                      url: http://prometheus-us-east-1-kube-prometheus.monitoring:9090
                       access: proxy
                       isDefault: true
                     - name: Prometheus (us-west-2)

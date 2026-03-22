@@ -11,7 +11,7 @@
     {
       "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
       "id": 1,
-      "options": { "content": "# Synthetic Monitor Dashboard\nE2E user journey traffic across all 20 microservices. CronJob runs every 2 minutes in both regions.\n\nFilter by **test.origin** to compare `test-east` vs `test-west`. Scenarios: S1 Browse & Search | S2 User Registration | S3 Shopping Cart | S4 Purchase Flow | S5 Seller & Warehouse | S6 Post-Purchase | S7 Platform & Analytics", "mode": "markdown" },
+      "options": { "content": "# Synthetic Monitor Dashboard\nE2E user journey traffic across all 20 microservices. CronJob runs every 2 minutes in both regions.\n\nUse the **Region** dropdown above to filter by `us-east-1` / `us-west-2` / `All`. Scenarios: S1 Browse & Search | S2 User Registration | S3 Shopping Cart | S4 Purchase Flow | S5 Seller & Warehouse | S6 Post-Purchase | S7 Platform & Analytics", "mode": "markdown" },
       "title": "",
       "transparent": true,
       "type": "text"
@@ -37,7 +37,7 @@
       "id": 3,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"], "fields": "/Trace ID/" } },
       "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-east\"}", "tableType": "traces", "limit": 100 }],
-      "title": "Traces from us-east-1",
+      "title": "us-east-1 Traces",
       "type": "stat"
     },
     {
@@ -49,7 +49,7 @@
       "id": 4,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"], "fields": "/Trace ID/" } },
       "targets": [{ "datasource": { "type": "tempo", "uid": "tempo-west" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 100 }],
-      "title": "Traces from us-west-2",
+      "title": "us-west-2 Traces",
       "type": "stat"
     },
     {
@@ -65,17 +65,28 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisLabel": "Duration (ms)", "drawStyle": "points", "pointSize": 5, "showPoints": "always" }
-        }
+          "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisLabel": "Duration (ms)", "drawStyle": "points", "pointSize": 6, "showPoints": "always" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "east" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }, { "id": "displayName", "value": "us-east-1" }] },
+          { "matcher": { "id": "byFrameRefID", "options": "west" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }, { "id": "displayName", "value": "us-west-2" }] }
+        ]
       },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
       "id": 6,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\"}", "tableType": "traces", "limit": 200 }],
-      "title": "Trace Duration Over Time",
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-east\"}", "tableType": "traces", "limit": 200 },
+        { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 200 }
+      ],
+      "title": "Trace Duration: us-east-1 (green) vs us-west-2 (blue)",
       "type": "timeseries"
     },
     {
@@ -86,17 +97,21 @@
           "custom": { "axisBorderShow": false, "axisLabel": "Duration (ms)", "drawStyle": "points", "pointSize": 6, "showPoints": "always" }
         },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "test-east" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
-          { "matcher": { "id": "byName", "options": "test-west" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }
+          { "matcher": { "id": "byFrameRefID", "options": "east" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }, { "id": "displayName", "value": "us-east-1" }] },
+          { "matcher": { "id": "byFrameRefID", "options": "west" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }, { "id": "displayName", "value": "us-west-2" }] }
         ]
       },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
       "id": 10,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max", "min"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
         { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-east\"}", "tableType": "traces", "limit": 100 },
         { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 100 }
       ],
-      "title": "Latency Comparison: us-east-1 vs us-west-2",
+      "title": "Latency Comparison: us-east-1 (green) vs us-west-2 (blue)",
       "type": "timeseries"
     },
     {
@@ -108,97 +123,122 @@
       "type": "text"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "fieldConfig": {
         "defaults": {},
         "overrides": [{ "matcher": { "id": "byName", "options": "traceID" }, "properties": [{ "id": "links", "value": [{ "title": "View Trace", "internal": { "datasourceUid": "tempo", "datasourceName": "Tempo", "query": { "queryType": "traceql", "query": "${__value.raw}" } } }] }] }]
       },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 26 },
       "id": 11,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s1_browse_and_search\"}", "tableType": "traces", "limit": 50 }],
+      "targets": [
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s1_browse_and_search\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 },
+        { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s1_browse_and_search\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 }
+      ],
       "title": "S1: Browse & Search",
       "type": "table"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "fieldConfig": {
         "defaults": {},
         "overrides": [{ "matcher": { "id": "byName", "options": "traceID" }, "properties": [{ "id": "links", "value": [{ "title": "View Trace", "internal": { "datasourceUid": "tempo", "datasourceName": "Tempo", "query": { "queryType": "traceql", "query": "${__value.raw}" } } }] }] }]
       },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 26 },
       "id": 12,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s2_user_registration\"}", "tableType": "traces", "limit": 50 }],
+      "targets": [
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s2_user_registration\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 },
+        { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s2_user_registration\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 }
+      ],
       "title": "S2: User Registration",
       "type": "table"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "fieldConfig": {
         "defaults": {},
         "overrides": [{ "matcher": { "id": "byName", "options": "traceID" }, "properties": [{ "id": "links", "value": [{ "title": "View Trace", "internal": { "datasourceUid": "tempo", "datasourceName": "Tempo", "query": { "queryType": "traceql", "query": "${__value.raw}" } } }] }] }]
       },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 26 },
       "id": 13,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s3_shopping_cart\"}", "tableType": "traces", "limit": 50 }],
+      "targets": [
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s3_shopping_cart\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 },
+        { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s3_shopping_cart\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 }
+      ],
       "title": "S3: Shopping Cart",
       "type": "table"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "fieldConfig": {
         "defaults": {},
         "overrides": [{ "matcher": { "id": "byName", "options": "traceID" }, "properties": [{ "id": "links", "value": [{ "title": "View Trace", "internal": { "datasourceUid": "tempo", "datasourceName": "Tempo", "query": { "queryType": "traceql", "query": "${__value.raw}" } } }] }] }]
       },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 34 },
       "id": 14,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s4_purchase_flow\"}", "tableType": "traces", "limit": 50 }],
+      "targets": [
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s4_purchase_flow\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 },
+        { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s4_purchase_flow\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 }
+      ],
       "title": "S4: Purchase Flow",
       "type": "table"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "fieldConfig": {
         "defaults": {},
         "overrides": [{ "matcher": { "id": "byName", "options": "traceID" }, "properties": [{ "id": "links", "value": [{ "title": "View Trace", "internal": { "datasourceUid": "tempo", "datasourceName": "Tempo", "query": { "queryType": "traceql", "query": "${__value.raw}" } } }] }] }]
       },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 34 },
       "id": 15,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s5_seller_and_warehouse\"}", "tableType": "traces", "limit": 50 }],
+      "targets": [
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s5_seller_and_warehouse\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 },
+        { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s5_seller_and_warehouse\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 }
+      ],
       "title": "S5: Seller & Warehouse",
       "type": "table"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "fieldConfig": {
         "defaults": {},
         "overrides": [{ "matcher": { "id": "byName", "options": "traceID" }, "properties": [{ "id": "links", "value": [{ "title": "View Trace", "internal": { "datasourceUid": "tempo", "datasourceName": "Tempo", "query": { "queryType": "traceql", "query": "${__value.raw}" } } }] }] }]
       },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 34 },
       "id": 16,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s6_post_purchase\"}", "tableType": "traces", "limit": 50 }],
+      "targets": [
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s6_post_purchase\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 },
+        { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s6_post_purchase\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 }
+      ],
       "title": "S6: Post-Purchase",
       "type": "table"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "fieldConfig": {
         "defaults": {},
         "overrides": [{ "matcher": { "id": "byName", "options": "traceID" }, "properties": [{ "id": "links", "value": [{ "title": "View Trace", "internal": { "datasourceUid": "tempo", "datasourceName": "Tempo", "query": { "queryType": "traceql", "query": "${__value.raw}" } } }] }] }]
       },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 42 },
       "id": 17,
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s7_platform_and_analytics\"}", "tableType": "traces", "limit": 50 }],
+      "targets": [
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s7_platform_and_analytics\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 },
+        { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && name = \"s7_platform_and_analytics\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 50 }
+      ],
       "title": "S7: Platform & Analytics",
       "type": "table"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
           "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 500 }, { "color": "red", "value": 2000 }] },
           "custom": { "fillOpacity": 80, "axisBorderShow": false }
-        }
+        },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "east" }, "properties": [{ "id": "color", "value": { "mode": "scheme", "scheme": "Greens" } }, { "id": "displayName", "value": "us-east-1" }] },
+          { "matcher": { "id": "byFrameRefID", "options": "west" }, "properties": [{ "id": "color", "value": { "mode": "scheme", "scheme": "Blues" } }, { "id": "displayName", "value": "us-west-2" }] }
+        ]
       },
       "gridPos": { "h": 8, "w": 16, "x": 8, "y": 42 },
       "id": 18,
@@ -209,7 +249,10 @@
         "color": { "mode": "scheme", "scheme": "Oranges" },
         "yAxis": { "unit": "ms" }
       },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\"}", "tableType": "traces", "limit": 500 }],
+      "targets": [
+        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 500 },
+        { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin =~ \"$origin\"}", "tableType": "traces", "limit": 500 }
+      ],
       "title": "Latency Heatmap (all scenarios)",
       "type": "heatmap"
     },
@@ -250,11 +293,30 @@
   ],
   "schemaVersion": 39,
   "tags": ["synthetic-monitor", "e2e", "observability", "tempo"],
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "description": "Filter traces by origin region",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "test-.*",
+        "label": "Region",
+        "multi": false,
+        "name": "origin",
+        "options": [
+          { "selected": false, "text": "us-east-1", "value": "test-east" },
+          { "selected": false, "text": "us-west-2", "value": "test-west" }
+        ],
+        "query": "test-east : us-east-1, test-west : us-west-2",
+        "type": "custom"
+      }
+    ]
+  },
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "utc",
   "title": "Synthetic Monitor - E2E User Journeys",
   "uid": "synthetic-monitor",
-  "version": 4
+  "version": 5
 }
