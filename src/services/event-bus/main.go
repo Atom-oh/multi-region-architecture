@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -26,6 +27,13 @@ type PublishRequest struct {
 
 func main() {
 	cfg := config.Load("event-bus")
+
+	// Initialize OTel tracer — exports spans to OTel Collector
+	ctx := context.Background()
+	tp, err := tracing.InitTracer(ctx, cfg.ServiceName)
+	if err == nil {
+		defer func() { _ = tp.Shutdown(ctx) }()
+	}
 
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))

@@ -38,6 +38,14 @@ spec:
               value: us-east-1
             - name: REGION_ROLE
               value: PRIMARY
+            - name: OTEL_SERVICE_NAME
+              value: "warehouse"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.platform.svc.cluster.local:4317"
+            - name: OTEL_METRICS_EXPORTER
+              value: "none"
+            - name: OTEL_LOGS_EXPORTER
+              value: "none"
             # DB_HOST: Aurora PostgreSQL endpoint via ExternalSecret
             # KAFKA_BROKERS: MSK bootstrap via ExternalSecret
           envFrom:

@@ -38,6 +38,8 @@ spec:
               value: us-east-1
             - name: REGION_ROLE
               value: PRIMARY
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.platform.svc.cluster.local:4317"
             # KAFKA_BROKERS: MSK bootstrap via ExternalSecret
             # SNS_TOPIC_ARN: SNS topic via ExternalSecret
             # SES_CONFIG: SES configuration via ExternalSecret

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -11,8 +12,17 @@ import (
 	"github.com/multi-region-mall/shared/pkg/tracing"
 )
 
+var tracedClient = tracing.HTTPClient()
+
 func main() {
 	cfg := config.Load("api-gateway")
+
+	// Initialize OTel tracer — exports spans to OTel Collector
+	ctx := context.Background()
+	tp, err := tracing.InitTracer(ctx, cfg.ServiceName)
+	if err == nil {
+		defer func() { _ = tp.Shutdown(ctx) }()
+	}
 
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))
@@ -103,7 +113,7 @@ func reverseProxy(target string) gin.HandlerFunc {
 			}
 		}
 
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := tracedClient.Do(req)
 		if err != nil {
 			c.JSON(http.StatusBadGateway, gin.H{"error": "upstream unreachable", "target": target})
 			return

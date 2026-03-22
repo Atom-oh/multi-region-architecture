@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -53,6 +54,13 @@ var lowStockItems = []InventoryItem{
 
 func main() {
 	cfg := config.Load("inventory")
+
+	// Initialize OTel tracer — exports spans to OTel Collector
+	ctx := context.Background()
+	tp, err := tracing.InitTracer(ctx, cfg.ServiceName)
+	if err == nil {
+		defer func() { _ = tp.Shutdown(ctx) }()
+	}
 
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))
