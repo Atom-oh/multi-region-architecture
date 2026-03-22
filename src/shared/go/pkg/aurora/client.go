@@ -3,6 +3,7 @@ package aurora
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,7 +16,7 @@ type Client struct {
 
 func New(ctx context.Context, cfg *config.Config) (*Client, error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=require",
-		cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName)
+		url.PathEscape(cfg.DBUser), url.PathEscape(cfg.DBPassword), cfg.DBHost, cfg.DBPort, cfg.DBName)
 
 	pgxConfig, err := pgxpool.ParseConfig(dsn)
 	if err != nil {

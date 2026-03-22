@@ -37,7 +37,7 @@ class ServiceConfig(BaseSettings):
             return (
                 f"mongodb://{self.db_user}:{self.db_password}"
                 f"@{self.documentdb_host}:{self.documentdb_port}"
-                f"/{self.db_name}?tls=true&retryWrites=false"
+                f"/{self.db_name}?tls=true&tlsAllowInvalidCertificates=true&retryWrites=false"
             )
         return f"mongodb://{self.documentdb_host}:{self.documentdb_port}/{self.db_name}"
 
