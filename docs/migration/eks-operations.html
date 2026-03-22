@@ -20,9 +20,9 @@
 
         <main class="doc-main">
             <div class="doc-content">
-                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>EKS Operations</span></div>
+                <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span><span class="lang-ko">EKS 운영</span><span class="lang-en">EKS Operations</span></span></div>
 
-                <h1>EKS Multi-Region Operations</h1>
+                <h1><span class="lang-ko">EKS 멀티 리전 운영</span><span class="lang-en">EKS Multi-Region Operations</span></h1>
                 <p class="lead">
                     <span class="lang-ko">us-east-1 (Primary)과 us-west-2 (Secondary) 리전에서 CCS 워크로드를 운영하기 위한 EKS 클러스터 관리 가이드입니다.
                     업그레이드 전략, 오토스케일링, 노드 관리, GitOps 배포를 다룹니다.</span><span class="lang-en">EKS cluster management guide for operating CCS workloads in us-east-1 (Primary) and us-west-2 (Secondary) regions.
@@ -34,7 +34,7 @@
 
                 <div class="tech-card" data-tag="Infrastructure">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">EKS Multi-Region Cluster Upgrade Strategy</span>
+                        <span class="tech-card-title"><span class="lang-ko">EKS 멀티 리전 클러스터 업그레이드 전략</span><span class="lang-en">EKS Multi-Region Cluster Upgrade Strategy</span></span>
                         <span class="tech-card-tag Infrastructure">Infrastructure</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
@@ -138,7 +138,7 @@
                         <p><span class="lang-ko">EKS 1.35에서 사용하는 addon 버전입니다. <code>eksbuild</code> suffix는 리전별로 다를 수 있습니다.</span><span class="lang-en">Addon versions used in EKS 1.35. The <code>eksbuild</code> suffix may differ by region.</span></p>
                         <table class="info-table">
                             <thead>
-                                <tr><th>Addon</th><th>Version</th><th>us-east-1</th><th>us-west-2</th></tr>
+                                <tr><th>Addon</th><th><span class="lang-ko">버전</span><span class="lang-en">Version</span></th><th>us-east-1</th><th>us-west-2</th></tr>
                             </thead>
                             <tbody>
                                 <tr><td>vpc-cni</td><td>v1.21.1</td><td>eksbuild.3</td><td>eksbuild.1</td></tr>
@@ -163,7 +163,7 @@
 
                 <div class="tech-card" data-tag="Operations">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">CCDI Workload Autoscaling with KEDA</span>
+                        <span class="tech-card-title"><span class="lang-ko">KEDA 기반 CCDI 워크로드 오토스케일링</span><span class="lang-en">CCDI Workload Autoscaling with KEDA</span></span>
                         <span class="tech-card-tag Operations">Operations</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
@@ -228,11 +228,11 @@
                 </div>
 
                 <!-- ===== Card 3: Karpenter NodePools ===== -->
-                <h2 id="karpenter-nodepools">Karpenter 6 NodePools</h2>
+                <h2 id="karpenter-nodepools"><span class="lang-ko">Karpenter 6개 NodePool</span><span class="lang-en">Karpenter 6 NodePools</span></h2>
 
                 <div class="tech-card" data-tag="Infrastructure">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">Karpenter 6 NodePools - Multi-Region Considerations</span>
+                        <span class="tech-card-title"><span class="lang-ko">Karpenter 6개 NodePool - 멀티 리전 고려사항</span><span class="lang-en">Karpenter 6 NodePools - Multi-Region Considerations</span></span>
                         <span class="tech-card-tag Infrastructure">Infrastructure</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
@@ -352,7 +352,7 @@
 
                 <div class="tech-card" data-tag="GitOps">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">ArgoCD Multi-Cluster GitOps Deployment</span>
+                        <span class="tech-card-title"><span class="lang-ko">ArgoCD 멀티 클러스터 GitOps 배포</span><span class="lang-en">ArgoCD Multi-Cluster GitOps Deployment</span></span>
                         <span class="tech-card-tag GitOps">GitOps</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
@@ -363,7 +363,7 @@
                             Injects region-specific endpoints (DSQL, DocumentDB, MSK, OpenSearch) via Kustomize overlays.</span>
                         </p>
 
-                        <h4>ApplicationSet - Core Services</h4>
+                        <h4><span class="lang-ko">ApplicationSet - Core Services</span><span class="lang-en">ApplicationSet - Core Services</span></h4>
                         <p><code>k8s/infra/argocd/apps/appset-core.yaml</code></p>
 <pre><code><span class="hl-key">apiVersion:</span> argoproj.io/v1alpha1
 <span class="hl-key">kind:</span> ApplicationSet
@@ -439,18 +439,18 @@
                 </div>
 
                 <div class="page-nav">
-                    <a href="route-cache.html"><span class="label">Previous</span><span class="title">&larr; Route53 + Cache</span></a>
-                    <a href="msk-operations.html" class="next"><span class="label">Next</span><span class="title">MSK Operations &rarr;</span></a>
+                    <a href="route-cache.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; <span class="lang-ko">Route53 + 캐시</span><span class="lang-en">Route53 + Cache</span></span></a>
+                    <a href="msk-operations.html" class="next"><span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">MSK 운영</span><span class="lang-en">MSK Operations</span> &rarr;</span></a>
                 </div>
             </div>
         </main>
 
         <aside class="doc-toc">
-            <div class="toc-title">On this page</div>
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
             <a href="#upgrade-strategy" class="toc-link"><span class="lang-ko">EKS 업그레이드 전략</span><span class="lang-en">EKS Upgrade Strategy</span></a>
             <a href="#keda-autoscaling" class="toc-link"><span class="lang-ko">KEDA 오토스케일링</span><span class="lang-en">KEDA Autoscaling</span></a>
-            <a href="#karpenter-nodepools" class="toc-link">Karpenter NodePools</a>
-            <a href="#argocd-gitops" class="toc-link">ArgoCD GitOps</a>
+            <a href="#karpenter-nodepools" class="toc-link"><span class="lang-ko">Karpenter NodePool</span><span class="lang-en">Karpenter NodePools</span></a>
+            <a href="#argocd-gitops" class="toc-link"><span class="lang-ko">ArgoCD GitOps</span><span class="lang-en">ArgoCD GitOps</span></a>
         </aside>
     </div>
 

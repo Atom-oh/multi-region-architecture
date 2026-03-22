@@ -20,31 +20,31 @@
 
         <main class="doc-main">
             <div class="doc-content">
-                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>CCS Data Architecture</span></div>
+                <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span><span class="lang-ko">CCS 데이터 아키텍처</span><span class="lang-en">CCS Data Architecture</span></span></div>
 
-                <h1>CCS Data Architecture</h1>
+                <h1><span class="lang-ko">CCS 데이터 아키텍처</span><span class="lang-en">CCS Data Architecture</span></h1>
                 <p class="lead">
-                    The CCDI (Connected Car Data Interface) is the data collection and processing layer for all vehicle telemetry.
-                    This section covers the current and target architecture, data tiering, Gen2/Gen3 processing differences, and personal information management.
+                    <span class="lang-ko">CCDI(Connected Car Data Interface)는 모든 차량 텔레메트리의 데이터 수집 및 처리 계층입니다. 이 섹션에서는 현재 및 목표 아키텍처, 데이터 티어링, Gen2/Gen3 처리 차이점, 개인정보 관리에 대해 다룹니다.</span><span class="lang-en">The CCDI (Connected Car Data Interface) is the data collection and processing layer for all vehicle telemetry.
+                    This section covers the current and target architecture, data tiering, Gen2/Gen3 processing differences, and personal information management.</span>
                 </p>
 
                 <!-- ===== Card 1: CCDI Architecture ===== -->
-                <h2 id="ccdi-architecture">CCDI Architecture</h2>
+                <h2 id="ccdi-architecture"><span class="lang-ko">CCDI 아키텍처</span><span class="lang-en">CCDI Architecture</span></h2>
 
                 <div class="tech-card" data-tag="Architecture">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">CCDI Architecture &mdash; AS-IS vs TO-BE</span>
+                        <span class="tech-card-title"><span class="lang-ko">CCDI 아키텍처 &mdash; AS-IS vs TO-BE</span><span class="lang-en">CCDI Architecture &mdash; AS-IS vs TO-BE</span></span>
                         <span class="tech-card-tag Architecture">Architecture</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
                     <div class="tech-card-body">
                         <p>
-                            <strong>CCDI (Connected Car Data Interface)</strong> is the central data layer responsible for collecting,
+                            <span class="lang-ko"><strong>CCDI(Connected Car Data Interface)</strong>는 차량 텔레메트리 데이터를 수집, 처리, 제공하는 핵심 데이터 계층입니다. 커넥티드 차량에서 들어오는 모든 신호를 처리하고 처리된 데이터를 다운스트림 서비스에 배포합니다.</span><span class="lang-en"><strong>CCDI (Connected Car Data Interface)</strong> is the central data layer responsible for collecting,
                             processing, and serving vehicle telemetry data. It handles all incoming signals from connected vehicles
-                            and distributes processed data to downstream services.
+                            and distributes processed data to downstream services.</span>
                         </p>
 
-                        <h4>AS-IS Architecture</h4>
+                        <h4><span class="lang-ko">AS-IS 아키텍처</span><span class="lang-en">AS-IS Architecture</span></h4>
 <pre><code>4 CBU (Connected Business Units)
        |
        v
@@ -70,7 +70,7 @@
 - Standard pattern: Cache(Redis) + NoSQL(MongoDB) per service
 - Problem: unnecessary data stored, cost optimization needed</code><span class="code-label">text</span></pre>
 
-                        <h4>TO-BE Architecture</h4>
+                        <h4><span class="lang-ko">TO-BE 아키텍처</span><span class="lang-en">TO-BE Architecture</span></h4>
 <pre><code>4 CBU (Connected Business Units)
        |
        v
@@ -91,16 +91,16 @@
                    Retention: Permanent
                    Use: Historical analysis</code><span class="code-label">text</span></pre>
 
-                        <h4>Component Comparison</h4>
+                        <h4><span class="lang-ko">컴포넌트 비교</span><span class="lang-en">Component Comparison</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Component</th><th>AS-IS</th><th>TO-BE</th><th>Benefit</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">컴포넌트</span><span class="lang-en">Component</span></th><th>AS-IS</th><th>TO-BE</th><th><span class="lang-ko">이점</span><span class="lang-en">Benefit</span></th></tr></thead>
                             <tbody>
-                                <tr><td>Message Queue</td><td>On-Prem Kafka</td><td>Amazon MSK</td><td>Managed, auto-scaling</td></tr>
-                                <tr><td>Processing</td><td>VM-based CCDI</td><td>EKS (Containerized)</td><td>Elastic scaling, portability</td></tr>
-                                <tr><td>Hot Storage</td><td>Redis (self-managed)</td><td>ElastiCache</td><td>Multi-AZ, auto-failover</td></tr>
-                                <tr><td>Warm Storage</td><td>MongoDB (HDD)</td><td>MongoDB Atlas (SSD)</td><td>IOPS, managed backups</td></tr>
-                                <tr><td>Cold Storage</td><td>None (data lost)</td><td>S3 + Athena</td><td>Permanent history, analytics</td></tr>
-                                <tr><td>Integration</td><td>ESB (varies by corp)</td><td>API Gateway + MSA</td><td>Standardized, decoupled</td></tr>
+                                <tr><td><span class="lang-ko">메시지 큐</span><span class="lang-en">Message Queue</span></td><td>On-Prem Kafka</td><td>Amazon MSK</td><td><span class="lang-ko">관리형, 자동 스케일링</span><span class="lang-en">Managed, auto-scaling</span></td></tr>
+                                <tr><td><span class="lang-ko">처리</span><span class="lang-en">Processing</span></td><td>VM-based CCDI</td><td>EKS (Containerized)</td><td><span class="lang-ko">탄력적 스케일링, 이식성</span><span class="lang-en">Elastic scaling, portability</span></td></tr>
+                                <tr><td><span class="lang-ko">핫 스토리지</span><span class="lang-en">Hot Storage</span></td><td>Redis (self-managed)</td><td>ElastiCache</td><td><span class="lang-ko">Multi-AZ, 자동 장애조치</span><span class="lang-en">Multi-AZ, auto-failover</span></td></tr>
+                                <tr><td><span class="lang-ko">웜 스토리지</span><span class="lang-en">Warm Storage</span></td><td>MongoDB (HDD)</td><td>MongoDB Atlas (SSD)</td><td><span class="lang-ko">IOPS, 관리형 백업</span><span class="lang-en">IOPS, managed backups</span></td></tr>
+                                <tr><td><span class="lang-ko">콜드 스토리지</span><span class="lang-en">Cold Storage</span></td><td>None (data lost)</td><td>S3 + Athena</td><td><span class="lang-ko">영구 히스토리, 분석</span><span class="lang-en">Permanent history, analytics</span></td></tr>
+                                <tr><td><span class="lang-ko">통합</span><span class="lang-en">Integration</span></td><td>ESB (varies by corp)</td><td>API Gateway + MSA</td><td><span class="lang-ko">표준화, 분리</span><span class="lang-en">Standardized, decoupled</span></td></tr>
                             </tbody>
                         </table>
 
@@ -208,57 +208,57 @@
                         </script>
 
                         <div class="callout info" style="margin-top:12px;">
-                            <strong>Cost Optimization Opportunity</strong>
-                            Current architecture stores all data uniformly. The tiered approach reduces storage costs by 60-70%
-                            while maintaining fast access for recent data.
+                            <strong><span class="lang-ko">비용 최적화 기회</span><span class="lang-en">Cost Optimization Opportunity</span></strong>
+                            <span class="lang-ko">현재 아키텍처는 모든 데이터를 균일하게 저장합니다. 티어링 접근 방식은 최근 데이터에 대한 빠른 액세스를 유지하면서 스토리지 비용을 60-70% 절감합니다.</span><span class="lang-en">Current architecture stores all data uniformly. The tiered approach reduces storage costs by 60-70%
+                            while maintaining fast access for recent data.</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- ===== Card 2: Data Tiering ===== -->
-                <h2 id="data-tiering">Data Tiering Strategy</h2>
+                <h2 id="data-tiering"><span class="lang-ko">데이터 티어링 전략</span><span class="lang-en">Data Tiering Strategy</span></h2>
 
                 <div class="tech-card" data-tag="Database">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">Data Tiering Strategy &mdash; Hot/Warm/Cold</span>
+                        <span class="tech-card-title"><span class="lang-ko">데이터 티어링 전략 &mdash; Hot/Warm/Cold</span><span class="lang-en">Data Tiering Strategy &mdash; Hot/Warm/Cold</span></span>
                         <span class="tech-card-tag Database">Database</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
                     <div class="tech-card-body">
                         <p>
-                            Data flows through three tiers based on access patterns and age.
-                            Two parallel lifecycles operate: <strong>DB retention</strong> (3 days) and <strong>S3 archive</strong> (permanent).
+                            <span class="lang-ko">데이터는 액세스 패턴과 수명에 따라 세 가지 티어를 통해 흐릅니다. 두 가지 병렬 라이프사이클이 작동합니다: <strong>DB 보존</strong>(3일)과 <strong>S3 아카이브</strong>(영구).</span><span class="lang-en">Data flows through three tiers based on access patterns and age.
+                            Two parallel lifecycles operate: <strong>DB retention</strong> (3 days) and <strong>S3 archive</strong> (permanent).</span>
                         </p>
 
-                        <h4>Tier Definitions</h4>
+                        <h4><span class="lang-ko">티어 정의</span><span class="lang-en">Tier Definitions</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Tier</th><th>Storage</th><th>Retention</th><th>Latency</th><th>Use Case</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">티어</span><span class="lang-en">Tier</span></th><th><span class="lang-ko">스토리지</span><span class="lang-en">Storage</span></th><th><span class="lang-ko">보존</span><span class="lang-en">Retention</span></th><th><span class="lang-ko">지연시간</span><span class="lang-en">Latency</span></th><th><span class="lang-ko">사용 사례</span><span class="lang-en">Use Case</span></th></tr></thead>
                             <tbody>
                                 <tr>
                                     <td><strong>Hot</strong></td>
                                     <td>ElastiCache (Redis)</td>
-                                    <td>TTL: minutes</td>
+                                    <td><span class="lang-ko">TTL: 분 단위</span><span class="lang-en">TTL: minutes</span></td>
                                     <td>P99 &lt; 1ms</td>
-                                    <td>VSS latest state, real-time queries</td>
+                                    <td><span class="lang-ko">VSS 최신 상태, 실시간 쿼리</span><span class="lang-en">VSS latest state, real-time queries</span></td>
                                 </tr>
                                 <tr>
                                     <td><strong>Warm</strong></td>
                                     <td>MongoDB Atlas / DocumentDB</td>
-                                    <td>3-7 days</td>
+                                    <td><span class="lang-ko">3-7일</span><span class="lang-en">3-7 days</span></td>
                                     <td>P99 &lt; 50ms</td>
-                                    <td>Service data, recent history</td>
+                                    <td><span class="lang-ko">서비스 데이터, 최근 히스토리</span><span class="lang-en">Service data, recent history</span></td>
                                 </tr>
                                 <tr>
                                     <td><strong>Cold</strong></td>
                                     <td>S3 + Athena</td>
-                                    <td>Permanent</td>
-                                    <td>Seconds (query)</td>
-                                    <td>Historical analysis, compliance</td>
+                                    <td><span class="lang-ko">영구</span><span class="lang-en">Permanent</span></td>
+                                    <td><span class="lang-ko">초 단위 (쿼리)</span><span class="lang-en">Seconds (query)</span></td>
+                                    <td><span class="lang-ko">히스토리 분석, 컴플라이언스</span><span class="lang-en">Historical analysis, compliance</span></td>
                                 </tr>
                             </tbody>
                         </table>
 
-                        <h4>Data Flow</h4>
+                        <h4><span class="lang-ko">데이터 흐름</span><span class="lang-en">Data Flow</span></h4>
 <pre><code>Kafka Topic (VSS data)
        |
        +---> [Hot] Redis: SET vss:{vin} {latest_state} EX 300
@@ -276,13 +276,13 @@
 <span class="hl-cm"># Note: History data currently OFF</span>
 # Plan to activate S3+Athena tier for compliance and analytics</code><span class="code-label">text</span></pre>
 
-                        <h4>Volume Estimates</h4>
+                        <h4><span class="lang-ko">볼륨 예측</span><span class="lang-en">Volume Estimates</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Tier</th><th>Daily Volume</th><th>Monthly Volume</th><th>Retention Size</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">티어</span><span class="lang-en">Tier</span></th><th><span class="lang-ko">일일 볼륨</span><span class="lang-en">Daily Volume</span></th><th><span class="lang-ko">월간 볼륨</span><span class="lang-en">Monthly Volume</span></th><th><span class="lang-ko">보존 크기</span><span class="lang-en">Retention Size</span></th></tr></thead>
                             <tbody>
-                                <tr><td>Hot (Redis)</td><td>~5GB</td><td>N/A (rolling)</td><td>~5GB active</td></tr>
-                                <tr><td>Warm (MongoDB)</td><td>~50GB</td><td>~1.5TB</td><td>~150GB (3-day)</td></tr>
-                                <tr><td>Cold (S3 raw)</td><td>~10TB</td><td>~300TB</td><td>Permanent (compressed)</td></tr>
+                                <tr><td>Hot (Redis)</td><td>~5GB</td><td><span class="lang-ko">N/A (롤링)</span><span class="lang-en">N/A (rolling)</span></td><td><span class="lang-ko">~5GB 활성</span><span class="lang-en">~5GB active</span></td></tr>
+                                <tr><td>Warm (MongoDB)</td><td>~50GB</td><td>~1.5TB</td><td><span class="lang-ko">~150GB (3일)</span><span class="lang-en">~150GB (3-day)</span></td></tr>
+                                <tr><td>Cold (S3 raw)</td><td>~10TB</td><td>~300TB</td><td><span class="lang-ko">영구 (압축)</span><span class="lang-en">Permanent (compressed)</span></td></tr>
                             </tbody>
                         </table>
 
@@ -371,54 +371,54 @@
                         })();
                         </script>
 
-                        <h4>Cost Comparison (per GB/month)</h4>
+                        <h4><span class="lang-ko">비용 비교 (GB/월당)</span><span class="lang-en">Cost Comparison (per GB/month)</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Storage</th><th>Cost</th><th>Best For</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">스토리지</span><span class="lang-en">Storage</span></th><th><span class="lang-ko">비용</span><span class="lang-en">Cost</span></th><th><span class="lang-ko">최적 사용 사례</span><span class="lang-en">Best For</span></th></tr></thead>
                             <tbody>
-                                <tr><td>ElastiCache (Redis)</td><td>~$0.125/node-hour (cache.r6g.large)</td><td>Sub-millisecond access</td></tr>
-                                <tr><td>MongoDB Atlas (M30)</td><td>~$0.10/GB</td><td>Complex queries</td></tr>
-                                <tr><td>S3 Standard</td><td>$0.023/GB</td><td>Frequent access cold data</td></tr>
-                                <tr><td>S3 Glacier IR</td><td>$0.004/GB</td><td>Compliance archives</td></tr>
+                                <tr><td>ElastiCache (Redis)</td><td>~$0.125/node-hour (cache.r6g.large)</td><td><span class="lang-ko">밀리초 미만 액세스</span><span class="lang-en">Sub-millisecond access</span></td></tr>
+                                <tr><td>MongoDB Atlas (M30)</td><td>~$0.10/GB</td><td><span class="lang-ko">복잡한 쿼리</span><span class="lang-en">Complex queries</span></td></tr>
+                                <tr><td>S3 Standard</td><td>$0.023/GB</td><td><span class="lang-ko">빈번한 콜드 데이터 액세스</span><span class="lang-en">Frequent access cold data</span></td></tr>
+                                <tr><td>S3 Glacier IR</td><td>$0.004/GB</td><td><span class="lang-ko">컴플라이언스 아카이브</span><span class="lang-en">Compliance archives</span></td></tr>
                             </tbody>
                         </table>
 
                         <div class="callout tip" style="margin-top:12px;">
                             <strong>S3 Intelligent-Tiering</strong>
-                            For cold tier, consider S3 Intelligent-Tiering to automatically move data between access tiers
-                            based on usage patterns. No retrieval fees for frequent access tier.
+                            <span class="lang-ko">콜드 티어의 경우 S3 Intelligent-Tiering을 고려하여 사용 패턴에 따라 데이터를 액세스 티어 간에 자동으로 이동합니다. 빈번한 액세스 티어에는 검색 비용이 없습니다.</span><span class="lang-en">For cold tier, consider S3 Intelligent-Tiering to automatically move data between access tiers
+                            based on usage patterns. No retrieval fees for frequent access tier.</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- ===== Card 3: Gen2 vs Gen3 ===== -->
-                <h2 id="gen2-gen3">Gen2 vs Gen3 Processing</h2>
+                <h2 id="gen2-gen3"><span class="lang-ko">Gen2 vs Gen3 처리</span><span class="lang-en">Gen2 vs Gen3 Processing</span></h2>
 
                 <div class="tech-card" data-tag="Architecture">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">Gen2 vs Gen3 &mdash; CCS 1.0 (TCP) vs CCS 2.0 (MQTT)</span>
+                        <span class="tech-card-title"><span class="lang-ko">Gen2 vs Gen3 &mdash; CCS 1.0 (TCP) vs CCS 2.0 (MQTT)</span><span class="lang-en">Gen2 vs Gen3 &mdash; CCS 1.0 (TCP) vs CCS 2.0 (MQTT)</span></span>
                         <span class="tech-card-tag Architecture">Architecture</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
                     <div class="tech-card-body">
                         <p>
-                            Two generations of connected car systems coexist with fundamentally different protocols and data volumes.
-                            <strong>VSS (Vehicle Signal Specification)</strong> is the largest and most critical dataset across both generations.
+                            <span class="lang-ko">근본적으로 다른 프로토콜과 데이터 볼륨을 가진 두 세대의 커넥티드 카 시스템이 공존합니다. <strong>VSS(Vehicle Signal Specification)</strong>는 두 세대 모두에서 가장 크고 중요한 데이터셋입니다.</span><span class="lang-en">Two generations of connected car systems coexist with fundamentally different protocols and data volumes.
+                            <strong>VSS (Vehicle Signal Specification)</strong> is the largest and most critical dataset across both generations.</span>
                         </p>
 
-                        <h4>Generation Comparison</h4>
+                        <h4><span class="lang-ko">세대 비교</span><span class="lang-en">Generation Comparison</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Aspect</th><th>Gen2 (CCS 1.0)</th><th>Gen3 (CCS 2.0)</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">측면</span><span class="lang-en">Aspect</span></th><th>Gen2 (CCS 1.0)</th><th>Gen3 (CCS 2.0)</th></tr></thead>
                             <tbody>
-                                <tr><td>Protocol</td><td>TCP (proprietary)</td><td>MQTT (standard)</td></tr>
-                                <tr><td>Fleet Size</td><td>2-3M vehicles</td><td>0.6M vehicles (growing)</td></tr>
-                                <tr><td>Data per Vehicle</td><td>Baseline (1x)</td><td>5x vs Gen1</td></tr>
+                                <tr><td><span class="lang-ko">프로토콜</span><span class="lang-en">Protocol</span></td><td><span class="lang-ko">TCP (독점)</span><span class="lang-en">TCP (proprietary)</span></td><td><span class="lang-ko">MQTT (표준)</span><span class="lang-en">MQTT (standard)</span></td></tr>
+                                <tr><td><span class="lang-ko">차량 수</span><span class="lang-en">Fleet Size</span></td><td><span class="lang-ko">2-3M 대</span><span class="lang-en">2-3M vehicles</span></td><td><span class="lang-ko">0.6M 대 (증가 중)</span><span class="lang-en">0.6M vehicles (growing)</span></td></tr>
+                                <tr><td><span class="lang-ko">차량당 데이터</span><span class="lang-en">Data per Vehicle</span></td><td><span class="lang-ko">기준 (1x)</span><span class="lang-en">Baseline (1x)</span></td><td>5x vs Gen1</td></tr>
                                 <tr><td>Kafka Topics</td><td>gen2-vss-*, gen2-event-*</td><td>gen3-vss-*, gen3-event-*</td></tr>
-                                <tr><td>Schema Format</td><td>Legacy binary</td><td>Protobuf / Avro</td></tr>
-                                <tr><td>Processing</td><td>Legacy CCDI</td><td>Modernized CCDI</td></tr>
+                                <tr><td><span class="lang-ko">스키마 형식</span><span class="lang-en">Schema Format</span></td><td><span class="lang-ko">레거시 바이너리</span><span class="lang-en">Legacy binary</span></td><td>Protobuf / Avro</td></tr>
+                                <tr><td><span class="lang-ko">처리</span><span class="lang-en">Processing</span></td><td><span class="lang-ko">레거시 CCDI</span><span class="lang-en">Legacy CCDI</span></td><td><span class="lang-ko">현대화된 CCDI</span><span class="lang-en">Modernized CCDI</span></td></tr>
                             </tbody>
                         </table>
 
-                        <h4>Data Volume Comparison</h4>
+                        <h4><span class="lang-ko">데이터 볼륨 비교</span><span class="lang-en">Data Volume Comparison</span></h4>
 <pre><code><span class="hl-cm"># Per-vehicle data rates</span>
 Gen2 vehicle:  ~50 KB/minute  (basic telemetry)
 Gen3 vehicle:  ~250 KB/minute (rich sensors, ADAS (Advanced Driver Assistance Systems) data)
@@ -434,7 +434,7 @@ Gen3: 2M vehicles x 250 KB/min = ~500 GB/min = ~720 TB/day
 <span class="hl-cm"># Implication</span>
 Gen3 growth drives ALL capacity planning decisions</code><span class="code-label">text</span></pre>
 
-                        <h4>Processing Architecture</h4>
+                        <h4><span class="lang-ko">처리 아키텍처</span><span class="lang-en">Processing Architecture</span></h4>
 <pre><code><span class="hl-cm"># Gen2 Path (Legacy)</span>
 Vehicle --[TCP]--> TCP Gateway --> Kafka (gen2-*) --> CCDI v1 --> MongoDB
 
@@ -446,57 +446,57 @@ Both paths --> Kafka --> Unified CCDI (EKS) --> Common Data Lake</code><span cla
 
                         <h4>VSS (Vehicle Signal Specification)</h4>
                         <p>
-                            VSS is the standardized data model for vehicle signals. It represents the largest data volume
-                            and requires the lowest latency for real-time applications.
+                            <span class="lang-ko">VSS는 차량 신호에 대한 표준화된 데이터 모델입니다. 가장 큰 데이터 볼륨을 나타내며 실시간 애플리케이션에 가장 낮은 지연 시간이 필요합니다.</span><span class="lang-en">VSS is the standardized data model for vehicle signals. It represents the largest data volume
+                            and requires the lowest latency for real-time applications.</span>
                         </p>
                         <table class="info-table">
-                            <thead><tr><th>Signal Category</th><th>Examples</th><th>Update Frequency</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">신호 카테고리</span><span class="lang-en">Signal Category</span></th><th><span class="lang-ko">예시</span><span class="lang-en">Examples</span></th><th><span class="lang-ko">업데이트 주기</span><span class="lang-en">Update Frequency</span></th></tr></thead>
                             <tbody>
-                                <tr><td>Powertrain</td><td>Speed, RPM, fuel level</td><td>100ms - 1s</td></tr>
-                                <tr><td>Body</td><td>Door status, lights, wipers</td><td>On change</td></tr>
-                                <tr><td>ADAS</td><td>Lane departure, collision warning</td><td>50ms (Gen3 only)</td></tr>
-                                <tr><td>Location</td><td>GPS, heading, altitude</td><td>1s</td></tr>
-                                <tr><td>Battery (EV)</td><td>SoC, temperature, range</td><td>10s</td></tr>
+                                <tr><td><span class="lang-ko">파워트레인</span><span class="lang-en">Powertrain</span></td><td><span class="lang-ko">속도, RPM, 연료량</span><span class="lang-en">Speed, RPM, fuel level</span></td><td>100ms - 1s</td></tr>
+                                <tr><td><span class="lang-ko">차체</span><span class="lang-en">Body</span></td><td><span class="lang-ko">도어 상태, 조명, 와이퍼</span><span class="lang-en">Door status, lights, wipers</span></td><td><span class="lang-ko">변경 시</span><span class="lang-en">On change</span></td></tr>
+                                <tr><td>ADAS</td><td><span class="lang-ko">차선 이탈, 충돌 경고</span><span class="lang-en">Lane departure, collision warning</span></td><td><span class="lang-ko">50ms (Gen3만)</span><span class="lang-en">50ms (Gen3 only)</span></td></tr>
+                                <tr><td><span class="lang-ko">위치</span><span class="lang-en">Location</span></td><td><span class="lang-ko">GPS, 방향, 고도</span><span class="lang-en">GPS, heading, altitude</span></td><td>1s</td></tr>
+                                <tr><td><span class="lang-ko">배터리 (EV)</span><span class="lang-en">Battery (EV)</span></td><td><span class="lang-ko">SoC, 온도, 주행 거리</span><span class="lang-en">SoC, temperature, range</span></td><td>10s</td></tr>
                             </tbody>
                         </table>
 
                         <div class="callout warning" style="margin-top:12px;">
-                            <strong>Capacity Planning</strong>
-                            Gen3 fleet expansion is the primary driver for infrastructure scaling.
-                            Plan for 3x current capacity to handle 2026 projections with 30% headroom.
+                            <strong><span class="lang-ko">용량 계획</span><span class="lang-en">Capacity Planning</span></strong>
+                            <span class="lang-ko">Gen3 차량 확대는 인프라 스케일링의 주요 동인입니다. 2026년 예측을 30% 여유와 함께 처리하기 위해 현재 용량의 3배를 계획하세요.</span><span class="lang-en">Gen3 fleet expansion is the primary driver for infrastructure scaling.
+                            Plan for 3x current capacity to handle 2026 projections with 30% headroom.</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- ===== Card 4: PI Management ===== -->
-                <h2 id="pi-management">Personal Information Management</h2>
+                <h2 id="pi-management"><span class="lang-ko">개인정보 관리</span><span class="lang-en">Personal Information Management</span></h2>
 
                 <div class="tech-card" data-tag="Operations">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">Personal Information (PI) &amp; VIN Management</span>
+                        <span class="tech-card-title"><span class="lang-ko">개인정보(PI) 및 VIN 관리</span><span class="lang-en">Personal Information (PI) &amp; VIN Management</span></span>
                         <span class="tech-card-tag Operations">Operations</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
                     <div class="tech-card-body">
                         <p>
-                            Kafka messages contain <strong>VIN (Vehicle Identification Number)</strong> as the primary identifier.
+                            <span class="lang-ko">Kafka 메시지에는 <strong>VIN(차량 식별 번호)</strong>이 기본 식별자로 포함됩니다. VIN이 미국 규정상 개인정보에 해당하는지는 법률 확인이 필요하지만, 아키텍처는 개인정보 준수 데이터 처리를 지원해야 합니다.</span><span class="lang-en">Kafka messages contain <strong>VIN (Vehicle Identification Number)</strong> as the primary identifier.
                             Whether VIN constitutes PI under US regulations requires legal confirmation, but the architecture
-                            must support PI-compliant data handling regardless.
+                            must support PI-compliant data handling regardless.</span>
                         </p>
 
-                        <h4>Data Classification</h4>
+                        <h4><span class="lang-ko">데이터 분류</span><span class="lang-en">Data Classification</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Data Type</th><th>Examples</th><th>PI Status (US)</th><th>Encryption</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">데이터 유형</span><span class="lang-en">Data Type</span></th><th><span class="lang-ko">예시</span><span class="lang-en">Examples</span></th><th><span class="lang-ko">PI 상태 (미국)</span><span class="lang-en">PI Status (US)</span></th><th><span class="lang-ko">암호화</span><span class="lang-en">Encryption</span></th></tr></thead>
                             <tbody>
-                                <tr><td>VIN</td><td>Vehicle identifier</td><td>TBD (legal review)</td><td>At-rest + In-transit</td></tr>
-                                <tr><td>Location</td><td>GPS coordinates, routes</td><td>Likely PI</td><td>At-rest + In-transit</td></tr>
-                                <tr><td>Driving Behavior</td><td>Speed patterns, braking</td><td>Likely PI</td><td>At-rest + In-transit</td></tr>
-                                <tr><td>User Preferences</td><td>Seat position, climate</td><td>Likely PI</td><td>At-rest + In-transit</td></tr>
-                                <tr><td>Vehicle Telemetry</td><td>Engine data, tire pressure</td><td>Not PI</td><td>At-rest</td></tr>
+                                <tr><td>VIN</td><td><span class="lang-ko">차량 식별자</span><span class="lang-en">Vehicle identifier</span></td><td><span class="lang-ko">미정 (법률 검토)</span><span class="lang-en">TBD (legal review)</span></td><td><span class="lang-ko">저장 시 + 전송 시</span><span class="lang-en">At-rest + In-transit</span></td></tr>
+                                <tr><td><span class="lang-ko">위치</span><span class="lang-en">Location</span></td><td><span class="lang-ko">GPS 좌표, 경로</span><span class="lang-en">GPS coordinates, routes</span></td><td><span class="lang-ko">PI 가능성 높음</span><span class="lang-en">Likely PI</span></td><td><span class="lang-ko">저장 시 + 전송 시</span><span class="lang-en">At-rest + In-transit</span></td></tr>
+                                <tr><td><span class="lang-ko">운전 행동</span><span class="lang-en">Driving Behavior</span></td><td><span class="lang-ko">속도 패턴, 제동</span><span class="lang-en">Speed patterns, braking</span></td><td><span class="lang-ko">PI 가능성 높음</span><span class="lang-en">Likely PI</span></td><td><span class="lang-ko">저장 시 + 전송 시</span><span class="lang-en">At-rest + In-transit</span></td></tr>
+                                <tr><td><span class="lang-ko">사용자 설정</span><span class="lang-en">User Preferences</span></td><td><span class="lang-ko">시트 위치, 에어컨</span><span class="lang-en">Seat position, climate</span></td><td><span class="lang-ko">PI 가능성 높음</span><span class="lang-en">Likely PI</span></td><td><span class="lang-ko">저장 시 + 전송 시</span><span class="lang-en">At-rest + In-transit</span></td></tr>
+                                <tr><td><span class="lang-ko">차량 텔레메트리</span><span class="lang-en">Vehicle Telemetry</span></td><td><span class="lang-ko">엔진 데이터, 타이어 압력</span><span class="lang-en">Engine data, tire pressure</span></td><td><span class="lang-ko">PI 아님</span><span class="lang-en">Not PI</span></td><td><span class="lang-ko">저장 시</span><span class="lang-en">At-rest</span></td></tr>
                             </tbody>
                         </table>
 
-                        <h4>VIN ID-Based Management Framework</h4>
+                        <h4><span class="lang-ko">VIN ID 기반 관리 프레임워크</span><span class="lang-en">VIN ID-Based Management Framework</span></h4>
 <pre><code><span class="hl-cm"># Proposed unified approach (Korea/US)</span>
 
 1. VIN Tokenization
@@ -517,19 +517,19 @@ As long as VIN locations are identified in data flows,
 migration proceeds without major blockers.
 Tokenization can be implemented incrementally.</code><span class="code-label">text</span></pre>
 
-                        <h4>Encryption Strategy</h4>
+                        <h4><span class="lang-ko">암호화 전략</span><span class="lang-en">Encryption Strategy</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Layer</th><th>Encryption</th><th>Key Management</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">계층</span><span class="lang-en">Layer</span></th><th><span class="lang-ko">암호화</span><span class="lang-en">Encryption</span></th><th><span class="lang-ko">키 관리</span><span class="lang-en">Key Management</span></th></tr></thead>
                             <tbody>
-                                <tr><td>In-Transit</td><td>TLS 1.3</td><td>ACM certificates</td></tr>
-                                <tr><td>EBS Volumes</td><td>AES-256</td><td>KMS (per-region keys)</td></tr>
-                                <tr><td>S3 Objects</td><td>SSE-KMS</td><td>KMS (per-region keys)</td></tr>
-                                <tr><td>RDS/Aurora</td><td>AES-256</td><td>KMS (per-region keys)</td></tr>
-                                <tr><td>MSK at-rest</td><td>AES-256</td><td>KMS (per-region keys)</td></tr>
+                                <tr><td><span class="lang-ko">전송 중</span><span class="lang-en">In-Transit</span></td><td>TLS 1.3</td><td><span class="lang-ko">ACM 인증서</span><span class="lang-en">ACM certificates</span></td></tr>
+                                <tr><td>EBS Volumes</td><td>AES-256</td><td><span class="lang-ko">KMS (리전별 키)</span><span class="lang-en">KMS (per-region keys)</span></td></tr>
+                                <tr><td>S3 Objects</td><td>SSE-KMS</td><td><span class="lang-ko">KMS (리전별 키)</span><span class="lang-en">KMS (per-region keys)</span></td></tr>
+                                <tr><td>RDS/Aurora</td><td>AES-256</td><td><span class="lang-ko">KMS (리전별 키)</span><span class="lang-en">KMS (per-region keys)</span></td></tr>
+                                <tr><td><span class="lang-ko">MSK 저장 시</span><span class="lang-en">MSK at-rest</span></td><td>AES-256</td><td><span class="lang-ko">KMS (리전별 키)</span><span class="lang-en">KMS (per-region keys)</span></td></tr>
                             </tbody>
                         </table>
 
-                        <h4>KMS Key Architecture</h4>
+                        <h4><span class="lang-ko">KMS 키 아키텍처</span><span class="lang-en">KMS Key Architecture</span></h4>
 <pre><code><span class="hl-cm"># Per-region KMS keys (no cross-region key sharing)</span>
 
 us-east-1:
@@ -551,25 +551,25 @@ us-west-2:
 
                         <div class="callout workshop" style="margin-top:12px;">
                             <strong>HAEA Workshop Request #5</strong>
-                            PI handling in Kafka requires decision:
-                            (1) VIN tokenization strategy, (2) PI topic segregation policy, (3) US legal determination on VIN as PI.
+                            <span class="lang-ko">Kafka의 PI 처리에는 결정이 필요합니다: (1) VIN 토큰화 전략, (2) PI 토픽 분리 정책, (3) VIN의 PI 여부에 대한 미국 법률 결정.</span><span class="lang-en">PI handling in Kafka requires decision:
+                            (1) VIN tokenization strategy, (2) PI topic segregation policy, (3) US legal determination on VIN as PI.</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="page-nav">
-                    <a href="availability.html"><span class="label">Previous</span><span class="title">&larr; Availability Architecture</span></a>
-                    <a href="index.html" class="next"><span class="label">Next</span><span class="title">Home &rarr;</span></a>
+                    <a href="availability.html"><span class="nav-label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title"><span class="lang-ko">&larr; 가용성 아키텍처</span><span class="lang-en">&larr; Availability Architecture</span></span></a>
+                    <a href="index.html" class="next"><span class="nav-label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">홈 &rarr;</span><span class="lang-en">Home &rarr;</span></span></a>
                 </div>
             </div>
         </main>
 
         <aside class="doc-toc">
-            <div class="toc-title">On this page</div>
-            <a href="#ccdi-architecture" class="toc-link">CCDI Architecture</a>
-            <a href="#data-tiering" class="toc-link">Data Tiering Strategy</a>
-            <a href="#gen2-gen3" class="toc-link">Gen2 vs Gen3</a>
-            <a href="#pi-management" class="toc-link">PI Management</a>
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
+            <a href="#ccdi-architecture" class="toc-link"><span class="lang-ko">CCDI 아키텍처</span><span class="lang-en">CCDI Architecture</span></a>
+            <a href="#data-tiering" class="toc-link"><span class="lang-ko">데이터 티어링 전략</span><span class="lang-en">Data Tiering Strategy</span></a>
+            <a href="#gen2-gen3" class="toc-link"><span class="lang-ko">Gen2 vs Gen3</span><span class="lang-en">Gen2 vs Gen3</span></a>
+            <a href="#pi-management" class="toc-link"><span class="lang-ko">개인정보 관리</span><span class="lang-en">PI Management</span></a>
         </aside>
     </div>
 

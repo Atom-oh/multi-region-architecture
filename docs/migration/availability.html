@@ -20,53 +20,53 @@
 
         <main class="doc-main">
             <div class="doc-content">
-                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>Availability</span></div>
+                <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span><span class="lang-ko">가용성</span><span class="lang-en">Availability</span></span></div>
 
-                <h1>CCS Availability Architecture</h1>
+                <h1><span class="lang-ko">CCS 가용성 아키텍처</span><span class="lang-en">CCS Availability Architecture</span></h1>
                 <p class="lead">
-                    CCS availability is non-negotiable &mdash; P1 incidents report directly to the Chairman.
-                    This section covers incident response, network connectivity, DR/failover strategy, and the MongoDB migration path.
+                    <span class="lang-ko">CCS 가용성은 타협할 수 없습니다 &mdash; P1 인시던트는 회장에게 직접 보고됩니다. 이 섹션에서는 인시던트 대응, 네트워크 연결, DR/장애조치 전략, MongoDB 마이그레이션 경로를 다룹니다.</span><span class="lang-en">CCS availability is non-negotiable &mdash; P1 incidents report directly to the Chairman.
+                    This section covers incident response, network connectivity, DR/failover strategy, and the MongoDB migration path.</span>
                 </p>
 
                 <!-- ===== Card 1: P1 Incident Response ===== -->
-                <h2 id="incident-response">P1 Incident Response Framework</h2>
+                <h2 id="incident-response"><span class="lang-ko">P1 인시던트 대응 프레임워크</span><span class="lang-en">P1 Incident Response Framework</span></h2>
 
                 <div class="tech-card" data-tag="Operations">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">CCS P1 Incident Response Framework</span>
+                        <span class="tech-card-title"><span class="lang-ko">CCS P1 인시던트 대응 프레임워크</span><span class="lang-en">CCS P1 Incident Response Framework</span></span>
                         <span class="tech-card-tag Operations">Operations</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
                     <div class="tech-card-body">
                         <p>
-                            CCS operates under an <strong>"Everyday CIO"</strong> reporting structure where P1 incidents escalate directly to the Chairman.
-                            This creates zero tolerance for service outages and requires stringent SLAs across all operational metrics.
+                            <span class="lang-ko">CCS는 P1 인시던트가 회장에게 직접 보고되는 <strong>"일상 CIO"</strong> 보고 구조로 운영됩니다. 이로 인해 서비스 중단에 대한 제로 톨러런스가 적용되며 모든 운영 지표에 엄격한 SLA가 요구됩니다.</span><span class="lang-en">CCS operates under an <strong>"Everyday CIO"</strong> reporting structure where P1 incidents escalate directly to the Chairman.
+                            This creates zero tolerance for service outages and requires stringent SLAs across all operational metrics.</span>
                         </p>
 
-                        <h4>Incident Severity Classification</h4>
+                        <h4><span class="lang-ko">인시던트 심각도 분류</span><span class="lang-en">Incident Severity Classification</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Severity</th><th>Definition</th><th>Response Time</th><th>Escalation</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">심각도</span><span class="lang-en">Severity</span></th><th><span class="lang-ko">정의</span><span class="lang-en">Definition</span></th><th><span class="lang-ko">대응 시간</span><span class="lang-en">Response Time</span></th><th><span class="lang-ko">에스컬레이션</span><span class="lang-en">Escalation</span></th></tr></thead>
                             <tbody>
-                                <tr><td><strong>P1</strong></td><td>Service down / complete outage</td><td>Immediate</td><td>Chairman + CIO</td></tr>
-                                <tr><td><strong>P2</strong></td><td>Degraded performance / partial outage</td><td>&lt; 15 min</td><td>VP Engineering</td></tr>
-                                <tr><td><strong>P3</strong></td><td>Minor impact / single feature affected</td><td>&lt; 1 hour</td><td>Team Lead</td></tr>
+                                <tr><td><strong>P1</strong></td><td><span class="lang-ko">서비스 다운 / 완전 중단</span><span class="lang-en">Service down / complete outage</span></td><td><span class="lang-ko">즉시</span><span class="lang-en">Immediate</span></td><td><span class="lang-ko">회장 + CIO</span><span class="lang-en">Chairman + CIO</span></td></tr>
+                                <tr><td><strong>P2</strong></td><td><span class="lang-ko">성능 저하 / 부분 중단</span><span class="lang-en">Degraded performance / partial outage</span></td><td>&lt; 15 min</td><td>VP Engineering</td></tr>
+                                <tr><td><strong>P3</strong></td><td><span class="lang-ko">경미한 영향 / 단일 기능 영향</span><span class="lang-en">Minor impact / single feature affected</span></td><td>&lt; 1 hour</td><td>Team Lead</td></tr>
                             </tbody>
                         </table>
 
-                        <h4>Operational KPIs</h4>
+                        <h4><span class="lang-ko">운영 KPI</span><span class="lang-en">Operational KPIs</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Metric</th><th>Target</th><th>Current</th><th>Notes</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">지표</span><span class="lang-en">Metric</span></th><th><span class="lang-ko">목표</span><span class="lang-en">Target</span></th><th><span class="lang-ko">현재</span><span class="lang-en">Current</span></th><th><span class="lang-ko">비고</span><span class="lang-en">Notes</span></th></tr></thead>
                             <tbody>
-                                <tr><td>P1 Count</td><td>0</td><td>-</td><td>Zero tolerance policy</td></tr>
-                                <tr><td>MTTR (Mean Time To Recovery)</td><td>&lt; 15 min</td><td>-</td><td>From detection to resolution</td></tr>
-                                <tr><td>MTTD (Mean Time To Detect)</td><td>&lt; 5 min</td><td>-</td><td>CloudWatch + PagerDuty integration</td></tr>
-                                <tr><td>Drop Rate</td><td>&le; 0.01%</td><td>-</td><td>Vehicle connection drops</td></tr>
-                                <tr><td>P95 Latency</td><td>&lt; 200ms</td><td>-</td><td>API response time</td></tr>
-                                <tr><td>Peak Headroom</td><td>30%</td><td>-</td><td>Capacity buffer above peak load</td></tr>
+                                <tr><td><span class="lang-ko">P1 건수</span><span class="lang-en">P1 Count</span></td><td>0</td><td>-</td><td><span class="lang-ko">제로 톨러런스 정책</span><span class="lang-en">Zero tolerance policy</span></td></tr>
+                                <tr><td><span class="lang-ko">MTTR (평균 복구 시간)</span><span class="lang-en">MTTR (Mean Time To Recovery)</span></td><td>&lt; 15 min</td><td>-</td><td><span class="lang-ko">감지부터 해결까지</span><span class="lang-en">From detection to resolution</span></td></tr>
+                                <tr><td><span class="lang-ko">MTTD (평균 감지 시간)</span><span class="lang-en">MTTD (Mean Time To Detect)</span></td><td>&lt; 5 min</td><td>-</td><td>CloudWatch + PagerDuty</td></tr>
+                                <tr><td><span class="lang-ko">연결 끊김률</span><span class="lang-en">Drop Rate</span></td><td>&le; 0.01%</td><td>-</td><td><span class="lang-ko">차량 연결 끊김</span><span class="lang-en">Vehicle connection drops</span></td></tr>
+                                <tr><td><span class="lang-ko">P95 지연시간</span><span class="lang-en">P95 Latency</span></td><td>&lt; 200ms</td><td>-</td><td><span class="lang-ko">API 응답 시간</span><span class="lang-en">API response time</span></td></tr>
+                                <tr><td><span class="lang-ko">피크 여유분</span><span class="lang-en">Peak Headroom</span></td><td>30%</td><td>-</td><td><span class="lang-ko">피크 로드 이상 용량 버퍼</span><span class="lang-en">Capacity buffer above peak load</span></td></tr>
                             </tbody>
                         </table>
 
-                        <h4>Autoscale Reaction Requirements</h4>
+                        <h4><span class="lang-ko">오토스케일 반응 요구사항</span><span class="lang-en">Autoscale Reaction Requirements</span></h4>
 <pre><code><span class="hl-cm"># Karpenter NodePool scaling targets</span>
 Scale-up trigger:    CPU > 70% for 2 minutes
 Scale-up reaction:   < 90 seconds (node ready)
@@ -79,7 +79,7 @@ Scale-up reaction:   < 30 seconds (pod ready)
 Min replicas:        3 (critical services)
 Max replicas:        50 (based on load testing)</code><span class="code-label">text</span></pre>
 
-                        <h4>Monitoring Stack</h4>
+                        <h4><span class="lang-ko">모니터링 스택</span><span class="lang-en">Monitoring Stack</span></h4>
 <pre><code>CloudWatch Alarms
        |
        v
@@ -92,29 +92,29 @@ Max replicas:        50 (based on load testing)</code><span class="code-label">t
    Grafana Dashboard (real-time visibility)</code><span class="code-label">text</span></pre>
 
                         <div class="callout warning" style="margin-top:12px;">
-                            <strong>Chairman Direct Report</strong>
-                            Any P1 incident triggers an automatic report to the Chairman within 30 minutes.
-                            Post-mortem required within 24 hours with root cause analysis and preventive measures.
+                            <strong><span class="lang-ko">회장 직접 보고</span><span class="lang-en">Chairman Direct Report</span></strong>
+                            <span class="lang-ko">P1 인시던트가 발생하면 30분 이내에 회장에게 자동 보고됩니다. 근본 원인 분석 및 예방 조치와 함께 24시간 이내에 포스트모템이 필요합니다.</span><span class="lang-en">Any P1 incident triggers an automatic report to the Chairman within 30 minutes.
+                            Post-mortem required within 24 hours with root cause analysis and preventive measures.</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- ===== Card 2: Verizon Network ===== -->
-                <h2 id="network-connectivity">Verizon Private Network Connectivity</h2>
+                <h2 id="network-connectivity"><span class="lang-ko">Verizon 프라이빗 네트워크 연결</span><span class="lang-en">Verizon Private Network Connectivity</span></h2>
 
                 <div class="tech-card" data-tag="Network">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">Verizon Private Network to AWS Connectivity</span>
+                        <span class="tech-card-title"><span class="lang-ko">Verizon 프라이빗 네트워크에서 AWS 연결</span><span class="lang-en">Verizon Private Network to AWS Connectivity</span></span>
                         <span class="tech-card-tag Network">Network</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
                     <div class="tech-card-body">
                         <p>
-                            Vehicle connectivity flows through <strong>Verizon Private IP (PIP)</strong> network.
-                            The migration requires establishing secure connectivity from Verizon to AWS while maintaining the existing On-Prem path.
+                            <span class="lang-ko">차량 연결은 <strong>Verizon Private IP(PIP)</strong> 네트워크를 통해 이루어집니다. 마이그레이션에는 기존 온프레미스 경로를 유지하면서 Verizon에서 AWS로의 보안 연결을 설정해야 합니다.</span><span class="lang-en">Vehicle connectivity flows through <strong>Verizon Private IP (PIP)</strong> network.
+                            The migration requires establishing secure connectivity from Verizon to AWS while maintaining the existing On-Prem path.</span>
                         </p>
 
-                        <h4>Current Path (AS-IS)</h4>
+                        <h4><span class="lang-ko">현재 경로 (AS-IS)</span><span class="lang-en">Current Path (AS-IS)</span></h4>
 <pre><code>Vehicle (LTE/5G)
        |
        v
@@ -129,28 +129,28 @@ HCloud (On-Prem Infrastructure)
        v
 Backend Services (ESB, Java+Spring)</code><span class="code-label">text</span></pre>
 
-                        <h4>Target Options (TO-BE)</h4>
+                        <h4><span class="lang-ko">목표 옵션 (TO-BE)</span><span class="lang-en">Target Options (TO-BE)</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Option</th><th>Path</th><th>Pros</th><th>Cons</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">옵션</span><span class="lang-en">Option</span></th><th><span class="lang-ko">경로</span><span class="lang-en">Path</span></th><th><span class="lang-ko">장점</span><span class="lang-en">Pros</span></th><th><span class="lang-ko">단점</span><span class="lang-en">Cons</span></th></tr></thead>
                             <tbody>
                                 <tr>
                                     <td><strong>A) Direct Connect</strong></td>
                                     <td>Vehicle &rarr; Verizon PIP &rarr; AWS DX &rarr; VPC &rarr; EKS</td>
-                                    <td>Dedicated bandwidth, predictable latency</td>
-                                    <td>DX setup lead time (~4-8 weeks)</td>
+                                    <td><span class="lang-ko">전용 대역폭, 예측 가능한 지연시간</span><span class="lang-en">Dedicated bandwidth, predictable latency</span></td>
+                                    <td><span class="lang-ko">DX 설정 리드타임 (~4-8주)</span><span class="lang-en">DX setup lead time (~4-8 weeks)</span></td>
                                 </tr>
                                 <tr>
                                     <td><strong>B) Wavelength</strong></td>
                                     <td>Vehicle &rarr; Verizon &rarr; AWS Wavelength Zone &rarr; VPC</td>
-                                    <td>Ultra-low latency, no extra cost for compute</td>
-                                    <td>Limited instance types, storage constraints</td>
+                                    <td><span class="lang-ko">초저지연, 컴퓨팅 추가 비용 없음</span><span class="lang-en">Ultra-low latency, no extra cost for compute</span></td>
+                                    <td><span class="lang-ko">제한된 인스턴스 유형, 스토리지 제약</span><span class="lang-en">Limited instance types, storage constraints</span></td>
                                 </tr>
                             </tbody>
                         </table>
 
-                        <h4>Korea Precedent (Completed 2025.04)</h4>
+                        <h4><span class="lang-ko">한국 선례 (2025.04 완료)</span><span class="lang-en">Korea Precedent (Completed 2025.04)</span></h4>
                         <p>
-                            Korea deployment successfully connected 3 carriers to AWS via Direct Connect Gateway:
+                            <span class="lang-ko">한국 배포에서 Direct Connect Gateway를 통해 3개 통신사를 AWS에 성공적으로 연결했습니다:</span><span class="lang-en">Korea deployment successfully connected 3 carriers to AWS via Direct Connect Gateway:</span>
                         </p>
 <pre><code>SKT  ---+
         |
@@ -163,7 +163,7 @@ LGU+ ---+
 - Cross-region support (single DXGW serves multiple regions)
 - Simplified network architecture</code><span class="code-label">text</span></pre>
 
-                        <h4>VPC IPAM for Public IP Management</h4>
+                        <h4><span class="lang-ko">퍼블릭 IP 관리를 위한 VPC IPAM</span><span class="lang-en">VPC IPAM for Public IP Management</span></h4>
 <pre><code><span class="hl-cm"># Problem: Public IP quota exhaustion</span>
 Original allocation: /29 (8 IPs) per region
 Required:            /26 (64 IPs) per region
@@ -175,29 +175,29 @@ Required:            /26 (64 IPs) per region
 - Enables future multi-region expansion</code><span class="code-label">text</span></pre>
 
                         <div class="callout info" style="margin-top:12px;">
-                            <strong>Recommendation</strong>
-                            Use Direct Connect Gateway (Option A) for production traffic.
-                            Wavelength can be evaluated for latency-critical edge use cases (e.g., real-time vehicle commands).
+                            <strong><span class="lang-ko">권장사항</span><span class="lang-en">Recommendation</span></strong>
+                            <span class="lang-ko">프로덕션 트래픽에는 Direct Connect Gateway(옵션 A)를 사용하세요. Wavelength는 지연시간에 민감한 엣지 사용 사례(예: 실시간 차량 명령)에서 평가할 수 있습니다.</span><span class="lang-en">Use Direct Connect Gateway (Option A) for production traffic.
+                            Wavelength can be evaluated for latency-critical edge use cases (e.g., real-time vehicle commands).</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- ===== Card 3: DR/Failover ===== -->
-                <h2 id="dr-failover">Multi-Region DR/Failover Strategy</h2>
+                <h2 id="dr-failover"><span class="lang-ko">멀티 리전 DR/장애조치 전략</span><span class="lang-en">Multi-Region DR/Failover Strategy</span></h2>
 
                 <div class="tech-card" data-tag="Network">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">Multi-Region DR/Failover Strategy</span>
+                        <span class="tech-card-title"><span class="lang-ko">멀티 리전 DR/장애조치 전략</span><span class="lang-en">Multi-Region DR/Failover Strategy</span></span>
                         <span class="tech-card-tag Network">Network</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
                     <div class="tech-card-body">
                         <p>
-                            Current CCS status: <strong>NO DR capability</strong> &mdash; the prevailing mentality is "respond via OTA" after incidents occur.
-                            The AWS migration introduces Active-Active architecture with automatic failover via Route53 health checks.
+                            <span class="lang-ko">현재 CCS 상태: <strong>DR 기능 없음</strong> &mdash; 기존 사고방식은 인시던트 발생 후 "OTA로 대응"하는 것입니다. AWS 마이그레이션은 Route53 헬스 체크를 통한 자동 장애조치가 포함된 Active-Active 아키텍처를 도입합니다.</span><span class="lang-en">Current CCS status: <strong>NO DR capability</strong> &mdash; the prevailing mentality is "respond via OTA" after incidents occur.
+                            The AWS migration introduces Active-Active architecture with automatic failover via Route53 health checks.</span>
                         </p>
 
-                        <h4>Route53 Health Check + Latency Routing</h4>
+                        <h4><span class="lang-ko">Route53 헬스 체크 + 지연시간 기반 라우팅</span><span class="lang-en">Route53 Health Check + Latency Routing</span></h4>
                         <p><code>terraform/modules/edge/route53/main.tf</code></p>
 <pre><code><span class="hl-cm"># Health Check (per region)</span>
 <span class="hl-kw">resource</span> <span class="hl-str">"aws_route53_health_check"</span> <span class="hl-str">"regional"</span> {
@@ -253,13 +253,13 @@ Required:            /26 (64 IPs) per region
   treat_missing_data  = <span class="hl-str">"breaching"</span>
 }</code><span class="code-label">hcl</span></pre>
 
-                        <h4>RTO/RPO by Component</h4>
+                        <h4><span class="lang-ko">컴포넌트별 RTO/RPO</span><span class="lang-en">RTO/RPO by Component</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Component</th><th>RTO</th><th>RPO</th><th>Failover Method</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">컴포넌트</span><span class="lang-en">Component</span></th><th>RTO</th><th>RPO</th><th><span class="lang-ko">장애조치 방법</span><span class="lang-en">Failover Method</span></th></tr></thead>
                             <tbody>
-                                <tr><td>Route53 DNS</td><td>~60s</td><td>0</td><td>Health check auto-failover</td></tr>
-                                <tr><td>Aurora Global</td><td>~120s</td><td>&lt; 1s</td><td>Secondary promotion</td></tr>
-                                <tr><td>DSQL Active-Active</td><td>0s</td><td>0</td><td>No failover needed (active-active)</td></tr>
+                                <tr><td>Route53 DNS</td><td>~60s</td><td>0</td><td><span class="lang-ko">헬스 체크 자동 장애조치</span><span class="lang-en">Health check auto-failover</span></td></tr>
+                                <tr><td>Aurora Global</td><td>~120s</td><td>&lt; 1s</td><td><span class="lang-ko">세컨더리 승격</span><span class="lang-en">Secondary promotion</span></td></tr>
+                                <tr><td>DSQL Active-Active</td><td>0s</td><td>0</td><td><span class="lang-ko">장애조치 불필요 (active-active)</span><span class="lang-en">No failover needed (active-active)</span></td></tr>
                                 <tr><td>DocumentDB Global</td><td><span class="lang-ko">수 분 (수동 failover)</span><span class="lang-en">Minutes (manual failover)</span></td><td>~5s</td><td><span class="lang-ko">수동 승격 필요</span><span class="lang-en">Manual promotion required</span></td></tr>
                                 <tr><td>MSK Replicator</td><td>~30-60s</td><td>~2-5s</td><td><span class="lang-ko">Consumer group rebalance (토픽 파티션 수에 의존)</span><span class="lang-en">Consumer group rebalance (depends on topic partition count)</span></td></tr>
                             </tbody>
@@ -370,7 +370,7 @@ Required:            /26 (64 IPs) per region
                         })();
                         </script>
 
-                        <h4>Failover Sequence</h4>
+                        <h4><span class="lang-ko">장애조치 시퀀스</span><span class="lang-en">Failover Sequence</span></h4>
 <pre><code><span class="hl-cm"># Automatic failover sequence (us-east-1 failure)</span>
 
 T+0s    Health Check fails (3 consecutive failures)
@@ -394,40 +394,40 @@ T+120s  Full traffic serving from us-west-2
 - Update runbook status in PagerDuty</code><span class="code-label">text</span></pre>
 
                         <div class="callout tip" style="margin-top:12px;">
-                            <strong>Active-Active Benefits</strong>
-                            With Route53 latency-based routing, both regions actively serve traffic.
-                            Failover is seamless &mdash; users are simply routed to the remaining healthy region.
+                            <strong><span class="lang-ko">Active-Active의 이점</span><span class="lang-en">Active-Active Benefits</span></strong>
+                            <span class="lang-ko">Route53 지연시간 기반 라우팅을 사용하면 두 리전 모두 트래픽을 활발히 처리합니다. 장애조치는 원활하게 이루어지며, 사용자는 단순히 남은 정상 리전으로 라우팅됩니다.</span><span class="lang-en">With Route53 latency-based routing, both regions actively serve traffic.
+                            Failover is seamless &mdash; users are simply routed to the remaining healthy region.</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- ===== Card 4: MongoDB Migration ===== -->
-                <h2 id="mongodb-migration">MongoDB I/O Bottleneck Migration</h2>
+                <h2 id="mongodb-migration"><span class="lang-ko">MongoDB I/O 병목 마이그레이션</span><span class="lang-en">MongoDB I/O Bottleneck Migration</span></h2>
 
                 <div class="tech-card" data-tag="Database">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">MongoDB I/O Bottleneck to AWS Migration Path</span>
+                        <span class="tech-card-title"><span class="lang-ko">MongoDB I/O 병목에서 AWS 마이그레이션 경로</span><span class="lang-en">MongoDB I/O Bottleneck to AWS Migration Path</span></span>
                         <span class="tech-card-tag Database">Database</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
                     <div class="tech-card-body">
                         <p>
-                            The current MongoDB deployment suffers from severe I/O bottlenecks due to legacy HDD storage,
-                            lack of host-level tuning, and 5x data volume increase from Gen1 to Gen3 vehicles.
+                            <span class="lang-ko">현재 MongoDB 배포는 레거시 HDD 스토리지, 호스트 레벨 튜닝 부재, Gen1에서 Gen3 차량으로의 5배 데이터 볼륨 증가로 인해 심각한 I/O 병목 현상을 겪고 있습니다.</span><span class="lang-en">The current MongoDB deployment suffers from severe I/O bottlenecks due to legacy HDD storage,
+                            lack of host-level tuning, and 5x data volume increase from Gen1 to Gen3 vehicles.</span>
                         </p>
 
-                        <h4>Root Cause Analysis</h4>
+                        <h4><span class="lang-ko">근본 원인 분석</span><span class="lang-en">Root Cause Analysis</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Factor</th><th>Issue</th><th>Impact</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">요인</span><span class="lang-en">Factor</span></th><th><span class="lang-ko">문제</span><span class="lang-en">Issue</span></th><th><span class="lang-ko">영향</span><span class="lang-en">Impact</span></th></tr></thead>
                             <tbody>
-                                <tr><td>Storage</td><td>HDD residual (not SSD)</td><td>IOPS bottleneck at ~500 IOPS</td></tr>
-                                <tr><td>Host Tuning</td><td>No FS/RAID/kernel optimization</td><td>Suboptimal I/O scheduling</td></tr>
-                                <tr><td>Data Growth</td><td>Gen3 vehicles 5x data vs Gen1</td><td>Storage capacity exhaustion</td></tr>
-                                <tr><td>Replication</td><td>Single replica set</td><td>No horizontal read scaling</td></tr>
+                                <tr><td><span class="lang-ko">스토리지</span><span class="lang-en">Storage</span></td><td><span class="lang-ko">HDD 잔존 (SSD 아님)</span><span class="lang-en">HDD residual (not SSD)</span></td><td><span class="lang-ko">~500 IOPS에서 IOPS 병목</span><span class="lang-en">IOPS bottleneck at ~500 IOPS</span></td></tr>
+                                <tr><td><span class="lang-ko">호스트 튜닝</span><span class="lang-en">Host Tuning</span></td><td><span class="lang-ko">FS/RAID/커널 최적화 없음</span><span class="lang-en">No FS/RAID/kernel optimization</span></td><td><span class="lang-ko">비최적화된 I/O 스케줄링</span><span class="lang-en">Suboptimal I/O scheduling</span></td></tr>
+                                <tr><td><span class="lang-ko">데이터 증가</span><span class="lang-en">Data Growth</span></td><td><span class="lang-ko">Gen3 차량 데이터 Gen1 대비 5배</span><span class="lang-en">Gen3 vehicles 5x data vs Gen1</span></td><td><span class="lang-ko">스토리지 용량 고갈</span><span class="lang-en">Storage capacity exhaustion</span></td></tr>
+                                <tr><td><span class="lang-ko">복제</span><span class="lang-en">Replication</span></td><td><span class="lang-ko">단일 레플리카 셋</span><span class="lang-en">Single replica set</span></td><td><span class="lang-ko">수평 읽기 스케일링 없음</span><span class="lang-en">No horizontal read scaling</span></td></tr>
                             </tbody>
                         </table>
 
-                        <h4>Current Load and Projections</h4>
+                        <h4><span class="lang-ko">현재 부하 및 전망</span><span class="lang-en">Current Load and Projections</span></h4>
 <pre><code><span class="hl-cm"># Current (2025 Q2)</span>
 TPS:           20,000 - 30,000
 Storage:       ~8TB
@@ -438,26 +438,26 @@ TPS:           ~40,000 (Gen3 fleet expansion)
 Storage:       ~12TB
 IOPS needed:   10,000+ (sustained)</code><span class="code-label">text</span></pre>
 
-                        <h4>Migration Timeline</h4>
+                        <h4><span class="lang-ko">마이그레이션 타임라인</span><span class="lang-en">Migration Timeline</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Phase</th><th>Timeline</th><th>Action</th><th>Status</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">단계</span><span class="lang-en">Phase</span></th><th><span class="lang-ko">일정</span><span class="lang-en">Timeline</span></th><th><span class="lang-ko">조치</span><span class="lang-en">Action</span></th><th><span class="lang-ko">상태</span><span class="lang-en">Status</span></th></tr></thead>
                             <tbody>
-                                <tr><td>Short-term</td><td>2025.10</td><td>HDD &rarr; SSD + Redis cache layer</td><td>Completed</td></tr>
-                                <tr><td>Mid-term</td><td>2026.07</td><td>MongoDB Atlas on AWS (before license expiry)</td><td>Planning</td></tr>
-                                <tr><td>Long-term</td><td>2027+</td><td>Evaluate DocumentDB or DynamoDB</td><td>Analysis</td></tr>
+                                <tr><td><span class="lang-ko">단기</span><span class="lang-en">Short-term</span></td><td>2025.10</td><td><span class="lang-ko">HDD &rarr; SSD + Redis 캐시 레이어</span><span class="lang-en">HDD &rarr; SSD + Redis cache layer</span></td><td><span class="lang-ko">완료</span><span class="lang-en">Completed</span></td></tr>
+                                <tr><td><span class="lang-ko">중기</span><span class="lang-en">Mid-term</span></td><td>2026.07</td><td><span class="lang-ko">AWS의 MongoDB Atlas (라이선스 만료 전)</span><span class="lang-en">MongoDB Atlas on AWS (before license expiry)</span></td><td><span class="lang-ko">계획 중</span><span class="lang-en">Planning</span></td></tr>
+                                <tr><td><span class="lang-ko">장기</span><span class="lang-en">Long-term</span></td><td>2027+</td><td><span class="lang-ko">DocumentDB 또는 DynamoDB 평가</span><span class="lang-en">Evaluate DocumentDB or DynamoDB</span></td><td><span class="lang-ko">분석 중</span><span class="lang-en">Analysis</span></td></tr>
                             </tbody>
                         </table>
 
-                        <h4>Database Option Comparison</h4>
+                        <h4><span class="lang-ko">데이터베이스 옵션 비교</span><span class="lang-en">Database Option Comparison</span></h4>
                         <table class="info-table">
-                            <thead><tr><th>Criteria</th><th>MongoDB Atlas</th><th>DocumentDB</th><th>DynamoDB</th></tr></thead>
+                            <thead><tr><th><span class="lang-ko">기준</span><span class="lang-en">Criteria</span></th><th>MongoDB Atlas</th><th>DocumentDB</th><th>DynamoDB</th></tr></thead>
                             <tbody>
-                                <tr><td>MongoDB Compatibility</td><td>100% (native)</td><td>~95% (API compatible)</td><td>0% (different model)</td></tr>
-                                <tr><td>Management</td><td>MongoDB Inc. managed</td><td>AWS managed</td><td>AWS managed</td></tr>
-                                <tr><td>Migration Effort</td><td>Low (same API)</td><td>Medium (test compatibility)</td><td>High (rewrite required)</td></tr>
-                                <tr><td>Global Replication</td><td>Atlas Global Clusters</td><td>Global Clusters (manual failover)</td><td>Global Tables (automatic)</td></tr>
-                                <tr><td>Cost Model</td><td>Instance + storage</td><td>Instance + I/O + storage</td><td>Capacity units (predictable)</td></tr>
-                                <tr><td>Best For</td><td>Complex queries, aggregations</td><td>MongoDB workloads on AWS</td><td>Key-value, high-scale simple access</td></tr>
+                                <tr><td><span class="lang-ko">MongoDB 호환성</span><span class="lang-en">MongoDB Compatibility</span></td><td><span class="lang-ko">100% (네이티브)</span><span class="lang-en">100% (native)</span></td><td><span class="lang-ko">~95% (API 호환)</span><span class="lang-en">~95% (API compatible)</span></td><td><span class="lang-ko">0% (다른 모델)</span><span class="lang-en">0% (different model)</span></td></tr>
+                                <tr><td><span class="lang-ko">관리</span><span class="lang-en">Management</span></td><td><span class="lang-ko">MongoDB Inc. 관리형</span><span class="lang-en">MongoDB Inc. managed</span></td><td><span class="lang-ko">AWS 관리형</span><span class="lang-en">AWS managed</span></td><td><span class="lang-ko">AWS 관리형</span><span class="lang-en">AWS managed</span></td></tr>
+                                <tr><td><span class="lang-ko">마이그레이션 노력</span><span class="lang-en">Migration Effort</span></td><td><span class="lang-ko">낮음 (동일 API)</span><span class="lang-en">Low (same API)</span></td><td><span class="lang-ko">중간 (호환성 테스트)</span><span class="lang-en">Medium (test compatibility)</span></td><td><span class="lang-ko">높음 (재작성 필요)</span><span class="lang-en">High (rewrite required)</span></td></tr>
+                                <tr><td><span class="lang-ko">글로벌 복제</span><span class="lang-en">Global Replication</span></td><td>Atlas Global Clusters</td><td><span class="lang-ko">Global Clusters (수동 장애조치)</span><span class="lang-en">Global Clusters (manual failover)</span></td><td><span class="lang-ko">Global Tables (자동)</span><span class="lang-en">Global Tables (automatic)</span></td></tr>
+                                <tr><td><span class="lang-ko">비용 모델</span><span class="lang-en">Cost Model</span></td><td><span class="lang-ko">인스턴스 + 스토리지</span><span class="lang-en">Instance + storage</span></td><td><span class="lang-ko">인스턴스 + I/O + 스토리지</span><span class="lang-en">Instance + I/O + storage</span></td><td><span class="lang-ko">용량 유닛 (예측 가능)</span><span class="lang-en">Capacity units (predictable)</span></td></tr>
+                                <tr><td><span class="lang-ko">최적 사용 사례</span><span class="lang-en">Best For</span></td><td><span class="lang-ko">복잡한 쿼리, 집계</span><span class="lang-en">Complex queries, aggregations</span></td><td><span class="lang-ko">AWS의 MongoDB 워크로드</span><span class="lang-en">MongoDB workloads on AWS</span></td><td><span class="lang-ko">키-값, 고확장 단순 액세스</span><span class="lang-en">Key-value, high-scale simple access</span></td></tr>
                             </tbody>
                         </table>
 
@@ -574,25 +574,25 @@ IOPS needed:   10,000+ (sustained)</code><span class="code-label">text</span></p
 
                         <div class="callout workshop" style="margin-top:12px;">
                             <strong>HAEA Workshop Request #3</strong>
-                            MongoDB migration path decision required: Atlas vs DocumentDB vs DynamoDB.
-                            Key considerations: Enterprise license expiry (2026.07), query complexity, operational ownership preference.
+                            <span class="lang-ko">MongoDB 마이그레이션 경로 결정 필요: Atlas vs DocumentDB vs DynamoDB. 주요 고려사항: 엔터프라이즈 라이선스 만료(2026.07), 쿼리 복잡도, 운영 소유권 선호도.</span><span class="lang-en">MongoDB migration path decision required: Atlas vs DocumentDB vs DynamoDB.
+                            Key considerations: Enterprise license expiry (2026.07), query complexity, operational ownership preference.</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="page-nav">
-                    <a href="msk-operations.html"><span class="label">Previous</span><span class="title">&larr; MSK Operations</span></a>
-                    <a href="ccs-data-architecture.html" class="next"><span class="label">Next</span><span class="title">CCS Data Architecture &rarr;</span></a>
+                    <a href="msk-operations.html"><span class="nav-label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title"><span class="lang-ko">&larr; MSK 운영</span><span class="lang-en">&larr; MSK Operations</span></span></a>
+                    <a href="ccs-data-architecture.html" class="next"><span class="nav-label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">CCS 데이터 아키텍처 &rarr;</span><span class="lang-en">CCS Data Architecture &rarr;</span></span></a>
                 </div>
             </div>
         </main>
 
         <aside class="doc-toc">
-            <div class="toc-title">On this page</div>
-            <a href="#incident-response" class="toc-link">P1 Incident Response</a>
-            <a href="#network-connectivity" class="toc-link">Verizon Network Connectivity</a>
-            <a href="#dr-failover" class="toc-link">DR/Failover Strategy</a>
-            <a href="#mongodb-migration" class="toc-link">MongoDB Migration</a>
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
+            <a href="#incident-response" class="toc-link"><span class="lang-ko">P1 인시던트 대응</span><span class="lang-en">P1 Incident Response</span></a>
+            <a href="#network-connectivity" class="toc-link"><span class="lang-ko">Verizon 네트워크 연결</span><span class="lang-en">Verizon Network Connectivity</span></a>
+            <a href="#dr-failover" class="toc-link"><span class="lang-ko">DR/장애조치 전략</span><span class="lang-en">DR/Failover Strategy</span></a>
+            <a href="#mongodb-migration" class="toc-link"><span class="lang-ko">MongoDB 마이그레이션</span><span class="lang-en">MongoDB Migration</span></a>
         </aside>
     </div>
 

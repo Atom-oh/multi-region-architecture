@@ -1000,7 +1000,7 @@ pre .code-label {
 [data-lang="en"] .lang-ko { display: none !important; }
 [data-lang="ko"] .lang-en { display: none !important; }
 /* Default: show English if no data-lang set */
-:not([data-lang]) .lang-ko { display: none !important; }
+html:not([data-lang]) .lang-ko { display: none !important; }
 
 .lang-toggle {
   display: flex;

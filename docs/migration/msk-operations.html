@@ -20,9 +20,9 @@
 
         <main class="doc-main">
             <div class="doc-content">
-                <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>MSK Operations</span></div>
+                <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span><span class="lang-ko">MSK 운영</span><span class="lang-en">MSK Operations</span></span></div>
 
-                <h1>MSK Multi-Region Operations</h1>
+                <h1><span class="lang-ko">MSK 멀티 리전 운영</span><span class="lang-en">MSK Multi-Region Operations</span></h1>
                 <p class="lead">
                     <span class="lang-ko">CCS Connected Car 데이터 파이프라인을 위한 MSK 클러스터 운영 가이드입니다.
                     North America 트래픽 규모에 맞는 사이징, 리전 간 복제, CCDI 데이터 플로우 아키텍처를 다룹니다.</span><span class="lang-en">MSK cluster operations guide for CCS Connected Car data pipeline.
@@ -34,7 +34,7 @@
 
                 <div class="tech-card" data-tag="Infrastructure">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">MSK Cluster Sizing - CCS North America Traffic</span>
+                        <span class="tech-card-title"><span class="lang-ko">MSK 클러스터 사이징 - CCS North America 트래픽</span><span class="lang-en">MSK Cluster Sizing - CCS North America Traffic</span></span>
                         <span class="tech-card-tag Infrastructure">Infrastructure</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
@@ -86,7 +86,7 @@ sasl.jaas.config=...  <span class="hl-cm"># load credentials from AWS Secrets Ma
 
                 <div class="tech-card" data-tag="Database">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">MSK Replicator - Cross-Region Topic Replication</span>
+                        <span class="tech-card-title"><span class="lang-ko">MSK Replicator - 리전 간 토픽 복제</span><span class="lang-en">MSK Replicator - Cross-Region Topic Replication</span></span>
                         <span class="tech-card-tag Database">Database</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
@@ -252,7 +252,7 @@ sasl.jaas.config=...  <span class="hl-cm"># load credentials from AWS Secrets Ma
                         <h4><span class="lang-ko">복제 모니터링 메트릭</span><span class="lang-en">Replication Monitoring Metrics</span></h4>
                         <table class="info-table">
                             <thead>
-                                <tr><th>Metric</th><th><span class="lang-ko">임계값</span><span class="lang-en">Threshold</span></th><th><span class="lang-ko">알람 조건</span><span class="lang-en">Alarm Condition</span></th></tr>
+                                <tr><th><span class="lang-ko">메트릭</span><span class="lang-en">Metric</span></th><th><span class="lang-ko">임계값</span><span class="lang-en">Threshold</span></th><th><span class="lang-ko">알람 조건</span><span class="lang-en">Alarm Condition</span></th></tr>
                             </thead>
                             <tbody>
                                 <tr><td>ReplicationLatency</td><td>&lt; 5s</td><td><span class="lang-ko">지연 시간 5초 초과 시 경고</span><span class="lang-en">Alert when latency exceeds 5s</span></td></tr>
@@ -268,7 +268,7 @@ sasl.jaas.config=...  <span class="hl-cm"># load credentials from AWS Secrets Ma
 
                 <div class="tech-card" data-tag="Architecture">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">CCDI Data Pipeline Architecture</span>
+                        <span class="tech-card-title"><span class="lang-ko">CCDI 데이터 파이프라인 아키텍처</span><span class="lang-en">CCDI Data Pipeline Architecture</span></span>
                         <span class="tech-card-tag Architecture">Architecture</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
@@ -334,7 +334,7 @@ sasl.jaas.config=...  <span class="hl-cm"># load credentials from AWS Secrets Ma
 
                 <div class="tech-card" data-tag="Operations">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">On-Prem Kafka to MSK Migration - Korea CCS Case Study</span>
+                        <span class="tech-card-title"><span class="lang-ko">On-Prem Kafka에서 MSK로 마이그레이션 - Korea CCS 사례</span><span class="lang-en">On-Prem Kafka to MSK Migration - Korea CCS Case Study</span></span>
                         <span class="tech-card-tag Operations">Operations</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
@@ -410,14 +410,14 @@ sasl.mechanism=SCRAM-SHA-512
                 </div>
 
                 <div class="page-nav">
-                    <a href="eks-operations.html"><span class="label">Previous</span><span class="title">&larr; EKS Operations</span></a>
-                    <a href="availability.html" class="next"><span class="label">Next</span><span class="title">Availability &rarr;</span></a>
+                    <a href="eks-operations.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; <span class="lang-ko">EKS 운영</span><span class="lang-en">EKS Operations</span></span></a>
+                    <a href="availability.html" class="next"><span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">가용성</span><span class="lang-en">Availability</span> &rarr;</span></a>
                 </div>
             </div>
         </main>
 
         <aside class="doc-toc">
-            <div class="toc-title">On this page</div>
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
             <a href="#msk-sizing" class="toc-link"><span class="lang-ko">MSK 클러스터 사이징</span><span class="lang-en">MSK Cluster Sizing</span></a>
             <a href="#msk-replicator" class="toc-link"><span class="lang-ko">MSK Replicator</span><span class="lang-en">MSK Replicator</span></a>
             <a href="#ccdi-pipeline" class="toc-link"><span class="lang-ko">CCDI 데이터 파이프라인</span><span class="lang-en">CCDI Data Pipeline</span></a>

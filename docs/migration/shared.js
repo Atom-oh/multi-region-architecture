@@ -19,55 +19,55 @@
         </div>
         <nav class="sidebar-nav">
             <div class="sidebar-section">
-                <div class="sidebar-section-title">Overview</div>
+                <div class="sidebar-section-title"><span class="lang-ko">개요</span><span class="lang-en">Overview</span></div>
                 <a href="index.html" class="sidebar-link${isActive('index.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                     <span class="lang-ko">소개</span><span class="lang-en">Introduction</span>
                 </a>
             </div>
             <div class="sidebar-section">
-                <div class="sidebar-section-title">Migration Steps</div>
+                <div class="sidebar-section-title"><span class="lang-ko">마이그레이션 단계</span><span class="lang-en">Migration Steps</span></div>
                 <a href="step-0.html" class="sidebar-link${isActive('step-0.html')}"><span class="step-num">0</span> <span class="lang-ko">초기 상태</span><span class="lang-en">Initial State</span></a>
                 <a href="step-1.html" class="sidebar-link${isActive('step-1.html')}"><span class="step-num">1</span> <span class="lang-ko">us-west-2 배포</span><span class="lang-en">us-west-2 Deploy</span></a>
                 <a href="step-2.html" class="sidebar-link${isActive('step-2.html')}"><span class="step-num">2</span> <span class="lang-ko">us-east-1 배포</span><span class="lang-en">us-east-1 Deploy</span></a>
                 <a href="step-3.html" class="sidebar-link${isActive('step-3.html')}"><span class="step-num">3</span> <span class="lang-ko">리전간 동기화</span><span class="lang-en">Cross-Region Sync</span></a>
                 <a href="step-4.html" class="sidebar-link${isActive('step-4.html')}"><span class="step-num">4</span> <span class="lang-ko">트래픽 분산</span><span class="lang-en">Traffic Distribution</span></a>
                 <a href="step-5.html" class="sidebar-link${isActive('step-5.html')}"><span class="step-num">5</span> <span class="lang-ko">AWS 확대</span><span class="lang-en">AWS Expansion</span></a>
-                <a href="step-6.html" class="sidebar-link${isActive('step-6.html')}"><span class="step-num">6</span> Full AWS</a>
+                <a href="step-6.html" class="sidebar-link${isActive('step-6.html')}"><span class="step-num">6</span> <span class="lang-ko">Full AWS</span><span class="lang-en">Full AWS</span></a>
             </div>
             <div class="sidebar-section">
-                <div class="sidebar-section-title">Deep Dive</div>
+                <div class="sidebar-section-title"><span class="lang-ko">심화 내용</span><span class="lang-en">Deep Dive</span></div>
                 <a href="multi-region.html" class="sidebar-link${isActive('multi-region.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
-                    CCS Multi-Region
+                    <span class="lang-ko">CCS 멀티리전</span><span class="lang-en">CCS Multi-Region</span>
                 </a>
                 <a href="data-sync.html" class="sidebar-link${isActive('data-sync.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                    CCDI Data Sync
+                    <span class="lang-ko">CCDI 데이터 동기화</span><span class="lang-en">CCDI Data Sync</span>
                 </a>
                 <a href="connected-car.html" class="sidebar-link${isActive('connected-car.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17h2m10 0h2M12 17h.01"/><path d="M3 9l2-4h14l2 4M3 9v8h18V9"/></svg>
-                    Connected Car Latency
+                    <span class="lang-ko">Connected Car 레이턴시</span><span class="lang-en">Connected Car Latency</span>
                 </a>
                 <a href="route-cache.html" class="sidebar-link${isActive('route-cache.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                    GIS Route Cache
+                    <span class="lang-ko">GIS 경로 캐시</span><span class="lang-en">GIS Route Cache</span>
                 </a>
                 <a href="eks-operations.html" class="sidebar-link${isActive('eks-operations.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
-                    EKS Operations
+                    <span class="lang-ko">EKS 운영</span><span class="lang-en">EKS Operations</span>
                 </a>
                 <a href="msk-operations.html" class="sidebar-link${isActive('msk-operations.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                    MSK Operations
+                    <span class="lang-ko">MSK 운영</span><span class="lang-en">MSK Operations</span>
                 </a>
                 <a href="availability.html" class="sidebar-link${isActive('availability.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    Availability
+                    <span class="lang-ko">가용성</span><span class="lang-en">Availability</span>
                 </a>
                 <a href="ccs-data-architecture.html" class="sidebar-link${isActive('ccs-data-architecture.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-                    CCS Data Architecture
+                    <span class="lang-ko">CCS 데이터 아키텍처</span><span class="lang-en">CCS Data Architecture</span>
                 </a>
             </div>
         </nav>
