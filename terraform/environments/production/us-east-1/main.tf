@@ -216,6 +216,17 @@ module "dsql" {
   tags        = var.tags
 }
 
+module "dsql_irsa" {
+  source = "../../../modules/data/dsql-irsa"
+
+  environment       = var.environment
+  region            = var.region
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+  dsql_cluster_arn  = module.dsql.cluster_arn
+  tags              = var.tags
+}
+
 module "documentdb" {
   source = "../../../modules/data/documentdb-global"
 

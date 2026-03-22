@@ -401,11 +401,7 @@ public class Controller {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            // Forward W3C trace context for distributed tracing
-            String traceparent = request.getHeader("traceparent");
-            if (traceparent != null) headers.set("traceparent", traceparent);
-            String tracestate = request.getHeader("tracestate");
-            if (tracestate != null) headers.set("tracestate", tracestate);
+            // OTel Java Agent auto-instruments RestTemplate to inject correct child span traceparent
 
             HttpEntity<?> entity = body != null
                 ? new HttpEntity<>(body, headers)

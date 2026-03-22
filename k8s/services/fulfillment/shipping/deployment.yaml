@@ -4,7 +4,7 @@ metadata:
   name: shipping
   namespace: fulfillment
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::180294183052:role/placeholder
+    eks.amazonaws.com/role-arn: arn:aws:iam::180294183052:role/production-dsql-access-us-east-1
 ---
 apiVersion: apps/v1
 kind: Deployment
