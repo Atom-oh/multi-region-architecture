@@ -5,6 +5,16 @@ resources:
   - grafana-nlb.yaml
   - prometheus-west-nlb.yaml
 
+patches:
+  - target:
+      kind: ConfigMap
+      name: grafana-dashboard-karpenter
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          grafana_folder: "Basic"
+
 configMapGenerator:
   - name: grafana-dashboard-synthetic-monitor
     namespace: monitoring
