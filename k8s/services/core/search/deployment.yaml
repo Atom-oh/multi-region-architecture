@@ -38,6 +38,8 @@ spec:
               value: us-east-1
             - name: REGION_ROLE
               value: PRIMARY
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.platform.svc.cluster.local:4317"
             # DB_HOST: OpenSearch endpoint via ExternalSecret
             # CACHE_HOST: Valkey endpoint via ExternalSecret (TTL: 5m)
             # KAFKA_BROKERS: MSK bootstrap via ExternalSecret

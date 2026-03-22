@@ -1,14 +1,17 @@
 package com.mall.order;
 
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
-import java.util.Map;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.*;
 
 @RestController
 @CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 public class Controller {
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @GetMapping("/")
     public Map<String, Object> root() {
@@ -35,18 +38,53 @@ public class Controller {
     }
 
     @PostMapping("/api/v1/orders")
-    public ResponseEntity<Map<String, Object>> createOrder(@RequestBody Map<String, Object> order) {
-        Map<String, Object> response = Map.of(
-            "id", "ORD-NEW-001",
-            "user_id", order.getOrDefault("user_id", "USR-001"),
-            "items", order.getOrDefault("items", List.of()),
-            "total_amount", order.getOrDefault("total_amount", 0),
-            "currency", "KRW",
-            "status", "pending",
-            "status_display", "주문접수",
-            "created_at", "2026-03-20T10:00:00Z",
-            "message", "주문이 접수되었습니다"
-        );
+    public ResponseEntity<Map<String, Object>> createOrder(@RequestBody Map<String, Object> order, HttpServletRequest request) {
+        String userId = (String) order.getOrDefault("user_id", "USR-001");
+        List<?> items = (List<?>) order.getOrDefault("items", List.of());
+
+        // Extract product ID from first item for inventory check
+        String productId = "PRD-001";
+        if (!items.isEmpty() && items.get(0) instanceof Map) {
+            Object pid = ((Map<?, ?>) items.get(0)).get("product_id");
+            if (pid != null) productId = pid.toString();
+        }
+
+        // Step 1: Check inventory (distributed trace: order -> inventory)
+        Map<String, Object> inventoryCheck = callService(
+            "http://inventory.core-services.svc.cluster.local:80/api/v1/inventory/" + productId,
+            HttpMethod.GET, null, request);
+
+        // Step 2: Create payment (distributed trace: order -> payment)
+        Map<String, Object> paymentBody = new LinkedHashMap<>();
+        paymentBody.put("order_id", "ORD-NEW-001");
+        paymentBody.put("amount", order.getOrDefault("total_amount", 99000));
+        paymentBody.put("method", "credit_card");
+        Map<String, Object> paymentResult = callService(
+            "http://payment.core-services.svc.cluster.local:80/api/v1/payments",
+            HttpMethod.POST, paymentBody, request);
+
+        // Step 3: Create shipment (distributed trace: order -> shipping)
+        Map<String, Object> shippingBody = new LinkedHashMap<>();
+        shippingBody.put("order_id", "ORD-NEW-001");
+        shippingBody.put("address", Map.of("street", "서울시 강남구 테헤란로 123", "city", "Seoul"));
+        Map<String, Object> shippingResult = callService(
+            "http://shipping.fulfillment.svc.cluster.local:80/api/v1/shipments",
+            HttpMethod.POST, shippingBody, request);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("id", "ORD-NEW-001");
+        response.put("user_id", userId);
+        response.put("items", items);
+        response.put("total_amount", order.getOrDefault("total_amount", 0));
+        response.put("currency", "KRW");
+        response.put("status", "pending");
+        response.put("status_display", "주문접수");
+        response.put("inventory_check", inventoryCheck);
+        response.put("payment", paymentResult);
+        response.put("shipping", shippingResult);
+        response.put("created_at", "2026-03-20T10:00:00Z");
+        response.put("message", "주문이 접수되었습니다");
+
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .body(response);
@@ -227,5 +265,27 @@ public class Controller {
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .body(response);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> callService(String url, HttpMethod method, Map<String, Object> body, HttpServletRequest request) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            // Forward W3C trace context for distributed tracing
+            String traceparent = request.getHeader("traceparent");
+            if (traceparent != null) headers.set("traceparent", traceparent);
+            String tracestate = request.getHeader("tracestate");
+            if (tracestate != null) headers.set("tracestate", tracestate);
+
+            HttpEntity<?> entity = body != null
+                ? new HttpEntity<>(body, headers)
+                : new HttpEntity<>(headers);
+
+            ResponseEntity<Map> resp = restTemplate.exchange(url, method, entity, Map.class);
+            return resp.getBody() != null ? resp.getBody() : Map.of("status", "ok");
+        } catch (Exception e) {
+            return Map.of("status", "fallback", "message", "서비스 호출 실패 - mock 데이터 사용");
+        }
     }
 }

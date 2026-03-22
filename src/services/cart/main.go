@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -66,8 +69,18 @@ var mockCarts = map[string]Cart{
 	},
 }
 
+// OTel-instrumented HTTP client for inter-service calls
+var serviceClient = tracing.HTTPClient()
+
 func main() {
 	cfg := config.Load("cart")
+
+	// Initialize OTel tracer — exports spans to OTel Collector
+	ctx := context.Background()
+	tp, err := tracing.InitTracer(ctx, cfg.ServiceName)
+	if err == nil {
+		defer tp.Shutdown(ctx)
+	}
 
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))
@@ -137,13 +150,40 @@ func addItem(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		// Simulate adding item
+		// Inter-service call: fetch product details from product-catalog (distributed trace)
+		productName := req.Name
+		productPrice := req.Price
+		productImage := "https://placehold.co/400x400/EEE/333?text=Product"
+
+		catalogURL := fmt.Sprintf("http://product-catalog.core-services.svc.cluster.local:80/api/v1/products/%s", req.ProductID)
+		httpReq, err := http.NewRequestWithContext(c.Request.Context(), "GET", catalogURL, nil)
+		if err == nil {
+			resp, err := serviceClient.Do(httpReq)
+			if err == nil {
+				defer resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					var product map[string]interface{}
+					if json.NewDecoder(resp.Body).Decode(&product) == nil {
+						if name, ok := product["name"].(string); ok && name != "" {
+							productName = name
+						}
+						if price, ok := product["price"].(float64); ok && price > 0 {
+							productPrice = int(price)
+						}
+						if img, ok := product["image_url"].(string); ok && img != "" {
+							productImage = img
+						}
+					}
+				}
+			}
+		}
+
 		newItem := CartItem{
 			ProductID: req.ProductID,
-			Name:      req.Name,
+			Name:      productName,
 			Quantity:  req.Quantity,
-			Price:     req.Price,
-			ImageURL:  "https://placehold.co/400x400/EEE/333?text=Product",
+			Price:     productPrice,
+			ImageURL:  productImage,
 		}
 
 		c.JSON(http.StatusOK, gin.H{

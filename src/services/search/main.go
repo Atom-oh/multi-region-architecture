@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -54,8 +56,18 @@ var mockProducts = []Product{
 	{ID: "PRD-010", Name: "소니 WH-1000XM5", Description: "프리미엄 노이즈캔슬링 헤드폰", Price: 429000, Category: "electronics", SellerID: "SEL-010", SellerName: "Sony Korea", ImageURL: "https://placehold.co/400x400/EEE/333?text=Sony+XM5", Rating: 4.8, Score: 0.96},
 }
 
+// OTel-instrumented HTTP client for inter-service calls
+var serviceClient = tracing.HTTPClient()
+
 func main() {
 	cfg := config.Load("search")
+
+	// Initialize OTel tracer — exports spans to OTel Collector
+	ctx := context.Background()
+	tp, err := tracing.InitTracer(ctx, cfg.ServiceName)
+	if err == nil {
+		defer tp.Shutdown(ctx)
+	}
 
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))
@@ -104,9 +116,28 @@ func searchProducts(cfg *config.Config) gin.HandlerFunc {
 		start := time.Now()
 		queryLower := strings.ToLower(query)
 
+		// Inter-service call: fetch latest products from product-catalog (distributed trace)
+		searchSource := mockProducts
+		catalogURL := "http://product-catalog.core-services.svc.cluster.local:80/api/v1/products"
+		httpReq, err := http.NewRequestWithContext(c.Request.Context(), "GET", catalogURL, nil)
+		if err == nil {
+			resp, err := serviceClient.Do(httpReq)
+			if err == nil {
+				defer resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					var catalog struct {
+						Products []Product `json:"products"`
+					}
+					if json.NewDecoder(resp.Body).Decode(&catalog) == nil && len(catalog.Products) > 0 {
+						searchSource = catalog.Products
+					}
+				}
+			}
+		}
+
 		// Filter products that match the query
 		var results []Product
-		for _, p := range mockProducts {
+		for _, p := range searchSource {
 			nameLower := strings.ToLower(p.Name)
 			descLower := strings.ToLower(p.Description)
 			catLower := strings.ToLower(p.Category)
@@ -120,7 +151,7 @@ func searchProducts(cfg *config.Config) gin.HandlerFunc {
 
 		// If no results, return all products as suggestions
 		if len(results) == 0 {
-			results = mockProducts
+			results = searchSource
 		}
 
 		response := SearchResponse{
