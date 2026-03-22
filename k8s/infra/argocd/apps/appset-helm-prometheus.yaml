@@ -45,6 +45,8 @@ spec:
                   deleteDatasources:
                     - name: Prometheus
                       orgId: 1
+                    - name: Tempo
+                      orgId: 1
                   datasources:
                     - name: Prometheus (us-east-1)
                       type: prometheus
