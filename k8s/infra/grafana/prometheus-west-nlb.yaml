@@ -12,7 +12,7 @@ spec:
   type: LoadBalancer
   selector:
     app.kubernetes.io/name: prometheus
-    prometheus: prometheus-kube-prometheus-prometheus
+    prometheus: prometheus-us-west-2-kube-prometheus
   ports:
     - name: http
       port: 9090
