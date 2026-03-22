@@ -41,14 +41,14 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "tempo-west" },
       "fieldConfig": {
         "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "blue", "value": null }] } }
       },
       "gridPos": { "h": 5, "w": 6, "x": 12, "y": 3 },
       "id": 4,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"], "fields": "/Trace ID/" } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 100 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo-west" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 100 }],
       "title": "Traces from us-west-2",
       "type": "stat"
     },
@@ -94,7 +94,7 @@
       "id": 10,
       "targets": [
         { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "east", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-east\"}", "tableType": "traces", "limit": 100 },
-        { "datasource": { "type": "tempo", "uid": "tempo" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 100 }
+        { "datasource": { "type": "tempo", "uid": "tempo-west" }, "refId": "west", "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 100 }
       ],
       "title": "Latency Comparison: us-east-1 vs us-west-2",
       "type": "timeseries"
@@ -231,11 +231,11 @@
       "type": "traces"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": { "type": "tempo", "uid": "tempo-west" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
       "id": 9,
       "options": { "search": { "hide": false } },
-      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 50 }],
+      "targets": [{ "datasource": { "type": "tempo", "uid": "tempo-west" }, "queryType": "traceql", "query": "{resource.service.name = \"synthetic-monitor\" && resource.test.origin = \"test-west\"}", "tableType": "traces", "limit": 50 }],
       "title": "Recent Traces - us-west-2",
       "type": "traces"
     },

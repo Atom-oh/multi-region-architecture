@@ -55,7 +55,7 @@ spec:
                     - name: Prometheus (us-west-2)
                       type: prometheus
                       uid: prometheus-west
-                      url: http://prometheus-west-nlb.monitoring:9090
+                      url: http://prometheus-west.internal.atomai.click:9090
                       access: proxy
                     - name: Tempo (us-east-1)
                       type: tempo
@@ -72,7 +72,7 @@ spec:
                     - name: Tempo (us-west-2)
                       type: tempo
                       uid: tempo-west
-                      url: http://tempo-west-nlb.observability:3200
+                      url: http://tempo-west.internal.atomai.click:3200
                       access: proxy
                       jsonData:
                         tracesToMetrics:
