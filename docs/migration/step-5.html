@@ -34,6 +34,11 @@
                     On-Prem 50% / us-west-2 25% / us-east-1 25% &mdash; <span class="lang-ko">AWS가 절반의 트래픽을 처리</span><span class="lang-en">AWS handles half of the traffic</span>
                 </div>
 
+                <div class="callout warning">
+                    <strong><span class="lang-ko">쓰기 정책: On-Prem Primary 포워딩 (계속)</span><span class="lang-en">Write Policy: On-Prem Primary Forwarding (continued)</span></strong>
+                    <span class="lang-ko">AWS 50% 트래픽의 <strong>쓰기 요청은 여전히 On-Prem Primary DB로 포워딩</strong>됩니다. Step 6에서 On-Prem이 0%가 되어야 AWS 직접 쓰기가 시작됩니다.</span><span class="lang-en"><strong>Write requests from 50% AWS traffic are still forwarded to On-Prem Primary DB</strong>. Direct AWS writes begin in Step 6 when On-Prem reaches 0%.</span>
+                </div>
+
                 <!-- ===== Card 5-1: OTel Collector ===== -->
                 <h2 id="otel-collector">OTel (OpenTelemetry) Collector Pipeline</h2>
 

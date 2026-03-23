@@ -34,6 +34,11 @@
                     us-west-2 50% / us-east-1 50% &mdash; <span class="lang-ko">On-Prem 완전 제거, Full AWS</span><span class="lang-en">On-Prem fully removed, Full AWS</span>
                 </div>
 
+                <div class="callout info">
+                    <strong><span class="lang-ko">쓰기 정책 전환: AWS 직접 쓰기</span><span class="lang-en">Write Policy Change: AWS Direct Write</span></strong>
+                    <span class="lang-ko">On-Prem이 0%가 되면서 CDC 동기화와 EC2 Sync Connector가 제거되고, <strong>AWS 데이터 저장소에 직접 쓰기</strong>가 시작됩니다. DSQL Active-Active와 Atlas Multi-Region Cluster가 리전간 동기화를 담당합니다.</span><span class="lang-en">With On-Prem at 0%, CDC sync and EC2 Sync Connector are removed, and <strong>direct writes to AWS data stores</strong> begin. DSQL Active-Active and Atlas Multi-Region Cluster handle cross-region synchronization.</span>
+                </div>
+
                 <!-- ===== Card 6-1: Decommission Checklist ===== -->
                 <h2 id="checklist">On-Prem <span class="lang-ko">해제 체크리스트</span><span class="lang-en">Decommission Checklist</span></h2>
 

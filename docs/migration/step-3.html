@@ -32,6 +32,11 @@
                     On-Prem 90% / us-west-2 10% / us-east-1 0% &mdash; <span class="lang-ko">동기화 확인 후 us-west-2로 소량 트래픽 검증</span><span class="lang-en">Small traffic validation to us-west-2 after sync verification</span>
                 </div>
 
+                <div class="callout warning">
+                    <strong><span class="lang-ko">쓰기 정책: On-Prem Primary 포워딩</span><span class="lang-en">Write Policy: On-Prem Primary Forwarding</span></strong>
+                    <span class="lang-ko">마이그레이션 기간(Step 3~5) 동안 AWS로 유입되는 트래픽의 <strong>모든 쓰기 요청은 On-Prem Primary DB로 포워딩</strong>됩니다. AWS 데이터 저장소는 읽기 전용으로 동작하며, On-Prem에서 CDC를 통해 복제된 데이터만 사용합니다. 이렇게 하면 역방향 동기화(AWS→On-Prem) 없이 데이터 일관성이 보장됩니다.</span><span class="lang-en">During migration (Step 3~5), <strong>all write requests from AWS traffic are forwarded to On-Prem Primary DB</strong>. AWS data stores operate in read-only mode, using only data replicated from On-Prem via CDC. This ensures data consistency without reverse sync (AWS→On-Prem).</span>
+                </div>
+
                 <!-- ===== Card 3-1: EC2 Sync Connector ===== -->
                 <h2 id="sync-connector">EC2 Sync Connector</h2>
 

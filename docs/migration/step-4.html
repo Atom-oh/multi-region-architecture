@@ -38,6 +38,14 @@
                 <div class="callout info">
                     <strong><span class="lang-ko">트래픽 분배</span><span class="lang-en">Traffic Distribution</span></strong>
                     On-Prem 70% / us-west-2 15% / us-east-1 15% &mdash; <span class="lang-ko">AWS 리전으로 30% 트래픽 전환</span><span class="lang-en">30% traffic shift to AWS regions</span>
+                </div>
+
+                <div class="callout warning">
+                    <strong><span class="lang-ko">쓰기 정책: On-Prem Primary 포워딩</span><span class="lang-en">Write Policy: On-Prem Primary Forwarding</span></strong>
+                    <span class="lang-ko">AWS로 유입되는 30% 트래픽의 <strong>쓰기 요청은 On-Prem Primary DB로 포워딩</strong>됩니다. AWS는 읽기 전용으로 동작하며, Step 6에서 On-Prem이 0%가 되어야 AWS 직접 쓰기가 시작됩니다.</span><span class="lang-en"><strong>Write requests from 30% AWS traffic are forwarded to On-Prem Primary DB</strong>. AWS operates read-only. Direct AWS writes begin in Step 6 when On-Prem reaches 0%.</span>
+                </div>
+
+                <div class="callout info" style="margin-top:-8px;">
                     <div class="chart-container">
                         <canvas id="trafficDonut"></canvas>
                     </div>
