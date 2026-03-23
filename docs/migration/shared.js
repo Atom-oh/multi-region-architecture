@@ -14,8 +14,9 @@
     }
 
     const sidebarHTML = `
-        <div class="sidebar-header">
-            <div class="sidebar-logo">On-Prem to AWS<br>Multi-Region Migration</div>
+        <div class="sidebar-header" style="text-align:center;">
+            <img src="https://www.hyundaimotorgroup.com/image/upload/asset_library/MDA00000000000000179/a46917da43bf4d7cb5173a7c13ecd3d7.png" alt="Hyundai Motor Group" class="sidebar-logo-img" style="height:24px; object-fit:contain; margin-bottom:6px;">
+            <div class="sidebar-logo" style="font-size:0.72rem; opacity:0.7;">Multi-Region Migration</div>
         </div>
         <nav class="sidebar-nav">
             <div class="sidebar-section">
