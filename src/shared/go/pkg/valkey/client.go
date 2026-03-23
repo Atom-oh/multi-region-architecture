@@ -12,12 +12,12 @@ import (
 )
 
 type Client struct {
-	rdb *redis.Client
+	cluster *redis.ClusterClient
 }
 
 func New(host string, port int) (*Client, error) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:         fmt.Sprintf("%s:%d", host, port),
+	cluster := redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs:        []string{fmt.Sprintf("%s:%d", host, port)},
 		ReadTimeout:  3 * time.Second,
 		WriteTimeout: 3 * time.Second,
 		PoolSize:     20,
@@ -25,41 +25,36 @@ func New(host string, port int) (*Client, error) {
 	})
 
 	// Add OTel tracing for automatic Redis span creation
-	if err := redisotel.InstrumentTracing(rdb); err != nil {
-		// Non-fatal, just log the error
+	if err := redisotel.InstrumentTracing(cluster); err != nil {
 		log.Printf("valkey: failed to instrument tracing: %v", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := rdb.Ping(ctx).Err(); err != nil {
+	if err := cluster.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("valkey connect: %w", err)
 	}
 
-	return &Client{rdb: rdb}, nil
+	return &Client{cluster: cluster}, nil
 }
 
 func (c *Client) Get(ctx context.Context, key string) (string, error) {
-	return c.rdb.Get(ctx, key).Result()
+	return c.cluster.Get(ctx, key).Result()
 }
 
 func (c *Client) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
-	return c.rdb.Set(ctx, key, value, ttl).Err()
+	return c.cluster.Set(ctx, key, value, ttl).Err()
 }
 
 func (c *Client) Del(ctx context.Context, keys ...string) error {
-	return c.rdb.Del(ctx, keys...).Err()
+	return c.cluster.Del(ctx, keys...).Err()
 }
 
 func (c *Client) Ping(ctx context.Context) error {
-	return c.rdb.Ping(ctx).Err()
+	return c.cluster.Ping(ctx).Err()
 }
 
 func (c *Client) Close() error {
-	return c.rdb.Close()
-}
-
-func (c *Client) Redis() *redis.Client {
-	return c.rdb
+	return c.cluster.Close()
 }

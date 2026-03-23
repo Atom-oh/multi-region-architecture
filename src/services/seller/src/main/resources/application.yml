@@ -2,7 +2,7 @@ spring:
   application:
     name: seller-service
   datasource:
-    url: jdbc:aws-wrapper:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:postgres}?wrapperPlugins=iam
+    url: jdbc:aws-wrapper:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:postgres}?wrapperPlugins=iam&iamRegion=${AWS_REGION:us-east-1}
     username: ${DB_USER:admin}
     password: ""
     driver-class-name: software.amazon.jdbc.Driver
