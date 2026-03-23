@@ -50,6 +50,11 @@ def init_tracing(service_name: str, app=None):
     HTTPXClientInstrumentor().instrument()
     RedisInstrumentor().instrument()
     PymongoInstrumentor().instrument()
+    try:
+        from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
+        AsyncPGInstrumentor().instrument()
+    except ImportError:
+        pass
 
     logger.info("OpenTelemetry tracing initialized for %s -> %s", service_name, endpoint)
     return provider
