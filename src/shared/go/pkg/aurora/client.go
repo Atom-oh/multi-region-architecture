@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os/exec"
 	"strings"
 
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/feature/rds/auth"
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/multi-region-mall/shared/pkg/config"
@@ -55,16 +54,13 @@ func New(ctx context.Context, cfg *config.Config) (*Client, error) {
 }
 
 func generateDSQLToken(ctx context.Context, hostname, region string) (string, error) {
-	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
+	cmd := exec.CommandContext(ctx, "aws", "dsql", "generate-db-connect-admin-auth-token",
+		"--hostname", hostname, "--region", region)
+	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("load aws config: %w", err)
+		return "", fmt.Errorf("aws dsql generate token: %w", err)
 	}
-	endpoint := fmt.Sprintf("%s:%d", hostname, 5432)
-	token, err := auth.BuildAuthToken(ctx, endpoint, region, "admin", awsCfg.Credentials)
-	if err != nil {
-		return "", fmt.Errorf("build dsql auth token: %w", err)
-	}
-	return token, nil
+	return strings.TrimSpace(string(out)), nil
 }
 
 func (c *Client) Close() {
