@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EKS Autoscaling - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span><span class="lang-ko">오토스케일링</span><span class="lang-en">Autoscaling</span></span></div>
+
+                <h1><span class="lang-ko">오토스케일링 (KEDA + Karpenter + Auto Mode)</span><span class="lang-en">Autoscaling (KEDA + Karpenter + Auto Mode)</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">On-Prem Cluster Autoscaler에서 EKS의 다층 오토스케일링으로 전환합니다.
+                    Pod 레벨(KEDA/HPA)과 Node 레벨(Karpenter/Auto Mode)을 조합하여 비용 최적화와 빠른 스케일링을 동시에 달성합니다.</span><span class="lang-en">Transition from On-Prem Cluster Autoscaler to EKS multi-layer autoscaling.
+                    Combine Pod-level (KEDA/HPA) and Node-level (Karpenter/Auto Mode) scaling to achieve both cost optimization and fast scaling.</span>
+                </p>
+
+                <!-- ===== Section 1: Scaling Comparison ===== -->
+                <h2 id="comparison"><span class="lang-ko">스케일링 비교</span><span class="lang-en">Scaling Comparison</span></h2>
+
+                <p>
+                    <span class="lang-ko">Kubernetes에서 사용 가능한 오토스케일링 도구들을 비교합니다. 각 도구는 서로 다른 레벨에서 동작하며, 함께 사용할 때 가장 효과적입니다.</span><span class="lang-en">Compare autoscaling tools available in Kubernetes. Each tool operates at different levels and is most effective when used together.</span>
+                </p>
+
+                <table class="info-table">
+                    <thead>
+                        <tr>
+                            <th><span class="lang-ko">도구</span><span class="lang-en">Tool</span></th>
+                            <th><span class="lang-ko">대상</span><span class="lang-en">Target</span></th>
+                            <th><span class="lang-ko">트리거</span><span class="lang-en">Trigger</span></th>
+                            <th><span class="lang-ko">On-Prem 대응</span><span class="lang-en">On-Prem Equivalent</span></th>
+                            <th><span class="lang-ko">장점</span><span class="lang-en">Advantages</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>HPA</strong></td>
+                            <td>Pod</td>
+                            <td>CPU, Memory</td>
+                            <td><span class="lang-ko">기본 HPA</span><span class="lang-en">Native HPA</span></td>
+                            <td><span class="lang-ko">단순, 내장</span><span class="lang-en">Simple, built-in</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>VPA</strong></td>
+                            <td>Pod</td>
+                            <td><span class="lang-ko">리소스 사용량</span><span class="lang-en">Resource usage</span></td>
+                            <td><span class="lang-ko">수동 조정</span><span class="lang-en">Manual tuning</span></td>
+                            <td><span class="lang-ko">리소스 최적화</span><span class="lang-en">Resource optimization</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>KEDA</strong></td>
+                            <td>Pod</td>
+                            <td><span class="lang-ko">이벤트 기반 (Kafka lag, Cron 등)</span><span class="lang-en">Event-driven (Kafka lag, Cron, etc.)</span></td>
+                            <td><span class="lang-ko">커스텀 스크립트</span><span class="lang-en">Custom scripts</span></td>
+                            <td><span class="lang-ko">50+ 스케일러, Zero scaling</span><span class="lang-en">50+ scalers, Zero scaling</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Karpenter</strong></td>
+                            <td>Node</td>
+                            <td><span class="lang-ko">Pending Pod</span><span class="lang-en">Pending Pods</span></td>
+                            <td>Cluster Autoscaler</td>
+                            <td><span class="lang-ko">초 단위 프로비저닝, 동적 인스턴스 선택</span><span class="lang-en">Sub-minute provisioning, dynamic instance selection</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Auto Mode</strong></td>
+                            <td>Node</td>
+                            <td><span class="lang-ko">Pending Pod</span><span class="lang-en">Pending Pods</span></td>
+                            <td><span class="lang-ko">없음</span><span class="lang-en">None</span></td>
+                            <td><span class="lang-ko">AWS 완전 관리형, 자동 AMI 업데이트</span><span class="lang-en">Fully AWS managed, auto AMI updates</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout tip" style="margin-top:12px;">
+                    <strong><span class="lang-ko">다층 스케일링 조합</span><span class="lang-en">Multi-Layer Scaling Combination</span></strong>
+                    <span class="lang-ko">KEDA는 Pod 수를 조절하고, Karpenter/Auto Mode는 Node를 조절합니다. 두 계층을 함께 사용하면 Pod가 증가할 때 Node도 자동으로 확장됩니다.</span><span class="lang-en">KEDA adjusts Pod count, while Karpenter/Auto Mode adjusts Nodes. Using both layers together ensures Nodes automatically scale when Pods increase.</span>
+                </div>
+
+                <!-- ===== Section 2: KEDA ===== -->
+                <h2 id="keda"><span class="lang-ko">KEDA (Event-Driven Autoscaling)</span><span class="lang-en">KEDA (Event-Driven Autoscaling)</span></h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">KEDA 기반 이벤트 드리븐 오토스케일링</span><span class="lang-en">KEDA Event-Driven Autoscaling</span></span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">KEDA(Kubernetes Event-driven Autoscaling)는 50개 이상의 이벤트 소스를 지원하는 오토스케일러입니다.
+                            기본 HPA가 CPU/Memory만 지원하는 반면, KEDA는 Kafka lag, SQS 큐 깊이, Prometheus 메트릭 등 다양한 트리거를 제공합니다.</span><span class="lang-en">KEDA (Kubernetes Event-driven Autoscaling) is an autoscaler supporting 50+ event sources.
+                            While native HPA only supports CPU/Memory, KEDA provides various triggers like Kafka lag, SQS queue depth, and Prometheus metrics.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">MSK Consumer Lag 기반 스케일링</span><span class="lang-en">MSK Consumer Lag Based Scaling</span></h4>
+                        <p><span class="lang-ko">CCDI 파이프라인처럼 Kafka 메시지를 처리하는 워크로드는 consumer lag을 기준으로 스케일링합니다.</span><span class="lang-en">Workloads processing Kafka messages like CCDI pipeline scale based on consumer lag.</span></p>
+<pre><code><span class="hl-key">apiVersion:</span> keda.sh/v1alpha1
+<span class="hl-key">kind:</span> ScaledObject
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> ccdi-processor-scaler
+  <span class="hl-key">namespace:</span> ccdi
+<span class="hl-key">spec:</span>
+  <span class="hl-key">scaleTargetRef:</span>
+    <span class="hl-key">name:</span> ccdi-processor
+  <span class="hl-key">minReplicaCount:</span> <span class="hl-num">3</span>
+  <span class="hl-key">maxReplicaCount:</span> <span class="hl-num">30</span>
+  <span class="hl-key">cooldownPeriod:</span> <span class="hl-num">300</span>        <span class="hl-cm"># 5 min cooldown</span>
+  <span class="hl-key">pollingInterval:</span> <span class="hl-num">30</span>       <span class="hl-cm"># check every 30 sec</span>
+  <span class="hl-key">triggers:</span>
+    - <span class="hl-key">type:</span> kafka
+      <span class="hl-key">metadata:</span>
+        <span class="hl-key">bootstrapServers:</span> <span class="hl-str">"b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096"</span>
+        <span class="hl-key">consumerGroup:</span> ccdi-processor-group
+        <span class="hl-key">topic:</span> vss-data
+        <span class="hl-key">lagThreshold:</span> <span class="hl-str">"1000"</span>   <span class="hl-cm"># scale out when lag exceeds 1000</span>
+        <span class="hl-key">sasl:</span> scram_sha512
+        <span class="hl-key">tls:</span> enable</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Cron 스케일러 (출퇴근 시간 사전 스케일업)</span><span class="lang-en">Cron Scaler (Pre-scale for Peak Hours)</span></h4>
+                        <p><span class="lang-ko">예측 가능한 트래픽 패턴에는 Cron 스케일러로 사전 스케일업하여 콜드 스타트를 방지합니다.</span><span class="lang-en">For predictable traffic patterns, use Cron scaler to pre-scale and prevent cold starts.</span></p>
+<pre><code><span class="hl-key">apiVersion:</span> keda.sh/v1alpha1
+<span class="hl-key">kind:</span> ScaledObject
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> api-gateway-cron-scaler
+<span class="hl-key">spec:</span>
+  <span class="hl-key">scaleTargetRef:</span>
+    <span class="hl-key">name:</span> api-gateway
+  <span class="hl-key">minReplicaCount:</span> <span class="hl-num">2</span>
+  <span class="hl-key">maxReplicaCount:</span> <span class="hl-num">20</span>
+  <span class="hl-key">triggers:</span>
+    <span class="hl-cm"># 출근 시간대 사전 스케일업</span>
+    - <span class="hl-key">type:</span> cron
+      <span class="hl-key">metadata:</span>
+        <span class="hl-key">timezone:</span> Asia/Seoul
+        <span class="hl-key">start:</span> 0 8 * * 1-5       <span class="hl-cm"># 평일 08:00</span>
+        <span class="hl-key">end:</span> 0 10 * * 1-5        <span class="hl-cm"># 평일 10:00</span>
+        <span class="hl-key">desiredReplicas:</span> <span class="hl-str">"10"</span>
+    <span class="hl-cm"># 점심 시간대</span>
+    - <span class="hl-key">type:</span> cron
+      <span class="hl-key">metadata:</span>
+        <span class="hl-key">timezone:</span> Asia/Seoul
+        <span class="hl-key">start:</span> 0 11 * * 1-5
+        <span class="hl-key">end:</span> 0 14 * * 1-5
+        <span class="hl-key">desiredReplicas:</span> <span class="hl-str">"15"</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Prometheus 메트릭 스케일러</span><span class="lang-en">Prometheus Metric Scaler</span></h4>
+                        <p><span class="lang-ko">RPS(Requests Per Second)나 커스텀 비즈니스 메트릭을 기반으로 스케일링합니다.</span><span class="lang-en">Scale based on RPS (Requests Per Second) or custom business metrics.</span></p>
+<pre><code><span class="hl-key">triggers:</span>
+  - <span class="hl-key">type:</span> prometheus
+    <span class="hl-key">metadata:</span>
+      <span class="hl-key">serverAddress:</span> http://prometheus.monitoring.svc:9090
+      <span class="hl-key">metricName:</span> http_requests_per_second
+      <span class="hl-key">threshold:</span> <span class="hl-str">"100"</span>
+      <span class="hl-key">query:</span> sum(rate(http_requests_total{app="api-gateway"}[2m]))</code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong>Consumer Group Rebalancing</strong>
+                            <span class="lang-ko">스케일링 시 consumer rebalancing을 최소화하려면 <code>partition.assignment.strategy=cooperative-sticky</code>를 사용하세요.
+                            Cooperative rebalancing은 전체 중단 없이 점진적으로 파티션을 재할당합니다.</span><span class="lang-en">To minimize consumer rebalancing during scaling, use <code>partition.assignment.strategy=cooperative-sticky</code>.
+                            Cooperative rebalancing reassigns partitions incrementally without full stop.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 3: Karpenter ===== -->
+                <h2 id="karpenter"><span class="lang-ko">Karpenter</span><span class="lang-en">Karpenter</span></h2>
+
+                <div class="tech-card" data-tag="Infrastructure">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Karpenter 노드 오토스케일링</span><span class="lang-en">Karpenter Node Autoscaling</span></span>
+                        <span class="tech-card-tag Infrastructure">Infrastructure</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Karpenter는 Cluster Autoscaler를 대체하는 차세대 노드 오토스케일러입니다.
+                            Node Group 없이 워크로드 요구사항에 맞는 최적의 인스턴스를 초 단위로 프로비저닝합니다.</span><span class="lang-en">Karpenter is a next-generation node autoscaler replacing Cluster Autoscaler.
+                            It provisions optimal instances matching workload requirements in seconds without Node Groups.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">6개 NodePool 전략</span><span class="lang-en">6 NodePool Strategy</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th>NodePool</th>
+                                    <th><span class="lang-ko">용도</span><span class="lang-en">Purpose</span></th>
+                                    <th>Instance Family</th>
+                                    <th>Capacity</th>
+                                    <th>Weight</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><strong>general</strong></td><td><span class="lang-ko">범용 워크로드</span><span class="lang-en">General workloads</span></td><td>m6i/m7i, c6i/c7i, r6i/r7i</td><td>Spot + On-Demand</td><td>70</td></tr>
+                                <tr><td><strong>critical</strong></td><td><span class="lang-ko">결제/주문 미션 크리티컬</span><span class="lang-en">Payment/order mission-critical</span></td><td>m6i/m7i</td><td>On-Demand only</td><td>100</td></tr>
+                                <tr><td><strong>api-tier</strong></td><td><span class="lang-ko">API Gateway, 프론트 서비스</span><span class="lang-en">API Gateway, front services</span></td><td>c6i/c7i</td><td>Spot + On-Demand</td><td>80</td></tr>
+                                <tr><td><strong>worker-tier</strong></td><td><span class="lang-ko">백그라운드 프로세싱</span><span class="lang-en">Background processing</span></td><td>m6i</td><td>Spot preferred</td><td>50</td></tr>
+                                <tr><td><strong>batch-tier</strong></td><td><span class="lang-ko">배치 작업, 분석</span><span class="lang-en">Batch jobs, analytics</span></td><td>c6i</td><td>Spot only</td><td>30</td></tr>
+                                <tr><td><strong>memory-tier</strong></td><td><span class="lang-ko">캐시, 검색 엔진</span><span class="lang-en">Cache, search engine</span></td><td>r6i/r7i</td><td>Spot + On-Demand</td><td>60</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">Spot 인터럽트 처리</span><span class="lang-en">Spot Interrupt Handling</span></h4>
+                        <p><span class="lang-ko">Spot 인스턴스 중단 시 Karpenter가 자동으로 대체 노드를 프로비저닝합니다. 중요한 워크로드는 annotation으로 보호합니다.</span><span class="lang-en">When Spot instances are interrupted, Karpenter automatically provisions replacement nodes. Protect critical workloads with annotations.</span></p>
+<pre><code><span class="hl-key">metadata:</span>
+  <span class="hl-key">annotations:</span>
+    <span class="hl-key">karpenter.sh/do-not-disrupt:</span> <span class="hl-str">"true"</span>  <span class="hl-cm"># 이 Pod가 있는 노드는 중단하지 않음</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Consolidation 정책</span><span class="lang-en">Consolidation Policy</span></h4>
+                        <p><span class="lang-ko">사용률이 낮은 노드를 자동으로 정리하여 비용을 최적화합니다.</span><span class="lang-en">Automatically clean up underutilized nodes to optimize costs.</span></p>
+<pre><code><span class="hl-key">apiVersion:</span> karpenter.sh/v1
+<span class="hl-key">kind:</span> NodePool
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> general
+<span class="hl-key">spec:</span>
+  <span class="hl-key">disruption:</span>
+    <span class="hl-cm"># WhenEmpty: 빈 노드만 제거</span>
+    <span class="hl-cm"># WhenEmptyOrUnderutilized: 사용률 낮은 노드도 제거 (비용 최적화)</span>
+    <span class="hl-key">consolidationPolicy:</span> WhenEmptyOrUnderutilized
+    <span class="hl-key">consolidateAfter:</span> 30s
+    <span class="hl-key">expireAfter:</span> 720h  <span class="hl-cm"># 30일 후 노드 교체 (AMI 최신화)</span></code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Karpenter vs Cluster Autoscaler</span><span class="lang-en">Karpenter vs Cluster Autoscaler</span></strong>
+                            <span class="lang-ko">Cluster Autoscaler는 Node Group 단위로 스케일링하여 분 단위가 걸리지만,
+                            Karpenter는 Pod 요구사항을 직접 분석하여 최적의 인스턴스를 초 단위로 프로비저닝합니다.
+                            또한 다양한 인스턴스 타입을 동적으로 선택하여 Spot 용량 확보에 유리합니다.</span><span class="lang-en">Cluster Autoscaler scales at Node Group level taking minutes,
+                            while Karpenter directly analyzes Pod requirements and provisions optimal instances in seconds.
+                            It also dynamically selects various instance types, improving Spot capacity availability.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 4: Auto Mode ===== -->
+                <h2 id="auto-mode"><span class="lang-ko">EKS Auto Mode</span><span class="lang-en">EKS Auto Mode</span></h2>
+
+                <div class="tech-card" data-tag="Infrastructure">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">EKS Auto Mode - AWS 완전 관리형 노드</span><span class="lang-en">EKS Auto Mode - Fully AWS Managed Nodes</span></span>
+                        <span class="tech-card-tag Infrastructure">Infrastructure</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">EKS Auto Mode는 AWS가 Karpenter를 내부적으로 운영하며, 노드 관리를 완전히 자동화합니다.
+                            사용자는 Karpenter를 직접 설치/관리할 필요 없이 Auto Mode를 활성화하기만 하면 됩니다.</span><span class="lang-en">EKS Auto Mode runs Karpenter internally by AWS, fully automating node management.
+                            Users only need to enable Auto Mode without installing/managing Karpenter directly.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">Auto Mode 특징</span><span class="lang-en">Auto Mode Features</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">기능</span><span class="lang-en">Feature</span></th>
+                                    <th>Managed Node Groups</th>
+                                    <th>Karpenter</th>
+                                    <th>Auto Mode</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="lang-ko">노드 관리</span><span class="lang-en">Node Management</span></td>
+                                    <td><span class="lang-ko">사용자 (ASG)</span><span class="lang-en">User (ASG)</span></td>
+                                    <td><span class="lang-ko">사용자 (Karpenter)</span><span class="lang-en">User (Karpenter)</span></td>
+                                    <td><span class="lang-ko">AWS 완전 관리</span><span class="lang-en">Fully AWS Managed</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">스케일링 속도</span><span class="lang-en">Scaling Speed</span></td>
+                                    <td><span class="lang-ko">분 단위</span><span class="lang-en">Minutes</span></td>
+                                    <td><span class="lang-ko">초 단위</span><span class="lang-en">Seconds</span></td>
+                                    <td><span class="lang-ko">초 단위</span><span class="lang-en">Seconds</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">인스턴스 선택</span><span class="lang-en">Instance Selection</span></td>
+                                    <td><span class="lang-ko">사전 정의</span><span class="lang-en">Pre-defined</span></td>
+                                    <td><span class="lang-ko">동적</span><span class="lang-en">Dynamic</span></td>
+                                    <td><span class="lang-ko">자동 최적화</span><span class="lang-en">Auto-optimized</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">AMI 업데이트</span><span class="lang-en">AMI Updates</span></td>
+                                    <td><span class="lang-ko">수동</span><span class="lang-en">Manual</span></td>
+                                    <td><span class="lang-ko">Drift 감지</span><span class="lang-en">Drift detection</span></td>
+                                    <td><span class="lang-ko">자동</span><span class="lang-en">Automatic</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">운영 복잡도</span><span class="lang-en">Ops Complexity</span></td>
+                                    <td><span class="lang-ko">중간</span><span class="lang-en">Medium</span></td>
+                                    <td><span class="lang-ko">중간</span><span class="lang-en">Medium</span></td>
+                                    <td><span class="lang-ko">낮음</span><span class="lang-en">Low</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">기존 Karpenter에서 Auto Mode 전환 고려사항</span><span class="lang-en">Considerations for Migrating from Karpenter to Auto Mode</span></h4>
+                        <ul>
+                            <li><span class="lang-ko"><strong>점진적 전환</strong>: 기존 Karpenter NodePool과 Auto Mode NodePool을 병행 운영 후 점진적으로 마이그레이션</span><span class="lang-en"><strong>Gradual migration</strong>: Run existing Karpenter NodePools and Auto Mode NodePools in parallel, then migrate gradually</span></li>
+                            <li><span class="lang-ko"><strong>NodePool 매핑</strong>: 기존 NodePool 설정을 Auto Mode의 NodePool로 재구성</span><span class="lang-en"><strong>NodePool mapping</strong>: Reconfigure existing NodePool settings to Auto Mode NodePools</span></li>
+                            <li><span class="lang-ko"><strong>테스트 환경 우선</strong>: 개발/스테이징 환경에서 먼저 검증 후 프로덕션 적용</span><span class="lang-en"><strong>Test first</strong>: Validate in dev/staging environments before production</span></li>
+                        </ul>
+
+                        <h4><span class="lang-ko">Drift 감지 및 자동 교체</span><span class="lang-en">Drift Detection and Auto Replacement</span></h4>
+                        <p><span class="lang-ko">NodePool 설정이 변경되면 Auto Mode가 자동으로 기존 노드를 새 설정으로 교체합니다.</span><span class="lang-en">When NodePool settings change, Auto Mode automatically replaces existing nodes with new settings.</span></p>
+<pre><code><span class="hl-cm"># Drift가 감지되는 변경 사항</span>
+- NodePool requirements <span class="hl-key">변경</span>      <span class="hl-cm"># Drift 발생</span>
+- NodeClass AMI family <span class="hl-key">변경</span>       <span class="hl-cm"># Drift 발생</span>
+- NodeClass block device <span class="hl-key">변경</span>    <span class="hl-cm"># Drift 발생</span>
+
+<span class="hl-cm"># Drift가 감지되지 않는 변경 사항</span>
+- NodePool weight <span class="hl-key">변경</span>           <span class="hl-cm"># Drift 미발생</span>
+- NodePool limits <span class="hl-key">변경</span>           <span class="hl-cm"># Drift 미발생</span></code><span class="code-label">text</span></pre>
+
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Auto Mode 제약 사항</span><span class="lang-en">Auto Mode Limitations</span></strong>
+                            <span class="lang-ko">Auto Mode는 Custom AMI를 사용할 수 없으며, 지원되는 AMI Family는 AL2023과 Bottlerocket입니다.
+                            GPU NodePool은 일부 제한이 있으므로 GPU 워크로드가 많은 경우 직접 Karpenter 운영을 고려하세요.
+                            Windows 노드는 지원되지 않습니다.</span><span class="lang-en">Auto Mode cannot use Custom AMIs, and supported AMI families are AL2023 and Bottlerocket.
+                            GPU NodePools have some limitations, so consider direct Karpenter operation for GPU-heavy workloads.
+                            Windows nodes are not supported.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="eks-upgrade.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; <span class="lang-ko">EKS 업그레이드</span><span class="lang-en">EKS Upgrade</span></span></a>
+                    <a href="eks-observability.html" class="next"><span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">EKS Observability</span><span class="lang-en">EKS Observability</span> &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
+            <a href="#comparison" class="toc-link"><span class="lang-ko">스케일링 비교</span><span class="lang-en">Scaling Comparison</span></a>
+            <a href="#keda" class="toc-link"><span class="lang-ko">KEDA</span><span class="lang-en">KEDA</span></a>
+            <a href="#karpenter" class="toc-link"><span class="lang-ko">Karpenter</span><span class="lang-en">Karpenter</span></a>
+            <a href="#auto-mode" class="toc-link"><span class="lang-ko">EKS Auto Mode</span><span class="lang-en">EKS Auto Mode</span></a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EKS Networking - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span><span class="lang-ko">EKS 네트워킹</span><span class="lang-en">EKS Networking</span></span></div>
+
+                <h1><span class="lang-ko">EKS 네트워킹</span><span class="lang-en">EKS Networking</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">On-Prem Flannel/Calico 기반 네트워킹에서 AWS VPC CNI로 전환합니다.
+                    Zone-Aware Routing으로 AZ 간 트래픽 비용을 최적화하고, Network Policy로 마이크로서비스 간 통신을 제어합니다.</span><span class="lang-en">Transition from On-Prem Flannel/Calico-based networking to AWS VPC CNI.
+                    Optimize cross-AZ traffic costs with Zone-Aware Routing and control inter-service communication with Network Policy.</span>
+                </p>
+
+                <!-- ===== Section 1: Zone-Aware Routing ===== -->
+                <h2 id="zone-aware"><span class="lang-ko">Zone-Aware Routing</span><span class="lang-en">Zone-Aware Routing</span></h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">AZ 인지 라우팅으로 Cross-AZ 비용 절감</span><span class="lang-en">Reduce Cross-AZ Costs with Zone-Aware Routing</span></span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">AWS에서 Cross-AZ 트래픽은 GB당 $0.01의 비용이 발생합니다.
+                            Zone-Aware Routing을 통해 동일 AZ 내 Pod 간 통신을 우선하여 60-80%의 비용을 절감할 수 있습니다.</span><span class="lang-en">Cross-AZ traffic on AWS costs $0.01 per GB.
+                            Zone-Aware Routing prioritizes communication between Pods in the same AZ, reducing costs by 60-80%.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">TopologySpreadConstraints 설정</span><span class="lang-en">TopologySpreadConstraints Configuration</span></h4>
+                        <p><span class="lang-ko">Pod를 AZ 간 균등하게 분산하여 고가용성과 비용 최적화를 동시에 달성합니다.</span><span class="lang-en">Distribute Pods evenly across AZs to achieve both high availability and cost optimization.</span></p>
+<pre><code><span class="hl-key">apiVersion:</span> apps/v1
+<span class="hl-key">kind:</span> Deployment
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> api-server
+<span class="hl-key">spec:</span>
+  <span class="hl-key">replicas:</span> <span class="hl-num">6</span>
+  <span class="hl-key">template:</span>
+    <span class="hl-key">spec:</span>
+      <span class="hl-key">topologySpreadConstraints:</span>
+        <span class="hl-cm"># Hard constraint: Max 1 Pod difference between AZs</span>
+        - <span class="hl-key">maxSkew:</span> <span class="hl-num">1</span>
+          <span class="hl-key">topologyKey:</span> topology.kubernetes.io/zone
+          <span class="hl-key">whenUnsatisfiable:</span> DoNotSchedule
+          <span class="hl-key">labelSelector:</span>
+            <span class="hl-key">matchLabels:</span>
+              <span class="hl-key">app:</span> api-server
+          <span class="hl-key">minDomains:</span> <span class="hl-num">3</span>    <span class="hl-cm"># Ensure 3 AZ distribution</span>
+        <span class="hl-cm"># Soft constraint: Even distribution across nodes</span>
+        - <span class="hl-key">maxSkew:</span> <span class="hl-num">1</span>
+          <span class="hl-key">topologyKey:</span> kubernetes.io/hostname
+          <span class="hl-key">whenUnsatisfiable:</span> ScheduleAnyway
+          <span class="hl-key">labelSelector:</span>
+            <span class="hl-key">matchLabels:</span>
+              <span class="hl-key">app:</span> api-server</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Topology Aware Hints (EndpointSlice)</span><span class="lang-en">Topology Aware Hints (EndpointSlice)</span></h4>
+                        <p><span class="lang-ko">Service에 Topology Aware Hints를 활성화하면 kube-proxy가 동일 AZ의 엔드포인트를 우선 선택합니다.</span><span class="lang-en">Enabling Topology Aware Hints on a Service makes kube-proxy prefer endpoints in the same AZ.</span></p>
+<pre><code><span class="hl-key">apiVersion:</span> v1
+<span class="hl-key">kind:</span> Service
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> api-server
+  <span class="hl-key">annotations:</span>
+    <span class="hl-key">service.kubernetes.io/topology-aware-hints:</span> <span class="hl-str">"auto"</span>
+<span class="hl-key">spec:</span>
+  <span class="hl-key">selector:</span>
+    <span class="hl-key">app:</span> api-server
+  <span class="hl-key">ports:</span>
+    - <span class="hl-key">port:</span> <span class="hl-num">80</span>
+      <span class="hl-key">targetPort:</span> <span class="hl-num">8080</span>
+  <span class="hl-key">type:</span> ClusterIP</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Zone-Aware 전략 비교</span><span class="lang-en">Zone-Aware Strategy Comparison</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">전략</span><span class="lang-en">Strategy</span></th>
+                                    <th><span class="lang-ko">적용 레벨</span><span class="lang-en">Level</span></th>
+                                    <th><span class="lang-ko">동작</span><span class="lang-en">Behavior</span></th>
+                                    <th><span class="lang-ko">사용 사례</span><span class="lang-en">Use Case</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>TopologySpreadConstraints</td>
+                                    <td>Pod Scheduling</td>
+                                    <td><span class="lang-ko">Pod를 AZ 간 균등 분산</span><span class="lang-en">Distribute Pods evenly across AZs</span></td>
+                                    <td><span class="lang-ko">고가용성 워크로드</span><span class="lang-en">HA workloads</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Topology Aware Hints</td>
+                                    <td>Service Routing</td>
+                                    <td><span class="lang-ko">동일 AZ 엔드포인트 우선</span><span class="lang-en">Prefer same-AZ endpoints</span></td>
+                                    <td><span class="lang-ko">내부 서비스 통신</span><span class="lang-en">Internal service traffic</span></td>
+                                </tr>
+                                <tr>
+                                    <td>internalTrafficPolicy: Local</td>
+                                    <td>Service</td>
+                                    <td><span class="lang-ko">동일 노드 Pod만 라우팅</span><span class="lang-en">Route only to same-node Pods</span></td>
+                                    <td><span class="lang-ko">DaemonSet 서비스</span><span class="lang-en">DaemonSet services</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Istio Locality LB</td>
+                                    <td>Service Mesh</td>
+                                    <td><span class="lang-ko">가중치 기반 AZ 라우팅</span><span class="lang-en">Weighted AZ routing</span></td>
+                                    <td><span class="lang-ko">세밀한 트래픽 제어</span><span class="lang-en">Fine-grained traffic control</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">비용 절감 효과</span><span class="lang-en">Cost Savings Impact</span></strong>
+                            <span class="lang-ko">월 10TB의 내부 트래픽 기준, Zone-Aware Routing으로 Cross-AZ 트래픽을 80%에서 20%로 줄이면 월 $60 절감됩니다.
+                            대규모 클러스터에서는 이 효과가 크게 증가합니다.</span><span class="lang-en">For 10TB monthly internal traffic, reducing cross-AZ traffic from 80% to 20% with Zone-Aware Routing saves $60/month.
+                            This effect scales significantly in larger clusters.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 2: VPC CNI ===== -->
+                <h2 id="vpc-cni"><span class="lang-ko">VPC CNI</span><span class="lang-en">VPC CNI</span></h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">AWS VPC CNI - Pod에 VPC IP 직접 할당</span><span class="lang-en">AWS VPC CNI - Direct VPC IP Assignment to Pods</span></span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">On-Prem에서는 Flannel/Calico의 overlay 네트워크를 사용했지만, EKS에서는 VPC CNI가 Pod에 VPC IP를 직접 할당합니다.
+                            이로 인해 encapsulation 오버헤드가 없고 AWS 서비스와의 직접 통신이 가능합니다.</span><span class="lang-en">While On-Prem used Flannel/Calico overlay networks, EKS VPC CNI assigns VPC IPs directly to Pods.
+                            This eliminates encapsulation overhead and enables direct communication with AWS services.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">On-Prem Overlay vs VPC CNI</span><span class="lang-en">On-Prem Overlay vs VPC CNI</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">특성</span><span class="lang-en">Feature</span></th>
+                                    <th>On-Prem (Flannel/Calico)</th>
+                                    <th>EKS (VPC CNI)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="lang-ko">IP 할당</span><span class="lang-en">IP Assignment</span></td>
+                                    <td><span class="lang-ko">Overlay 네트워크 IP</span><span class="lang-en">Overlay network IP</span></td>
+                                    <td><span class="lang-ko">VPC ENI Secondary IP</span><span class="lang-en">VPC ENI Secondary IP</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">네트워크 모드</span><span class="lang-en">Network Mode</span></td>
+                                    <td>VXLAN/IPIP Encapsulation</td>
+                                    <td><span class="lang-ko">네이티브 VPC 라우팅</span><span class="lang-en">Native VPC routing</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">성능</span><span class="lang-en">Performance</span></td>
+                                    <td><span class="lang-ko">Encap 오버헤드 존재</span><span class="lang-en">Encapsulation overhead</span></td>
+                                    <td><span class="lang-ko">라인 레이트 성능</span><span class="lang-en">Line-rate performance</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">AWS 통합</span><span class="lang-en">AWS Integration</span></td>
+                                    <td><span class="lang-ko">NAT 필요</span><span class="lang-en">NAT required</span></td>
+                                    <td><span class="lang-ko">Security Group 직접 적용</span><span class="lang-en">Direct Security Group application</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">Prefix Delegation으로 IP 효율 향상</span><span class="lang-en">Improve IP Efficiency with Prefix Delegation</span></h4>
+                        <p><span class="lang-ko">기본적으로 ENI당 Secondary IP 수가 제한되지만, Prefix Delegation을 사용하면 /28 prefix를 할당받아 IP 용량이 16배 증가합니다.</span><span class="lang-en">By default, secondary IPs per ENI are limited, but Prefix Delegation assigns /28 prefixes, increasing IP capacity 16x.</span></p>
+<pre><code><span class="hl-cm"># Enable Prefix Delegation on aws-node DaemonSet</span>
+kubectl set env daemonset aws-node -n kube-system \
+  ENABLE_PREFIX_DELEGATION=true \
+  WARM_PREFIX_TARGET=1</code><span class="code-label">bash</span></pre>
+
+                        <h4><span class="lang-ko">Secondary CIDR 추가</span><span class="lang-en">Add Secondary CIDR</span></h4>
+                        <p><span class="lang-ko">VPC IP가 부족할 경우 100.64.0.0/10 또는 198.19.0.0/16 대역의 Secondary CIDR을 추가할 수 있습니다.</span><span class="lang-en">When VPC IPs are exhausted, add Secondary CIDRs from 100.64.0.0/10 or 198.19.0.0/16 ranges.</span></p>
+<pre><code><span class="hl-cm"># Add secondary CIDR to VPC</span>
+aws ec2 associate-vpc-cidr-block \
+  --vpc-id vpc-12345678 \
+  --cidr-block 100.64.0.0/16
+
+<span class="hl-cm"># Create subnets in the new CIDR for Pods</span>
+aws ec2 create-subnet \
+  --vpc-id vpc-12345678 \
+  --cidr-block 100.64.0.0/19 \
+  --availability-zone us-east-1a</code><span class="code-label">bash</span></pre>
+
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong><span class="lang-ko">VPC CNI vs Cilium CNI 선택 기준</span><span class="lang-en">VPC CNI vs Cilium CNI Selection Criteria</span></strong>
+                            <span class="lang-ko"><strong>VPC CNI</strong>: AWS 네이티브 통합이 중요하거나 Security Group for Pods가 필요한 경우 선택합니다.
+                            <strong>Cilium</strong>: eBPF 기반 고급 네트워크 정책, Service Mesh 통합, 멀티 클라우드 이식성이 필요한 경우 선택합니다.
+                            대부분의 EKS 워크로드에서는 VPC CNI가 권장됩니다.</span><span class="lang-en"><strong>VPC CNI</strong>: Choose when AWS native integration or Security Group for Pods is required.
+                            <strong>Cilium</strong>: Choose when eBPF-based advanced network policies, Service Mesh integration, or multi-cloud portability is needed.
+                            VPC CNI is recommended for most EKS workloads.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 3: Network Policy ===== -->
+                <h2 id="network-policy"><span class="lang-ko">Network Policy</span><span class="lang-en">Network Policy</span></h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">K8s Network Policy로 마이크로서비스 간 통신 제어</span><span class="lang-en">Control Microservice Communication with K8s Network Policy</span></span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">On-Prem에서 iptables 규칙으로 관리하던 네트워크 접근 제어를 Kubernetes Network Policy로 전환합니다.
+                            기본 정책으로 모든 트래픽을 차단하고, 필요한 통신만 명시적으로 허용하는 Zero Trust 모델을 적용합니다.</span><span class="lang-en">Migrate network access control from On-Prem iptables rules to Kubernetes Network Policy.
+                            Apply a Zero Trust model with default deny-all policies and explicit allowlists for required communication.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">Default Deny-All 정책</span><span class="lang-en">Default Deny-All Policy</span></h4>
+                        <p><span class="lang-ko">네임스페이스에 기본 차단 정책을 적용하여 명시적으로 허용되지 않은 모든 트래픽을 차단합니다.</span><span class="lang-en">Apply default deny policy to namespace to block all traffic not explicitly allowed.</span></p>
+<pre><code><span class="hl-key">apiVersion:</span> networking.k8s.io/v1
+<span class="hl-key">kind:</span> NetworkPolicy
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> default-deny-all
+  <span class="hl-key">namespace:</span> production
+<span class="hl-key">spec:</span>
+  <span class="hl-key">podSelector:</span> {}  <span class="hl-cm"># Apply to all Pods in namespace</span>
+  <span class="hl-key">policyTypes:</span>
+    - Ingress
+    - Egress
+  <span class="hl-cm"># No ingress/egress rules = deny all</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Namespace 격리 정책</span><span class="lang-en">Namespace Isolation Policy</span></h4>
+                        <p><span class="lang-ko">같은 네임스페이스 내 Pod 간 통신만 허용하고, 외부 네임스페이스로부터의 접근을 차단합니다.</span><span class="lang-en">Allow communication only between Pods in the same namespace, blocking access from external namespaces.</span></p>
+<pre><code><span class="hl-key">apiVersion:</span> networking.k8s.io/v1
+<span class="hl-key">kind:</span> NetworkPolicy
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> allow-same-namespace
+  <span class="hl-key">namespace:</span> production
+<span class="hl-key">spec:</span>
+  <span class="hl-key">podSelector:</span> {}
+  <span class="hl-key">policyTypes:</span>
+    - Ingress
+  <span class="hl-key">ingress:</span>
+    - <span class="hl-key">from:</span>
+        - <span class="hl-key">podSelector:</span> {}  <span class="hl-cm"># Same namespace only</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">특정 서비스 간 통신 허용</span><span class="lang-en">Allow Specific Service Communication</span></h4>
+                        <p><span class="lang-ko">API Gateway에서 백엔드 서비스로의 통신만 명시적으로 허용합니다.</span><span class="lang-en">Explicitly allow communication from API Gateway to backend services.</span></p>
+<pre><code><span class="hl-key">apiVersion:</span> networking.k8s.io/v1
+<span class="hl-key">kind:</span> NetworkPolicy
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> allow-api-to-backend
+  <span class="hl-key">namespace:</span> production
+<span class="hl-key">spec:</span>
+  <span class="hl-key">podSelector:</span>
+    <span class="hl-key">matchLabels:</span>
+      <span class="hl-key">app:</span> product-catalog
+  <span class="hl-key">policyTypes:</span>
+    - Ingress
+  <span class="hl-key">ingress:</span>
+    - <span class="hl-key">from:</span>
+        - <span class="hl-key">podSelector:</span>
+            <span class="hl-key">matchLabels:</span>
+              <span class="hl-key">app:</span> api-gateway
+      <span class="hl-key">ports:</span>
+        - <span class="hl-key">protocol:</span> TCP
+          <span class="hl-key">port:</span> <span class="hl-num">8080</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">외부 Egress 허용 (DNS, AWS 서비스)</span><span class="lang-en">Allow External Egress (DNS, AWS Services)</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> networking.k8s.io/v1
+<span class="hl-key">kind:</span> NetworkPolicy
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> allow-external-egress
+  <span class="hl-key">namespace:</span> production
+<span class="hl-key">spec:</span>
+  <span class="hl-key">podSelector:</span>
+    <span class="hl-key">matchLabels:</span>
+      <span class="hl-key">app:</span> api-server
+  <span class="hl-key">policyTypes:</span>
+    - Egress
+  <span class="hl-key">egress:</span>
+    <span class="hl-cm"># Allow DNS</span>
+    - <span class="hl-key">to:</span>
+        - <span class="hl-key">namespaceSelector:</span>
+            <span class="hl-key">matchLabels:</span>
+              <span class="hl-key">kubernetes.io/metadata.name:</span> kube-system
+          <span class="hl-key">podSelector:</span>
+            <span class="hl-key">matchLabels:</span>
+              <span class="hl-key">k8s-app:</span> kube-dns
+      <span class="hl-key">ports:</span>
+        - <span class="hl-key">protocol:</span> UDP
+          <span class="hl-key">port:</span> <span class="hl-num">53</span>
+    <span class="hl-cm"># Allow HTTPS to AWS services</span>
+    - <span class="hl-key">to:</span>
+        - <span class="hl-key">ipBlock:</span>
+            <span class="hl-key">cidr:</span> 0.0.0.0/0
+      <span class="hl-key">ports:</span>
+        - <span class="hl-key">protocol:</span> TCP
+          <span class="hl-key">port:</span> <span class="hl-num">443</span></code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">VPC CNI Network Policy 활성화</span><span class="lang-en">Enable VPC CNI Network Policy</span></strong>
+                            <span class="lang-ko">VPC CNI에서 Network Policy를 사용하려면 aws-node DaemonSet에 <code>ENABLE_NETWORK_POLICY=true</code>를 설정해야 합니다.
+                            기본적으로 비활성화되어 있으며, 활성화 시 약간의 성능 오버헤드가 발생합니다.</span><span class="lang-en">To use Network Policy with VPC CNI, set <code>ENABLE_NETWORK_POLICY=true</code> on the aws-node DaemonSet.
+                            It is disabled by default, and enabling it incurs slight performance overhead.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="eks-observability.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; <span class="lang-ko">EKS 옵저버빌리티</span><span class="lang-en">EKS Observability</span></span></a>
+                    <a href="eks-security.html" class="next"><span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">EKS 보안</span><span class="lang-en">EKS Security</span> &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
+            <a href="#zone-aware" class="toc-link"><span class="lang-ko">Zone-Aware Routing</span><span class="lang-en">Zone-Aware Routing</span></a>
+            <a href="#vpc-cni" class="toc-link"><span class="lang-ko">VPC CNI</span><span class="lang-en">VPC CNI</span></a>
+            <a href="#network-policy" class="toc-link"><span class="lang-ko">Network Policy</span><span class="lang-en">Network Policy</span></a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

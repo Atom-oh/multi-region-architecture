@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EKS Cost Optimization - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span><span class="lang-ko">EKS 비용 최적화</span><span class="lang-en">EKS Cost Optimization</span></span></div>
+
+                <h1><span class="lang-ko">EKS 비용 최적화</span><span class="lang-en">EKS Cost Optimization</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">On-Prem 고정 CapEx 모델에서 AWS 종량제(OpEx) 모델로 전환하면서 FinOps 문화를 도입합니다.
+                    Spot 인스턴스, Graviton, 리소스 최적화를 통해 컴퓨팅 비용을 최대 70%까지 절감할 수 있습니다.</span><span class="lang-en">Introduce FinOps culture as you transition from On-Prem fixed CapEx model to AWS pay-as-you-go (OpEx) model.
+                    Reduce compute costs by up to 70% through Spot instances, Graviton, and resource optimization.</span>
+                </p>
+
+                <!-- ===== Section 1: FinOps Principles ===== -->
+                <h2 id="finops"><span class="lang-ko">FinOps 원칙</span><span class="lang-en">FinOps Principles</span></h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">FinOps: 클라우드 비용 최적화 문화</span><span class="lang-en">FinOps: Cloud Cost Optimization Culture</span></span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">FinOps는 Inform(가시성 확보) &rarr; Optimize(최적화 실행) &rarr; Operate(운영 및 거버넌스) 사이클을 통해 지속적으로 클라우드 비용을 최적화하는 운영 모델입니다.</span><span class="lang-en">FinOps is an operational model that continuously optimizes cloud costs through the Inform (visibility) &rarr; Optimize (execution) &rarr; Operate (governance) cycle.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">On-Prem vs AWS 비용 구조</span><span class="lang-en">On-Prem vs AWS Cost Structure</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">항목</span><span class="lang-en">Item</span></th>
+                                    <th>On-Prem (CapEx)</th>
+                                    <th>AWS (OpEx)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="lang-ko">초기 비용</span><span class="lang-en">Upfront Cost</span></td>
+                                    <td><span class="lang-ko">높음 (서버, 네트워크, DC)</span><span class="lang-en">High (servers, network, DC)</span></td>
+                                    <td><span class="lang-ko">없음</span><span class="lang-en">None</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">용량 계획</span><span class="lang-en">Capacity Planning</span></td>
+                                    <td><span class="lang-ko">피크 기준 프로비저닝</span><span class="lang-en">Peak-based provisioning</span></td>
+                                    <td><span class="lang-ko">실시간 스케일링</span><span class="lang-en">Real-time scaling</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">비용 가시성</span><span class="lang-en">Cost Visibility</span></td>
+                                    <td><span class="lang-ko">제한적</span><span class="lang-en">Limited</span></td>
+                                    <td><span class="lang-ko">상세 (태그별, 서비스별)</span><span class="lang-en">Detailed (by tag, service)</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">낭비 리스크</span><span class="lang-en">Waste Risk</span></td>
+                                    <td><span class="lang-ko">유휴 자원 발생</span><span class="lang-en">Idle resources</span></td>
+                                    <td><span class="lang-ko">방치된 리소스 과금</span><span class="lang-en">Charges for unused resources</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">최적화 기회</span><span class="lang-en">Optimization Opportunity</span></td>
+                                    <td><span class="lang-ko">하드웨어 교체 주기에 의존</span><span class="lang-en">Depends on hardware refresh cycle</span></td>
+                                    <td><span class="lang-ko">실시간 (Spot, RI, Savings Plans)</span><span class="lang-en">Real-time (Spot, RI, Savings Plans)</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">FinOps 실행 프레임워크</span><span class="lang-en">FinOps Execution Framework</span></h4>
+                        <ol>
+                            <li><strong>Inform</strong> &mdash; <span class="lang-ko">Cost Explorer, Kubecost로 비용 가시성 확보. 태깅 전략으로 팀/서비스별 비용 할당</span><span class="lang-en">Gain cost visibility with Cost Explorer, Kubecost. Allocate costs by team/service with tagging strategy</span></li>
+                            <li><strong>Optimize</strong> &mdash; <span class="lang-ko">Spot, Graviton, Right-sizing 적용. Savings Plans 구매</span><span class="lang-en">Apply Spot, Graviton, Right-sizing. Purchase Savings Plans</span></li>
+                            <li><strong>Operate</strong> &mdash; <span class="lang-ko">예산 알림, Anomaly Detection 설정. 정기 비용 리뷰 미팅</span><span class="lang-en">Set budget alerts, Anomaly Detection. Regular cost review meetings</span></li>
+                        </ol>
+
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong><span class="lang-ko">비용 태깅 전략</span><span class="lang-en">Cost Tagging Strategy</span></strong>
+                            <span class="lang-ko">모든 AWS 리소스에 <code>Team</code>, <code>Environment</code>, <code>Service</code>, <code>CostCenter</code> 태그를 필수로 적용합니다.
+                            Kubernetes 리소스에는 <code>labels</code>로 동일한 정보를 추가하여 Kubecost에서 분석합니다.</span><span class="lang-en">Apply <code>Team</code>, <code>Environment</code>, <code>Service</code>, <code>CostCenter</code> tags to all AWS resources.
+                            Add the same information as <code>labels</code> to Kubernetes resources for Kubecost analysis.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 2: Spot Instance Strategy ===== -->
+                <h2 id="spot"><span class="lang-ko">Spot 인스턴스 전략</span><span class="lang-en">Spot Instance Strategy</span></h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Karpenter + Spot으로 최대 90% 비용 절감</span><span class="lang-en">Up to 90% Cost Savings with Karpenter + Spot</span></span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Spot 인스턴스는 On-Demand 대비 최대 90% 저렴하지만, 2분 경고 후 중단될 수 있습니다.
+                            Karpenter의 혼합 배치 전략과 인터럽트 핸들링으로 안정적으로 Spot을 활용합니다.</span><span class="lang-en">Spot instances are up to 90% cheaper than On-Demand but can be interrupted with 2-minute warning.
+                            Use Spot reliably with Karpenter's mixed allocation strategy and interrupt handling.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">워크로드별 Spot 적합성</span><span class="lang-en">Spot Suitability by Workload</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">워크로드</span><span class="lang-en">Workload</span></th>
+                                    <th><span class="lang-ko">Spot 적합성</span><span class="lang-en">Spot Suitability</span></th>
+                                    <th><span class="lang-ko">권장 전략</span><span class="lang-en">Recommended Strategy</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="lang-ko">API Gateway / 프론트엔드</span><span class="lang-en">API Gateway / Frontend</span></td>
+                                    <td><span class="lang-ko" style="color:var(--tag-database)">부적합</span><span class="lang-en" style="color:var(--tag-database)">Not suitable</span></td>
+                                    <td><span class="lang-ko">On-Demand only (안정성 우선)</span><span class="lang-en">On-Demand only (stability first)</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">백엔드 서비스</span><span class="lang-en">Backend Services</span></td>
+                                    <td><span class="lang-ko" style="color:var(--accent)">적합</span><span class="lang-en" style="color:var(--accent)">Suitable</span></td>
+                                    <td><span class="lang-ko">Spot 70% + On-Demand 30%</span><span class="lang-en">Spot 70% + On-Demand 30%</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">Worker / 이벤트 프로세서</span><span class="lang-en">Worker / Event Processor</span></td>
+                                    <td><span class="lang-ko" style="color:var(--accent)">매우 적합</span><span class="lang-en" style="color:var(--accent)">Very suitable</span></td>
+                                    <td><span class="lang-ko">Spot 90% + On-Demand 10%</span><span class="lang-en">Spot 90% + On-Demand 10%</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">배치 작업 / 분석</span><span class="lang-en">Batch Jobs / Analytics</span></td>
+                                    <td><span class="lang-ko" style="color:var(--accent)">최적</span><span class="lang-en" style="color:var(--accent)">Optimal</span></td>
+                                    <td><span class="lang-ko">Spot 100%</span><span class="lang-en">Spot 100%</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">Stateful (DB, 캐시)</span><span class="lang-en">Stateful (DB, Cache)</span></td>
+                                    <td><span class="lang-ko" style="color:var(--tag-database)">부적합</span><span class="lang-en" style="color:var(--tag-database)">Not suitable</span></td>
+                                    <td><span class="lang-ko">On-Demand only (데이터 보호)</span><span class="lang-en">On-Demand only (data protection)</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">Karpenter Spot NodePool 설정</span><span class="lang-en">Karpenter Spot NodePool Configuration</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> karpenter.sh/v1
+<span class="hl-key">kind:</span> NodePool
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> worker-tier
+<span class="hl-key">spec:</span>
+  <span class="hl-key">template:</span>
+    <span class="hl-key">metadata:</span>
+      <span class="hl-key">labels:</span>
+        <span class="hl-key">node-pool:</span> worker-tier
+    <span class="hl-key">spec:</span>
+      <span class="hl-key">nodeClassRef:</span>
+        <span class="hl-key">group:</span> karpenter.k8s.aws
+        <span class="hl-key">kind:</span> EC2NodeClass
+        <span class="hl-key">name:</span> default
+      <span class="hl-key">requirements:</span>
+        <span class="hl-cm"># Spot 우선, On-Demand 대체</span>
+        - <span class="hl-key">key:</span> karpenter.sh/capacity-type
+          <span class="hl-key">operator:</span> In
+          <span class="hl-key">values:</span>
+            - spot
+            - on-demand
+        <span class="hl-cm"># 다양한 인스턴스 타입으로 중단 분산</span>
+        - <span class="hl-key">key:</span> karpenter.k8s.aws/instance-family
+          <span class="hl-key">operator:</span> In
+          <span class="hl-key">values:</span>
+            - m6i
+            - m7i
+            - c6i
+            - c7i
+            - r6i
+        - <span class="hl-key">key:</span> karpenter.k8s.aws/instance-size
+          <span class="hl-key">operator:</span> In
+          <span class="hl-key">values:</span>
+            - large
+            - xlarge
+            - 2xlarge
+  <span class="hl-key">weight:</span> <span class="hl-num">50</span>
+  <span class="hl-key">disruption:</span>
+    <span class="hl-key">consolidationPolicy:</span> WhenEmptyOrUnderutilized
+    <span class="hl-key">consolidateAfter:</span> 30s</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">인터럽트 핸들링</span><span class="lang-en">Interrupt Handling</span></h4>
+<pre><code><span class="hl-cm"># AWS Node Termination Handler로 Graceful Drain</span>
+helm install aws-node-termination-handler \
+  --namespace kube-system \
+  eks/aws-node-termination-handler \
+  --set enableSpotInterruptionDraining=true \
+  --set enableRebalanceMonitoring=true</code><span class="code-label">bash</span></pre>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Stateful 워크로드 주의</span><span class="lang-en">Stateful Workload Caution</span></strong>
+                            <span class="lang-ko">데이터베이스, 캐시, StatefulSet 워크로드에는 Spot을 사용하지 마세요.
+                            2분 경고 시간 내에 데이터 복제가 완료되지 않으면 데이터 손실이 발생할 수 있습니다.</span><span class="lang-en">Do not use Spot for databases, caches, or StatefulSet workloads.
+                            Data loss can occur if data replication is not completed within the 2-minute warning time.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 3: Graviton (ARM) ===== -->
+                <h2 id="graviton"><span class="lang-ko">Graviton (ARM) 활용</span><span class="lang-en">Graviton (ARM) Utilization</span></h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Graviton으로 비용 대비 성능 20% 향상</span><span class="lang-en">20% Better Price-Performance with Graviton</span></span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">AWS Graviton (ARM64) 프로세서는 x86 대비 동일 비용에서 약 20% 더 나은 성능을 제공합니다.
+                            Go, Java, Python 등 대부분의 언어에서 ARM64 빌드가 가능하며, 멀티 아키텍처 이미지로 점진적으로 전환할 수 있습니다.</span><span class="lang-en">AWS Graviton (ARM64) processors provide about 20% better performance at the same cost compared to x86.
+                            ARM64 builds are possible in most languages like Go, Java, Python, and you can gradually transition with multi-architecture images.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">멀티 아키텍처 빌드</span><span class="lang-en">Multi-Architecture Build</span></h4>
+<pre><code><span class="hl-cm"># Docker buildx로 멀티 아키텍처 이미지 빌드</span>
+docker buildx create --name multiarch --use
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --tag 180294183052.dkr.ecr.us-east-1.amazonaws.com/api-server:latest \
+  --push .</code><span class="code-label">bash</span></pre>
+
+                        <h4><span class="lang-ko">호환성 체크리스트</span><span class="lang-en">Compatibility Checklist</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">언어/프레임워크</span><span class="lang-en">Language/Framework</span></th>
+                                    <th>ARM64 <span class="lang-ko">지원</span><span class="lang-en">Support</span></th>
+                                    <th><span class="lang-ko">주의사항</span><span class="lang-en">Notes</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Go</td>
+                                    <td><span class="lang-ko" style="color:var(--accent)">완벽 지원</span><span class="lang-en" style="color:var(--accent)">Full support</span></td>
+                                    <td><code>GOARCH=arm64</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Java (JVM)</td>
+                                    <td><span class="lang-ko" style="color:var(--accent)">완벽 지원</span><span class="lang-en" style="color:var(--accent)">Full support</span></td>
+                                    <td><span class="lang-ko">Amazon Corretto 권장</span><span class="lang-en">Amazon Corretto recommended</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Python</td>
+                                    <td><span class="lang-ko" style="color:var(--accent)">완벽 지원</span><span class="lang-en" style="color:var(--accent)">Full support</span></td>
+                                    <td><span class="lang-ko">Native 패키지 확인 필요</span><span class="lang-en">Check native packages</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Node.js</td>
+                                    <td><span class="lang-ko" style="color:var(--accent)">완벽 지원</span><span class="lang-en" style="color:var(--accent)">Full support</span></td>
+                                    <td><span class="lang-ko">Native addon 재컴파일</span><span class="lang-en">Recompile native addons</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">Native C/C++ 라이브러리</span><span class="lang-en">Native C/C++ libraries</span></td>
+                                    <td><span class="lang-ko" style="color:var(--tag-database)">확인 필요</span><span class="lang-en" style="color:var(--tag-database)">Verify required</span></td>
+                                    <td><span class="lang-ko">ARM64용 빌드 확인</span><span class="lang-en">Verify ARM64 builds</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">Karpenter에 Graviton 추가</span><span class="lang-en">Add Graviton to Karpenter</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> karpenter.sh/v1
+<span class="hl-key">kind:</span> NodePool
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> general
+<span class="hl-key">spec:</span>
+  <span class="hl-key">template:</span>
+    <span class="hl-key">spec:</span>
+      <span class="hl-key">requirements:</span>
+        <span class="hl-cm"># x86과 ARM 모두 허용</span>
+        - <span class="hl-key">key:</span> kubernetes.io/arch
+          <span class="hl-key">operator:</span> In
+          <span class="hl-key">values:</span>
+            - amd64
+            - arm64
+        <span class="hl-cm"># Graviton 인스턴스 타입 포함</span>
+        - <span class="hl-key">key:</span> karpenter.k8s.aws/instance-family
+          <span class="hl-key">operator:</span> In
+          <span class="hl-key">values:</span>
+            - m6i     <span class="hl-cm"># x86</span>
+            - m6g     <span class="hl-cm"># Graviton</span>
+            - m7i     <span class="hl-cm"># x86</span>
+            - m7g     <span class="hl-cm"># Graviton</span>
+            - c6g     <span class="hl-cm"># Graviton</span>
+            - r6g     <span class="hl-cm"># Graviton</span></code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Go/Java 서비스 즉시 전환 가능</span><span class="lang-en">Go/Java Services Ready for Immediate Transition</span></strong>
+                            <span class="lang-ko">Go와 Java(JVM) 서비스는 대부분 코드 변경 없이 Graviton으로 전환할 수 있습니다.
+                            Python/Node.js의 경우 Native C 익스텐션(numpy, pandas 등)이 ARM64용으로 빌드되어 있는지 확인하세요.</span><span class="lang-en">Go and Java (JVM) services can mostly transition to Graviton without code changes.
+                            For Python/Node.js, verify that native C extensions (numpy, pandas, etc.) are built for ARM64.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 4: Resource Optimization ===== -->
+                <h2 id="resource-optimization"><span class="lang-ko">리소스 최적화</span><span class="lang-en">Resource Optimization</span></h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">VPA + Goldilocks로 Right-Sizing</span><span class="lang-en">Right-Sizing with VPA + Goldilocks</span></span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">과다 프로비저닝된 리소스는 비용 낭비의 주요 원인입니다. VPA(Vertical Pod Autoscaler) 권장값을 기반으로 Request/Limit을 최적화합니다.</span><span class="lang-en">Over-provisioned resources are a major cause of cost waste. Optimize Request/Limit based on VPA (Vertical Pod Autoscaler) recommendations.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">최적화 전/후 비용 비교 예시</span><span class="lang-en">Before/After Optimization Cost Comparison Example</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">메트릭</span><span class="lang-en">Metric</span></th>
+                                    <th><span class="lang-ko">최적화 전</span><span class="lang-en">Before</span></th>
+                                    <th><span class="lang-ko">최적화 후</span><span class="lang-en">After</span></th>
+                                    <th><span class="lang-ko">절감</span><span class="lang-en">Savings</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>CPU Request</td>
+                                    <td>1000m</td>
+                                    <td>250m</td>
+                                    <td>75%</td>
+                                </tr>
+                                <tr>
+                                    <td>Memory Request</td>
+                                    <td>2Gi</td>
+                                    <td>512Mi</td>
+                                    <td>75%</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">필요 노드 수</span><span class="lang-en">Required Nodes</span></td>
+                                    <td>10</td>
+                                    <td>4</td>
+                                    <td>60%</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">월 비용</span><span class="lang-en">Monthly Cost</span></td>
+                                    <td>$3,000</td>
+                                    <td>$1,200</td>
+                                    <td>$1,800 (60%)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">VPA 권장값 확인</span><span class="lang-en">Check VPA Recommendations</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> autoscaling.k8s.io/v1
+<span class="hl-key">kind:</span> VerticalPodAutoscaler
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> api-server-vpa
+<span class="hl-key">spec:</span>
+  <span class="hl-key">targetRef:</span>
+    <span class="hl-key">apiVersion:</span> apps/v1
+    <span class="hl-key">kind:</span> Deployment
+    <span class="hl-key">name:</span> api-server
+  <span class="hl-key">updatePolicy:</span>
+    <span class="hl-key">updateMode:</span> <span class="hl-str">"Off"</span>  <span class="hl-cm"># 권장값만 제공, 자동 적용 안함</span></code><span class="code-label">yaml</span></pre>
+
+<pre><code><span class="hl-cm"># VPA 권장값 조회</span>
+kubectl describe vpa api-server-vpa
+
+<span class="hl-cm"># 결과 예시:</span>
+<span class="hl-cm"># Recommendation:</span>
+<span class="hl-cm">#   Container Recommendations:</span>
+<span class="hl-cm">#     Target:          cpu: 250m, memory: 512Mi  (권장 request)</span>
+<span class="hl-cm">#     Lower Bound:     cpu: 100m, memory: 256Mi</span>
+<span class="hl-cm">#     Upper Bound:     cpu: 500m, memory: 1Gi    (권장 limit)</span></code><span class="code-label">bash</span></pre>
+
+                        <h4><span class="lang-ko">Goldilocks 대시보드</span><span class="lang-en">Goldilocks Dashboard</span></h4>
+<pre><code><span class="hl-cm"># Goldilocks 설치 (VPA 권장값 대시보드)</span>
+helm install goldilocks fairwinds-stable/goldilocks \
+  --namespace goldilocks --create-namespace
+
+<span class="hl-cm"># 네임스페이스에 Goldilocks 활성화</span>
+kubectl label namespace production goldilocks.fairwinds.com/enabled=true
+
+<span class="hl-cm"># 대시보드 접근</span>
+kubectl port-forward -n goldilocks svc/goldilocks-dashboard 8080:80</code><span class="code-label">bash</span></pre>
+
+                        <h4><span class="lang-ko">LimitRange + ResourceQuota로 거버넌스</span><span class="lang-en">Governance with LimitRange + ResourceQuota</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> v1
+<span class="hl-key">kind:</span> LimitRange
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> default-limits
+  <span class="hl-key">namespace:</span> production
+<span class="hl-key">spec:</span>
+  <span class="hl-key">limits:</span>
+    - <span class="hl-key">type:</span> Container
+      <span class="hl-key">default:</span>           <span class="hl-cm"># 기본 limit</span>
+        <span class="hl-key">cpu:</span> <span class="hl-str">"500m"</span>
+        <span class="hl-key">memory:</span> <span class="hl-str">"512Mi"</span>
+      <span class="hl-key">defaultRequest:</span>   <span class="hl-cm"># 기본 request</span>
+        <span class="hl-key">cpu:</span> <span class="hl-str">"100m"</span>
+        <span class="hl-key">memory:</span> <span class="hl-str">"128Mi"</span>
+      <span class="hl-key">max:</span>              <span class="hl-cm"># 최대 허용</span>
+        <span class="hl-key">cpu:</span> <span class="hl-str">"4"</span>
+        <span class="hl-key">memory:</span> <span class="hl-str">"8Gi"</span>
+---
+<span class="hl-key">apiVersion:</span> v1
+<span class="hl-key">kind:</span> ResourceQuota
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> namespace-quota
+  <span class="hl-key">namespace:</span> production
+<span class="hl-key">spec:</span>
+  <span class="hl-key">hard:</span>
+    <span class="hl-key">requests.cpu:</span> <span class="hl-str">"20"</span>
+    <span class="hl-key">requests.memory:</span> 40Gi
+    <span class="hl-key">limits.cpu:</span> <span class="hl-str">"40"</span>
+    <span class="hl-key">limits.memory:</span> 80Gi
+    <span class="hl-key">pods:</span> <span class="hl-str">"50"</span></code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Right-Sizing 권장 접근법</span><span class="lang-en">Recommended Right-Sizing Approach</span></strong>
+                            <span class="lang-ko"><strong>Request</strong>: VPA Target 값 또는 P70 실제 사용량.
+                            <strong>Limit</strong>: VPA Upper Bound 또는 P99 + 20% 여유.
+                            CPU Limit은 latency-sensitive 워크로드에서 throttling을 유발할 수 있으므로 제거를 고려하세요.</span><span class="lang-en"><strong>Request</strong>: VPA Target value or P70 actual usage.
+                            <strong>Limit</strong>: VPA Upper Bound or P99 + 20% headroom.
+                            Consider removing CPU Limit for latency-sensitive workloads as it can cause throttling.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="eks-security.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; <span class="lang-ko">EKS 보안</span><span class="lang-en">EKS Security</span></span></a>
+                    <a href="msk-operations.html" class="next"><span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">MSK 운영</span><span class="lang-en">MSK Operations</span> &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
+            <a href="#finops" class="toc-link"><span class="lang-ko">FinOps 원칙</span><span class="lang-en">FinOps Principles</span></a>
+            <a href="#spot" class="toc-link"><span class="lang-ko">Spot 인스턴스 전략</span><span class="lang-en">Spot Instance Strategy</span></a>
+            <a href="#graviton" class="toc-link"><span class="lang-ko">Graviton (ARM) 활용</span><span class="lang-en">Graviton (ARM) Utilization</span></a>
+            <a href="#resource-optimization" class="toc-link"><span class="lang-ko">리소스 최적화</span><span class="lang-en">Resource Optimization</span></a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

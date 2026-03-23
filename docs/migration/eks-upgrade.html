@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EKS Upgrade Strategy - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><a href="eks-operations.html"><span class="lang-ko">EKS 운영</span><span class="lang-en">EKS Operations</span></a><span class="sep">/</span><span><span class="lang-ko">업그레이드 전략</span><span class="lang-en">Upgrade Strategy</span></span></div>
+
+                <h1><span class="lang-ko">EKS 업그레이드 전략</span><span class="lang-en">EKS Upgrade Strategy</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">온프레미스 kubeadm 기반 업그레이드와 EKS 관리형 업그레이드의 차이점을 이해하고,
+                    In-place 업그레이드와 Blue/Green 클러스터 전략을 상황에 맞게 선택하는 방법을 다룹니다.</span><span class="lang-en">Understand the differences between on-premises kubeadm-based upgrades and EKS managed upgrades,
+                    and learn how to choose between In-place upgrades and Blue/Green cluster strategies based on your situation.</span>
+                </p>
+
+                <div class="callout info" style="margin-bottom:24px;">
+                    <strong><span class="lang-ko">핵심 차이점</span><span class="lang-en">Key Difference</span></strong>
+                    <span class="lang-ko">On-Prem에서는 Control Plane을 직접 kubeadm으로 업그레이드해야 하지만, EKS에서는 AWS가 Control Plane을 관리합니다.
+                    단, EKS도 한 번에 한 마이너 버전만 업그레이드 가능합니다 (예: 1.29 → 1.30 → 1.31).</span><span class="lang-en">On-Prem requires manual Control Plane upgrade via kubeadm, while EKS has AWS manage the Control Plane.
+                    However, EKS also only allows upgrading one minor version at a time (e.g., 1.29 → 1.30 → 1.31).</span>
+                </div>
+
+                <!-- ===== Section 1: In-place Upgrade ===== -->
+                <h2 id="in-place"><span class="lang-ko">In-place 업그레이드</span><span class="lang-en">In-place Upgrade</span></h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">EKS In-place 업그레이드 절차</span><span class="lang-en">EKS In-place Upgrade Procedure</span></span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">In-place 업그레이드는 기존 클러스터를 유지하면서 Control Plane → Add-ons → Node Groups 순서로 순차 업그레이드합니다.
+                            다운타임을 최소화하면서 비용 효율적인 업그레이드가 가능합니다.</span><span class="lang-en">In-place upgrade maintains the existing cluster while sequentially upgrading Control Plane → Add-ons → Node Groups.
+                            This enables cost-effective upgrades while minimizing downtime.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">업그레이드 순서</span><span class="lang-en">Upgrade Order</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">순서</span><span class="lang-en">Order</span></th>
+                                    <th><span class="lang-ko">컴포넌트</span><span class="lang-en">Component</span></th>
+                                    <th><span class="lang-ko">소요 시간</span><span class="lang-en">Duration</span></th>
+                                    <th><span class="lang-ko">다운타임</span><span class="lang-en">Downtime</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1</td>
+                                    <td><strong>Control Plane</strong></td>
+                                    <td>~15-25 min</td>
+                                    <td><span class="lang-ko">없음 (API 일시 불가)</span><span class="lang-en">None (API briefly unavailable)</span></td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td><strong>vpc-cni</strong></td>
+                                    <td>~5 min</td>
+                                    <td><span class="lang-ko">없음</span><span class="lang-en">None</span></td>
+                                </tr>
+                                <tr>
+                                    <td>3</td>
+                                    <td><strong>coredns</strong></td>
+                                    <td>~3 min</td>
+                                    <td><span class="lang-ko">없음</span><span class="lang-en">None</span></td>
+                                </tr>
+                                <tr>
+                                    <td>4</td>
+                                    <td><strong>kube-proxy</strong></td>
+                                    <td>~3 min</td>
+                                    <td><span class="lang-ko">없음</span><span class="lang-en">None</span></td>
+                                </tr>
+                                <tr>
+                                    <td>5</td>
+                                    <td><strong>ebs-csi / efs-csi</strong></td>
+                                    <td>~5 min</td>
+                                    <td><span class="lang-ko">없음</span><span class="lang-en">None</span></td>
+                                </tr>
+                                <tr>
+                                    <td>6</td>
+                                    <td><strong>Node Groups</strong></td>
+                                    <td>~30-60 min</td>
+                                    <td><span class="lang-ko">Rolling (PDB 준수)</span><span class="lang-en">Rolling (PDB respected)</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">Control Plane 업그레이드</span><span class="lang-en">Control Plane Upgrade</span></h4>
+<pre><code><span class="hl-cm"># 현재 클러스터 버전 확인</span>
+aws eks describe-cluster \
+  --name multi-region-mall \
+  --query "cluster.version" \
+  --output text
+
+<span class="hl-cm"># Control Plane 업그레이드 (1.34 → 1.35)</span>
+aws eks update-cluster-version \
+  --name multi-region-mall \
+  --kubernetes-version <span class="hl-str">1.35</span>
+
+<span class="hl-cm"># 업그레이드 상태 확인</span>
+aws eks describe-update \
+  --name multi-region-mall \
+  --update-id &lt;update-id&gt; \
+  --query "update.status"
+
+<span class="hl-cm"># 업그레이드 완료 대기</span>
+aws eks wait cluster-active --name multi-region-mall</code><span class="code-label">bash</span></pre>
+
+                        <h4><span class="lang-ko">Add-on 업그레이드</span><span class="lang-en">Add-on Upgrade</span></h4>
+<pre><code><span class="hl-cm"># 호환 가능한 Add-on 버전 확인</span>
+aws eks describe-addon-versions \
+  --addon-name vpc-cni \
+  --kubernetes-version <span class="hl-str">1.35</span> \
+  --query "addons[0].addonVersions[0:3].addonVersion"
+
+<span class="hl-cm"># vpc-cni 업그레이드</span>
+aws eks update-addon \
+  --cluster-name multi-region-mall \
+  --addon-name vpc-cni \
+  --addon-version <span class="hl-str">v1.21.1-eksbuild.1</span> \
+  --resolve-conflicts PRESERVE
+
+<span class="hl-cm"># coredns 업그레이드</span>
+aws eks update-addon \
+  --cluster-name multi-region-mall \
+  --addon-name coredns \
+  --addon-version <span class="hl-str">v1.13.2-eksbuild.1</span> \
+  --resolve-conflicts PRESERVE
+
+<span class="hl-cm"># kube-proxy 업그레이드</span>
+aws eks update-addon \
+  --cluster-name multi-region-mall \
+  --addon-name kube-proxy \
+  --addon-version <span class="hl-str">v1.35.0-eksbuild.1</span> \
+  --resolve-conflicts PRESERVE</code><span class="code-label">bash</span></pre>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Add-on 호환성 매트릭스</span><span class="lang-en">Add-on Compatibility Matrix</span></strong>
+                            <span class="lang-ko">각 EKS 버전에는 호환되는 Add-on 버전이 정해져 있습니다.
+                            <code>aws eks describe-addon-versions</code>로 반드시 호환 버전을 확인하세요.
+                            eksbuild suffix는 리전별로 다를 수 있습니다.</span><span class="lang-en">Each EKS version has specific compatible Add-on versions.
+                            Always verify compatible versions with <code>aws eks describe-addon-versions</code>.
+                            The eksbuild suffix may differ by region.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 2: Blue/Green Upgrade ===== -->
+                <h2 id="blue-green"><span class="lang-ko">Blue/Green 클러스터 업그레이드</span><span class="lang-en">Blue/Green Cluster Upgrade</span></h2>
+
+                <div class="tech-card" data-tag="Infrastructure">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Blue/Green 클러스터 전환 전략</span><span class="lang-en">Blue/Green Cluster Transition Strategy</span></span>
+                        <span class="tech-card-tag Infrastructure">Infrastructure</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Blue/Green 업그레이드는 새 클러스터를 생성하고, ArgoCD로 워크로드를 동기화한 후, 트래픽을 점진적으로 전환합니다.
+                            롤백이 즉시 가능하며, 대규모 버전 점프나 미션 크리티컬 환경에 적합합니다.</span><span class="lang-en">Blue/Green upgrade creates a new cluster, syncs workloads via ArgoCD, then gradually shifts traffic.
+                            Rollback is instant, making it suitable for major version jumps or mission-critical environments.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">Blue/Green 단계별 체크리스트</span><span class="lang-en">Blue/Green Step-by-Step Checklist</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">단계</span><span class="lang-en">Phase</span></th>
+                                    <th><span class="lang-ko">작업</span><span class="lang-en">Task</span></th>
+                                    <th><span class="lang-ko">검증 항목</span><span class="lang-en">Verification</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>1. <span class="lang-ko">준비</span><span class="lang-en">Prepare</span></strong></td>
+                                    <td><span class="lang-ko">Green 클러스터 Terraform 작성</span><span class="lang-en">Write Green cluster Terraform</span></td>
+                                    <td><span class="lang-ko">VPC, Subnet, SG 공유 확인</span><span class="lang-en">Verify VPC, Subnet, SG sharing</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>2. <span class="lang-ko">생성</span><span class="lang-en">Create</span></strong></td>
+                                    <td><span class="lang-ko">Green 클러스터 + Add-ons 배포</span><span class="lang-en">Deploy Green cluster + Add-ons</span></td>
+                                    <td><code>kubectl get nodes</code> Ready</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>3. <span class="lang-ko">동기화</span><span class="lang-en">Sync</span></strong></td>
+                                    <td><span class="lang-ko">ArgoCD에 Green 클러스터 등록</span><span class="lang-en">Register Green cluster in ArgoCD</span></td>
+                                    <td><span class="lang-ko">모든 App Synced/Healthy</span><span class="lang-en">All Apps Synced/Healthy</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>4. <span class="lang-ko">검증</span><span class="lang-en">Validate</span></strong></td>
+                                    <td><span class="lang-ko">Smoke Test, 내부 트래픽 테스트</span><span class="lang-en">Smoke Test, internal traffic test</span></td>
+                                    <td><span class="lang-ko">Health check 200 OK</span><span class="lang-en">Health check 200 OK</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>5. <span class="lang-ko">전환</span><span class="lang-en">Switch</span></strong></td>
+                                    <td><span class="lang-ko">NLB/ALB 타겟 그룹 가중치 전환</span><span class="lang-en">NLB/ALB target group weight shift</span></td>
+                                    <td><span class="lang-ko">10% → 50% → 100% 점진적</span><span class="lang-en">10% → 50% → 100% gradual</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>6. <span class="lang-ko">정리</span><span class="lang-en">Cleanup</span></strong></td>
+                                    <td><span class="lang-ko">Blue 클러스터 해제 (1주 후)</span><span class="lang-en">Decommission Blue cluster (after 1 week)</span></td>
+                                    <td><span class="lang-ko">비용 절감 확인</span><span class="lang-en">Verify cost savings</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">Green 클러스터 생성 (Terraform)</span><span class="lang-en">Create Green Cluster (Terraform)</span></h4>
+<pre><code><span class="hl-key">resource</span> <span class="hl-str">"aws_eks_cluster"</span> <span class="hl-str">"green"</span> {
+  name     = <span class="hl-str">"multi-region-mall-green"</span>
+  version  = <span class="hl-str">"1.35"</span>
+  role_arn = aws_iam_role.cluster.arn
+
+  vpc_config {
+    subnet_ids              = var.private_subnet_ids  <span class="hl-cm"># 기존 VPC 공유</span>
+    endpoint_private_access = <span class="hl-num">true</span>
+    endpoint_public_access  = <span class="hl-num">true</span>
+    security_group_ids      = [aws_security_group.cluster.id]
+  }
+
+  <span class="hl-cm"># Karpenter용 태그</span>
+  tags = {
+    <span class="hl-str">"karpenter.sh/discovery"</span> = <span class="hl-str">"multi-region-mall-green"</span>
+  }
+}</code><span class="code-label">hcl</span></pre>
+
+                        <h4><span class="lang-ko">ArgoCD 클러스터 등록</span><span class="lang-en">ArgoCD Cluster Registration</span></h4>
+<pre><code><span class="hl-cm"># Green 클러스터를 ArgoCD에 등록</span>
+argocd cluster add \
+  arn:aws:eks:us-east-1:180294183052:cluster/multi-region-mall-green \
+  --name green-us-east-1
+
+<span class="hl-cm"># 클러스터 라벨 추가 (ApplicationSet용)</span>
+argocd cluster set green-us-east-1 \
+  --label region=us-east-1 \
+  --label cluster-color=green \
+  --label environment=production</code><span class="code-label">bash</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">멀티 리전 Blue/Green 팁</span><span class="lang-en">Multi-Region Blue/Green Tip</span></strong>
+                            <span class="lang-ko">멀티 리전 환경에서는 Secondary 리전(us-west-2)을 먼저 Blue/Green으로 전환하세요.
+                            문제 발생 시 Route53 가중치 라우팅으로 Primary로 100% 전환하여 즉시 롤백 가능합니다.</span><span class="lang-en">In multi-region environments, switch the Secondary region (us-west-2) first via Blue/Green.
+                            If issues occur, you can instantly rollback by shifting Route53 weighted routing 100% to Primary.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 3: PDB ===== -->
+                <h2 id="pdb"><span class="lang-ko">Pod Disruption Budget</span><span class="lang-en">Pod Disruption Budget</span></h2>
+
+                <div class="tech-card" data-tag="Operations">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">PDB로 업그레이드 중 가용성 보장</span><span class="lang-en">Ensuring Availability During Upgrades with PDB</span></span>
+                        <span class="tech-card-tag Operations">Operations</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">PodDisruptionBudget(PDB)은 노드 드레인 시 최소 가용 Pod 수를 보장합니다.
+                            업그레이드 중에도 서비스 가용성을 유지하려면 모든 프로덕션 워크로드에 PDB를 설정하세요.</span><span class="lang-en">PodDisruptionBudget (PDB) ensures minimum available pods during node draining.
+                            Set PDB for all production workloads to maintain service availability during upgrades.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">PDB YAML 예시</span><span class="lang-en">PDB YAML Example</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> policy/v1
+<span class="hl-key">kind:</span> PodDisruptionBudget
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> api-gateway-pdb
+  <span class="hl-key">namespace:</span> platform
+<span class="hl-key">spec:</span>
+  <span class="hl-key">minAvailable:</span> <span class="hl-num">2</span>           <span class="hl-cm"># 최소 2개 Pod 유지</span>
+  <span class="hl-key">selector:</span>
+    <span class="hl-key">matchLabels:</span>
+      <span class="hl-key">app:</span> api-gateway
+---
+<span class="hl-key">apiVersion:</span> policy/v1
+<span class="hl-key">kind:</span> PodDisruptionBudget
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> order-service-pdb
+  <span class="hl-key">namespace:</span> fulfillment
+<span class="hl-key">spec:</span>
+  <span class="hl-key">maxUnavailable:</span> <span class="hl-num">1</span>        <span class="hl-cm"># 최대 1개만 중단 허용</span>
+  <span class="hl-key">selector:</span>
+    <span class="hl-key">matchLabels:</span>
+      <span class="hl-key">app:</span> order-service</code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">minAvailable vs maxUnavailable 선택 기준</span><span class="lang-en">Choosing minAvailable vs maxUnavailable</span></strong>
+                            <ul style="margin:8px 0 0 20px;">
+                                <li><span class="lang-ko"><code>minAvailable</code>: 레플리카 수가 고정된 경우 (예: 항상 3개 중 2개 이상 필요)</span><span class="lang-en"><code>minAvailable</code>: When replica count is fixed (e.g., need at least 2 of 3)</span></li>
+                                <li><span class="lang-ko"><code>maxUnavailable</code>: 레플리카가 오토스케일링되는 경우 (HPA 사용 시 권장)</span><span class="lang-en"><code>maxUnavailable</code>: When replicas autoscale (recommended with HPA)</span></li>
+                                <li><span class="lang-ko"><strong>주의:</strong> <code>minAvailable: 100%</code>는 드레인을 완전히 차단합니다!</span><span class="lang-en"><strong>Warning:</strong> <code>minAvailable: 100%</code> completely blocks draining!</span></li>
+                            </ul>
+                        </div>
+
+                        <h4><span class="lang-ko">PDB 상태 확인</span><span class="lang-en">Check PDB Status</span></h4>
+<pre><code><span class="hl-cm"># 모든 PDB 상태 확인</span>
+kubectl get pdb -A
+
+<span class="hl-cm"># 드레인 차단 PDB 찾기 (disruptionsAllowed=0)</span>
+kubectl get pdb -A -o json | jq -r '
+  .items[] |
+  select(.status.disruptionsAllowed == 0) |
+  "\(.metadata.namespace)/\(.metadata.name): BLOCKED"
+'</code><span class="code-label">bash</span></pre>
+                    </div>
+                </div>
+
+                <!-- ===== Section 4: Multi-Region Order ===== -->
+                <h2 id="multi-region-order"><span class="lang-ko">멀티 리전 업그레이드 순서</span><span class="lang-en">Multi-Region Upgrade Order</span></h2>
+
+                <div class="tech-card" data-tag="Architecture">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Secondary → Primary 순차 업그레이드</span><span class="lang-en">Sequential Upgrade: Secondary → Primary</span></span>
+                        <span class="tech-card-tag Architecture">Architecture</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">멀티 리전 환경에서는 반드시 Secondary 리전을 먼저 업그레이드합니다.
+                            트래픽 비중이 낮은 리전에서 충분히 검증한 후 Primary를 업그레이드하여 리스크를 최소화합니다.</span><span class="lang-en">In multi-region environments, always upgrade the Secondary region first.
+                            Validate thoroughly in the lower-traffic region before upgrading Primary to minimize risk.</span>
+                        </p>
+
+                        <!-- Upgrade Flow Diagram -->
+                        <div style="margin: 16px 0;">
+                            <svg width="100%" viewBox="0 0 700 200" style="max-width: 700px;">
+                                <rect width="700" height="200" fill="var(--bg-card)" rx="8"/>
+
+                                <!-- Step 1: us-west-2 -->
+                                <g>
+                                    <rect x="30" y="70" width="140" height="70" rx="8" fill="var(--bg-inset)" stroke="var(--color-west)" stroke-width="2"/>
+                                    <text x="100" y="95" text-anchor="middle" fill="var(--color-west)" font-size="12" font-weight="600">us-west-2</text>
+                                    <text x="100" y="112" text-anchor="middle" fill="var(--text-secondary)" font-size="10">Secondary</text>
+                                    <text x="100" y="128" text-anchor="middle" fill="var(--tag-operations)" font-size="10">Upgrade First</text>
+                                </g>
+
+                                <!-- Arrow 1 -->
+                                <path d="M175 105 L215 105" stroke="var(--border-strong)" stroke-width="2" marker-end="url(#arrow-upgrade)"/>
+
+                                <!-- Step 2: 24h Observe -->
+                                <g>
+                                    <rect x="220" y="70" width="140" height="70" rx="8" fill="var(--bg-inset)" stroke="var(--tag-observability)" stroke-width="2"/>
+                                    <text x="290" y="95" text-anchor="middle" fill="var(--tag-observability)" font-size="12" font-weight="600">24h+ Observe</text>
+                                    <text x="290" y="112" text-anchor="middle" fill="var(--text-secondary)" font-size="10">Canary Validation</text>
+                                    <text x="290" y="128" text-anchor="middle" fill="var(--text-muted)" font-size="10">Metrics/Logs/Alarms</text>
+                                </g>
+
+                                <!-- Arrow 2 -->
+                                <path d="M365 105 L405 105" stroke="var(--border-strong)" stroke-width="2" marker-end="url(#arrow-upgrade)"/>
+
+                                <!-- Step 3: us-east-1 -->
+                                <g>
+                                    <rect x="410" y="70" width="140" height="70" rx="8" fill="var(--bg-inset)" stroke="var(--color-east)" stroke-width="2"/>
+                                    <text x="480" y="95" text-anchor="middle" fill="var(--color-east)" font-size="12" font-weight="600">us-east-1</text>
+                                    <text x="480" y="112" text-anchor="middle" fill="var(--text-secondary)" font-size="10">Primary</text>
+                                    <text x="480" y="128" text-anchor="middle" fill="var(--tag-operations)" font-size="10">Upgrade Second</text>
+                                </g>
+
+                                <!-- Arrow 3 -->
+                                <path d="M555 105 L595 105" stroke="var(--border-strong)" stroke-width="2" marker-end="url(#arrow-upgrade)"/>
+
+                                <!-- Step 4: Complete -->
+                                <g>
+                                    <rect x="600" y="70" width="80" height="70" rx="8" fill="var(--bg-inset)" stroke="var(--accent)" stroke-width="2"/>
+                                    <text x="640" y="100" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">Complete</text>
+                                    <text x="640" y="118" text-anchor="middle" fill="var(--text-muted)" font-size="10">Both v1.35</text>
+                                </g>
+
+                                <!-- Arrow marker -->
+                                <defs>
+                                    <marker id="arrow-upgrade" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="var(--border-strong)"/>
+                                    </marker>
+                                </defs>
+
+                                <!-- Labels -->
+                                <text x="100" y="165" text-anchor="middle" fill="var(--text-muted)" font-size="10">Day 1</text>
+                                <text x="290" y="165" text-anchor="middle" fill="var(--text-muted)" font-size="10">Day 1-2</text>
+                                <text x="480" y="165" text-anchor="middle" fill="var(--text-muted)" font-size="10">Day 2-3</text>
+                                <text x="640" y="165" text-anchor="middle" fill="var(--text-muted)" font-size="10">Day 3+</text>
+                            </svg>
+                        </div>
+
+                        <h4><span class="lang-ko">리전간 업그레이드 체크리스트</span><span class="lang-en">Cross-Region Upgrade Checklist</span></h4>
+                        <ol>
+                            <li><strong><span class="lang-ko">Secondary (us-west-2) 업그레이드</span><span class="lang-en">Upgrade Secondary (us-west-2)</span></strong>
+                                <ul>
+                                    <li><span class="lang-ko">Control Plane → Add-ons → Node Groups 순서</span><span class="lang-en">Order: Control Plane → Add-ons → Node Groups</span></li>
+                                    <li><span class="lang-ko">Route53 가중치: us-west-2 10%, us-east-1 90% (선택)</span><span class="lang-en">Route53 weights: us-west-2 10%, us-east-1 90% (optional)</span></li>
+                                </ul>
+                            </li>
+                            <li><strong><span class="lang-ko">24시간 안정화 관찰</span><span class="lang-en">24-hour stabilization observation</span></strong>
+                                <ul>
+                                    <li><span class="lang-ko">에러율, 레이턴시, Pod 재시작 모니터링</span><span class="lang-en">Monitor error rate, latency, pod restarts</span></li>
+                                    <li><span class="lang-ko">CloudWatch Alarms, Grafana 대시보드 확인</span><span class="lang-en">Check CloudWatch Alarms, Grafana dashboards</span></li>
+                                </ul>
+                            </li>
+                            <li><strong><span class="lang-ko">Primary (us-east-1) 업그레이드</span><span class="lang-en">Upgrade Primary (us-east-1)</span></strong>
+                                <ul>
+                                    <li><span class="lang-ko">Secondary 검증 완료 후에만 진행</span><span class="lang-en">Proceed only after Secondary validation</span></li>
+                                    <li><span class="lang-ko">업무 시간 외 (주말 또는 야간) 권장</span><span class="lang-en">Recommended outside business hours (weekend or night)</span></li>
+                                </ul>
+                            </li>
+                            <li><strong><span class="lang-ko">Add-on 버전 동기화 확인</span><span class="lang-en">Verify Add-on version sync</span></strong>
+                                <ul>
+                                    <li><span class="lang-ko">양 리전 Add-on 버전 일치 확인</span><span class="lang-en">Confirm Add-on versions match in both regions</span></li>
+                                    <li><span class="lang-ko">eksbuild suffix는 리전별로 다를 수 있음</span><span class="lang-en">eksbuild suffix may differ by region</span></li>
+                                </ul>
+                            </li>
+                        </ol>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">롤백 전략</span><span class="lang-en">Rollback Strategy</span></strong>
+                            <span class="lang-ko">Secondary 업그레이드 중 문제 발생 시, Route53 가중치를 us-east-1 100%로 즉시 전환하세요.
+                            EKS Control Plane은 다운그레이드가 불가능하므로, 심각한 문제 시 새 클러스터 생성이 필요합니다.</span><span class="lang-en">If issues occur during Secondary upgrade, immediately shift Route53 weights to 100% us-east-1.
+                            EKS Control Plane cannot be downgraded, so serious issues require creating a new cluster.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="eks-operations.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; <span class="lang-ko">EKS 운영</span><span class="lang-en">EKS Operations</span></span></a>
+                    <a href="eks-autoscaling.html" class="next"><span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">오토스케일링</span><span class="lang-en">Autoscaling</span> &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
+            <a href="#in-place" class="toc-link"><span class="lang-ko">In-place 업그레이드</span><span class="lang-en">In-place Upgrade</span></a>
+            <a href="#blue-green" class="toc-link"><span class="lang-ko">Blue/Green 업그레이드</span><span class="lang-en">Blue/Green Upgrade</span></a>
+            <a href="#pdb" class="toc-link"><span class="lang-ko">Pod Disruption Budget</span><span class="lang-en">Pod Disruption Budget</span></a>
+            <a href="#multi-region-order" class="toc-link"><span class="lang-ko">멀티 리전 순서</span><span class="lang-en">Multi-Region Order</span></a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

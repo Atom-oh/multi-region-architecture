@@ -187,6 +187,50 @@ a:hover { text-decoration: underline; }
   color: #fff;
 }
 
+/* --- Sidebar Submenu (GitBook-style collapsible) --- */
+.sidebar-submenu .submenu-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  cursor: pointer;
+}
+.sidebar-submenu .submenu-chevron {
+  width: 14px; height: 14px;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+.sidebar-submenu.open .submenu-chevron {
+  transform: rotate(90deg);
+}
+.submenu-items {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+.sidebar-submenu.open .submenu-items {
+  max-height: 400px;
+}
+.submenu-items a {
+  display: block;
+  padding: 5px 12px 5px 42px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+.submenu-items a:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.submenu-items a.active {
+  color: var(--accent);
+  font-weight: 600;
+  background: var(--sidebar-active-bg);
+}
+
 .sidebar-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border);

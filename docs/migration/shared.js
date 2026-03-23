@@ -53,10 +53,20 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
                     <span class="lang-ko">GIS 경로 캐시</span><span class="lang-en">GIS Route Cache</span>
                 </a>
-                <a href="eks-operations.html" class="sidebar-link${isActive('eks-operations.html')}">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
-                    <span class="lang-ko">EKS 운영</span><span class="lang-en">EKS Operations</span>
-                </a>
+                <div class="sidebar-submenu${currentPage.startsWith('eks-') ? ' open' : ''}">
+                    <a href="eks-operations.html" class="sidebar-link${isActive('eks-operations.html')}" onclick="toggleSubmenu(event, this)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+                        <span class="submenu-toggle"><span><span class="lang-ko">EKS 운영</span><span class="lang-en">EKS Operations</span></span><svg class="submenu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
+                    </a>
+                    <div class="submenu-items">
+                        <a href="eks-upgrade.html" class="${isActive('eks-upgrade.html').trim()}"><span class="lang-ko">업그레이드 전략</span><span class="lang-en">Upgrade Strategy</span></a>
+                        <a href="eks-autoscaling.html" class="${isActive('eks-autoscaling.html').trim()}"><span class="lang-ko">오토스케일링</span><span class="lang-en">Autoscaling</span></a>
+                        <a href="eks-observability.html" class="${isActive('eks-observability.html').trim()}">Observability</a>
+                        <a href="eks-networking.html" class="${isActive('eks-networking.html').trim()}"><span class="lang-ko">네트워킹</span><span class="lang-en">Networking</span></a>
+                        <a href="eks-security.html" class="${isActive('eks-security.html').trim()}"><span class="lang-ko">보안</span><span class="lang-en">Security</span></a>
+                        <a href="eks-cost.html" class="${isActive('eks-cost.html').trim()}"><span class="lang-ko">비용 최적화</span><span class="lang-en">Cost Optimization</span></a>
+                    </div>
+                </div>
                 <a href="msk-operations.html" class="sidebar-link${isActive('msk-operations.html')}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                     <span class="lang-ko">MSK 운영</span><span class="lang-en">MSK Operations</span>
@@ -95,6 +105,18 @@
     }
 
     // === Shared functions ===
+    window.toggleSubmenu = function(e, el) {
+        const submenu = el.closest('.sidebar-submenu');
+        if (submenu) {
+            // If clicking the chevron area, toggle without navigating
+            if (e.target.closest('.submenu-chevron') || e.target.closest('.submenu-toggle')) {
+                e.preventDefault();
+                submenu.classList.toggle('open');
+            }
+            // Otherwise, navigate to href normally and keep open
+        }
+    };
+
     window.toggleTechCard = function(header) {
         const body = header.nextElementSibling;
         const chevron = header.querySelector('.chevron-icon');

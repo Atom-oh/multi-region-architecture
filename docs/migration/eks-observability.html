@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EKS Observability - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span><span class="lang-ko">Observability</span><span class="lang-en">Observability</span></span></div>
+
+                <h1><span class="lang-ko">EKS Observability</span><span class="lang-en">EKS Observability</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">On-Prem Nagios/Zabbix에서 클라우드 네이티브 관측성 스택으로 전환합니다.
+                    Metrics(Prometheus), Traces(OTel+Tempo), Logs(FluentBit+CloudWatch)의 3 Pillars를 통합하여 마이크로서비스를 모니터링합니다.</span><span class="lang-en">Transition from On-Prem Nagios/Zabbix to cloud-native observability stack.
+                    Monitor microservices by integrating 3 Pillars: Metrics (Prometheus), Traces (OTel+Tempo), and Logs (FluentBit+CloudWatch).</span>
+                </p>
+
+                <!-- ===== Section 1: Overview ===== -->
+                <h2 id="overview"><span class="lang-ko">관측성 스택 개요</span><span class="lang-en">Observability Stack Overview</span></h2>
+
+                <p>
+                    <span class="lang-ko">클라우드 네이티브 환경에서는 메트릭, 트레이스, 로그의 3가지 신호를 통합하여 시스템을 관측합니다.
+                    각 신호는 서로 다른 관점에서 정보를 제공하며, 상관관계 분석을 통해 문제를 빠르게 진단합니다.</span><span class="lang-en">In cloud-native environments, observe systems by integrating 3 signals: metrics, traces, and logs.
+                    Each signal provides information from different perspectives, enabling fast diagnosis through correlation analysis.</span>
+                </p>
+
+                <table class="info-table">
+                    <thead>
+                        <tr>
+                            <th>Pillar</th>
+                            <th><span class="lang-ko">도구</span><span class="lang-en">Tools</span></th>
+                            <th><span class="lang-ko">수집 방식</span><span class="lang-en">Collection Method</span></th>
+                            <th><span class="lang-ko">저장소</span><span class="lang-en">Storage</span></th>
+                            <th><span class="lang-ko">용도</span><span class="lang-en">Purpose</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Metrics</strong></td>
+                            <td>Prometheus + Grafana</td>
+                            <td>Pull (scrape)</td>
+                            <td>AMP / TSDB</td>
+                            <td><span class="lang-ko">시계열 데이터, 대시보드, 알림</span><span class="lang-en">Time-series data, dashboards, alerting</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Traces</strong></td>
+                            <td>OTel Collector + Tempo + X-Ray</td>
+                            <td>Push (OTLP)</td>
+                            <td>S3 (Tempo) / X-Ray</td>
+                            <td><span class="lang-ko">분산 트레이싱, 레이턴시 분석</span><span class="lang-en">Distributed tracing, latency analysis</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Logs</strong></td>
+                            <td>FluentBit + CloudWatch Logs</td>
+                            <td>Push (agent)</td>
+                            <td>CloudWatch / S3</td>
+                            <td><span class="lang-ko">이벤트 로그, 디버깅, 감사</span><span class="lang-en">Event logs, debugging, audit</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout info" style="margin-top:12px;">
+                    <strong><span class="lang-ko">On-Prem vs EKS 모니터링 비교</span><span class="lang-en">On-Prem vs EKS Monitoring Comparison</span></strong>
+                    <span class="lang-ko">On-Prem에서는 Nagios/Zabbix로 호스트 기반 모니터링을 했지만, EKS에서는 Pod가 동적으로 생성/삭제됩니다.
+                    서비스 디스커버리 기반의 Prometheus와 분산 트레이싱이 필수이며, 로그도 중앙 집중화해야 합니다.</span><span class="lang-en">On-Prem used host-based monitoring with Nagios/Zabbix, but in EKS, Pods are dynamically created/deleted.
+                    Service discovery-based Prometheus and distributed tracing are essential, and logs must be centralized.</span>
+                </div>
+
+                <!-- ===== Section 2: Metrics ===== -->
+                <h2 id="metrics"><span class="lang-ko">메트릭 파이프라인</span><span class="lang-en">Metrics Pipeline</span></h2>
+
+                <div class="tech-card" data-tag="Observability">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Prometheus + Grafana 메트릭 수집</span><span class="lang-en">Prometheus + Grafana Metrics Collection</span></span>
+                        <span class="tech-card-tag Observability">Observability</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Prometheus는 Pull 기반으로 타겟의 /metrics 엔드포인트를 스크래핑하여 시계열 데이터를 수집합니다.
+                            Kubernetes 환경에서는 ServiceMonitor/PodMonitor CRD로 스크래핑 대상을 선언적으로 관리합니다.</span><span class="lang-en">Prometheus collects time-series data by scraping target's /metrics endpoints using Pull model.
+                            In Kubernetes, ServiceMonitor/PodMonitor CRDs declaratively manage scraping targets.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">kube-prometheus-stack 설치</span><span class="lang-en">kube-prometheus-stack Installation</span></h4>
+<pre><code><span class="hl-cm"># Helm으로 설치</span>
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace \
+  --set prometheus.prometheusSpec.replicas=2 \
+  --set prometheus.prometheusSpec.retention=15d \
+  --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName=gp3 \
+  --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi</code><span class="code-label">bash</span></pre>
+
+                        <h4><span class="lang-ko">AMP (Amazon Managed Prometheus) 옵션</span><span class="lang-en">AMP (Amazon Managed Prometheus) Option</span></h4>
+                        <p><span class="lang-ko">장기 보존(150일)과 운영 부담 최소화가 필요하면 AMP를 사용합니다. Prometheus는 remote_write로 AMP에 메트릭을 전송합니다.</span><span class="lang-en">Use AMP for long-term retention (150 days) and minimal operational overhead. Prometheus sends metrics to AMP via remote_write.</span></p>
+<pre><code><span class="hl-key">prometheus:</span>
+  <span class="hl-key">prometheusSpec:</span>
+    <span class="hl-key">remoteWrite:</span>
+      - <span class="hl-key">url:</span> https://aps-workspaces.us-east-1.amazonaws.com/workspaces/ws-xxx/api/v1/remote_write
+        <span class="hl-key">sigv4:</span>
+          <span class="hl-key">region:</span> us-east-1
+        <span class="hl-key">queueConfig:</span>
+          <span class="hl-key">maxSamplesPerSend:</span> <span class="hl-num">1000</span>
+          <span class="hl-key">maxShards:</span> <span class="hl-num">200</span>
+          <span class="hl-key">capacity:</span> <span class="hl-num">2500</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">ServiceMonitor 예시</span><span class="lang-en">ServiceMonitor Example</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> monitoring.coreos.com/v1
+<span class="hl-key">kind:</span> ServiceMonitor
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> api-gateway
+  <span class="hl-key">namespace:</span> monitoring
+<span class="hl-key">spec:</span>
+  <span class="hl-key">selector:</span>
+    <span class="hl-key">matchLabels:</span>
+      <span class="hl-key">app:</span> api-gateway
+  <span class="hl-key">namespaceSelector:</span>
+    <span class="hl-key">matchNames:</span>
+      - platform
+  <span class="hl-key">endpoints:</span>
+    - <span class="hl-key">port:</span> metrics
+      <span class="hl-key">interval:</span> 30s
+      <span class="hl-key">path:</span> /metrics</code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Recording Rules로 성능 최적화</span><span class="lang-en">Performance Optimization with Recording Rules</span></strong>
+                            <span class="lang-ko">복잡한 PromQL 쿼리는 Recording Rules로 사전 계산하여 대시보드 로딩 시간을 단축합니다.
+                            <code>namespace:container_cpu_usage_seconds_total:sum_rate</code> 같은 집계 메트릭을 미리 계산해 두세요.</span><span class="lang-en">Pre-compute complex PromQL queries with Recording Rules to reduce dashboard loading time.
+                            Pre-calculate aggregate metrics like <code>namespace:container_cpu_usage_seconds_total:sum_rate</code>.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 3: Tracing ===== -->
+                <h2 id="tracing"><span class="lang-ko">분산 트레이싱</span><span class="lang-en">Distributed Tracing</span></h2>
+
+                <div class="tech-card" data-tag="Observability">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">OTel Collector + Tempo 분산 트레이싱</span><span class="lang-en">OTel Collector + Tempo Distributed Tracing</span></span>
+                        <span class="tech-card-tag Observability">Observability</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">마이크로서비스 간 호출을 추적하여 레이턴시 병목을 찾습니다.
+                            OTel Collector가 애플리케이션에서 트레이스를 수집하고, Tempo(S3 백엔드)와 X-Ray에 동시 전송합니다.</span><span class="lang-en">Track calls between microservices to find latency bottlenecks.
+                            OTel Collector collects traces from applications and sends them to both Tempo (S3 backend) and X-Ray.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">OTel Collector DaemonSet 구성</span><span class="lang-en">OTel Collector DaemonSet Configuration</span></h4>
+                        <p><span class="lang-ko">각 노드에서 트레이스를 수집하여 Tempo와 X-Ray로 듀얼 export합니다.</span><span class="lang-en">Collect traces from each node and dual export to Tempo and X-Ray.</span></p>
+<pre><code><span class="hl-key">exporters:</span>
+  <span class="hl-key">otlp/tempo:</span>
+    <span class="hl-key">endpoint:</span> tempo-distributor.tempo.svc:4317
+    <span class="hl-key">tls:</span>
+      <span class="hl-key">insecure:</span> <span class="hl-num">true</span>
+  <span class="hl-key">awsxray:</span>
+    <span class="hl-key">region:</span> us-east-1
+    <span class="hl-key">indexed:</span> <span class="hl-num">true</span>
+
+<span class="hl-key">service:</span>
+  <span class="hl-key">pipelines:</span>
+    <span class="hl-key">traces:</span>
+      <span class="hl-key">receivers:</span> [otlp]
+      <span class="hl-key">processors:</span> [memory_limiter, batch, tail_sampling]
+      <span class="hl-key">exporters:</span> [otlp/tempo, awsxray]</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Tail-based Sampling 전략</span><span class="lang-en">Tail-based Sampling Strategy</span></h4>
+                        <p><span class="lang-ko">모든 트레이스를 저장하면 비용이 급증합니다. 에러와 느린 요청은 100% 샘플링하고, 정상 요청은 10%만 샘플링합니다.</span><span class="lang-en">Storing all traces causes cost explosion. Sample 100% of errors and slow requests, but only 10% of normal requests.</span></p>
+<pre><code><span class="hl-key">processors:</span>
+  <span class="hl-key">tail_sampling:</span>
+    <span class="hl-key">decision_wait:</span> 30s
+    <span class="hl-key">num_traces:</span> <span class="hl-num">100000</span>
+    <span class="hl-key">policies:</span>
+      <span class="hl-cm"># 에러는 100% 샘플링</span>
+      - <span class="hl-key">name:</span> errors-policy
+        <span class="hl-key">type:</span> status_code
+        <span class="hl-key">status_code:</span>
+          <span class="hl-key">status_codes:</span> [ERROR]
+      <span class="hl-cm"># 500ms 이상 느린 요청 100% 샘플링</span>
+      - <span class="hl-key">name:</span> latency-policy
+        <span class="hl-key">type:</span> latency
+        <span class="hl-key">latency:</span>
+          <span class="hl-key">threshold_ms:</span> <span class="hl-num">500</span>
+      <span class="hl-cm"># 나머지는 10% 샘플링</span>
+      - <span class="hl-key">name:</span> probabilistic-policy
+        <span class="hl-key">type:</span> probabilistic
+        <span class="hl-key">probabilistic:</span>
+          <span class="hl-key">sampling_percentage:</span> <span class="hl-num">10</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Grafana Tempo TraceQL 쿼리</span><span class="lang-en">Grafana Tempo TraceQL Query</span></h4>
+<pre><code><span class="hl-cm"># 특정 서비스의 에러 트레이스 찾기</span>
+{ resource.service.name = "payment-service" && status = error }
+
+<span class="hl-cm"># 2초 이상 걸린 API Gateway 요청</span>
+{ resource.service.name = "api-gateway" && duration > 2s }
+
+<span class="hl-cm"># 서비스 간 호출 패턴 분석</span>
+{ resource.service.name = "order-service" } >> { resource.service.name = "inventory-service" }</code><span class="code-label">traceql</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Trace-to-Log 연동</span><span class="lang-en">Trace-to-Log Correlation</span></strong>
+                            <span class="lang-ko">애플리케이션 로그에 trace_id를 포함시키면 Grafana에서 트레이스 → 로그 연동이 가능합니다.
+                            Java MDC, Python structlog 등으로 trace_id를 자동 주입하세요.</span><span class="lang-en">Include trace_id in application logs to enable trace-to-log correlation in Grafana.
+                            Auto-inject trace_id using Java MDC, Python structlog, etc.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 4: Logging ===== -->
+                <h2 id="logging"><span class="lang-ko">로그 수집</span><span class="lang-en">Log Collection</span></h2>
+
+                <div class="tech-card" data-tag="Observability">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">FluentBit + CloudWatch Logs 로그 파이프라인</span><span class="lang-en">FluentBit + CloudWatch Logs Pipeline</span></span>
+                        <span class="tech-card-tag Observability">Observability</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">FluentBit DaemonSet이 각 노드에서 컨테이너 로그를 수집하여 CloudWatch Logs로 전송합니다.
+                            경량(~10MB 메모리)이면서 다양한 출력 플러그인을 지원합니다.</span><span class="lang-en">FluentBit DaemonSet collects container logs from each node and sends them to CloudWatch Logs.
+                            Lightweight (~10MB memory) while supporting various output plugins.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">FluentBit 구성</span><span class="lang-en">FluentBit Configuration</span></h4>
+<pre><code><span class="hl-key">[INPUT]</span>
+    <span class="hl-key">Name</span>              tail
+    <span class="hl-key">Tag</span>               kube.*
+    <span class="hl-key">Path</span>              /var/log/containers/*.log
+    <span class="hl-key">Exclude_Path</span>      /var/log/containers/*_kube-system_*.log
+    <span class="hl-key">multiline.parser</span>  docker, cri
+    <span class="hl-key">DB</span>                /var/log/flb_kube.db
+    <span class="hl-key">Mem_Buf_Limit</span>     50MB
+
+<span class="hl-key">[FILTER]</span>
+    <span class="hl-key">Name</span>              kubernetes
+    <span class="hl-key">Match</span>             kube.*
+    <span class="hl-key">Merge_Log</span>         On
+    <span class="hl-key">K8S-Logging.Parser</span> On
+
+<span class="hl-key">[OUTPUT]</span>
+    <span class="hl-key">Name</span>              cloudwatch_logs
+    <span class="hl-key">Match</span>             kube.*
+    <span class="hl-key">region</span>            us-east-1
+    <span class="hl-key">log_group_name</span>    /eks/multi-region-mall/containers
+    <span class="hl-key">log_stream_prefix</span> ${HOST_NAME}-
+    <span class="hl-key">auto_create_group</span> true
+    <span class="hl-key">log_retention_days</span> 30</code><span class="code-label">ini</span></pre>
+
+                        <h4><span class="lang-ko">구조화된 로깅 (JSON format)</span><span class="lang-en">Structured Logging (JSON format)</span></h4>
+                        <p><span class="lang-ko">애플리케이션에서 JSON 형식으로 로그를 출력하면 CloudWatch Logs Insights에서 필드별 쿼리가 가능합니다.</span><span class="lang-en">Output logs in JSON format from applications to enable field-level queries in CloudWatch Logs Insights.</span></p>
+<pre><code><span class="hl-cm">// 권장 로그 포맷</span>
+{
+  <span class="hl-str">"timestamp"</span>: <span class="hl-str">"2026-03-23T10:30:00Z"</span>,
+  <span class="hl-str">"level"</span>: <span class="hl-str">"ERROR"</span>,
+  <span class="hl-str">"service"</span>: <span class="hl-str">"payment-service"</span>,
+  <span class="hl-str">"trace_id"</span>: <span class="hl-str">"abc123def456"</span>,
+  <span class="hl-str">"message"</span>: <span class="hl-str">"Payment failed"</span>,
+  <span class="hl-str">"error"</span>: <span class="hl-str">"InsufficientFunds"</span>,
+  <span class="hl-str">"user_id"</span>: <span class="hl-str">"user-789"</span>
+}</code><span class="code-label">json</span></pre>
+
+                        <h4><span class="lang-ko">로그 보존 정책</span><span class="lang-en">Log Retention Policy</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">로그 유형</span><span class="lang-en">Log Type</span></th>
+                                    <th><span class="lang-ko">보존 기간</span><span class="lang-en">Retention</span></th>
+                                    <th><span class="lang-ko">이유</span><span class="lang-en">Reason</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><span class="lang-ko">애플리케이션 로그</span><span class="lang-en">Application logs</span></td><td>30 days</td><td><span class="lang-ko">디버깅, 장애 분석</span><span class="lang-en">Debugging, incident analysis</span></td></tr>
+                                <tr><td><span class="lang-ko">감사 로그</span><span class="lang-en">Audit logs</span></td><td>365 days</td><td><span class="lang-ko">컴플라이언스, 보안</span><span class="lang-en">Compliance, security</span></td></tr>
+                                <tr><td><span class="lang-ko">시스템 로그</span><span class="lang-en">System logs</span></td><td>7 days</td><td><span class="lang-ko">운영, 트러블슈팅</span><span class="lang-en">Operations, troubleshooting</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ===== Section 5: Alerting ===== -->
+                <h2 id="alerting"><span class="lang-ko">알림</span><span class="lang-en">Alerting</span></h2>
+
+                <div class="tech-card" data-tag="Observability">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Alertmanager + SNS 알림 파이프라인</span><span class="lang-en">Alertmanager + SNS Alert Pipeline</span></span>
+                        <span class="tech-card-tag Observability">Observability</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Prometheus Alertmanager가 알림을 그룹화, 라우팅, 억제합니다.
+                            SNS를 통해 PagerDuty, Slack, 이메일로 알림을 전달합니다.</span><span class="lang-en">Prometheus Alertmanager groups, routes, and suppresses alerts.
+                            Deliver alerts to PagerDuty, Slack, and email via SNS.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">SLO 기반 알림 규칙</span><span class="lang-en">SLO-based Alert Rules</span></h4>
+                        <p><span class="lang-ko">에러율과 레이턴시 P99를 기준으로 SLO 위반 시 알림을 발생시킵니다.</span><span class="lang-en">Trigger alerts when SLO is violated based on error rate and latency P99.</span></p>
+<pre><code><span class="hl-key">apiVersion:</span> monitoring.coreos.com/v1
+<span class="hl-key">kind:</span> PrometheusRule
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> slo-alerts
+  <span class="hl-key">namespace:</span> monitoring
+<span class="hl-key">spec:</span>
+  <span class="hl-key">groups:</span>
+    - <span class="hl-key">name:</span> slo.rules
+      <span class="hl-key">rules:</span>
+        <span class="hl-cm"># 에러율 1% 초과 시 알림</span>
+        - <span class="hl-key">alert:</span> HighErrorRate
+          <span class="hl-key">expr:</span> |
+            sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+            / sum(rate(http_requests_total[5m])) by (service) > 0.01
+          <span class="hl-key">for:</span> 5m
+          <span class="hl-key">labels:</span>
+            <span class="hl-key">severity:</span> warning
+          <span class="hl-key">annotations:</span>
+            <span class="hl-key">summary:</span> <span class="hl-str">"High error rate on {{ $labels.service }}"</span>
+            <span class="hl-key">description:</span> <span class="hl-str">"Error rate is {{ printf \"%.2f\" $value }}%"</span>
+
+        <span class="hl-cm"># P99 레이턴시 2초 초과 시 알림</span>
+        - <span class="hl-key">alert:</span> HighLatencyP99
+          <span class="hl-key">expr:</span> |
+            histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)) > 2
+          <span class="hl-key">for:</span> 5m
+          <span class="hl-key">labels:</span>
+            <span class="hl-key">severity:</span> warning
+          <span class="hl-key">annotations:</span>
+            <span class="hl-key">summary:</span> <span class="hl-str">"High P99 latency on {{ $labels.service }}"</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">알림 라우팅</span><span class="lang-en">Alert Routing</span></h4>
+<pre><code><span class="hl-key">route:</span>
+  <span class="hl-key">receiver:</span> default-slack
+  <span class="hl-key">group_by:</span> [alertname, namespace, severity]
+  <span class="hl-key">group_wait:</span> 30s
+  <span class="hl-key">group_interval:</span> 5m
+  <span class="hl-key">repeat_interval:</span> 4h
+  <span class="hl-key">routes:</span>
+    <span class="hl-cm"># Critical은 PagerDuty로</span>
+    - <span class="hl-key">match:</span>
+        <span class="hl-key">severity:</span> critical
+      <span class="hl-key">receiver:</span> pagerduty-critical
+      <span class="hl-key">group_wait:</span> 10s
+      <span class="hl-key">repeat_interval:</span> 1h
+    <span class="hl-cm"># Warning은 Slack으로</span>
+    - <span class="hl-key">match:</span>
+        <span class="hl-key">severity:</span> warning
+      <span class="hl-key">receiver:</span> slack-warnings</code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Alert Fatigue 방지</span><span class="lang-en">Preventing Alert Fatigue</span></strong>
+                            <span class="lang-ko">너무 많은 알림은 무시로 이어집니다. 심각도를 명확히 분류하고, 중복 알림은 그룹화하세요.
+                            Critical은 즉시 대응이 필요한 경우만, Warning은 근무 시간 내 대응, Info는 대시보드에서만 확인합니다.</span><span class="lang-en">Too many alerts lead to being ignored. Clearly classify severity and group duplicate alerts.
+                            Critical only for immediate response, Warning for business hours response, Info only visible in dashboards.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="eks-autoscaling.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; <span class="lang-ko">오토스케일링</span><span class="lang-en">Autoscaling</span></span></a>
+                    <a href="eks-networking.html" class="next"><span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">EKS 네트워킹</span><span class="lang-en">EKS Networking</span> &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
+            <a href="#overview" class="toc-link"><span class="lang-ko">스택 개요</span><span class="lang-en">Stack Overview</span></a>
+            <a href="#metrics" class="toc-link"><span class="lang-ko">메트릭 파이프라인</span><span class="lang-en">Metrics Pipeline</span></a>
+            <a href="#tracing" class="toc-link"><span class="lang-ko">분산 트레이싱</span><span class="lang-en">Distributed Tracing</span></a>
+            <a href="#logging" class="toc-link"><span class="lang-ko">로그 수집</span><span class="lang-en">Log Collection</span></a>
+            <a href="#alerting" class="toc-link"><span class="lang-ko">알림</span><span class="lang-en">Alerting</span></a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

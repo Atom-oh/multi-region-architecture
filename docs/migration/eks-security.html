@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EKS Security - On-Prem to AWS Migration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="doc-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="doc-main">
+            <div class="doc-content">
+                <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span><span class="lang-ko">EKS 보안</span><span class="lang-en">EKS Security</span></span></div>
+
+                <h1><span class="lang-ko">EKS 보안</span><span class="lang-en">EKS Security</span></h1>
+                <p class="lead">
+                    <span class="lang-ko">On-Prem Kubernetes RBAC 기반 보안에서 AWS IAM 통합 보안 모델로 전환합니다.
+                    IRSA/Pod Identity로 세밀한 권한 관리를 구현하고, Pod Security Standards로 워크로드를 보호합니다.</span><span class="lang-en">Transition from On-Prem Kubernetes RBAC-based security to AWS IAM integrated security model.
+                    Implement fine-grained permission management with IRSA/Pod Identity and protect workloads with Pod Security Standards.</span>
+                </p>
+
+                <!-- ===== Section 1: IRSA & Pod Identity ===== -->
+                <h2 id="irsa"><span class="lang-ko">IRSA & Pod Identity</span><span class="lang-en">IRSA & Pod Identity</span></h2>
+
+                <div class="tech-card" data-tag="Security">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">IRSA & EKS Pod Identity - Pod 레벨 AWS 권한 관리</span><span class="lang-en">IRSA & EKS Pod Identity - Pod-Level AWS Permission Management</span></span>
+                        <span class="tech-card-tag Security">Security</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">On-Prem에서는 Kubernetes ServiceAccount만으로 권한을 관리했지만, EKS에서는 IRSA(IAM Roles for Service Accounts)를 통해 Pod에 AWS IAM Role을 직접 연결합니다.
+                            노드 역할 대신 Pod 단위로 최소 권한 원칙을 적용할 수 있습니다.</span><span class="lang-en">While On-Prem managed permissions with Kubernetes ServiceAccount alone, EKS uses IRSA (IAM Roles for Service Accounts) to directly associate AWS IAM Roles with Pods.
+                            Apply least privilege principle at Pod level instead of node role.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">IRSA vs Pod Identity vs Node Role 비교</span><span class="lang-en">IRSA vs Pod Identity vs Node Role Comparison</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">특성</span><span class="lang-en">Feature</span></th>
+                                    <th>Node Role</th>
+                                    <th>IRSA</th>
+                                    <th>Pod Identity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="lang-ko">권한 범위</span><span class="lang-en">Permission Scope</span></td>
+                                    <td><span class="lang-ko">노드의 모든 Pod</span><span class="lang-en">All Pods on node</span></td>
+                                    <td><span class="lang-ko">ServiceAccount 단위</span><span class="lang-en">Per ServiceAccount</span></td>
+                                    <td><span class="lang-ko">ServiceAccount 단위</span><span class="lang-en">Per ServiceAccount</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">설정 복잡도</span><span class="lang-en">Setup Complexity</span></td>
+                                    <td><span class="lang-ko">낮음</span><span class="lang-en">Low</span></td>
+                                    <td><span class="lang-ko">중간 (OIDC 설정)</span><span class="lang-en">Medium (OIDC setup)</span></td>
+                                    <td><span class="lang-ko">낮음</span><span class="lang-en">Low</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">Cross-Account</span><span class="lang-en">Cross-Account</span></td>
+                                    <td><span class="lang-ko">복잡</span><span class="lang-en">Complex</span></td>
+                                    <td><span class="lang-ko">Trust Policy 필요</span><span class="lang-en">Trust Policy required</span></td>
+                                    <td><span class="lang-ko">간편</span><span class="lang-en">Simple</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">역할 재사용</span><span class="lang-en">Role Reuse</span></td>
+                                    <td><span class="lang-ko">클러스터 단위</span><span class="lang-en">Per cluster</span></td>
+                                    <td><span class="lang-ko">클러스터별 설정</span><span class="lang-en">Per-cluster setup</span></td>
+                                    <td><span class="lang-ko">클러스터 간 재사용</span><span class="lang-en">Cross-cluster reuse</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="lang-ko">권장</span><span class="lang-en">Recommended</span></td>
+                                    <td><span class="lang-ko">비권장</span><span class="lang-en">Not recommended</span></td>
+                                    <td><span class="lang-ko">기존 클러스터</span><span class="lang-en">Existing clusters</span></td>
+                                    <td><span class="lang-ko">신규 클러스터</span><span class="lang-en">New clusters</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">IRSA 설정 (Terraform)</span><span class="lang-en">IRSA Setup (Terraform)</span></h4>
+<pre><code><span class="hl-cm"># IRSA IAM Role with OIDC Trust Policy</span>
+<span class="hl-key">resource</span> <span class="hl-str">"aws_iam_role"</span> <span class="hl-str">"s3_reader"</span> {
+  name = <span class="hl-str">"eks-s3-reader-role"</span>
+
+  assume_role_policy = jsonencode({
+    Version = <span class="hl-str">"2012-10-17"</span>
+    Statement = [{
+      Effect = <span class="hl-str">"Allow"</span>
+      Principal = {
+        Federated = aws_iam_openid_connect_provider.eks.arn
+      }
+      Action = <span class="hl-str">"sts:AssumeRoleWithWebIdentity"</span>
+      Condition = {
+        StringEquals = {
+          <span class="hl-str">"${local.oidc_provider}:sub"</span> = <span class="hl-str">"system:serviceaccount:production:s3-reader-sa"</span>
+          <span class="hl-str">"${local.oidc_provider}:aud"</span> = <span class="hl-str">"sts.amazonaws.com"</span>
+        }
+      }
+    }]
+  })
+}
+
+<span class="hl-key">resource</span> <span class="hl-str">"aws_iam_role_policy_attachment"</span> <span class="hl-str">"s3_read"</span> {
+  role       = aws_iam_role.s3_reader.name
+  policy_arn = <span class="hl-str">"arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"</span>
+}</code><span class="code-label">hcl</span></pre>
+
+                        <h4><span class="lang-ko">ServiceAccount 연결</span><span class="lang-en">ServiceAccount Association</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> v1
+<span class="hl-key">kind:</span> ServiceAccount
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> s3-reader-sa
+  <span class="hl-key">namespace:</span> production
+  <span class="hl-key">annotations:</span>
+    <span class="hl-key">eks.amazonaws.com/role-arn:</span> arn:aws:iam::180294183052:role/eks-s3-reader-role
+---
+<span class="hl-key">apiVersion:</span> apps/v1
+<span class="hl-key">kind:</span> Deployment
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> data-processor
+<span class="hl-key">spec:</span>
+  <span class="hl-key">template:</span>
+    <span class="hl-key">spec:</span>
+      <span class="hl-key">serviceAccountName:</span> s3-reader-sa  <span class="hl-cm"># IRSA 자동 적용</span>
+      <span class="hl-key">containers:</span>
+        - <span class="hl-key">name:</span> processor
+          <span class="hl-key">image:</span> data-processor:latest
+          <span class="hl-cm"># AWS SDK가 자동으로 IRSA 자격증명 사용</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">EKS Pod Identity (신규 방식)</span><span class="lang-en">EKS Pod Identity (New Method)</span></h4>
+<pre><code><span class="hl-cm"># Install Pod Identity Agent addon</span>
+aws eks create-addon \
+  --cluster-name multi-region-mall \
+  --addon-name eks-pod-identity-agent
+
+<span class="hl-cm"># Create Pod Identity Association</span>
+aws eks create-pod-identity-association \
+  --cluster-name multi-region-mall \
+  --namespace production \
+  --service-account s3-reader-sa \
+  --role-arn arn:aws:iam::180294183052:role/eks-s3-reader-role</code><span class="code-label">bash</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">IRSA에서 Pod Identity로 마이그레이션</span><span class="lang-en">Migration from IRSA to Pod Identity</span></strong>
+                            <span class="lang-ko">기존 IRSA를 Pod Identity로 전환할 때는 IAM Role Trust Policy에 두 방식을 모두 허용하도록 설정하여 무중단 마이그레이션이 가능합니다.
+                            전환 완료 후 IRSA annotation을 제거합니다.</span><span class="lang-en">When migrating from IRSA to Pod Identity, configure the IAM Role Trust Policy to allow both methods for zero-downtime migration.
+                            Remove IRSA annotations after migration is complete.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 2: Pod Security Standards ===== -->
+                <h2 id="pod-security"><span class="lang-ko">Pod Security Standards</span><span class="lang-en">Pod Security Standards</span></h2>
+
+                <div class="tech-card" data-tag="Security">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Pod Security Standards (PSS) - 워크로드 보안 강화</span><span class="lang-en">Pod Security Standards (PSS) - Strengthen Workload Security</span></span>
+                        <span class="tech-card-tag Security">Security</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Kubernetes 1.25에서 PodSecurityPolicy(PSP)가 제거되고 Pod Security Standards(PSS)/Pod Security Admission(PSA)으로 대체되었습니다.
+                            네임스페이스 레이블로 간단하게 보안 정책을 적용할 수 있습니다.</span><span class="lang-en">PodSecurityPolicy (PSP) was removed in Kubernetes 1.25 and replaced with Pod Security Standards (PSS)/Pod Security Admission (PSA).
+                            Security policies can be easily applied with namespace labels.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">3가지 보안 레벨</span><span class="lang-en">Three Security Levels</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">레벨</span><span class="lang-en">Level</span></th>
+                                    <th><span class="lang-ko">설명</span><span class="lang-en">Description</span></th>
+                                    <th><span class="lang-ko">사용 사례</span><span class="lang-en">Use Case</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Privileged</strong></td>
+                                    <td><span class="lang-ko">제한 없음 - 모든 권한 허용</span><span class="lang-en">No restrictions - all privileges allowed</span></td>
+                                    <td><span class="lang-ko">CNI, CSI 드라이버, 모니터링 에이전트</span><span class="lang-en">CNI, CSI drivers, monitoring agents</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Baseline</strong></td>
+                                    <td><span class="lang-ko">알려진 권한 상승 방지</span><span class="lang-en">Prevent known privilege escalations</span></td>
+                                    <td><span class="lang-ko">일반 애플리케이션</span><span class="lang-en">General applications</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Restricted</strong></td>
+                                    <td><span class="lang-ko">최소 권한 원칙 강제</span><span class="lang-en">Enforce least privilege principle</span></td>
+                                    <td><span class="lang-ko">보안 민감 워크로드, 멀티테넌트</span><span class="lang-en">Security-sensitive workloads, multi-tenant</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4><span class="lang-ko">네임스페이스 레이블로 PSA 적용</span><span class="lang-en">Apply PSA with Namespace Labels</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> v1
+<span class="hl-key">kind:</span> Namespace
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> production
+  <span class="hl-key">labels:</span>
+    <span class="hl-cm"># Enforce: 위반 시 Pod 생성 차단</span>
+    <span class="hl-key">pod-security.kubernetes.io/enforce:</span> baseline
+    <span class="hl-key">pod-security.kubernetes.io/enforce-version:</span> v1.35
+    <span class="hl-cm"># Audit: 위반 시 감사 로그 기록</span>
+    <span class="hl-key">pod-security.kubernetes.io/audit:</span> restricted
+    <span class="hl-key">pod-security.kubernetes.io/audit-version:</span> v1.35
+    <span class="hl-cm"># Warn: 위반 시 경고 메시지 표시</span>
+    <span class="hl-key">pod-security.kubernetes.io/warn:</span> restricted
+    <span class="hl-key">pod-security.kubernetes.io/warn-version:</span> v1.35</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Restricted 레벨 Pod 예시</span><span class="lang-en">Restricted Level Pod Example</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> v1
+<span class="hl-key">kind:</span> Pod
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> secure-pod
+<span class="hl-key">spec:</span>
+  <span class="hl-key">securityContext:</span>
+    <span class="hl-key">runAsNonRoot:</span> <span class="hl-num">true</span>
+    <span class="hl-key">runAsUser:</span> <span class="hl-num">1000</span>
+    <span class="hl-key">seccompProfile:</span>
+      <span class="hl-key">type:</span> RuntimeDefault
+  <span class="hl-key">containers:</span>
+    - <span class="hl-key">name:</span> app
+      <span class="hl-key">image:</span> myapp:latest
+      <span class="hl-key">securityContext:</span>
+        <span class="hl-key">allowPrivilegeEscalation:</span> <span class="hl-num">false</span>
+        <span class="hl-key">readOnlyRootFilesystem:</span> <span class="hl-num">true</span>
+        <span class="hl-key">capabilities:</span>
+          <span class="hl-key">drop:</span>
+            - ALL
+      <span class="hl-key">volumeMounts:</span>
+        - <span class="hl-key">name:</span> tmp
+          <span class="hl-key">mountPath:</span> /tmp
+  <span class="hl-key">volumes:</span>
+    - <span class="hl-key">name:</span> tmp
+      <span class="hl-key">emptyDir:</span> {}</code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong><span class="lang-ko">Baseline 이상 강제 시 호환성 확인</span><span class="lang-en">Check Compatibility When Enforcing Baseline or Above</span></strong>
+                            <span class="lang-ko">기존 워크로드가 hostNetwork, privileged container 등을 사용하는 경우 Baseline 적용 시 Pod 생성이 실패합니다.
+                            먼저 <code>warn</code> 모드로 적용하여 위반 사항을 확인한 후 점진적으로 <code>enforce</code>로 전환하세요.</span><span class="lang-en">If existing workloads use hostNetwork, privileged containers, etc., Pod creation will fail with Baseline enforcement.
+                            Apply <code>warn</code> mode first to identify violations, then gradually transition to <code>enforce</code>.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 3: Secrets Management ===== -->
+                <h2 id="secrets"><span class="lang-ko">Secrets Management</span><span class="lang-en">Secrets Management</span></h2>
+
+                <div class="tech-card" data-tag="Security">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">AWS Secrets Manager + External Secrets Operator</span><span class="lang-en">AWS Secrets Manager + External Secrets Operator</span></span>
+                        <span class="tech-card-tag Security">Security</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">Kubernetes Secret은 etcd에 Base64 인코딩으로 저장되어 보안에 취약합니다.
+                            AWS Secrets Manager와 External Secrets Operator를 사용하여 시크릿을 중앙 관리하고 자동 동기화합니다.</span><span class="lang-en">Kubernetes Secrets are stored in etcd with Base64 encoding, which is insecure.
+                            Use AWS Secrets Manager with External Secrets Operator for centralized management and automatic sync.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">External Secrets Operator 설정</span><span class="lang-en">External Secrets Operator Setup</span></h4>
+<pre><code><span class="hl-key">apiVersion:</span> external-secrets.io/v1beta1
+<span class="hl-key">kind:</span> ClusterSecretStore
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> aws-secrets-manager
+<span class="hl-key">spec:</span>
+  <span class="hl-key">provider:</span>
+    <span class="hl-key">aws:</span>
+      <span class="hl-key">service:</span> SecretsManager
+      <span class="hl-key">region:</span> us-east-1
+      <span class="hl-key">auth:</span>
+        <span class="hl-key">jwt:</span>
+          <span class="hl-key">serviceAccountRef:</span>
+            <span class="hl-key">name:</span> external-secrets-sa
+            <span class="hl-key">namespace:</span> external-secrets
+---
+<span class="hl-key">apiVersion:</span> external-secrets.io/v1beta1
+<span class="hl-key">kind:</span> ExternalSecret
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> db-credentials
+  <span class="hl-key">namespace:</span> production
+<span class="hl-key">spec:</span>
+  <span class="hl-key">refreshInterval:</span> 1h  <span class="hl-cm"># 자동 동기화 주기</span>
+  <span class="hl-key">secretStoreRef:</span>
+    <span class="hl-key">name:</span> aws-secrets-manager
+    <span class="hl-key">kind:</span> ClusterSecretStore
+  <span class="hl-key">target:</span>
+    <span class="hl-key">name:</span> db-secret
+  <span class="hl-key">data:</span>
+    - <span class="hl-key">secretKey:</span> username
+      <span class="hl-key">remoteRef:</span>
+        <span class="hl-key">key:</span> production/database
+        <span class="hl-key">property:</span> username
+    - <span class="hl-key">secretKey:</span> password
+      <span class="hl-key">remoteRef:</span>
+        <span class="hl-key">key:</span> production/database
+        <span class="hl-key">property:</span> password</code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">자동 로테이션 설정</span><span class="lang-en">Automatic Rotation Setup</span></h4>
+<pre><code><span class="hl-cm"># AWS Secrets Manager에서 자동 로테이션 활성화</span>
+aws secretsmanager rotate-secret \
+  --secret-id production/database \
+  --rotation-lambda-arn arn:aws:lambda:us-east-1:180294183052:function:SecretsRotation \
+  --rotation-rules '{"ScheduleExpression": "rate(30 days)"}'</code><span class="code-label">bash</span></pre>
+
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong><span class="lang-ko">시크릿 관리 도구 비교</span><span class="lang-en">Secrets Management Tool Comparison</span></strong>
+                            <span class="lang-ko"><strong>AWS Secrets Manager + ESO</strong>: AWS 네이티브 통합, 자동 로테이션, IRSA 연동에 최적.
+                            <strong>HashiCorp Vault</strong>: 멀티 클라우드, 고급 정책, 동적 시크릿이 필요한 경우.
+                            <strong>Sealed Secrets</strong>: GitOps에서 암호화된 시크릿을 Git에 저장해야 할 때.</span><span class="lang-en"><strong>AWS Secrets Manager + ESO</strong>: Best for AWS native integration, auto-rotation, IRSA.
+                            <strong>HashiCorp Vault</strong>: For multi-cloud, advanced policies, dynamic secrets.
+                            <strong>Sealed Secrets</strong>: When encrypted secrets need to be stored in Git for GitOps.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== Section 4: Image Security ===== -->
+                <h2 id="image-security"><span class="lang-ko">이미지 보안</span><span class="lang-en">Image Security</span></h2>
+
+                <div class="tech-card" data-tag="Security">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">ECR 이미지 스캐닝 및 서명 검증</span><span class="lang-en">ECR Image Scanning and Signature Verification</span></span>
+                        <span class="tech-card-tag Security">Security</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p>
+                            <span class="lang-ko">컨테이너 이미지의 취약점을 사전에 탐지하고, 서명된 이미지만 배포를 허용하여 Supply Chain 보안을 강화합니다.</span><span class="lang-en">Detect vulnerabilities in container images proactively and strengthen Supply Chain security by allowing only signed images to deploy.</span>
+                        </p>
+
+                        <h4><span class="lang-ko">ECR 이미지 스캐닝</span><span class="lang-en">ECR Image Scanning</span></h4>
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th><span class="lang-ko">스캔 유형</span><span class="lang-en">Scan Type</span></th>
+                                    <th><span class="lang-ko">설명</span><span class="lang-en">Description</span></th>
+                                    <th><span class="lang-ko">비용</span><span class="lang-en">Cost</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Basic Scanning</td>
+                                    <td><span class="lang-ko">CVE 데이터베이스 기반 OS 패키지 스캔</span><span class="lang-en">OS package scan based on CVE database</span></td>
+                                    <td><span class="lang-ko">무료</span><span class="lang-en">Free</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Enhanced Scanning (Inspector)</td>
+                                    <td><span class="lang-ko">OS + 프로그래밍 언어 패키지, 지속적 스캔</span><span class="lang-en">OS + language packages, continuous scanning</span></td>
+                                    <td><span class="lang-ko">스캔당 과금</span><span class="lang-en">Per scan charge</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+<pre><code><span class="hl-cm"># Enable enhanced scanning on repository</span>
+aws ecr put-registry-scanning-configuration \
+  --scan-type ENHANCED \
+  --rules '[{"repositoryFilters":[{"filter":"*","filterType":"WILDCARD"}],"scanFrequency":"CONTINUOUS_SCAN"}]'</code><span class="code-label">bash</span></pre>
+
+                        <h4><span class="lang-ko">CI/CD 파이프라인에서 Trivy 스캔</span><span class="lang-en">Trivy Scan in CI/CD Pipeline</span></h4>
+<pre><code><span class="hl-cm"># GitLab CI example</span>
+<span class="hl-key">image_scan:</span>
+  <span class="hl-key">stage:</span> security
+  <span class="hl-key">image:</span> aquasec/trivy:latest
+  <span class="hl-key">script:</span>
+    - trivy image --exit-code 1 --severity CRITICAL,HIGH \
+        ${ECR_REGISTRY}/${IMAGE_NAME}:${CI_COMMIT_SHA}
+  <span class="hl-key">allow_failure:</span> <span class="hl-num">false</span>  <span class="hl-cm"># 취약점 발견 시 파이프라인 중단</span></code><span class="code-label">yaml</span></pre>
+
+                        <h4><span class="lang-ko">Admission Controller로 이미지 정책 강제</span><span class="lang-en">Enforce Image Policy with Admission Controller</span></h4>
+<pre><code><span class="hl-cm"># Kyverno policy: Only allow images from ECR</span>
+<span class="hl-key">apiVersion:</span> kyverno.io/v1
+<span class="hl-key">kind:</span> ClusterPolicy
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> restrict-image-registries
+<span class="hl-key">spec:</span>
+  <span class="hl-key">validationFailureAction:</span> Enforce
+  <span class="hl-key">rules:</span>
+    - <span class="hl-key">name:</span> validate-registries
+      <span class="hl-key">match:</span>
+        <span class="hl-key">any:</span>
+          - <span class="hl-key">resources:</span>
+              <span class="hl-key">kinds:</span>
+                - Pod
+      <span class="hl-key">validate:</span>
+        <span class="hl-key">message:</span> <span class="hl-str">"Images must be from ECR registry"</span>
+        <span class="hl-key">pattern:</span>
+          <span class="hl-key">spec:</span>
+            <span class="hl-key">containers:</span>
+              - <span class="hl-key">image:</span> <span class="hl-str">"180294183052.dkr.ecr.*.amazonaws.com/*"</span></code><span class="code-label">yaml</span></pre>
+
+                        <div class="callout tip" style="margin-top:12px;">
+                            <strong><span class="lang-ko">이미지 서명 및 검증 (Sigstore/Cosign)</span><span class="lang-en">Image Signing and Verification (Sigstore/Cosign)</span></strong>
+                            <span class="lang-ko">CI/CD에서 Cosign으로 이미지에 서명하고, Admission Controller에서 서명을 검증하여 신뢰할 수 있는 이미지만 배포합니다.
+                            <code>cosign sign</code>으로 서명하고 Kyverno <code>verifyImages</code> 규칙으로 검증합니다.</span><span class="lang-en">Sign images with Cosign in CI/CD and verify signatures with Admission Controller to deploy only trusted images.
+                            Use <code>cosign sign</code> to sign and Kyverno <code>verifyImages</code> rules to verify.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-nav">
+                    <a href="eks-networking.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; <span class="lang-ko">EKS 네트워킹</span><span class="lang-en">EKS Networking</span></span></a>
+                    <a href="eks-cost.html" class="next"><span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">EKS 비용 최적화</span><span class="lang-en">EKS Cost Optimization</span> &rarr;</span></a>
+                </div>
+            </div>
+        </main>
+
+        <aside class="doc-toc">
+            <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
+            <a href="#irsa" class="toc-link"><span class="lang-ko">IRSA & Pod Identity</span><span class="lang-en">IRSA & Pod Identity</span></a>
+            <a href="#pod-security" class="toc-link"><span class="lang-ko">Pod Security Standards</span><span class="lang-en">Pod Security Standards</span></a>
+            <a href="#secrets" class="toc-link"><span class="lang-ko">Secrets Management</span><span class="lang-en">Secrets Management</span></a>
+            <a href="#image-security" class="toc-link"><span class="lang-ko">이미지 보안</span><span class="lang-en">Image Security</span></a>
+        </aside>
+    </div>
+
+    <script src="shared.js"></script>
+</body>
+</html>

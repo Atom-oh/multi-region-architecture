@@ -24,10 +24,65 @@
 
                 <h1><span class="lang-ko">EKS 멀티 리전 운영</span><span class="lang-en">EKS Multi-Region Operations</span></h1>
                 <p class="lead">
-                    <span class="lang-ko">us-east-1 (Primary)과 us-west-2 (Secondary) 리전에서 CCS 워크로드를 운영하기 위한 EKS 클러스터 관리 가이드입니다.
-                    업그레이드 전략, 오토스케일링, 노드 관리, GitOps 배포를 다룹니다.</span><span class="lang-en">EKS cluster management guide for operating CCS workloads in us-east-1 (Primary) and us-west-2 (Secondary) regions.
-                    Covers upgrade strategy, autoscaling, node management, and GitOps deployment.</span>
+                    <span class="lang-ko">us-east-1 (Primary)과 us-west-2 (Secondary) 리전에서 CCS 워크로드를 운영하기 위한 EKS 클러스터 관리 허브 페이지입니다.
+                    업그레이드 전략, 오토스케일링, 노드 관리, GitOps 배포 등 EKS 운영 심화 주제로의 진입점을 제공합니다.</span><span class="lang-en">Hub page for EKS cluster management to operate CCS workloads in us-east-1 (Primary) and us-west-2 (Secondary) regions.
+                    Provides entry points to deep-dive topics including upgrade strategy, autoscaling, node management, and GitOps deployment.</span>
                 </p>
+
+                <!-- ===== On-Prem K8s vs EKS Comparison Table ===== -->
+                <h2 id="comparison"><span class="lang-ko">On-Prem K8s vs EKS 비교</span><span class="lang-en">On-Prem K8s vs EKS Comparison</span></h2>
+                <p><span class="lang-ko">온프레미스 Kubernetes에서 Amazon EKS로 마이그레이션할 때의 주요 차이점입니다.</span><span class="lang-en">Key differences when migrating from On-Premises Kubernetes to Amazon EKS.</span></p>
+                <table class="info-table">
+                    <thead>
+                        <tr>
+                            <th><span class="lang-ko">영역</span><span class="lang-en">Area</span></th>
+                            <th>On-Prem K8s</th>
+                            <th>Amazon EKS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Control Plane</strong></td>
+                            <td><span class="lang-ko">직접 관리 (etcd, API Server, Scheduler)</span><span class="lang-en">Self-managed (etcd, API Server, Scheduler)</span></td>
+                            <td><span class="lang-ko">AWS 관리형 (99.95% SLA)</span><span class="lang-en">AWS Managed (99.95% SLA)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong><span class="lang-ko">노드 관리</span><span class="lang-en">Node Management</span></strong></td>
+                            <td><span class="lang-ko">수동 프로비저닝 + kubeadm</span><span class="lang-en">Manual provisioning + kubeadm</span></td>
+                            <td><span class="lang-ko">Karpenter / Auto Mode / Managed Node Groups</span><span class="lang-en">Karpenter / Auto Mode / Managed Node Groups</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Networking</strong></td>
+                            <td><span class="lang-ko">Flannel / Calico / Cilium</span><span class="lang-en">Flannel / Calico / Cilium</span></td>
+                            <td><span class="lang-ko">VPC CNI (네이티브 AWS 통합)</span><span class="lang-en">VPC CNI (Native AWS integration)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong><span class="lang-ko">업그레이드</span><span class="lang-en">Upgrades</span></strong></td>
+                            <td><span class="lang-ko">kubeadm upgrade (수동)</span><span class="lang-en">kubeadm upgrade (manual)</span></td>
+                            <td><span class="lang-ko">EKS 관리형 (In-place / Blue-Green)</span><span class="lang-en">EKS managed (In-place / Blue-Green)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Monitoring</strong></td>
+                            <td><span class="lang-ko">자체 구축 (Prometheus + Grafana)</span><span class="lang-en">Self-built (Prometheus + Grafana)</span></td>
+                            <td><span class="lang-ko">ADOT / CloudWatch Container Insights</span><span class="lang-en">ADOT / CloudWatch Container Insights</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Autoscaling</strong></td>
+                            <td><span class="lang-ko">Cluster Autoscaler</span><span class="lang-en">Cluster Autoscaler</span></td>
+                            <td><span class="lang-ko">Karpenter (Just-in-time 노드)</span><span class="lang-en">Karpenter (Just-in-time nodes)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Security</strong></td>
+                            <td><span class="lang-ko">수동 RBAC + 인증서 관리</span><span class="lang-en">Manual RBAC + certificate management</span></td>
+                            <td><span class="lang-ko">IRSA / Pod Identity / EKS Pod Identity</span><span class="lang-en">IRSA / Pod Identity / EKS Pod Identity</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong><span class="lang-ko">비용</span><span class="lang-en">Cost</span></strong></td>
+                            <td><span class="lang-ko">고정 CapEx (하드웨어)</span><span class="lang-en">Fixed CapEx (hardware)</span></td>
+                            <td><span class="lang-ko">Pay-per-use (클러스터 $0.10/hr + 노드)</span><span class="lang-en">Pay-per-use ($0.10/hr cluster + nodes)</span></td>
+                        </tr>
+                    </tbody>
+                </table>
 
                 <!-- ===== Card 1: EKS Upgrade Strategy ===== -->
                 <h2 id="upgrade-strategy"><span class="lang-ko">EKS 클러스터 업그레이드 전략</span><span class="lang-en">EKS Cluster Upgrade Strategy</span></h2>
@@ -438,6 +493,78 @@
                     </div>
                 </div>
 
+                <!-- ===== Deep Dives Section ===== -->
+                <h2 id="deep-dives"><span class="lang-ko">EKS 심화 가이드</span><span class="lang-en">EKS Deep Dives</span></h2>
+                <p><span class="lang-ko">EKS 운영의 각 주제별 상세 가이드입니다. 클릭하여 심화 내용을 확인하세요.</span><span class="lang-en">Detailed guides for each EKS operations topic. Click to explore deep-dive content.</span></p>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; margin:16px 0;">
+                    <!-- Upgrade Strategy -->
+                    <a href="eks-upgrade.html" style="text-decoration:none;">
+                        <div style="background:var(--bg-card); border:1px solid var(--border); border-left:4px solid var(--tag-operations); border-radius:8px; padding:16px; transition:all 0.2s;">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tag-operations)" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                                <strong style="color:var(--text-primary);"><span class="lang-ko">업그레이드 전략</span><span class="lang-en">Upgrade Strategy</span></strong>
+                            </div>
+                            <p style="color:var(--text-secondary); font-size:0.85rem; margin:0;"><span class="lang-ko">In-place 및 Blue/Green 클러스터 업그레이드</span><span class="lang-en">In-place and Blue/Green cluster upgrades</span></p>
+                        </div>
+                    </a>
+
+                    <!-- Autoscaling -->
+                    <a href="eks-autoscaling.html" style="text-decoration:none;">
+                        <div style="background:var(--bg-card); border:1px solid var(--border); border-left:4px solid var(--tag-infrastructure); border-radius:8px; padding:16px; transition:all 0.2s;">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tag-infrastructure)" stroke-width="2"><path d="M21 21H3M21 21V3M3 21V10M7 21V14M11 21V7M15 21V11M19 21V5"/></svg>
+                                <strong style="color:var(--text-primary);"><span class="lang-ko">오토스케일링</span><span class="lang-en">Autoscaling</span></strong>
+                            </div>
+                            <p style="color:var(--text-secondary); font-size:0.85rem; margin:0;"><span class="lang-ko">Karpenter, KEDA, HPA 심화 구성</span><span class="lang-en">Karpenter, KEDA, HPA deep configuration</span></p>
+                        </div>
+                    </a>
+
+                    <!-- Node Management -->
+                    <a href="eks-nodes.html" style="text-decoration:none;">
+                        <div style="background:var(--bg-card); border:1px solid var(--border); border-left:4px solid var(--tag-database); border-radius:8px; padding:16px; transition:all 0.2s;">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tag-database)" stroke-width="2"><rect x="2" y="3" width="20" height="6" rx="1"/><rect x="2" y="15" width="20" height="6" rx="1"/><path d="M6 6h.01M6 18h.01"/></svg>
+                                <strong style="color:var(--text-primary);"><span class="lang-ko">노드 관리</span><span class="lang-en">Node Management</span></strong>
+                            </div>
+                            <p style="color:var(--text-secondary); font-size:0.85rem; margin:0;"><span class="lang-ko">NodePool, EC2NodeClass, Spot 전략</span><span class="lang-en">NodePool, EC2NodeClass, Spot strategy</span></p>
+                        </div>
+                    </a>
+
+                    <!-- GitOps -->
+                    <a href="eks-gitops.html" style="text-decoration:none;">
+                        <div style="background:var(--bg-card); border:1px solid var(--border); border-left:4px solid var(--tag-gitops); border-radius:8px; padding:16px; transition:all 0.2s;">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tag-gitops)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                <strong style="color:var(--text-primary);"><span class="lang-ko">ArgoCD GitOps</span><span class="lang-en">ArgoCD GitOps</span></strong>
+                            </div>
+                            <p style="color:var(--text-secondary); font-size:0.85rem; margin:0;"><span class="lang-ko">ApplicationSet, 멀티클러스터 동기화</span><span class="lang-en">ApplicationSet, multi-cluster sync</span></p>
+                        </div>
+                    </a>
+
+                    <!-- Networking -->
+                    <a href="eks-networking.html" style="text-decoration:none;">
+                        <div style="background:var(--bg-card); border:1px solid var(--border); border-left:4px solid var(--tag-network); border-radius:8px; padding:16px; transition:all 0.2s;">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tag-network)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                <strong style="color:var(--text-primary);"><span class="lang-ko">네트워킹</span><span class="lang-en">Networking</span></strong>
+                            </div>
+                            <p style="color:var(--text-secondary); font-size:0.85rem; margin:0;"><span class="lang-ko">VPC CNI, Network Policy, Service Mesh</span><span class="lang-en">VPC CNI, Network Policy, Service Mesh</span></p>
+                        </div>
+                    </a>
+
+                    <!-- Observability -->
+                    <a href="eks-observability.html" style="text-decoration:none;">
+                        <div style="background:var(--bg-card); border:1px solid var(--border); border-left:4px solid var(--tag-observability); border-radius:8px; padding:16px; transition:all 0.2s;">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tag-observability)" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <strong style="color:var(--text-primary);"><span class="lang-ko">옵저버빌리티</span><span class="lang-en">Observability</span></strong>
+                            </div>
+                            <p style="color:var(--text-secondary); font-size:0.85rem; margin:0;"><span class="lang-ko">ADOT, Prometheus, Grafana, Tempo</span><span class="lang-en">ADOT, Prometheus, Grafana, Tempo</span></p>
+                        </div>
+                    </a>
+                </div>
+
                 <div class="page-nav">
                     <a href="route-cache.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; <span class="lang-ko">Route53 + 캐시</span><span class="lang-en">Route53 + Cache</span></span></a>
                     <a href="msk-operations.html" class="next"><span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title"><span class="lang-ko">MSK 운영</span><span class="lang-en">MSK Operations</span> &rarr;</span></a>
@@ -447,10 +574,12 @@
 
         <aside class="doc-toc">
             <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
+            <a href="#comparison" class="toc-link"><span class="lang-ko">On-Prem vs EKS</span><span class="lang-en">On-Prem vs EKS</span></a>
             <a href="#upgrade-strategy" class="toc-link"><span class="lang-ko">EKS 업그레이드 전략</span><span class="lang-en">EKS Upgrade Strategy</span></a>
             <a href="#keda-autoscaling" class="toc-link"><span class="lang-ko">KEDA 오토스케일링</span><span class="lang-en">KEDA Autoscaling</span></a>
             <a href="#karpenter-nodepools" class="toc-link"><span class="lang-ko">Karpenter NodePool</span><span class="lang-en">Karpenter NodePools</span></a>
             <a href="#argocd-gitops" class="toc-link"><span class="lang-ko">ArgoCD GitOps</span><span class="lang-en">ArgoCD GitOps</span></a>
+            <a href="#deep-dives" class="toc-link"><span class="lang-ko">심화 가이드</span><span class="lang-en">Deep Dives</span></a>
         </aside>
     </div>
 
