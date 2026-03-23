@@ -278,25 +278,41 @@ async def track_shipment(tracking_number: str):
     raise HTTPException(status_code=404, detail="운송장 번호를 찾을 수 없습니다")
 
 
+def _generate_dsql_token(hostname: str, region: str) -> str:
+    import boto3
+    client = boto3.client("dsql", region_name=region)
+    return client.generate_db_connect_admin_auth_token(hostname, region)
+
+
 @app.on_event("startup")
 async def startup():
     global _pg_pool
     if config.db_host and config.db_host != "localhost":
         try:
             import asyncpg
-            _pg_pool = await asyncpg.create_pool(
-                host=config.db_host,
-                port=config.db_port if config.db_port != 27017 else 5432,
-                database=config.db_name or "mall",
-                user=config.db_user,
-                password=config.db_password,
-                ssl="require",
-                min_size=1,
-                max_size=5,
-            )
-            logger.info(f"Connected to Aurora PostgreSQL at {config.db_host}")
+            # Detect DSQL endpoint
+            if ".dsql." in config.db_host:
+                token = _generate_dsql_token(config.db_host, config.aws_region)
+                _pg_pool = await asyncpg.create_pool(
+                    host=config.db_host, port=5432,
+                    database="postgres", user="admin", password=token,
+                    ssl="require", min_size=1, max_size=5,
+                )
+                logger.info(f"Connected to Aurora DSQL at {config.db_host}")
+            else:
+                _pg_pool = await asyncpg.create_pool(
+                    host=config.db_host,
+                    port=config.db_port if config.db_port != 27017 else 5432,
+                    database=config.db_name or "mall",
+                    user=config.db_user,
+                    password=config.db_password,
+                    ssl="require",
+                    min_size=1,
+                    max_size=5,
+                )
+                logger.info(f"Connected to Aurora PostgreSQL at {config.db_host}")
         except Exception as e:
-            logger.warning(f"Aurora PostgreSQL unavailable, using mock data: {e}")
+            logger.warning(f"PostgreSQL unavailable, using mock data: {e}")
     else:
         logger.info("No DB_HOST configured, using mock data")
     set_started(True)
