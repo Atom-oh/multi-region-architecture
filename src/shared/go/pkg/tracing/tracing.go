@@ -2,8 +2,11 @@ package tracing
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/segmentio/kafka-go"
@@ -21,12 +24,25 @@ import (
 
 // InitTracer configures the OTEL trace provider with OTLP gRPC exporter.
 func InitTracer(ctx context.Context, serviceName string) (*sdktrace.TracerProvider, error) {
+	endpoint := getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+	// Strip http(s):// scheme — gRPC WithEndpoint expects host:port only
+	if u, parseErr := url.Parse(endpoint); parseErr == nil && u.Host != "" {
+		endpoint = u.Host
+	} else {
+		endpoint = strings.TrimPrefix(strings.TrimPrefix(endpoint, "http://"), "https://")
+	}
+	// Unset env var to prevent SDK from re-parsing it with different logic
+	os.Unsetenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	fmt.Fprintf(os.Stderr, "[otel] connecting to %s for service %s\n", endpoint, serviceName)
 	exporter, err := otlptracegrpc.New(ctx,
 		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint(endpoint),
 	)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "[otel] exporter creation failed: %v\n", err)
 		return nil, err
 	}
+	fmt.Fprintf(os.Stderr, "[otel] exporter created successfully for endpoint=%s\n", endpoint)
 
 	res, err := resource.Merge(
 		resource.Default(),
