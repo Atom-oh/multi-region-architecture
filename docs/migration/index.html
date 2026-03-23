@@ -270,8 +270,8 @@
                     <a href="step-1.html" class="step-card">
                         <div class="step-icon s1">1</div>
                         <div class="step-card-body">
-                            <h3><span class="lang-ko">us-west-2 배포 + 듀얼 오리진 (9:1)</span><span class="lang-en">us-west-2 Deploy + Dual Origin (9:1)</span></h3>
-                            <p><span class="lang-ko">CloudFront 듀얼 오리진, ArgoCD GitOps, EC2 Sync Connector</span><span class="lang-en">CloudFront dual origin, ArgoCD GitOps, EC2 Sync Connector</span></p>
+                            <h3><span class="lang-ko">us-west-2 배포 (인프라 준비)</span><span class="lang-en">us-west-2 Deploy (Infra Ready)</span></h3>
+                            <p><span class="lang-ko">ArgoCD GitOps, Write-Primary/Read-Local 설계 원칙</span><span class="lang-en">ArgoCD GitOps, Write-Primary/Read-Local design principles</span></p>
                             <div class="step-card-tags">
                                 <span style="background:rgba(168,85,247,0.15);color:var(--tag-gitops);">GitOps</span>
                                 <span style="background:rgba(234,179,8,0.15);color:var(--tag-architecture);">Architecture</span>
@@ -282,10 +282,11 @@
                     <a href="step-2.html" class="step-card">
                         <div class="step-icon s2">2</div>
                         <div class="step-card-body">
-                            <h3><span class="lang-ko">us-east-1 배포 (인프라 준비)</span><span class="lang-en">us-east-1 Deploy (Infra Ready)</span></h3>
-                            <p><span class="lang-ko">Karpenter NodePool 전략, EC2NodeClass 구성</span><span class="lang-en">Karpenter NodePool strategy, EC2NodeClass configuration</span></p>
+                            <h3><span class="lang-ko">us-east-1 배포 + 리전간 동기화</span><span class="lang-en">us-east-1 Deploy + Cross-Region Sync</span></h3>
+                            <p><span class="lang-ko">Karpenter NodePool, DSQL Active-Active, Atlas Multi-Region, MSK Replicator</span><span class="lang-en">Karpenter NodePool, DSQL Active-Active, Atlas Multi-Region, MSK Replicator</span></p>
                             <div class="step-card-tags">
                                 <span style="background:rgba(6,182,212,0.15);color:var(--tag-infrastructure);">Infrastructure</span>
+                                <span style="background:rgba(59,130,246,0.15);color:var(--tag-database);">Database</span>
                             </div>
                         </div>
                     </a>
@@ -466,8 +467,8 @@
         // === Step configs (same as original) ===
         const stepConfigs = [
             { traffic:{onprem:100,west:0,east:0}, regions:{onprem:true,west:false,east:false}, arrows:{onprem:3,west:0,east:0}, sync:{onpremWest:false,westEast:false}, directConnect:false },
-            { traffic:{onprem:90,west:10,east:0}, regions:{onprem:true,west:true,east:false}, arrows:{onprem:2.5,west:1.5,east:0}, sync:{onpremWest:true,westEast:false}, directConnect:true },
-            { traffic:{onprem:90,west:10,east:0}, regions:{onprem:true,west:true,east:true}, arrows:{onprem:2.5,west:1.5,east:0}, sync:{onpremWest:true,westEast:false}, directConnect:true },
+            { traffic:{onprem:100,west:0,east:0}, regions:{onprem:true,west:true,east:false}, arrows:{onprem:3,west:0,east:0}, sync:{onpremWest:false,westEast:false}, directConnect:true },
+            { traffic:{onprem:100,west:0,east:0}, regions:{onprem:true,west:true,east:true}, arrows:{onprem:3,west:0,east:0}, sync:{onpremWest:true,westEast:true}, directConnect:true },
             { traffic:{onprem:90,west:10,east:0}, regions:{onprem:true,west:true,east:true}, arrows:{onprem:2.5,west:1.5,east:0}, sync:{onpremWest:true,westEast:true}, directConnect:true },
             { traffic:{onprem:70,west:15,east:15}, regions:{onprem:true,west:true,east:true}, arrows:{onprem:2,west:1.5,east:1.5}, sync:{onpremWest:true,westEast:true}, directConnect:true },
             { traffic:{onprem:50,west:25,east:25}, regions:{onprem:true,west:true,east:true}, arrows:{onprem:1.5,west:2,east:2}, sync:{onpremWest:true,westEast:true}, directConnect:true },
