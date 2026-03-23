@@ -167,7 +167,7 @@
         <span class="hl-key">kind:</span> EC2NodeClass
         <span class="hl-key">name:</span> default
       <span class="hl-key">requirements:</span>
-        <span class="hl-cm"># Spot 우선, On-Demand 대체</span>
+        <span class="hl-cm"># Spot preferred, On-Demand fallback</span>
         - <span class="hl-key">key:</span> karpenter.sh/capacity-type
           <span class="hl-key">operator:</span> In
           <span class="hl-key">values:</span>
@@ -194,7 +194,7 @@
     <span class="hl-key">consolidateAfter:</span> 30s</code><span class="code-label">yaml</span></pre>
 
                         <h4><span class="lang-ko">인터럽트 핸들링</span><span class="lang-en">Interrupt Handling</span></h4>
-<pre><code><span class="hl-cm"># AWS Node Termination Handler로 Graceful Drain</span>
+<pre><code><span class="hl-cm"># Graceful drain via AWS Node Termination Handler</span>
 helm install aws-node-termination-handler \
   --namespace kube-system \
   eks/aws-node-termination-handler \
@@ -227,7 +227,7 @@ helm install aws-node-termination-handler \
                         </p>
 
                         <h4><span class="lang-ko">멀티 아키텍처 빌드</span><span class="lang-en">Multi-Architecture Build</span></h4>
-<pre><code><span class="hl-cm"># Docker buildx로 멀티 아키텍처 이미지 빌드</span>
+<pre><code><span class="hl-cm"># Build multi-architecture images with Docker buildx</span>
 docker buildx create --name multiarch --use
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
@@ -281,13 +281,13 @@ docker buildx build \
   <span class="hl-key">template:</span>
     <span class="hl-key">spec:</span>
       <span class="hl-key">requirements:</span>
-        <span class="hl-cm"># x86과 ARM 모두 허용</span>
+        <span class="hl-cm"># Allow both x86 and ARM</span>
         - <span class="hl-key">key:</span> kubernetes.io/arch
           <span class="hl-key">operator:</span> In
           <span class="hl-key">values:</span>
             - amd64
             - arm64
-        <span class="hl-cm"># Graviton 인스턴스 타입 포함</span>
+        <span class="hl-cm"># Include Graviton instance types</span>
         - <span class="hl-key">key:</span> karpenter.k8s.aws/instance-family
           <span class="hl-key">operator:</span> In
           <span class="hl-key">values:</span>
@@ -372,18 +372,18 @@ docker buildx build \
   <span class="hl-key">updatePolicy:</span>
     <span class="hl-key">updateMode:</span> <span class="hl-str">"Off"</span>  <span class="hl-cm"># Recommendation only, no auto-apply</span></code><span class="code-label">yaml</span></pre>
 
-<pre><code><span class="hl-cm"># VPA 권장값 조회</span>
+<pre><code><span class="hl-cm"># Query VPA recommendations</span>
 kubectl describe vpa api-server-vpa
 
 <span class="hl-cm"># Example output:</span>
 <span class="hl-cm"># Recommendation:</span>
 <span class="hl-cm">#   Container Recommendations:</span>
-<span class="hl-cm">#     Target:          cpu: 250m, memory: 512Mi  (권장 request)</span>
+<span class="hl-cm">#     Target:          cpu: 250m, memory: 512Mi  (recommended request)</span>
 <span class="hl-cm">#     Lower Bound:     cpu: 100m, memory: 256Mi</span>
-<span class="hl-cm">#     Upper Bound:     cpu: 500m, memory: 1Gi    (권장 limit)</span></code><span class="code-label">bash</span></pre>
+<span class="hl-cm">#     Upper Bound:     cpu: 500m, memory: 1Gi    (recommended limit)</span></code><span class="code-label">bash</span></pre>
 
                         <h4><span class="lang-ko">Goldilocks 대시보드</span><span class="lang-en">Goldilocks Dashboard</span></h4>
-<pre><code><span class="hl-cm"># Goldilocks 설치 (VPA 권장값 대시보드)</span>
+<pre><code><span class="hl-cm"># Install Goldilocks (VPA recommendations dashboard)</span>
 helm install goldilocks fairwinds-stable/goldilocks \
   --namespace goldilocks --create-namespace
 

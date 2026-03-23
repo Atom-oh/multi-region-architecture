@@ -133,11 +133,11 @@
 <span class="hl-key">spec:</span>
   <span class="hl-key">template:</span>
     <span class="hl-key">spec:</span>
-      <span class="hl-key">serviceAccountName:</span> s3-reader-sa  <span class="hl-cm"># IRSA 자동 적용</span>
+      <span class="hl-key">serviceAccountName:</span> s3-reader-sa  <span class="hl-cm"># IRSA auto-applied</span>
       <span class="hl-key">containers:</span>
         - <span class="hl-key">name:</span> processor
           <span class="hl-key">image:</span> data-processor:latest
-          <span class="hl-cm"># AWS SDK가 자동으로 IRSA 자격증명 사용</span></code><span class="code-label">yaml</span></pre>
+          <span class="hl-cm"># AWS SDK automatically uses IRSA credentials</span></code><span class="code-label">yaml</span></pre>
 
                         <h4><span class="lang-ko">EKS Pod Identity (신규 방식)</span><span class="lang-en">EKS Pod Identity (New Method)</span></h4>
 <pre><code><span class="hl-cm"># Install Pod Identity Agent addon</span>
@@ -211,13 +211,13 @@ aws eks create-pod-identity-association \
 <span class="hl-key">metadata:</span>
   <span class="hl-key">name:</span> production
   <span class="hl-key">labels:</span>
-    <span class="hl-cm"># Enforce: 위반 시 Pod 생성 차단</span>
+    <span class="hl-cm"># Enforce: Block Pod creation on violation</span>
     <span class="hl-key">pod-security.kubernetes.io/enforce:</span> baseline
     <span class="hl-key">pod-security.kubernetes.io/enforce-version:</span> v1.35
-    <span class="hl-cm"># Audit: 위반 시 감사 로그 기록</span>
+    <span class="hl-cm"># Audit: Log violations to audit log</span>
     <span class="hl-key">pod-security.kubernetes.io/audit:</span> restricted
     <span class="hl-key">pod-security.kubernetes.io/audit-version:</span> v1.35
-    <span class="hl-cm"># Warn: 위반 시 경고 메시지 표시</span>
+    <span class="hl-cm"># Warn: Show warning message on violation</span>
     <span class="hl-key">pod-security.kubernetes.io/warn:</span> restricted
     <span class="hl-key">pod-security.kubernetes.io/warn-version:</span> v1.35</code><span class="code-label">yaml</span></pre>
 
@@ -312,7 +312,7 @@ aws eks create-pod-identity-association \
         <span class="hl-key">property:</span> password</code><span class="code-label">yaml</span></pre>
 
                         <h4><span class="lang-ko">자동 로테이션 설정</span><span class="lang-en">Automatic Rotation Setup</span></h4>
-<pre><code><span class="hl-cm"># AWS Secrets Manager에서 자동 로테이션 활성화</span>
+<pre><code><span class="hl-cm"># Enable auto-rotation in AWS Secrets Manager</span>
 aws secretsmanager rotate-secret \
   --secret-id production/database \
   --rotation-lambda-arn arn:aws:lambda:us-east-1:180294183052:function:SecretsRotation \

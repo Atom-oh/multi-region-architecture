@@ -234,11 +234,11 @@
   <span class="hl-key">name:</span> general
 <span class="hl-key">spec:</span>
   <span class="hl-key">disruption:</span>
-    <span class="hl-cm"># WhenEmpty: 빈 노드만 제거</span>
-    <span class="hl-cm"># WhenEmptyOrUnderutilized: 사용률 낮은 노드도 제거 (비용 최적화)</span>
+    <span class="hl-cm"># WhenEmpty: Remove only empty nodes</span>
+    <span class="hl-cm"># WhenEmptyOrUnderutilized: Also remove underutilized nodes (cost optimization)</span>
     <span class="hl-key">consolidationPolicy:</span> WhenEmptyOrUnderutilized
     <span class="hl-key">consolidateAfter:</span> 30s
-    <span class="hl-key">expireAfter:</span> 720h  <span class="hl-cm"># 30일 후 노드 교체 (AMI 최신화)</span></code><span class="code-label">yaml</span></pre>
+    <span class="hl-key">expireAfter:</span> 720h  <span class="hl-cm"># Replace nodes after 30 days (AMI refresh)</span></code><span class="code-label">yaml</span></pre>
 
                         <div class="callout info" style="margin-top:12px;">
                             <strong><span class="lang-ko">Karpenter vs Cluster Autoscaler</span><span class="lang-en">Karpenter vs Cluster Autoscaler</span></strong>
@@ -320,14 +320,14 @@
 
                         <h4><span class="lang-ko">Drift 감지 및 자동 교체</span><span class="lang-en">Drift Detection and Auto Replacement</span></h4>
                         <p><span class="lang-ko">NodePool 설정이 변경되면 Auto Mode가 자동으로 기존 노드를 새 설정으로 교체합니다.</span><span class="lang-en">When NodePool settings change, Auto Mode automatically replaces existing nodes with new settings.</span></p>
-<pre><code><span class="hl-cm"># Drift가 감지되는 변경 사항</span>
-- NodePool requirements <span class="hl-key">변경</span>      <span class="hl-cm"># Drift 발생</span>
-- NodeClass AMI family <span class="hl-key">변경</span>       <span class="hl-cm"># Drift 발생</span>
-- NodeClass block device <span class="hl-key">변경</span>    <span class="hl-cm"># Drift 발생</span>
+<pre><code><span class="hl-cm"># Changes that trigger Drift detection</span>
+- NodePool requirements change      <span class="hl-cm"># Triggers Drift</span>
+- NodeClass AMI family change       <span class="hl-cm"># Triggers Drift</span>
+- NodeClass block device change    <span class="hl-cm"># Triggers Drift</span>
 
-<span class="hl-cm"># Drift가 감지되지 않는 변경 사항</span>
-- NodePool weight <span class="hl-key">변경</span>           <span class="hl-cm"># Drift 미발생</span>
-- NodePool limits <span class="hl-key">변경</span>           <span class="hl-cm"># Drift 미발생</span></code><span class="code-label">text</span></pre>
+<span class="hl-cm"># Changes that do NOT trigger Drift</span>
+- NodePool weight change           <span class="hl-cm"># No Drift</span>
+- NodePool limits change           <span class="hl-cm"># No Drift</span></code><span class="code-label">text</span></pre>
 
                         <div class="callout info" style="margin-top:12px;">
                             <strong><span class="lang-ko">Auto Mode 제약 사항</span><span class="lang-en">Auto Mode Limitations</span></strong>

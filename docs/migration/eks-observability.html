@@ -97,7 +97,7 @@
                         </p>
 
                         <h4><span class="lang-ko">kube-prometheus-stack 설치</span><span class="lang-en">kube-prometheus-stack Installation</span></h4>
-<pre><code><span class="hl-cm"># Helm으로 설치</span>
+<pre><code><span class="hl-cm"># Install via Helm</span>
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
@@ -193,7 +193,7 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
         <span class="hl-key">type:</span> status_code
         <span class="hl-key">status_code:</span>
           <span class="hl-key">status_codes:</span> [ERROR]
-      <span class="hl-cm"># 500ms 이상 느린 요청 100% 샘플링</span>
+      <span class="hl-cm"># Sample 100% of requests slower than 500ms</span>
       - <span class="hl-key">name:</span> latency-policy
         <span class="hl-key">type:</span> latency
         <span class="hl-key">latency:</span>
@@ -208,7 +208,7 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
 <pre><code><span class="hl-cm"># Find error traces for a specific service</span>
 { resource.service.name = "payment-service" && status = error }
 
-<span class="hl-cm"># 2초 이상 걸린 API Gateway 요청</span>
+<span class="hl-cm"># API Gateway requests taking over 2 seconds</span>
 { resource.service.name = "api-gateway" && duration > 2s }
 
 <span class="hl-cm"># Analyze inter-service call patterns</span>
@@ -266,7 +266,7 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
 
                         <h4><span class="lang-ko">구조화된 로깅 (JSON format)</span><span class="lang-en">Structured Logging (JSON format)</span></h4>
                         <p><span class="lang-ko">애플리케이션에서 JSON 형식으로 로그를 출력하면 CloudWatch Logs Insights에서 필드별 쿼리가 가능합니다.</span><span class="lang-en">Output logs in JSON format from applications to enable field-level queries in CloudWatch Logs Insights.</span></p>
-<pre><code><span class="hl-cm">// 권장 로그 포맷</span>
+<pre><code><span class="hl-cm">// Recommended log format</span>
 {
   <span class="hl-str">"timestamp"</span>: <span class="hl-str">"2026-03-23T10:30:00Z"</span>,
   <span class="hl-str">"level"</span>: <span class="hl-str">"ERROR"</span>,
@@ -334,7 +334,7 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
             <span class="hl-key">summary:</span> <span class="hl-str">"High error rate on {{ $labels.service }}"</span>
             <span class="hl-key">description:</span> <span class="hl-str">"Error rate is {{ printf \"%.2f\" $value }}%"</span>
 
-        <span class="hl-cm"># P99 레이턴시 2초 초과 시 알림</span>
+        <span class="hl-cm"># Alert when P99 latency exceeds 2 seconds</span>
         - <span class="hl-key">alert:</span> HighLatencyP99
           <span class="hl-key">expr:</span> |
             histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)) > 2
@@ -352,13 +352,13 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
   <span class="hl-key">group_interval:</span> 5m
   <span class="hl-key">repeat_interval:</span> 4h
   <span class="hl-key">routes:</span>
-    <span class="hl-cm"># Critical은 PagerDuty로</span>
+    <span class="hl-cm"># Route Critical alerts to PagerDuty</span>
     - <span class="hl-key">match:</span>
         <span class="hl-key">severity:</span> critical
       <span class="hl-key">receiver:</span> pagerduty-critical
       <span class="hl-key">group_wait:</span> 10s
       <span class="hl-key">repeat_interval:</span> 1h
-    <span class="hl-cm"># Warning은 Slack으로</span>
+    <span class="hl-cm"># Route Warning alerts to Slack</span>
     - <span class="hl-key">match:</span>
         <span class="hl-key">severity:</span> warning
       <span class="hl-key">receiver:</span> slack-warnings</code><span class="code-label">yaml</span></pre>
