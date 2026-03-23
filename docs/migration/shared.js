@@ -29,8 +29,8 @@
                 <div class="sidebar-section-title"><span class="lang-ko">마이그레이션 단계</span><span class="lang-en">Migration Steps</span></div>
                 <a href="step-0.html" class="sidebar-link${isActive('step-0.html')}"><span class="step-num">0</span> <span class="lang-ko">초기 상태</span><span class="lang-en">Initial State</span></a>
                 <a href="step-1.html" class="sidebar-link${isActive('step-1.html')}"><span class="step-num">1</span> <span class="lang-ko">us-west-2 배포</span><span class="lang-en">us-west-2 Deploy</span></a>
-                <a href="step-2.html" class="sidebar-link${isActive('step-2.html')}"><span class="step-num">2</span> <span class="lang-ko">us-east-1 배포</span><span class="lang-en">us-east-1 Deploy</span></a>
-                <a href="step-3.html" class="sidebar-link${isActive('step-3.html')}"><span class="step-num">3</span> <span class="lang-ko">리전간 동기화</span><span class="lang-en">Cross-Region Sync</span></a>
+                <a href="step-2.html" class="sidebar-link${isActive('step-2.html')}"><span class="step-num">2</span> <span class="lang-ko">us-east-1 + 동기화</span><span class="lang-en">us-east-1 + Sync</span></a>
+                <a href="step-3.html" class="sidebar-link${isActive('step-3.html')}"><span class="step-num">3</span> <span class="lang-ko">트래픽 시작</span><span class="lang-en">Traffic Start</span></a>
                 <a href="step-4.html" class="sidebar-link${isActive('step-4.html')}"><span class="step-num">4</span> <span class="lang-ko">트래픽 분산</span><span class="lang-en">Traffic Distribution</span></a>
                 <a href="step-5.html" class="sidebar-link${isActive('step-5.html')}"><span class="step-num">5</span> <span class="lang-ko">AWS 확대</span><span class="lang-en">AWS Expansion</span></a>
                 <a href="step-6.html" class="sidebar-link${isActive('step-6.html')}"><span class="step-num">6</span> <span class="lang-ko">Full AWS</span><span class="lang-en">Full AWS</span></a>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Step 3: Cross-Region Sync - On-Prem to AWS Migration</title>
+    <title>Step 3: Traffic Start - On-Prem to AWS Migration</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -22,225 +22,177 @@
             <div class="doc-content">
                 <div class="breadcrumb"><a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span>Step 3</span></div>
 
-                <h1>Step 3: <span class="lang-ko">리전간 동기화 활성화</span><span class="lang-en">Cross-Region Sync Activation</span></h1>
+                <h1>Step 3: <span class="lang-ko">트래픽 시작</span><span class="lang-en">Traffic Start</span> (9:1:0)</h1>
                 <p class="lead">
-                    <span class="lang-ko">us-west-2와 us-east-1 간의 데이터 동기화를 활성화합니다.
-                    DSQL Active-Active, Atlas Multi-Region Cluster, MSK Replicator, OpenSearch Cross-Cluster Replication (CCR)이 활성화됩니다.</span><span class="lang-en">Activate data synchronization between us-west-2 and us-east-1.
-                    DSQL Active-Active, Atlas Multi-Region Cluster, MSK Replicator, and OpenSearch Cross-Cluster Replication (CCR) are enabled.</span>
+                    <span class="lang-ko">양 리전 인프라 배포와 동기화가 완료된 상태에서 us-west-2로 10% 트래픽 유입을 시작합니다. EC2 Sync Connector가 On-Prem과 AWS 간 데이터를 실시간으로 동기화합니다.</span><span class="lang-en">With both regions deployed and sync active, start routing 10% traffic to us-west-2. EC2 Sync Connector synchronizes data between On-Prem and AWS in real-time.</span>
                 </p>
 
                 <div class="callout info">
                     <strong><span class="lang-ko">트래픽 분배</span><span class="lang-en">Traffic Distribution</span></strong>
-                    On-Prem 90% / us-west-2 10% / us-east-1 0% &mdash; <span class="lang-ko">동기화 안정성 확인 후 트래픽 전환</span><span class="lang-en">Traffic shift after sync stability verification</span>
+                    On-Prem 90% / us-west-2 10% / us-east-1 0% &mdash; <span class="lang-ko">동기화 확인 후 us-west-2로 소량 트래픽 검증</span><span class="lang-en">Small traffic validation to us-west-2 after sync verification</span>
                 </div>
 
-                <!-- ===== Card 3-1: DSQL Active-Active ===== -->
-                <h2 id="dsql">DSQL Active-Active</h2>
+                <!-- ===== Card 3-1: EC2 Sync Connector ===== -->
+                <h2 id="sync-connector">EC2 Sync Connector</h2>
 
                 <div class="tech-card" data-tag="Database">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title"><span class="lang-ko">DSQL - 네이티브 Active-Active 구성</span><span class="lang-en">DSQL - Native Active-Active Configuration</span></span>
+                        <span class="tech-card-title"><span class="lang-ko">On-Prem &harr; AWS CDC 동기화 아키텍처</span><span class="lang-en">On-Prem &harr; AWS CDC Sync Architecture</span></span>
                         <span class="tech-card-tag Database">Database</span>
                         <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
                     <div class="tech-card-body">
                         <p>
-                            <span class="lang-ko">DSQL은 <strong>서버리스 분산 SQL</strong> (PostgreSQL 16 호환)로, 별도의 복제 설정 없이 AWS 네이티브로 멀티리전 <strong>Active-Active</strong>(양 리전에서 동시 읽기/쓰기 가능한 구성)를 지원합니다.
-                            각 리전에 DSQL 클러스터를 생성하고 <code>multi-region-properties</code>로 피어링을 설정하면, AWS가 Peer Linking을 통해 데이터를 자동 동기화합니다.</span><span class="lang-en">DSQL is a <strong>serverless distributed SQL</strong> (PostgreSQL 16 compatible) that natively supports multi-region <strong>Active-Active</strong> (both regions handle reads and writes simultaneously) without separate replication setup.
-                            After creating DSQL clusters in each region and configuring peering via <code>multi-region-properties</code>, AWS automatically synchronizes data through Peer Linking.</span>
+                            <span class="lang-ko">On-Prem과 AWS 간의 데이터 동기화를 위해 <strong>EC2 기반 CDC Connector</strong>를 사용합니다.
+                            On-Prem DC와 AWS VPC를 Direct Connect로 연결하고, EC2 인스턴스에서 CDC 에이전트를 실행합니다.</span><span class="lang-en">For data synchronization between On-Prem and AWS, we use an <strong>EC2-based CDC Connector</strong>.
+                            The On-Prem DC and AWS VPC are connected via Direct Connect, and CDC agents run on EC2 instances.</span>
                         </p>
 
-                        <h4><span class="lang-ko">Terraform 정의</span><span class="lang-en">Terraform Definition</span></h4>
-                        <p><code>terraform/modules/data/dsql/main.tf</code></p>
-<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"aws_dsql_cluster"</span> <span class="hl-str">"this"</span> {
-  deletion_protection_enabled = var.deletion_protection_enabled
-
-  tags = <span class="hl-fn">merge</span>(var.tags, {
-    Name        = <span class="hl-str">"${var.environment}-dsql-${var.region}"</span>
-    Environment = var.environment
-  })
-}</code><span class="code-label">hcl</span></pre>
-
-                        <div class="callout tip" style="margin-top:12px;">
-                            <strong><span class="lang-ko">DSQL Active-Active의 장점</span><span class="lang-en">Benefits of DSQL Active-Active</span></strong>
-                            <span class="lang-ko">기존 Aurora Global Database와 달리, DSQL은 양 리전에서 동시 쓰기가 가능합니다.
-                            Write Forwarding이 필요 없어 쓰기 지연(latency)이 크게 줄어듭니다.
-                            멀티리전 구성은 각 리전에 DSQL 클러스터를 생성하고, <code>multi-region-properties</code>로 상호 피어링을 설정하면 AWS가 데이터 복제를 자동 처리합니다. Witness Region(트랜잭션 로그만 저장하는 제3 리전)도 지정해야 합니다.</span><span class="lang-en">Unlike Aurora Global Database, DSQL allows simultaneous writes in both regions.
-                            Without Write Forwarding, write latency is significantly reduced.
-                            For multi-region setup, create DSQL clusters in each region and configure mutual peering with <code>multi-region-properties</code>, and AWS handles data replication automatically. A Witness Region (a third region storing only transaction logs) must also be specified.</span>
-                        </div>
-
-                        <h4>DSQL vs Aurora Global Database</h4>
+                        <h4><span class="lang-ko">동기화 구성</span><span class="lang-en">Sync Configuration</span></h4>
                         <table class="info-table">
-                            <thead><tr><th><span class="lang-ko">항목</span><span class="lang-en">Item</span></th><th>DSQL</th><th>Aurora Global DB</th></tr></thead>
+                            <thead>
+                                <tr><th>Source (On-Prem)</th><th>Target (AWS)</th><th><span class="lang-ko">CDC 도구</span><span class="lang-en">CDC Tool</span></th><th><span class="lang-ko">방향</span><span class="lang-en">Direction</span></th></tr>
+                            </thead>
                             <tbody>
-                                <tr><td><span class="lang-ko">쓰기 모델</span><span class="lang-en">Write Model</span></td><td><span class="lang-ko">Active-Active (양 리전)</span><span class="lang-en">Active-Active (both regions)</span></td><td><span class="lang-ko">Write-Primary (단일 리전)</span><span class="lang-en">Write-Primary (single region)</span></td></tr>
-                                <tr><td><span class="lang-ko">복제 지연</span><span class="lang-en">Replication Lag</span></td><td><span class="lang-ko">동기 복제 (zero lag on commit)</span><span class="lang-en">Sync replication (zero lag on commit)</span></td><td><span class="lang-ko">~1s (스토리지 레벨)</span><span class="lang-en">~1s (storage level)</span></td></tr>
-                                <tr><td>Write Forwarding</td><td><span class="lang-ko">불필요</span><span class="lang-en">Not required</span></td><td><span class="lang-ko">Secondary에서 필요</span><span class="lang-en">Required on Secondary</span></td></tr>
-                                <tr><td><span class="lang-ko">서버리스</span><span class="lang-en">Serverless</span></td><td><span class="lang-ko">완전 서버리스</span><span class="lang-en">Fully serverless</span></td><td><span class="lang-ko">인스턴스 기반</span><span class="lang-en">Instance-based</span></td></tr>
-                                <tr><td><span class="lang-ko">제약사항</span><span class="lang-en">Limitations</span></td><td><span class="lang-ko">일부 DDL/Extension 미지원</span><span class="lang-en">Some DDL/Extensions unsupported</span></td><td><span class="lang-ko">거의 없음</span><span class="lang-en">Almost none</span></td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- ===== Card 3-2: MSK Replicator ===== -->
-                <h2 id="msk-replicator">MSK Replicator</h2>
-
-                <div class="tech-card" data-tag="Database">
-                    <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title"><span class="lang-ko">MSK Replicator - 크로스리전 토픽 복제</span><span class="lang-en">MSK Replicator - Cross-Region Topic Replication</span></span>
-                        <span class="tech-card-tag Database">Database</span>
-                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                    </div>
-                    <div class="tech-card-body">
-                        <p>
-                            <span class="lang-ko">MSK Replicator는 AWS 네이티브 크로스리전 Kafka 토픽 복제 서비스입니다.
-                            MirrorMaker2를 직접 운영할 필요 없이, 소스/타겟 클러스터를 지정하면 자동으로 토픽과 컨슈머 그룹을 복제합니다.</span><span class="lang-en">MSK Replicator is an AWS-native cross-region Kafka topic replication service.
-                            Without managing MirrorMaker2 directly, it automatically replicates topics and consumer groups when you specify source/target clusters.</span>
-                        </p>
-
-                        <h4><span class="lang-ko">Terraform 정의 (발췌)</span><span class="lang-en">Terraform Definition (excerpt)</span></h4>
-                        <p><code>terraform/modules/data/msk/main.tf</code></p>
-<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"aws_msk_replicator"</span> <span class="hl-str">"this"</span> {
-  count = var.enable_replicator ? <span class="hl-num">1</span> : <span class="hl-num">0</span>
-
-  replicator_name = <span class="hl-str">"${var.environment}-msk-replicator-${var.region}"</span>
-
-  <span class="hl-cm"># Source cluster</span>
-  kafka_cluster {
-    amazon_msk_cluster {
-      msk_cluster_arn = var.source_cluster_arn
-    }
-    vpc_config {
-      subnet_ids          = var.data_subnet_ids
-      security_groups_ids = [var.security_group_id]
-    }
-  }
-
-  <span class="hl-cm"># Target cluster</span>
-  kafka_cluster {
-    amazon_msk_cluster {
-      msk_cluster_arn = var.target_cluster_arn
-    }
-    vpc_config {
-      subnet_ids          = var.data_subnet_ids
-      security_groups_ids = [var.security_group_id]
-    }
-  }
-
-  replication_info_list {
-    source_kafka_cluster_arn = var.source_cluster_arn
-    target_kafka_cluster_arn = var.target_cluster_arn
-    target_compression_type  = <span class="hl-str">"GZIP"</span>
-
-    topic_replication {
-      topics_to_replicate                  = var.replicator_topics
-      copy_access_control_lists_for_topics = <span class="hl-num">true</span>
-      copy_topic_configurations            = <span class="hl-num">true</span>
-      detect_and_copy_new_topics           = <span class="hl-num">true</span>
-    }
-
-    consumer_group_replication {
-      consumer_groups_to_replicate         = [<span class="hl-str">".*"</span>]
-      synchronise_consumer_group_offsets   = <span class="hl-num">true</span>
-      detect_and_copy_new_consumer_groups  = <span class="hl-num">true</span>
-    }
-  }
-
-  service_execution_role_arn = aws_iam_role.msk_replicator[<span class="hl-num">0</span>].arn
-}</code><span class="code-label">hcl</span></pre>
-
-                        <div class="callout tip" style="margin-top:12px;">
-                            <strong><span class="lang-ko">핵심 설정</span><span class="lang-en">Key Settings</span></strong>
-                            <span class="lang-ko"><code>detect_and_copy_new_topics: true</code>로 새 토픽이 자동 복제됩니다.
-                            <code>synchronise_consumer_group_offsets: true</code>로 failover 시 컨슈머가 이어서 처리할 수 있습니다.
-                            단, offset 동기화에는 10-30초 지연이 있으므로, failover 시 소수의 메시지가 재처리될 수 있습니다.</span><span class="lang-en">With <code>detect_and_copy_new_topics: true</code>, new topics are automatically replicated.
-                            With <code>synchronise_consumer_group_offsets: true</code>, consumers can resume processing during failover.
-                            Note: offset synchronization has a 10-30 second lag, so a small number of messages may be reprocessed during failover.</span>
-                        </div>
-                        <div class="callout warning" style="margin-top:12px;">
-                            <strong><span class="lang-ko">MSK Replicator 방향성</span><span class="lang-en">MSK Replicator Directionality</span></strong>
-                            <span class="lang-ko">MSK Replicator는 <strong>단방향</strong>(source→target) 복제입니다.
-                            양방향 복제가 필요한 경우 2개의 Replicator를 각각 반대 방향으로 구성해야 합니다.</span><span class="lang-en">MSK Replicator is <strong>unidirectional</strong> (source→target) replication.
-                            For bidirectional replication, configure 2 Replicators in opposite directions.</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ===== Card 3-3: MongoDB Atlas + ElastiCache ===== -->
-                <h2 id="docdb-elasticache">MongoDB Atlas + ElastiCache + OpenSearch</h2>
-
-                <div class="tech-card" data-tag="Database">
-                    <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title">Global Cluster, Global Datastore, Cross-Cluster Replication</span>
-                        <span class="tech-card-tag Database">Database</span>
-                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                    </div>
-                    <div class="tech-card-body">
-                        <p>
-                            <span class="lang-ko">나머지 3개 데이터스토어는 각각의 AWS 네이티브 크로스리전 복제 메커니즘을 사용합니다.</span><span class="lang-en">The remaining 3 datastores use their respective AWS-native cross-region replication mechanisms.</span>
-                        </p>
-
-                        <h4>MongoDB Atlas Multi-Region Cluster</h4>
-                        <p><code>terraform/modules/data/atlas/main.tf</code></p>
-<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"mongodbatlas_advanced_cluster"</span> <span class="hl-str">"this"</span> {
-  project_id   = var.atlas_project_id
-  name         = <span class="hl-str">"${var.environment}-atlas-${var.region}"</span>
-  cluster_type = <span class="hl-str">"REPLICASET"</span>
-
-  replication_specs {
-    region_configs {
-      provider_name = <span class="hl-str">"AWS"</span>
-      region_name   = var.atlas_region  <span class="hl-cm"># US_EAST_1</span>
-      priority      = <span class="hl-num">7</span>
-      electable_specs {
-        instance_size = var.atlas_instance_size  <span class="hl-cm"># M30</span>
-        node_count    = <span class="hl-num">3</span>
-      }
-    }
-  }
-}</code><span class="code-label">hcl</span></pre>
-
-                        <h4>ElastiCache Global Datastore</h4>
-                        <p><code>terraform/modules/data/elasticache-global/main.tf</code></p>
-<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"aws_elasticache_global_replication_group"</span> <span class="hl-str">"this"</span> {
-  count = var.is_primary ? <span class="hl-num">1</span> : <span class="hl-num">0</span>
-
-  global_replication_group_id_suffix = <span class="hl-str">"${var.environment}-global"</span>
-  primary_replication_group_id       = aws_elasticache_replication_group.this.id
-
-  global_replication_group_description = <span class="hl-str">"Global replication group for ${var.environment}"</span>
-}</code><span class="code-label">hcl</span></pre>
-
-                        <h4><span class="lang-ko">리전간 동기화 요약</span><span class="lang-en">Cross-Region Sync Summary</span></h4>
-                        <table class="info-table">
-                            <thead><tr><th><span class="lang-ko">서비스</span><span class="lang-en">Service</span></th><th><span class="lang-ko">동기화 방식</span><span class="lang-en">Sync Method</span></th><th><span class="lang-ko">방향</span><span class="lang-en">Direction</span></th><th><span class="lang-ko">지연</span><span class="lang-en">Latency</span></th></tr></thead>
-                            <tbody>
-                                <tr><td>MongoDB Atlas</td><td>Multi-Region Cluster</td><td>Primary &rarr; Secondary</td><td>~1s</td></tr>
-                                <tr><td>ElastiCache</td><td>Global Datastore</td><td>Primary &rarr; Secondary (<span class="lang-ko">비동기, DR용</span><span class="lang-en">async, for DR</span>)</td><td>N/A</td></tr>
-                                <tr><td>OpenSearch</td><td>Cross-Cluster Replication</td><td>Leader &rarr; Follower</td><td>~seconds</td></tr>
+                                <tr>
+                                    <td>PostgreSQL</td>
+                                    <td>DSQL</td>
+                                    <td>Debezium + Kafka Connect</td>
+                                    <td><span class="lang-ko">On-Prem &rarr; AWS (단방향)</span><span class="lang-en">On-Prem &rarr; AWS (one-way)</span></td>
+                                </tr>
+                                <tr>
+                                    <td>MongoDB</td>
+                                    <td>MongoDB Atlas</td>
+                                    <td>Mongo Change Stream + Custom Agent</td>
+                                    <td><span class="lang-ko">On-Prem &rarr; AWS (단방향)</span><span class="lang-en">On-Prem &rarr; AWS (one-way)</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Kafka</td>
+                                    <td>MSK</td>
+                                    <td>Kafka MirrorMaker2</td>
+                                    <td><span class="lang-ko">양방향 (topic prefix)</span><span class="lang-en">Bidirectional (topic prefix)</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Elasticsearch</td>
+                                    <td>OpenSearch</td>
+                                    <td>Logstash reindex pipeline</td>
+                                    <td><span class="lang-ko">On-Prem &rarr; AWS (단방향)</span><span class="lang-en">On-Prem &rarr; AWS (one-way)</span></td>
+                                </tr>
                             </tbody>
                         </table>
 
-                        <div class="callout tip" style="margin-top:12px;">
-                            <strong><span class="lang-ko">OpenSearch CCR 제약사항</span><span class="lang-en">OpenSearch CCR Limitations</span></strong>
-                            <span class="lang-ko">CCR은 leader→follower <strong>단방향</strong> 복제이며, follower 인덱스는 읽기 전용입니다.
-                            사전 조건으로 Fine-Grained Access Control과 Node-to-node encryption이 활성화되어 있어야 합니다.</span><span class="lang-en">CCR is <strong>unidirectional</strong> leader→follower replication, and follower indices are read-only.
-                            Prerequisites: Fine-Grained Access Control and Node-to-node encryption must be enabled.</span>
+                        <div class="callout warning" style="margin-top:12px;">
+                            <strong>Redis / ElastiCache</strong>
+                            <span class="lang-ko">Redis(ElastiCache)는 캐시 용도이므로 데이터 동기화를 수행하지 않습니다.
+                            각 리전에서 독립적으로 캐시를 워밍업하며, cache miss 시 DB에서 재로드합니다.</span><span class="lang-en">Redis (ElastiCache) is used for caching, so data synchronization is not performed.
+                            Each region warms up its cache independently, and reloads from the DB on cache miss.</span>
                         </div>
 
-                        <div class="callout warning" style="margin-top:12px;">
-                            <strong><span class="lang-ko">ElastiCache 주의</span><span class="lang-en">ElastiCache Caution</span></strong>
-                            <span class="lang-ko">ElastiCache(Valkey)의 Global Datastore는 리전간 비동기 복제를 자동으로 수행합니다 (Secondary는 읽기 전용 복제본). 다만, 캐시 특성상 각 리전에서 독립적으로 운영하는 것이 더 효율적이므로, Global Datastore는 주로 DR(재해 복구) 시 Secondary를 Primary로 승격하기 위한 목적으로 구성합니다. cache miss 시 DB에서 재로드합니다.
-                            Secondary 클러스터의 <code>engine</code>, <code>engine_version</code>, 암호화 파라미터는 <code>null</code>로 설정해야 합니다 (Global Datastore에서 상속).</span><span class="lang-en">ElastiCache (Valkey) Global Datastore performs automatic async replication between regions (Secondary is read-only replica). However, due to cache characteristics, independent operation per region is more efficient, so Global Datastore is mainly configured for promoting Secondary to Primary during DR (disaster recovery). Cache misses reload from DB.
-                            Secondary cluster's <code>engine</code>, <code>engine_version</code>, and encryption parameters must be set to <code>null</code> (inherited from Global Datastore).</span>
+                        <h4><span class="lang-ko">Direct Connect 구성</span><span class="lang-en">Direct Connect Configuration</span></h4>
+                        <svg viewBox="0 0 700 300" style="width:100%;display:block;margin:12px 0" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <marker id="a2" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#F59E0B" opacity="0.6"/></marker>
+                                <marker id="a3" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#3B82F6" opacity="0.6"/></marker>
+                            </defs>
+                            <style>
+                                @keyframes dcdash{to{stroke-dashoffset:-20}}
+                                .dc-flow{stroke-dasharray:10 10;animation:dcdash 1s linear infinite}
+                            </style>
+
+                            <!-- On-Prem DC -->
+                            <rect x="30" y="60" width="180" height="180" rx="14" fill="rgba(245,158,11,0.04)" stroke="#F59E0B" stroke-width="1.5"/>
+                            <text x="120" y="85" text-anchor="middle" font-size="13" font-weight="700" fill="#F59E0B" font-family="'Noto Sans KR',sans-serif">On-Prem DC</text>
+                            <text x="120" y="102" text-anchor="middle" font-size="10" fill="#64748B" font-family="'Noto Sans KR',sans-serif">(us-west region)</text>
+                            <!-- On-Prem datastores -->
+                            <rect x="50" y="115" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="131" text-anchor="middle" font-size="10" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">PostgreSQL</text>
+                            <rect x="50" y="145" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="161" text-anchor="middle" font-size="10" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">MongoDB</text>
+                            <rect x="50" y="175" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="191" text-anchor="middle" font-size="10" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">Kafka / Elasticsearch</text>
+
+                            <!-- Direct Connect link -->
+                            <line x1="210" y1="150" x2="310" y2="150" stroke="#F59E0B" stroke-width="3" class="dc-flow" marker-end="url(#a2)"/>
+                            <rect x="225" y="130" width="70" height="18" rx="4" fill="rgba(245,158,11,0.12)" stroke="#F59E0B" stroke-width="1"/>
+                            <text x="260" y="143" text-anchor="middle" font-size="9" font-weight="600" fill="#F59E0B" font-family="'Noto Sans KR',sans-serif">10 Gbps</text>
+                            <text x="260" y="120" text-anchor="middle" font-size="10" font-weight="600" fill="#F59E0B" font-family="'Noto Sans KR',sans-serif">Direct Connect</text>
+
+                            <!-- AWS us-west-2 VPC -->
+                            <rect x="310" y="20" width="360" height="270" rx="14" fill="rgba(59,130,246,0.03)" stroke="#3B82F6" stroke-width="1.5"/>
+                            <text x="490" y="45" text-anchor="middle" font-size="13" font-weight="700" fill="#3B82F6" font-family="'Noto Sans KR',sans-serif">AWS us-west-2 VPC</text>
+
+                            <!-- EC2 Sync Connector -->
+                            <rect x="370" y="65" width="240" height="80" rx="10" fill="rgba(6,182,212,0.05)" stroke="#06B6D4" stroke-width="1.5"/>
+                            <text x="490" y="90" text-anchor="middle" font-size="12" font-weight="600" fill="#06B6D4" font-family="'Noto Sans KR',sans-serif">EC2 Sync Connector</text>
+                            <!-- CDC tools -->
+                            <rect x="380" y="100" width="68" height="20" rx="4" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.25)" stroke-width="0.8"/><text x="414" y="114" text-anchor="middle" font-size="8" fill="var(--text-secondary,#94A3B8)" font-family="'Noto Sans KR',sans-serif">Debezium</text>
+                            <rect x="455" y="100" width="68" height="20" rx="4" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.25)" stroke-width="0.8"/><text x="489" y="114" text-anchor="middle" font-size="8" fill="var(--text-secondary,#94A3B8)" font-family="'Noto Sans KR',sans-serif">MirrorMaker2</text>
+                            <rect x="530" y="100" width="68" height="20" rx="4" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.25)" stroke-width="0.8"/><text x="564" y="114" text-anchor="middle" font-size="8" fill="var(--text-secondary,#94A3B8)" font-family="'Noto Sans KR',sans-serif">Custom Agent</text>
+
+                            <!-- Arrow EC2 -> Data Stores -->
+                            <line x1="490" y1="145" x2="490" y2="170" stroke="#3B82F6" stroke-width="2" class="dc-flow" marker-end="url(#a3)"/>
+
+                            <!-- AWS Data Stores -->
+                            <rect x="340" y="175" width="300" height="100" rx="10" fill="rgba(59,130,246,0.04)" stroke="rgba(59,130,246,0.2)" stroke-width="1"/>
+                            <text x="490" y="196" text-anchor="middle" font-size="11" font-weight="600" fill="#3B82F6" font-family="'Noto Sans KR',sans-serif">AWS Data Stores</text>
+                            <rect x="355" y="205" width="65" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="387" y="220" text-anchor="middle" font-size="9" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">DSQL</text>
+                            <rect x="428" y="205" width="65" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="460" y="220" text-anchor="middle" font-size="9" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">Atlas</text>
+                            <rect x="501" y="205" width="65" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="533" y="220" text-anchor="middle" font-size="9" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">MSK</text>
+                            <rect x="574" y="205" width="55" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="601" y="220" text-anchor="middle" font-size="9" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">OS</text>
+                            <!-- Replication labels -->
+                            <text x="387" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">Debezium</text>
+                            <text x="460" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">Change Stream</text>
+                            <text x="533" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">MM2</text>
+                            <text x="601" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">Logstash</text>
+
+                            <!-- Animated data flow: On-Prem -> EC2 -->
+                            <circle r="3" fill="#F59E0B" filter="url(#gl1)">
+                                <animateMotion dur="2.5s" repeatCount="indefinite" path="M210,130 L310,130 L370,105 L490,105"/>
+                                <animate attributeName="opacity" values="0;1;1;0" dur="2.5s" repeatCount="indefinite"/>
+                            </circle>
+                            <circle r="3" fill="#F59E0B" filter="url(#gl1)">
+                                <animateMotion dur="2.5s" repeatCount="indefinite" path="M210,160 L310,160 L370,105 L490,105" begin="0.8s"/>
+                                <animate attributeName="opacity" values="0;1;1;0" dur="2.5s" repeatCount="indefinite" begin="0.8s"/>
+                            </circle>
+                            <!-- EC2 -> Data Stores -->
+                            <circle r="3" fill="#3B82F6" filter="url(#gl1)">
+                                <animateMotion dur="1.5s" repeatCount="indefinite" path="M490,145 L490,175 L490,210" begin="1.5s"/>
+                                <animate attributeName="opacity" values="0;1;0" dur="1.5s" repeatCount="indefinite" begin="1.5s"/>
+                            </circle>
+                        </svg>
+
+                        <p>
+                            <span class="lang-ko">EC2 Sync Connector는 <strong>Step 6에서 제거</strong>됩니다.
+                            On-Prem 트래픽이 0%가 되면 CDC 동기화가 더 이상 필요하지 않으며,
+                            이후에는 AWS 네이티브 리전간 동기화만 활성 상태로 유지됩니다.</span><span class="lang-en">EC2 Sync Connector is <strong>removed in Step 6</strong>.
+                            Once On-Prem traffic reaches 0%, CDC synchronization is no longer needed,
+                            and only AWS native inter-region synchronization remains active thereafter.</span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- ===== Card 3-2: Route53 Weighted Routing ===== -->
+                <h2 id="weighted-routing"><span class="lang-ko">Route53 가중치 라우팅</span><span class="lang-en">Route53 Weighted Routing</span></h2>
+
+                <div class="tech-card" data-tag="Network">
+                    <div class="tech-card-header" onclick="toggleTechCard(this)">
+                        <span class="tech-card-title"><span class="lang-ko">Route53 Weighted Routing — 9:1 트래픽 분배</span><span class="lang-en">Route53 Weighted Routing — 9:1 Traffic Split</span></span>
+                        <span class="tech-card-tag Network">Network</span>
+                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="tech-card-body">
+                        <p><span class="lang-ko">Route53 weighted routing으로 On-Prem 90%, us-west-2 10% 트래픽 비율을 설정합니다. CloudFront Origin Group은 failover 전용이므로, 가중치 기반 분산은 Route53에서 처리합니다. Health Check로 us-west-2 이상 감지 시 자동으로 On-Prem으로 100% 복귀합니다.</span><span class="lang-en">Configure Route53 weighted routing with On-Prem 90% and us-west-2 10% traffic ratio. CloudFront Origin Group is for failover only, so weighted distribution is handled by Route53. Health Check automatically routes 100% back to On-Prem if us-west-2 issues are detected.</span></p>
+                        <div class="callout tip">
+                            <strong><span class="lang-ko">검증 항목</span><span class="lang-en">Verification Items</span></strong>
+                            <ul>
+                                <li><span class="lang-ko">us-west-2 응답 시간 ≤ On-Prem 대비 10% 이내</span><span class="lang-en">us-west-2 response time within 10% of On-Prem</span></li>
+                                <li><span class="lang-ko">에러율 < 0.1%</span><span class="lang-en">Error rate < 0.1%</span></li>
+                                <li><span class="lang-ko">EC2 Sync Connector CDC 지연 < 5초</span><span class="lang-en">EC2 Sync Connector CDC lag < 5 seconds</span></li>
+                                <li><span class="lang-ko">Grafana Tempo에서 us-west-2 트레이스 확인</span><span class="lang-en">Verify us-west-2 traces in Grafana Tempo</span></li>
+                            </ul>
                         </div>
                     </div>
                 </div>
 
                 <div class="page-nav">
-                    <a href="step-2.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; Step 2: <span class="lang-ko">us-east-1 배포</span><span class="lang-en">us-east-1 Deploy</span></span></a>
+                    <a href="step-2.html"><span class="label"><span class="lang-ko">이전</span><span class="lang-en">Previous</span></span><span class="title">&larr; Step 2: us-east-1 <span class="lang-ko">배포 + 동기화</span><span class="lang-en">Deploy + Sync</span></span></a>
                     <a href="step-4.html" class="next"><span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span><span class="title">Step 4: <span class="lang-ko">트래픽 분산</span><span class="lang-en">Traffic Distribution</span> &rarr;</span></a>
                 </div>
             </div>
@@ -248,9 +200,8 @@
 
         <aside class="doc-toc">
             <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
-            <a href="#dsql" class="toc-link">DSQL Active-Active</a>
-            <a href="#msk-replicator" class="toc-link">MSK Replicator</a>
-            <a href="#docdb-elasticache" class="toc-link">MongoDB Atlas + ElastiCache + OpenSearch</a>
+            <a href="#sync-connector" class="toc-link">EC2 Sync Connector</a>
+            <a href="#weighted-routing" class="toc-link"><span class="lang-ko">Route53 가중치 라우팅</span><span class="lang-en">Route53 Weighted Routing</span></a>
         </aside>
     </div>
 

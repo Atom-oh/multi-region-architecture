@@ -69,9 +69,9 @@
                 <!-- Step Nav (compact) -->
                 <nav class="step-nav-compact">
                     <button class="step-btn active" onclick="setStep(0)"><span class="num">0</span><span class="lbl"><span class="lang-ko">초기 상태</span><span class="lang-en">Initial</span></span></button>
-                    <button class="step-btn" onclick="setStep(1)"><span class="num">1</span><span class="lbl"><span class="lang-ko">West 배포</span><span class="lang-en">West Deploy</span></span></button>
-                    <button class="step-btn" onclick="setStep(2)"><span class="num">2</span><span class="lbl"><span class="lang-ko">East 배포</span><span class="lang-en">East Deploy</span></span></button>
-                    <button class="step-btn" onclick="setStep(3)"><span class="num">3</span><span class="lbl"><span class="lang-ko">동기화</span><span class="lang-en">Sync</span></span></button>
+                    <button class="step-btn" onclick="setStep(1)"><span class="num">1</span><span class="lbl"><span class="lang-ko">인프라 배포</span><span class="lang-en">Infra Deploy</span></span></button>
+                    <button class="step-btn" onclick="setStep(2)"><span class="num">2</span><span class="lbl"><span class="lang-ko">인프라 + 동기화</span><span class="lang-en">Infra + Sync</span></span></button>
+                    <button class="step-btn" onclick="setStep(3)"><span class="num">3</span><span class="lbl"><span class="lang-ko">트래픽 시작 (9:1:0)</span><span class="lang-en">Traffic Start (9:1:0)</span></span></button>
                     <button class="step-btn" onclick="setStep(4)"><span class="num">4</span><span class="lbl">7:1.5:1.5</span></button>
                     <button class="step-btn" onclick="setStep(5)"><span class="num">5</span><span class="lbl">5:2.5:2.5</span></button>
                     <button class="step-btn" onclick="setStep(6)"><span class="num">6</span><span class="lbl">Full AWS</span></button>
@@ -292,10 +292,10 @@
                     <a href="step-3.html" class="step-card">
                         <div class="step-icon s3">3</div>
                         <div class="step-card-body">
-                            <h3><span class="lang-ko">리전간 동기화 활성화</span><span class="lang-en">Cross-Region Sync Activation</span></h3>
-                            <p>DSQL Active-Active, MSK Replicator, Atlas Multi-Region Cluster</p>
+                            <h3><span class="lang-ko">트래픽 시작 (9:1:0)</span><span class="lang-en">Traffic Start (9:1:0)</span></h3>
+                            <p>EC2 Sync Connector, Route53 Weighted Routing (9:1:0)</p>
                             <div class="step-card-tags">
-                                <span style="background:rgba(59,130,246,0.15);color:var(--tag-database);">Database</span>
+                                <span style="background:rgba(16,185,129,0.15);color:var(--tag-network);">Network</span>
                             </div>
                         </div>
                     </a>

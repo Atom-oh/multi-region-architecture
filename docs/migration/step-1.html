@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Step 1: us-west-2 Deploy - On-Prem to AWS Migration</title>
+    <title>Step 1: us-west-2 Deploy (Infra Ready) - On-Prem to AWS Migration</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -24,16 +24,14 @@
                     <a href="index.html"><span class="lang-ko">홈</span><span class="lang-en">Home</span></a><span class="sep">/</span><span>Step 1</span>
                 </div>
 
-                <h1>Step 1: us-west-2 <span class="lang-ko">배포 + 듀얼 오리진</span><span class="lang-en">Deploy + Dual Origin</span> (9:1)</h1>
+                <h1>Step 1: us-west-2 <span class="lang-ko">배포 (인프라 준비)</span><span class="lang-en">Deploy (Infra Ready)</span></h1>
                 <p class="lead">
-                    <span class="lang-ko">us-west-2 리전에 전체 인프라를 배포하고, Route53 weighted routing으로 On-Prem 90%, us-west-2 10%의 트래픽 비율을 설정합니다. (CloudFront Origin Group은 failover 전용이므로, 가중치 기반 분산은 Route53에서 처리합니다.)
-                    EC2 Sync Connector가 On-Prem과 AWS 간 데이터 동기화를 수행합니다. On-Prem DC가 us-west 지역에 위치하므로, 네트워크 지연이 적은 us-west-2를 먼저 배포하여 검증합니다.</span><span class="lang-en">Deploy the full infrastructure to the us-west-2 region and configure traffic ratio of On-Prem 90%, us-west-2 10% using Route53 weighted routing. (CloudFront Origin Group is for failover only, so weighted distribution is handled by Route53.)
-                    EC2 Sync Connector performs data synchronization between On-Prem and AWS. Since the On-Prem DC is located in the us-west region, we deploy to us-west-2 first for validation due to lower network latency.</span>
+                    <span class="lang-ko">us-west-2 리전에 전체 인프라를 배포합니다. 아직 트래픽은 전달하지 않으며, 동기화 완료 후 Step 3에서 트래픽을 시작합니다. On-Prem DC가 us-west 지역에 위치하므로, 네트워크 지연이 적은 us-west-2를 먼저 배포하여 검증합니다.</span><span class="lang-en">Deploy the full infrastructure to the us-west-2 region. No traffic is routed yet — traffic starts in Step 3 after sync is confirmed. Since the On-Prem DC is located in the us-west region, we deploy to us-west-2 first for validation due to lower network latency.</span>
                 </p>
 
                 <div class="callout info">
                     <strong><span class="lang-ko">트래픽 분배</span><span class="lang-en">Traffic Distribution</span></strong>
-                    On-Prem 90% / us-west-2 10% &mdash; <span class="lang-ko">Route53 weighted routing으로 소량 트래픽 검증</span><span class="lang-en">Small traffic validation with Route53 weighted routing</span>
+                    On-Prem 100% &mdash; <span class="lang-ko">인프라 배포만, 트래픽 미유입</span><span class="lang-en">Infrastructure deployment only, no traffic</span>
                 </div>
 
                 <!-- ===== Card 1-1: ArgoCD App of Apps ===== -->
@@ -226,142 +224,6 @@
                     </div>
                 </div>
 
-                <!-- ===== Card 1-3: EC2 Sync Connector ===== -->
-                <h2 id="sync-connector">EC2 Sync Connector</h2>
-
-                <div class="tech-card" data-tag="Database">
-                    <div class="tech-card-header" onclick="toggleTechCard(this)">
-                        <span class="tech-card-title"><span class="lang-ko">On-Prem &harr; AWS CDC 동기화 아키텍처</span><span class="lang-en">On-Prem &harr; AWS CDC Sync Architecture</span></span>
-                        <span class="tech-card-tag Database">Database</span>
-                        <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                    </div>
-                    <div class="tech-card-body">
-                        <p>
-                            <span class="lang-ko">On-Prem과 AWS 간의 데이터 동기화를 위해 <strong>EC2 기반 CDC Connector</strong>를 사용합니다.
-                            On-Prem DC와 AWS VPC를 Direct Connect로 연결하고, EC2 인스턴스에서 CDC 에이전트를 실행합니다.</span><span class="lang-en">For data synchronization between On-Prem and AWS, we use an <strong>EC2-based CDC Connector</strong>.
-                            The On-Prem DC and AWS VPC are connected via Direct Connect, and CDC agents run on EC2 instances.</span>
-                        </p>
-
-                        <h4><span class="lang-ko">동기화 구성</span><span class="lang-en">Sync Configuration</span></h4>
-                        <table class="info-table">
-                            <thead>
-                                <tr><th>Source (On-Prem)</th><th>Target (AWS)</th><th><span class="lang-ko">CDC 도구</span><span class="lang-en">CDC Tool</span></th><th><span class="lang-ko">방향</span><span class="lang-en">Direction</span></th></tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>PostgreSQL</td>
-                                    <td>DSQL</td>
-                                    <td>Debezium + Kafka Connect</td>
-                                    <td><span class="lang-ko">On-Prem &rarr; AWS (단방향)</span><span class="lang-en">On-Prem &rarr; AWS (one-way)</span></td>
-                                </tr>
-                                <tr>
-                                    <td>MongoDB</td>
-                                    <td>MongoDB Atlas</td>
-                                    <td>Mongo Change Stream + Custom Agent</td>
-                                    <td><span class="lang-ko">On-Prem &rarr; AWS (단방향)</span><span class="lang-en">On-Prem &rarr; AWS (one-way)</span></td>
-                                </tr>
-                                <tr>
-                                    <td>Kafka</td>
-                                    <td>MSK</td>
-                                    <td>Kafka MirrorMaker2</td>
-                                    <td><span class="lang-ko">양방향 (topic prefix)</span><span class="lang-en">Bidirectional (topic prefix)</span></td>
-                                </tr>
-                                <tr>
-                                    <td>Elasticsearch</td>
-                                    <td>OpenSearch</td>
-                                    <td>Logstash reindex pipeline</td>
-                                    <td><span class="lang-ko">On-Prem &rarr; AWS (단방향)</span><span class="lang-en">On-Prem &rarr; AWS (one-way)</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <div class="callout warning" style="margin-top:12px;">
-                            <strong>Redis / ElastiCache</strong>
-                            <span class="lang-ko">Redis(ElastiCache)는 캐시 용도이므로 데이터 동기화를 수행하지 않습니다.
-                            각 리전에서 독립적으로 캐시를 워밍업하며, cache miss 시 DB에서 재로드합니다.</span><span class="lang-en">Redis (ElastiCache) is used for caching, so data synchronization is not performed.
-                            Each region warms up its cache independently, and reloads from the DB on cache miss.</span>
-                        </div>
-
-                        <h4><span class="lang-ko">Direct Connect 구성</span><span class="lang-en">Direct Connect Configuration</span></h4>
-                        <svg viewBox="0 0 700 300" style="width:100%;display:block;margin:12px 0" xmlns="http://www.w3.org/2000/svg">
-                            <defs>
-                                <marker id="a2" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#F59E0B" opacity="0.6"/></marker>
-                                <marker id="a3" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#3B82F6" opacity="0.6"/></marker>
-                            </defs>
-                            <style>
-                                @keyframes dcdash{to{stroke-dashoffset:-20}}
-                                .dc-flow{stroke-dasharray:10 10;animation:dcdash 1s linear infinite}
-                            </style>
-
-                            <!-- On-Prem DC -->
-                            <rect x="30" y="60" width="180" height="180" rx="14" fill="rgba(245,158,11,0.04)" stroke="#F59E0B" stroke-width="1.5"/>
-                            <text x="120" y="85" text-anchor="middle" font-size="13" font-weight="700" fill="#F59E0B" font-family="'Noto Sans KR',sans-serif">On-Prem DC</text>
-                            <text x="120" y="102" text-anchor="middle" font-size="10" fill="#64748B" font-family="'Noto Sans KR',sans-serif">(us-west region)</text>
-                            <!-- On-Prem datastores -->
-                            <rect x="50" y="115" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="131" text-anchor="middle" font-size="10" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">PostgreSQL</text>
-                            <rect x="50" y="145" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="161" text-anchor="middle" font-size="10" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">MongoDB</text>
-                            <rect x="50" y="175" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="191" text-anchor="middle" font-size="10" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">Kafka / Elasticsearch</text>
-
-                            <!-- Direct Connect link -->
-                            <line x1="210" y1="150" x2="310" y2="150" stroke="#F59E0B" stroke-width="3" class="dc-flow" marker-end="url(#a2)"/>
-                            <rect x="225" y="130" width="70" height="18" rx="4" fill="rgba(245,158,11,0.12)" stroke="#F59E0B" stroke-width="1"/>
-                            <text x="260" y="143" text-anchor="middle" font-size="9" font-weight="600" fill="#F59E0B" font-family="'Noto Sans KR',sans-serif">10 Gbps</text>
-                            <text x="260" y="120" text-anchor="middle" font-size="10" font-weight="600" fill="#F59E0B" font-family="'Noto Sans KR',sans-serif">Direct Connect</text>
-
-                            <!-- AWS us-west-2 VPC -->
-                            <rect x="310" y="20" width="360" height="270" rx="14" fill="rgba(59,130,246,0.03)" stroke="#3B82F6" stroke-width="1.5"/>
-                            <text x="490" y="45" text-anchor="middle" font-size="13" font-weight="700" fill="#3B82F6" font-family="'Noto Sans KR',sans-serif">AWS us-west-2 VPC</text>
-
-                            <!-- EC2 Sync Connector -->
-                            <rect x="370" y="65" width="240" height="80" rx="10" fill="rgba(6,182,212,0.05)" stroke="#06B6D4" stroke-width="1.5"/>
-                            <text x="490" y="90" text-anchor="middle" font-size="12" font-weight="600" fill="#06B6D4" font-family="'Noto Sans KR',sans-serif">EC2 Sync Connector</text>
-                            <!-- CDC tools -->
-                            <rect x="380" y="100" width="68" height="20" rx="4" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.25)" stroke-width="0.8"/><text x="414" y="114" text-anchor="middle" font-size="8" fill="var(--text-secondary,#94A3B8)" font-family="'Noto Sans KR',sans-serif">Debezium</text>
-                            <rect x="455" y="100" width="68" height="20" rx="4" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.25)" stroke-width="0.8"/><text x="489" y="114" text-anchor="middle" font-size="8" fill="var(--text-secondary,#94A3B8)" font-family="'Noto Sans KR',sans-serif">MirrorMaker2</text>
-                            <rect x="530" y="100" width="68" height="20" rx="4" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.25)" stroke-width="0.8"/><text x="564" y="114" text-anchor="middle" font-size="8" fill="var(--text-secondary,#94A3B8)" font-family="'Noto Sans KR',sans-serif">Custom Agent</text>
-
-                            <!-- Arrow EC2 -> Data Stores -->
-                            <line x1="490" y1="145" x2="490" y2="170" stroke="#3B82F6" stroke-width="2" class="dc-flow" marker-end="url(#a3)"/>
-
-                            <!-- AWS Data Stores -->
-                            <rect x="340" y="175" width="300" height="100" rx="10" fill="rgba(59,130,246,0.04)" stroke="rgba(59,130,246,0.2)" stroke-width="1"/>
-                            <text x="490" y="196" text-anchor="middle" font-size="11" font-weight="600" fill="#3B82F6" font-family="'Noto Sans KR',sans-serif">AWS Data Stores</text>
-                            <rect x="355" y="205" width="65" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="387" y="220" text-anchor="middle" font-size="9" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">DSQL</text>
-                            <rect x="428" y="205" width="65" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="460" y="220" text-anchor="middle" font-size="9" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">Atlas</text>
-                            <rect x="501" y="205" width="65" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="533" y="220" text-anchor="middle" font-size="9" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">MSK</text>
-                            <rect x="574" y="205" width="55" height="22" rx="4" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" stroke-width="0.8"/><text x="601" y="220" text-anchor="middle" font-size="9" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">OS</text>
-                            <!-- Replication labels -->
-                            <text x="387" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">Debezium</text>
-                            <text x="460" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">Change Stream</text>
-                            <text x="533" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">MM2</text>
-                            <text x="601" y="248" text-anchor="middle" font-size="7" fill="#64748B" font-family="'Noto Sans KR',sans-serif">Logstash</text>
-
-                            <!-- Animated data flow: On-Prem -> EC2 -->
-                            <circle r="3" fill="#F59E0B" filter="url(#gl1)">
-                                <animateMotion dur="2.5s" repeatCount="indefinite" path="M210,130 L310,130 L370,105 L490,105"/>
-                                <animate attributeName="opacity" values="0;1;1;0" dur="2.5s" repeatCount="indefinite"/>
-                            </circle>
-                            <circle r="3" fill="#F59E0B" filter="url(#gl1)">
-                                <animateMotion dur="2.5s" repeatCount="indefinite" path="M210,160 L310,160 L370,105 L490,105" begin="0.8s"/>
-                                <animate attributeName="opacity" values="0;1;1;0" dur="2.5s" repeatCount="indefinite" begin="0.8s"/>
-                            </circle>
-                            <!-- EC2 -> Data Stores -->
-                            <circle r="3" fill="#3B82F6" filter="url(#gl1)">
-                                <animateMotion dur="1.5s" repeatCount="indefinite" path="M490,145 L490,175 L490,210" begin="1.5s"/>
-                                <animate attributeName="opacity" values="0;1;0" dur="1.5s" repeatCount="indefinite" begin="1.5s"/>
-                            </circle>
-                        </svg>
-
-                        <p>
-                            <span class="lang-ko">EC2 Sync Connector는 <strong>Step 6에서 제거</strong>됩니다.
-                            On-Prem 트래픽이 0%가 되면 CDC 동기화가 더 이상 필요하지 않으며,
-                            이후에는 AWS 네이티브 리전간 동기화만 활성 상태로 유지됩니다.</span><span class="lang-en">EC2 Sync Connector is <strong>removed in Step 6</strong>.
-                            Once On-Prem traffic reaches 0%, CDC synchronization is no longer needed,
-                            and only AWS native inter-region synchronization remains active thereafter.</span>
-                        </p>
-                    </div>
-                </div>
-
                 <!-- Navigation -->
                 <div class="page-nav">
                     <a href="step-0.html">
@@ -370,7 +232,7 @@
                     </a>
                     <a href="step-2.html" class="next">
                         <span class="label"><span class="lang-ko">다음</span><span class="lang-en">Next</span></span>
-                        <span class="title">Step 2: us-east-1 <span class="lang-ko">배포</span><span class="lang-en">Deploy</span> &rarr;</span>
+                        <span class="title">Step 2: us-east-1 <span class="lang-ko">배포 + 동기화</span><span class="lang-en">Deploy + Sync</span> &rarr;</span>
                     </a>
                 </div>
             </div>
@@ -380,7 +242,6 @@
             <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
             <a href="#argocd" class="toc-link"><span class="lang-ko">ArgoCD App of Apps</span><span class="lang-en">ArgoCD App of Apps</span></a>
             <a href="#design-principles" class="toc-link"><span class="lang-ko">멀티리전 설계 원칙</span><span class="lang-en">Multi-Region Design</span></a>
-            <a href="#sync-connector" class="toc-link">EC2 Sync Connector</a>
         </aside>
     </div>
 

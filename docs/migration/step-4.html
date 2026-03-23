@@ -693,7 +693,7 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                         <table class="info-table">
                             <thead><tr><th>Phase</th><th>On-Prem</th><th>West</th><th>East</th><th><span class="lang-ko">검증 항목</span><span class="lang-en">Verification Items</span></th></tr></thead>
                             <tbody>
-                                <tr><td>Step 1</td><td>90%</td><td>10%</td><td>0%</td><td><span class="lang-ko">기본 연결성, 응답 시간</span><span class="lang-en">Basic connectivity, response time</span></td></tr>
+                                <tr><td>Step 3</td><td>90%</td><td>10%</td><td>0%</td><td><span class="lang-ko">기본 연결성, 응답 시간</span><span class="lang-en">Basic connectivity, response time</span></td></tr>
                                 <tr><td>Step 4</td><td>70%</td><td>15%</td><td>15%</td><td><span class="lang-ko">양 리전 동시 트래픽 처리</span><span class="lang-en">Simultaneous traffic handling in both regions</span></td></tr>
                                 <tr><td>Step 5</td><td>50%</td><td>25%</td><td>25%</td><td><span class="lang-ko">데이터 일관성, 동기화 지연</span><span class="lang-en">Data consistency, sync latency</span></td></tr>
                                 <tr><td>Step 6</td><td>0%</td><td>50%</td><td>50%</td><td><span class="lang-ko">On-Prem 의존성 완전 제거</span><span class="lang-en">Complete On-Prem dependency removal</span></td></tr>
@@ -781,7 +781,7 @@ Data Lag     > 30s    <span class="hl-cm"># Cross-region data sync delay exceeds
         new Chart(document.getElementById('canaryBar'), {
             type: 'bar',
             data: {
-                labels: ['Step 1', 'Step 4', 'Step 5', 'Step 6'],
+                labels: ['Step 3', 'Step 4', 'Step 5', 'Step 6'],
                 datasets: [
                     { label: 'On-Prem', data: [90, 70, 50, 0], backgroundColor: '#64748b' },
                     { label: 'us-west-2', data: [10, 15, 25, 50], backgroundColor: '#34d399' },
