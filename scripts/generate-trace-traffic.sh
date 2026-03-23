@@ -29,9 +29,9 @@ echo "=== Scenario 1: GET /api/v1/products/ (api-gw → product-catalog) ==="
 for i in $(seq 1 "$REPEAT"); do
   code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE_URL}/api/v1/products/" 2>/dev/null || echo "000")
   if [[ "$code" =~ ^(200|404)$ ]]; then
-    ((PASS++))
+    PASS=$((PASS + 1))
   else
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
     [[ "$i" -le 3 ]] && warn "Request $i returned HTTP $code"
   fi
 done
@@ -45,9 +45,9 @@ echo "=== Scenario 2: GET /api/v1/search/?q=galaxy (api-gw → search → produc
 for i in $(seq 1 "$REPEAT"); do
   code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE_URL}/api/v1/search/?q=galaxy" 2>/dev/null || echo "000")
   if [[ "$code" =~ ^(200|404)$ ]]; then
-    ((PASS++))
+    PASS=$((PASS + 1))
   else
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
     [[ "$i" -le 3 ]] && warn "Request $i returned HTTP $code"
   fi
 done
@@ -65,9 +65,9 @@ for i in $(seq 1 "$REPEAT"); do
     -d "$ORDER_BODY" \
     "${BASE_URL}/api/v1/orders/" 2>/dev/null || echo "000")
   if [[ "$code" =~ ^(200|201|404|500)$ ]]; then
-    ((PASS++))
+    PASS=$((PASS + 1))
   else
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
     [[ "$i" -le 3 ]] && warn "Request $i returned HTTP $code"
   fi
 done
@@ -81,9 +81,9 @@ echo "=== Scenario 4: GET /api/v1/recommendations/ (api-gw → recommendation) =
 for i in $(seq 1 "$REPEAT"); do
   code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE_URL}/api/v1/recommendations/" 2>/dev/null || echo "000")
   if [[ "$code" =~ ^(200|404)$ ]]; then
-    ((PASS++))
+    PASS=$((PASS + 1))
   else
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
     [[ "$i" -le 3 ]] && warn "Request $i returned HTTP $code"
   fi
 done
