@@ -145,9 +145,11 @@
                         <h4>Aurora Global Write Forwarding</h4>
                         <div class="callout info">
                             <strong><span class="lang-ko">DSQL vs Aurora Write Forwarding</span><span class="lang-en">DSQL vs Aurora Write Forwarding</span></strong>
-                            <span class="lang-ko">DSQL은 Active-Active이므로 Write Forwarding이 불필요합니다.
+                            <span class="lang-ko"><strong>Write Forwarding</strong>은 Secondary 리전에서 발생한 쓰기 요청을 자동으로 Primary 리전으로 전달하는 메커니즘입니다.
+                            DSQL은 Active-Active이므로 Write Forwarding이 불필요합니다.
                             아래 Aurora Write Forwarding 설명은 MongoDB Atlas 등 Write-Primary 패턴을
-                            사용하는 서비스의 failover 메커니즘을 보여줍니다.</span><span class="lang-en">DSQL is Active-Active, so Write Forwarding is unnecessary.
+                            사용하는 서비스의 failover 메커니즘을 보여줍니다.</span><span class="lang-en"><strong>Write Forwarding</strong> is a mechanism that automatically routes write requests from a Secondary region to the Primary region.
+                            DSQL is Active-Active, so Write Forwarding is unnecessary.
                             The Aurora Write Forwarding explanation below illustrates the failover mechanism
                             for services using Write-Primary patterns such as MongoDB Atlas.</span>
                         </div>
@@ -156,6 +158,13 @@
 <pre><code><span class="hl-cm"># Secondary cluster: Enable Write Forwarding</span>
 source_region                  = var.is_primary ? <span class="hl-num">null</span> : var.source_region
 enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</span> : var.enable_write_forwarding</code><span class="code-label">hcl</span></pre>
+
+                        <div class="callout info" style="margin-top:12px;">
+                            <strong>RPO / RTO</strong>
+                            <span class="lang-ko"><strong>RPO</strong>(Recovery Point Objective): 장애 시 허용 가능한 최대 데이터 손실 시간. RPO 0 = 데이터 손실 없음.
+                            <strong>RTO</strong>(Recovery Time Objective): 장애 발생부터 서비스 복구까지 걸리는 시간.</span><span class="lang-en"><strong>RPO</strong> (Recovery Point Objective): Maximum acceptable data loss window during failure. RPO 0 = zero data loss.
+                            <strong>RTO</strong> (Recovery Time Objective): Time from failure to service recovery.</span>
+                        </div>
 
                         <h4><span class="lang-ko">Failover 시나리오</span><span class="lang-en">Failover Scenarios</span></h4>
 

@@ -83,6 +83,14 @@
                         </table>
 
                         <h4><span class="lang-ko">CCS를 위한 PACELC 확장</span><span class="lang-en">PACELC Extension for CCS</span></h4>
+                        <div class="callout info">
+                            <strong>CAP / PACELC</strong>
+                            <span class="lang-ko"><strong>CAP 정리</strong>는 분산 시스템에서 Consistency(일관성), Availability(가용성), Partition tolerance(분할 허용) 중 2개만 동시에 보장할 수 있다는 이론입니다.
+                            <strong>PACELC</strong>는 이를 확장하여: 네트워크 분할(P) 시 A vs C 선택, 정상 상태(E=Else)에서 Latency vs Consistency 선택을 표현합니다.
+                            예: <code>P→C, E→L</code> = "장애 시 일관성 우선, 정상 시 지연 최소화".</span><span class="lang-en"><strong>CAP theorem</strong> states distributed systems can guarantee only 2 of 3: Consistency, Availability, Partition tolerance.
+                            <strong>PACELC</strong> extends this: during Partition choose A vs C, Else (normal) choose Latency vs Consistency.
+                            Example: <code>P→C, E→L</code> = "consistency on failure, minimize latency normally".</span>
+                        </div>
 <pre><code><span class="hl-cm"># PACELC (Partition→AC, Else→LC) — Extension of CAP Theorem</span>
 <span class="hl-cm"># On Partition: A vs C, Normal: Latency vs Consistency</span>
 <span class="hl-cm"># Cross-region RTT: ~60ms (us-east-1 ↔ us-west-2)</span>
