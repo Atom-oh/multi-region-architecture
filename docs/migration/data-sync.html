@@ -71,7 +71,7 @@
                                     <td>Vehicle Config</td>
                                     <td><strong><span class="lang-ko">일반 &lt;5s / SLA &lt;30s</span><span class="lang-en">Typical &lt;5s / SLA &lt;30s</span></strong></td>
                                     <td>Low frequency</td>
-                                    <td>DocumentDB Global Cluster</td>
+                                    <td>Atlas Multi-Region Cluster</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -166,7 +166,7 @@
                             <tbody>
                                 <tr><td>Aurora Global Database</td><td><code>AuroraGlobalDBReplicationLag</code></td><td>&gt; 1000ms for 3 datapoints</td><td><strong>P2</strong></td></tr>
                                 <tr><td>MSK Replicator</td><td><code>ReplicationLatency</code></td><td>&gt; 5000ms for 5 datapoints</td><td><strong>P3</strong></td></tr>
-                                <tr><td>DocumentDB Global Cluster</td><td><code>DBClusterReplicaLagMilliseconds</code></td><td>&gt; 30000ms for 5 datapoints</td><td><strong>P4</strong></td></tr>
+                                <tr><td>MongoDB Atlas</td><td><code>replicationLag</code> <span class="lang-ko">(Atlas 모니터링)</span><span class="lang-en">(Atlas monitoring)</span></td><td>&gt; 30000ms for 5 datapoints</td><td><strong>P4</strong></td></tr>
                             </tbody>
                         </table>
 
@@ -298,7 +298,7 @@ VIN: <span class="hl-str">KMHXX00XXXX000002</span> → hash(<span class="hl-num"
                                 <tr>
                                     <td>MongoDB (Vehicle Data)</td>
                                     <td>~200GB</td>
-                                    <td>mongodump → S3 → DocumentDB</td>
+                                    <td>mongodump → S3 → Atlas</td>
                                     <td><span class="lang-ko">~2-3시간</span><span class="lang-en">~2-3 hours</span></td>
                                 </tr>
                                 <tr>
@@ -327,7 +327,7 @@ VIN: <span class="hl-str">KMHXX00XXXX000002</span> → hash(<span class="hl-num"
                                 </tr>
                                 <tr>
                                     <td><strong>2. CDC Catch-up</strong><br><span style="font-size:0.8em; color:var(--text-secondary);"><span class="lang-ko">스냅샷 이후 변경분</span><span class="lang-en">Changes after snapshot</span></span></td>
-                                    <td>MongoDB Change Stream → DocumentDB<br>MirrorMaker2 continuous</td>
+                                    <td>MongoDB Change Stream → Atlas<br>MirrorMaker2 continuous</td>
                                     <td>oplog-based tailing<br>offset-based sync</td>
                                 </tr>
                                 <tr>

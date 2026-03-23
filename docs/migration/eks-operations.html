@@ -359,8 +359,8 @@
                     <div class="tech-card-body">
                         <p>
                             <span class="lang-ko">ArgoCD ApplicationSet의 clusters generator를 사용하여 리전별 Application을 자동 생성합니다.
-                            Kustomize overlay로 리전별 엔드포인트(DSQL, DocumentDB, MSK, OpenSearch)를 주입합니다.</span><span class="lang-en">Uses ArgoCD ApplicationSet's clusters generator to automatically create per-region Applications.
-                            Injects region-specific endpoints (DSQL, DocumentDB, MSK, OpenSearch) via Kustomize overlays.</span>
+                            Kustomize overlay로 리전별 엔드포인트(DSQL, MongoDB Atlas, MSK, OpenSearch)를 주입합니다.</span><span class="lang-en">Uses ArgoCD ApplicationSet's clusters generator to automatically create per-region Applications.
+                            Injects region-specific endpoints (DSQL, MongoDB Atlas, MSK, OpenSearch) via Kustomize overlays.</span>
                         </p>
 
                         <h4><span class="lang-ko">ApplicationSet - Core Services</span><span class="lang-en">ApplicationSet - Core Services</span></h4>
@@ -411,7 +411,7 @@
       - REGION=us-east-1
       - REGION_ROLE=PRIMARY
       - DSQL_ENDPOINT=&lt;placeholder-until-apply&gt;.us-east-1.dsql.amazonaws.com
-      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.docdb.amazonaws.com
+      - MONGODB_ATLAS_URI=mongodb+srv://production-atlas.xxxxx.mongodb.net
       - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com
       - MSK_BROKERS=b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,...
       - OPENSEARCH_ENDPOINT=https://vpc-production-os-use1-kpvt3o2c36ru7kyikdx6qoluk4.us-east-1.es.amazonaws.com

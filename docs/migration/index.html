@@ -137,7 +137,7 @@
                                 <text x="450" y="205" class="component-text" fill="var(--text-primary)">EKS + Karpenter</text>
                                 <text x="450" y="225" class="component-text" fill="var(--text-secondary)" font-size="9">20 Microservices</text>
                                 <rect x="345" y="260" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="280" class="component-text" fill="var(--text-primary)" font-size="10">DSQL</text>
-                                <rect x="345" y="298" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="318" class="component-text" fill="var(--text-primary)" font-size="10">DocumentDB</text>
+                                <rect x="345" y="298" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="318" class="component-text" fill="var(--text-primary)" font-size="10">MongoDB Atlas</text>
                                 <rect x="345" y="336" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="356" class="component-text" fill="var(--text-primary)" font-size="10">MSK</text>
                                 <rect x="345" y="374" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="394" class="component-text" fill="var(--text-primary)" font-size="10">ElastiCache</text>
                                 <rect x="345" y="412" width="210" height="30" class="component-box" fill="rgba(59,130,246,0.25)" stroke="var(--color-west)"/><text x="450" y="432" class="component-text" fill="var(--text-primary)" font-size="10">OpenSearch</text>
@@ -153,7 +153,7 @@
                                 <text x="745" y="205" class="component-text" fill="var(--text-primary)">EKS + Karpenter</text>
                                 <text x="745" y="225" class="component-text" fill="var(--text-secondary)" font-size="9">20 Microservices</text>
                                 <rect x="640" y="260" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="280" class="component-text" fill="var(--text-primary)" font-size="10">DSQL</text>
-                                <rect x="640" y="298" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="318" class="component-text" fill="var(--text-primary)" font-size="10">DocumentDB</text>
+                                <rect x="640" y="298" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="318" class="component-text" fill="var(--text-primary)" font-size="10">MongoDB Atlas</text>
                                 <rect x="640" y="336" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="356" class="component-text" fill="var(--text-primary)" font-size="10">MSK</text>
                                 <rect x="640" y="374" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="394" class="component-text" fill="var(--text-primary)" font-size="10">ElastiCache</text>
                                 <rect x="640" y="412" width="210" height="30" class="component-box" fill="rgba(16,185,129,0.25)" stroke="var(--color-east)"/><text x="745" y="432" class="component-text" fill="var(--text-primary)" font-size="10">OpenSearch</text>
@@ -244,7 +244,7 @@
                     </thead>
                     <tbody>
                         <tr><td>PostgreSQL</td><td>DSQL</td><td>Active-Active</td><td>AWS Native Peer Linking</td></tr>
-                        <tr><td>MongoDB</td><td>DocumentDB</td><td>Primary-Replica</td><td>Global Cluster</td></tr>
+                        <tr><td>MongoDB</td><td>MongoDB Atlas</td><td>Primary-Replica</td><td>Multi-Region Cluster</td></tr>
                         <tr><td>Kafka</td><td>MSK</td><td>Topic Replication</td><td>MSK Replicator</td></tr>
                         <tr><td>Redis</td><td>ElastiCache (Valkey)</td><td><span class="lang-ko">독립 운영</span><span class="lang-en">Independent</span></td><td>Global Datastore (<span class="lang-ko">DR용 비동기 복제</span><span class="lang-en">Async replication for DR</span>)</td></tr>
                         <tr><td>Elasticsearch</td><td>OpenSearch</td><td>Index Replication</td><td>Cross-Cluster Replication (CCR)</td></tr>
@@ -293,7 +293,7 @@
                         <div class="step-icon s3">3</div>
                         <div class="step-card-body">
                             <h3><span class="lang-ko">리전간 동기화 활성화</span><span class="lang-en">Cross-Region Sync Activation</span></h3>
-                            <p>DSQL Active-Active, MSK Replicator, DocumentDB Global Cluster</p>
+                            <p>DSQL Active-Active, MSK Replicator, Atlas Multi-Region Cluster</p>
                             <div class="step-card-tags">
                                 <span style="background:rgba(59,130,246,0.15);color:var(--tag-database);">Database</span>
                             </div>

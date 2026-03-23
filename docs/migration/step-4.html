@@ -146,10 +146,10 @@
                         <div class="callout info">
                             <strong><span class="lang-ko">DSQL vs Aurora Write Forwarding</span><span class="lang-en">DSQL vs Aurora Write Forwarding</span></strong>
                             <span class="lang-ko">DSQL은 Active-Active이므로 Write Forwarding이 불필요합니다.
-                            아래 Aurora Write Forwarding 설명은 DocumentDB 등 Write-Primary 패턴을
+                            아래 Aurora Write Forwarding 설명은 MongoDB Atlas 등 Write-Primary 패턴을
                             사용하는 서비스의 failover 메커니즘을 보여줍니다.</span><span class="lang-en">DSQL is Active-Active, so Write Forwarding is unnecessary.
                             The Aurora Write Forwarding explanation below illustrates the failover mechanism
-                            for services using Write-Primary patterns such as DocumentDB.</span>
+                            for services using Write-Primary patterns such as MongoDB Atlas.</span>
                         </div>
                         <p style="margin-bottom:8px;"><em><span class="lang-ko">Step 3에서 리전간 동기화를 활성화했지만, Aurora의 Write Forwarding은 실제 트래픽이 양 리전에 분산되는 이 단계에서 동작하기 시작합니다.</span><span class="lang-en">Cross-region sync was activated in Step 3, but Aurora's Write Forwarding begins operating at this stage when actual traffic is distributed across both regions.</span></em></p>
                         <p><code>terraform/modules/data/aurora-global/main.tf</code> (발췌)</p>
@@ -173,7 +173,7 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                                     <span class="lang-ko">us-west-2 장애</span><span class="lang-en">us-west-2 Failure</span>
                                 </button>
                                 <button onclick="setFailoverScenario(3)" id="fbtn-3" style="padding:6px 14px; border-radius:6px; border:1.5px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); cursor:pointer; font-size:13px; font-weight:500; transition:all .2s;">
-                                    <span class="lang-ko">DocDB Primary 장애</span><span class="lang-en">DocDB Primary Failure</span>
+                                    <span class="lang-ko">Atlas Primary 장애</span><span class="lang-en">Atlas Primary Failure</span>
                                 </button>
                                 <button onclick="setFailoverScenario(4)" id="fbtn-4" style="padding:6px 14px; border-radius:6px; border:1.5px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); cursor:pointer; font-size:13px; font-weight:500; transition:all .2s;">
                                     <span class="lang-ko">단일 AZ 장애</span><span class="lang-en">Single AZ Failure</span>
@@ -232,7 +232,7 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                                 var r0 = H * 0.08;  // CloudFront + Route53
                                 var r1 = H * 0.26;  // Region headers
                                 var r2 = H * 0.46;  // EKS
-                                var r3 = H * 0.68;  // Data layer (Aurora, DocDB, MSK)
+                                var r3 = H * 0.68;  // Data layer (DSQL, Atlas, MSK)
                                 var r4 = H * 0.88;  // Replication line
 
                                 var leftCx = padX + (cx - padX) * 0.5;
@@ -247,9 +247,9 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                                     eastEks:  { x: leftCx, y: r2, w: 110, h: 34, label: 'EKS Pods', sub: 'us-east-1', color: c.east, type: 'box' },
                                     westEks:  { x: rightCx, y: r2, w: 110, h: 34, label: 'EKS Pods', sub: 'us-west-2', color: c.west, type: 'box' },
                                     eastDsql:   { x: leftCx - 50, y: r3, w: 100, h: 30, label: 'DSQL (A-A)', color: c.east, type: 'box' },
-                                    eastDocdb:  { x: leftCx + 55, y: r3, w: 100, h: 30, label: 'DocDB (P)', color: c.east, type: 'box' },
+                                    eastDocdb:  { x: leftCx + 55, y: r3, w: 100, h: 30, label: 'Atlas (P)', color: c.east, type: 'box' },
                                     westDsql:   { x: rightCx - 50, y: r3, w: 100, h: 30, label: 'DSQL (A-A)', color: c.west, type: 'box' },
-                                    westDocdb:  { x: rightCx + 55, y: r3, w: 100, h: 30, label: 'DocDB (S)', color: c.west, type: 'box' },
+                                    westDocdb:  { x: rightCx + 55, y: r3, w: 100, h: 30, label: 'Atlas (S)', color: c.west, type: 'box' },
                                     eastAz1:  { x: leftCx - 40, y: r2 - 4, w: 8, h: 8, label: 'AZ-1', color: c.east, type: 'dot' },
                                     eastAz2:  { x: leftCx + 40, y: r2 - 4, w: 8, h: 8, label: 'AZ-2', color: c.east, type: 'dot' }
                                 };
@@ -492,9 +492,9 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                                 var c = colors();
                                 var scenarios = [
                                     null,
-                                    { label: 'us-east-1 Failure', detect: '~60s', rpo: 'DSQL: 0 / DocDB: <5s / MSK: <5s' },
-                                    { label: 'us-west-2 Failure', detect: '~60s', rpo: 'DSQL: 0 / DocDB: <5s / MSK: <5s' },
-                                    { label: 'DocDB Primary Failure', detect: '~120s', rpo: 'RPO < 5s' },
+                                    { label: 'us-east-1 Failure', detect: '~60s', rpo: 'DSQL: 0 / Atlas: 0 / MSK: <5s' },
+                                    { label: 'us-west-2 Failure', detect: '~60s', rpo: 'DSQL: 0 / Atlas: 0 / MSK: <5s' },
+                                    { label: 'Atlas Primary Failure', detect: '~120s', rpo: 'RPO < 5s' },
                                     { label: 'Single AZ Failure', detect: '~30s', rpo: 'Data Loss: None' }
                                 ];
                                 var s = scenarios[scenario];
@@ -630,19 +630,19 @@ enable_global_write_forwarding = var.is_primary ? <span class="hl-num">null</spa
                                     <td><span class="lang-ko">us-east-1 장애</span><span class="lang-en">us-east-1 failure</span></td>
                                     <td>~60s (Health Check)</td>
                                     <td><span class="lang-ko">Route53가 us-west-2로 자동 전환</span><span class="lang-en">Route53 auto-switches to us-west-2</span></td>
-                                    <td><span class="lang-ko">DSQL: 없음 / DocumentDB: RPO &lt;5s / MSK: RPO &lt;5s</span><span class="lang-en">DSQL: None / DocumentDB: RPO &lt;5s / MSK: RPO &lt;5s</span></td>
+                                    <td><span class="lang-ko">DSQL: 없음 / Atlas: RPO 0 / MSK: RPO &lt;5s</span><span class="lang-en">DSQL: None / Atlas: RPO 0 / MSK: RPO &lt;5s</span></td>
                                 </tr>
                                 <tr>
                                     <td><span class="lang-ko">us-west-2 장애</span><span class="lang-en">us-west-2 failure</span></td>
                                     <td>~60s</td>
                                     <td><span class="lang-ko">Route53가 us-east-1로 자동 전환</span><span class="lang-en">Route53 auto-switches to us-east-1</span></td>
-                                    <td><span class="lang-ko">DSQL: 없음 / DocumentDB: RPO &lt;5s / MSK: RPO &lt;5s</span><span class="lang-en">DSQL: None / DocumentDB: RPO &lt;5s / MSK: RPO &lt;5s</span></td>
+                                    <td><span class="lang-ko">DSQL: 없음 / Atlas: RPO 0 / MSK: RPO &lt;5s</span><span class="lang-en">DSQL: None / Atlas: RPO 0 / MSK: RPO &lt;5s</span></td>
                                 </tr>
                                 <tr>
-                                    <td><span class="lang-ko">DocDB Primary 장애</span><span class="lang-en">DocDB Primary failure</span></td>
+                                    <td><span class="lang-ko">Atlas Primary 장애</span><span class="lang-en">Atlas Primary failure</span></td>
                                     <td>~120s</td>
-                                    <td><span class="lang-ko">Global Cluster failover (Secondary 승격)</span><span class="lang-en">Global Cluster failover (Secondary promotion)</span></td>
-                                    <td>RPO &lt; 5s</td>
+                                    <td><span class="lang-ko">Atlas auto-election (자동 승격)</span><span class="lang-en">Atlas auto-election (automatic promotion)</span></td>
+                                    <td>RPO 0 (RTO ~10-30s)</td>
                                 </tr>
                                 <tr>
                                     <td><span class="lang-ko">단일 AZ 장애</span><span class="lang-en">Single AZ failure</span></td>

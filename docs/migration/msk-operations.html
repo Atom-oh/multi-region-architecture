@@ -304,19 +304,19 @@ sasl.jaas.config=...  <span class="hl-cm"># load credentials from AWS Secrets Ma
                             </thead>
                             <tbody>
                                 <tr><td><strong>HOT</strong></td><td>ElastiCache (Valkey)</td><td><span class="lang-ko">TTL 없음</span><span class="lang-en">No TTL</span></td><td><span class="lang-ko">VSS 최신값 캐시, &lt; 1ms 응답</span><span class="lang-en">VSS latest cache, &lt; 1ms response</span></td></tr>
-                                <tr><td><strong>WARM</strong></td><td>DocumentDB (MongoDB)</td><td><span class="lang-ko">3-7일</span><span class="lang-en">3-7 days</span></td><td><span class="lang-ko">분석 쿼리</span><span class="lang-en">Analytics query</span></td></tr>
+                                <tr><td><strong>WARM</strong></td><td>MongoDB Atlas</td><td><span class="lang-ko">3-7일</span><span class="lang-en">3-7 days</span></td><td><span class="lang-ko">분석 쿼리</span><span class="lang-en">Analytics query</span></td></tr>
                                 <tr><td><strong>COLD</strong></td><td>S3 (Parquet)</td><td><span class="lang-ko">영구</span><span class="lang-en">Permanent</span></td><td><span class="lang-ko">Athena 쿼리</span><span class="lang-en">Athena query</span></td></tr>
                             </tbody>
                         </table>
                         <div class="callout info" style="margin-top:12px;">
                             <strong><span class="lang-ko">데이터 플로우</span><span class="lang-en">Data Flow</span></strong><br>
-                            <span class="lang-ko">CBU (4 units) → MSK (Ingestion Layer) → ElastiCache / DocumentDB / S3</span><span class="lang-en">CBU (4 units) → MSK (Ingestion Layer) → ElastiCache / DocumentDB / S3</span>
+                            <span class="lang-ko">CBU (4 units) → MSK (Ingestion Layer) → ElastiCache / MongoDB Atlas / S3</span><span class="lang-en">CBU (4 units) → MSK (Ingestion Layer) → ElastiCache / MongoDB Atlas / S3</span>
                         </div>
 
                         <h4><span class="lang-ko">데이터 라이프사이클</span><span class="lang-en">Data Lifecycle</span></h4>
                         <ul>
                             <li><strong>HOT (ElastiCache/Valkey)</strong>: <span class="lang-ko">VSS 최신값만 캐시, TTL 없음 (항상 최신 상태 유지)</span><span class="lang-en">Cache only VSS latest values, no TTL (always keep current)</span></li>
-                            <li><strong>WARM (DocumentDB)</strong>: <span class="lang-ko">3-7일 보관, 실시간 분석 쿼리 지원</span><span class="lang-en">3-7 day retention, supports real-time analytics queries</span></li>
+                            <li><strong>WARM (Atlas)</strong>: <span class="lang-ko">3-7일 보관, 실시간 분석 쿼리 지원</span><span class="lang-en">3-7 day retention, supports real-time analytics queries</span></li>
                             <li><strong>COLD (S3)</strong>: <span class="lang-ko">영구 보관, Parquet 포맷, Athena/Glue로 분석</span><span class="lang-en">Permanent storage, Parquet format, analyze with Athena/Glue</span></li>
                         </ul>
 

@@ -25,8 +25,8 @@
                 <h1>Step 3: <span class="lang-ko">리전간 동기화 활성화</span><span class="lang-en">Cross-Region Sync Activation</span></h1>
                 <p class="lead">
                     <span class="lang-ko">us-west-2와 us-east-1 간의 데이터 동기화를 활성화합니다.
-                    DSQL Active-Active, DocumentDB Global Cluster, MSK Replicator, OpenSearch Cross-Cluster Replication (CCR)이 활성화됩니다.</span><span class="lang-en">Activate data synchronization between us-west-2 and us-east-1.
-                    DSQL Active-Active, DocumentDB Global Cluster, MSK Replicator, and OpenSearch Cross-Cluster Replication (CCR) are enabled.</span>
+                    DSQL Active-Active, Atlas Multi-Region Cluster, MSK Replicator, OpenSearch Cross-Cluster Replication (CCR)이 활성화됩니다.</span><span class="lang-en">Activate data synchronization between us-west-2 and us-east-1.
+                    DSQL Active-Active, Atlas Multi-Region Cluster, MSK Replicator, and OpenSearch Cross-Cluster Replication (CCR) are enabled.</span>
                 </p>
 
                 <div class="callout info">
@@ -168,8 +168,8 @@
                     </div>
                 </div>
 
-                <!-- ===== Card 3-3: DocumentDB + ElastiCache ===== -->
-                <h2 id="docdb-elasticache">DocumentDB + ElastiCache + OpenSearch</h2>
+                <!-- ===== Card 3-3: MongoDB Atlas + ElastiCache ===== -->
+                <h2 id="docdb-elasticache">MongoDB Atlas + ElastiCache + OpenSearch</h2>
 
                 <div class="tech-card" data-tag="Database">
                     <div class="tech-card-header" onclick="toggleTechCard(this)">
@@ -182,19 +182,24 @@
                             <span class="lang-ko">나머지 3개 데이터스토어는 각각의 AWS 네이티브 크로스리전 복제 메커니즘을 사용합니다.</span><span class="lang-en">The remaining 3 datastores use their respective AWS-native cross-region replication mechanisms.</span>
                         </p>
 
-                        <h4>DocumentDB Global Cluster</h4>
-                        <p><code>terraform/modules/data/documentdb-global/main.tf</code></p>
-<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"aws_docdb_cluster"</span> <span class="hl-str">"this"</span> {
-  cluster_identifier        = local.cluster_identifier
-  <span class="hl-cm"># Primary: null (standalone) / Secondary: global cluster ID</span>
-  global_cluster_identifier = var.is_primary ? <span class="hl-num">null</span> : var.global_cluster_identifier
+                        <h4>MongoDB Atlas Multi-Region Cluster</h4>
+                        <p><code>terraform/modules/data/atlas/main.tf</code></p>
+<pre><code><span class="hl-kw">resource</span> <span class="hl-str">"mongodbatlas_advanced_cluster"</span> <span class="hl-str">"this"</span> {
+  project_id   = var.atlas_project_id
+  name         = <span class="hl-str">"${var.environment}-atlas-${var.region}"</span>
+  cluster_type = <span class="hl-str">"REPLICASET"</span>
 
-  engine         = <span class="hl-str">"docdb"</span>
-  engine_version = <span class="hl-str">"8.0.0"</span>
-
-  <span class="hl-cm"># Primary needs credentials, secondary inherits</span>
-  master_username = var.is_primary ? <span class="hl-str">"docdb_admin"</span> : <span class="hl-num">null</span>
-  master_password = var.is_primary ? var.master_password : <span class="hl-num">null</span>
+  replication_specs {
+    region_configs {
+      provider_name = <span class="hl-str">"AWS"</span>
+      region_name   = var.atlas_region  <span class="hl-cm"># US_EAST_1</span>
+      priority      = <span class="hl-num">7</span>
+      electable_specs {
+        instance_size = var.atlas_instance_size  <span class="hl-cm"># M30</span>
+        node_count    = <span class="hl-num">3</span>
+      }
+    }
+  }
 }</code><span class="code-label">hcl</span></pre>
 
                         <h4>ElastiCache Global Datastore</h4>
@@ -212,7 +217,7 @@
                         <table class="info-table">
                             <thead><tr><th><span class="lang-ko">서비스</span><span class="lang-en">Service</span></th><th><span class="lang-ko">동기화 방식</span><span class="lang-en">Sync Method</span></th><th><span class="lang-ko">방향</span><span class="lang-en">Direction</span></th><th><span class="lang-ko">지연</span><span class="lang-en">Latency</span></th></tr></thead>
                             <tbody>
-                                <tr><td>DocumentDB</td><td>Global Cluster</td><td>Primary &rarr; Secondary</td><td>~1s</td></tr>
+                                <tr><td>MongoDB Atlas</td><td>Multi-Region Cluster</td><td>Primary &rarr; Secondary</td><td>~1s</td></tr>
                                 <tr><td>ElastiCache</td><td>Global Datastore</td><td>Primary &rarr; Secondary (<span class="lang-ko">비동기, DR용</span><span class="lang-en">async, for DR</span>)</td><td>N/A</td></tr>
                                 <tr><td>OpenSearch</td><td>Cross-Cluster Replication</td><td>Leader &rarr; Follower</td><td>~seconds</td></tr>
                             </tbody>
@@ -245,7 +250,7 @@
             <div class="toc-title"><span class="lang-ko">이 페이지 내용</span><span class="lang-en">On this page</span></div>
             <a href="#dsql" class="toc-link">DSQL Active-Active</a>
             <a href="#msk-replicator" class="toc-link">MSK Replicator</a>
-            <a href="#docdb-elasticache" class="toc-link">DocumentDB + ElastiCache + OpenSearch</a>
+            <a href="#docdb-elasticache" class="toc-link">MongoDB Atlas + ElastiCache + OpenSearch</a>
         </aside>
     </div>
 

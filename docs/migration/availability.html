@@ -275,7 +275,7 @@
                                 <tr><td>Route53 DNS</td><td>~60s</td><td>0</td><td><span class="lang-ko">헬스 체크 자동 장애조치</span><span class="lang-en">Health check auto-failover</span></td></tr>
                                 <tr><td>Aurora Global</td><td>~120s</td><td>&lt; 1s</td><td><span class="lang-ko">세컨더리 승격</span><span class="lang-en">Secondary promotion</span></td></tr>
                                 <tr><td>DSQL Active-Active</td><td>0s</td><td>0</td><td><span class="lang-ko">장애조치 불필요 (active-active)</span><span class="lang-en">No failover needed (active-active)</span></td></tr>
-                                <tr><td>DocumentDB Global</td><td><span class="lang-ko">수 분 (수동 failover)</span><span class="lang-en">Minutes (manual failover)</span></td><td>~5s</td><td><span class="lang-ko">수동 승격 필요</span><span class="lang-en">Manual promotion required</span></td></tr>
+                                <tr><td>Atlas Multi-Region</td><td>~10-30s</td><td>0</td><td><span class="lang-ko">자동 election</span><span class="lang-en">Auto-election</span></td></tr>
                                 <tr><td>MSK Replicator</td><td>~30-60s</td><td>~2-5s</td><td><span class="lang-ko">Consumer group rebalance (토픽 파티션 수에 의존)</span><span class="lang-en">Consumer group rebalance (depends on topic partition count)</span></td></tr>
                             </tbody>
                         </table>
@@ -403,7 +403,7 @@
                             <strong><span class="lang-ko">수동 조치 (Primary 리전 다운 시)</span><span class="lang-en">Manual Actions (if Primary region down)</span></strong>
                             <ul>
                                 <li><strong>Aurora:</strong> <span class="lang-ko">글로벌 데이터베이스 장애조치 시작</span><span class="lang-en">Initiate global database failover</span></li>
-                                <li><strong>DocumentDB:</strong> <span class="lang-ko">세컨더리 클러스터 승격</span><span class="lang-en">Promote secondary cluster</span></li>
+                                <li><strong>MongoDB Atlas:</strong> <span class="lang-ko">자동 election (수동 조치 불필요)</span><span class="lang-en">Auto-election (no manual action needed)</span></li>
                                 <li><strong>PagerDuty:</strong> <span class="lang-ko">런북 상태 업데이트</span><span class="lang-en">Update runbook status</span></li>
                             </ul>
                         </div>

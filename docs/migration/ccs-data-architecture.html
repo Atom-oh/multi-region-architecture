@@ -61,7 +61,7 @@
                                 <tr><td><span class="lang-ko">메시지 큐</span><span class="lang-en">Message Queue</span></td><td>On-Prem Kafka</td><td>Amazon MSK</td><td><span class="lang-ko">관리형, 자동 스케일링</span><span class="lang-en">Managed, auto-scaling</span></td></tr>
                                 <tr><td><span class="lang-ko">처리</span><span class="lang-en">Processing</span></td><td>On-Prem K8s CCDI</td><td>EKS (Containerized)</td><td><span class="lang-ko">관리형 컨트롤 플레인, 탄력적 스케일링</span><span class="lang-en">Managed control plane, elastic scaling</span></td></tr>
                                 <tr><td><span class="lang-ko">핫 스토리지</span><span class="lang-en">Hot Storage</span></td><td>Redis (self-managed)</td><td>ElastiCache</td><td><span class="lang-ko">Multi-AZ, 자동 장애조치</span><span class="lang-en">Multi-AZ, auto-failover</span></td></tr>
-                                <tr><td><span class="lang-ko">웜 스토리지</span><span class="lang-en">Warm Storage</span></td><td>MongoDB (HDD)</td><td>MongoDB Atlas (SSD)</td><td><span class="lang-ko">IOPS, 관리형 백업</span><span class="lang-en">IOPS, managed backups</span></td></tr>
+                                <tr><td><span class="lang-ko">웜 스토리지</span><span class="lang-en">Warm Storage</span></td><td>MongoDB (HDD)</td><td>MongoDB Atlas</td><td><span class="lang-ko">IOPS, 관리형 백업</span><span class="lang-en">IOPS, managed backups</span></td></tr>
                                 <tr><td><span class="lang-ko">콜드 스토리지</span><span class="lang-en">Cold Storage</span></td><td>None (data lost)</td><td>S3 + Athena</td><td><span class="lang-ko">영구 히스토리, 분석</span><span class="lang-en">Permanent history, analytics</span></td></tr>
                                 <tr><td><span class="lang-ko">통합</span><span class="lang-en">Integration</span></td><td>ESB (varies by corp)</td><td>API Gateway + MSA</td><td><span class="lang-ko">표준화, 분리</span><span class="lang-en">Standardized, decoupled</span></td></tr>
                             </tbody>
@@ -206,7 +206,7 @@
                                 </tr>
                                 <tr>
                                     <td><strong>Warm</strong></td>
-                                    <td>MongoDB Atlas / DocumentDB</td>
+                                    <td>MongoDB Atlas</td>
                                     <td><span class="lang-ko">3-7일</span><span class="lang-en">3-7 days</span></td>
                                     <td>P99 &lt; 50ms</td>
                                     <td><span class="lang-ko">서비스 데이터, 최근 히스토리</span><span class="lang-en">Service data, recent history</span></td>

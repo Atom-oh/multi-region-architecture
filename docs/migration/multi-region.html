@@ -267,7 +267,7 @@ L5: <span class="hl-str">Global-level</span>     <span class="hl-cm"># CloudFron
                             <thead><tr><th><span class="lang-ko">카테고리</span><span class="lang-en">Category</span></th><th><span class="lang-ko">단일 리전</span><span class="lang-en">Single Region</span></th><th><span class="lang-ko">멀티리전 (2)</span><span class="lang-en">Multi-Region (2)</span></th><th><span class="lang-ko">CCS 특이사항</span><span class="lang-en">CCS Specifics</span></th></tr></thead>
                             <tbody>
                                 <tr><td>Compute (EKS + Karpenter)</td><td>1x</td><td>~1.8x</td><td><span class="lang-ko">CCDI 워커 노드 집중</span><span class="lang-en">CCDI worker node concentration</span></td></tr>
-                                <tr><td>Database (Aurora, DocDB)</td><td>1x</td><td>~2x</td><td><span class="lang-ko">VSS 데이터 230M rows/day</span><span class="lang-en">VSS data 230M rows/day</span></td></tr>
+                                <tr><td>Database (DSQL, Atlas)</td><td>1x</td><td>~2x</td><td><span class="lang-ko">VSS 데이터 230M rows/day</span><span class="lang-en">VSS data 230M rows/day</span></td></tr>
                                 <tr><td>Data Transfer (Cross-Region)</td><td>0</td><td>+$0.02/GB</td><td>10TB/day = ~$200/day</td></tr>
                                 <tr><td>MSK Replication</td><td>1x</td><td>~1.5x</td><td>50MB/s throughput</td></tr>
                                 <tr><td>Edge (CloudFront, WAF)</td><td>1x</td><td>1x</td><td><span class="lang-ko">글로벌 서비스 (공유)</span><span class="lang-en">Global services (shared)</span></td></tr>
