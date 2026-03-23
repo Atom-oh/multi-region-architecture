@@ -164,14 +164,14 @@
                             </defs>
                             <style>
                                 .rt-node{font-family:'Noto Sans KR',sans-serif;font-weight:600}
-                                .rt-desc{font-family:'Noto Sans KR',sans-serif;font-size:10px;fill:#94A3B8}
+                                .rt-desc{font-family:'Noto Sans KR',sans-serif;font-size:10px;fill:var(--text-secondary,#94A3B8)}
                                 @keyframes rtdash{to{stroke-dashoffset:-16}}
                                 .rt-flow{stroke-dasharray:8 8;animation:rtdash 0.8s linear infinite}
                             </style>
 
                             <!-- User -->
                             <rect x="265" y="8" width="170" height="36" rx="18" fill="rgba(148,163,184,0.08)" stroke="#94A3B8" stroke-width="1.5"/>
-                            <text x="350" y="31" text-anchor="middle" class="rt-node" font-size="13" fill="#E2E8F0">User / Client</text>
+                            <text x="350" y="31" text-anchor="middle" class="rt-node" font-size="13" fill="var(--text-primary,#E2E8F0)">User / Client</text>
 
                             <!-- Arrow -->
                             <line x1="350" y1="44" x2="350" y2="72" stroke="#06B6D4" stroke-width="2" class="rt-flow" marker-end="url(#a1)"/>
@@ -298,9 +298,9 @@
                             <text x="120" y="85" text-anchor="middle" font-size="13" font-weight="700" fill="#F59E0B" font-family="'Noto Sans KR',sans-serif">On-Prem DC</text>
                             <text x="120" y="102" text-anchor="middle" font-size="10" fill="#64748B" font-family="'Noto Sans KR',sans-serif">(us-west region)</text>
                             <!-- On-Prem datastores -->
-                            <rect x="50" y="115" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="131" text-anchor="middle" font-size="10" fill="#E2E8F0" font-family="'Noto Sans KR',sans-serif">PostgreSQL</text>
-                            <rect x="50" y="145" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="161" text-anchor="middle" font-size="10" fill="#E2E8F0" font-family="'Noto Sans KR',sans-serif">MongoDB</text>
-                            <rect x="50" y="175" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="191" text-anchor="middle" font-size="10" fill="#E2E8F0" font-family="'Noto Sans KR',sans-serif">Kafka / Elasticsearch</text>
+                            <rect x="50" y="115" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="131" text-anchor="middle" font-size="10" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">PostgreSQL</text>
+                            <rect x="50" y="145" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="161" text-anchor="middle" font-size="10" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">MongoDB</text>
+                            <rect x="50" y="175" width="140" height="24" rx="4" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/><text x="120" y="191" text-anchor="middle" font-size="10" fill="var(--text-primary,#E2E8F0)" font-family="'Noto Sans KR',sans-serif">Kafka / Elasticsearch</text>
 
                             <!-- Direct Connect link -->
                             <line x1="210" y1="150" x2="310" y2="150" stroke="#F59E0B" stroke-width="3" class="dc-flow" marker-end="url(#a2)"/>
