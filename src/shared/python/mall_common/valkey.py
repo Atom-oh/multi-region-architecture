@@ -29,25 +29,28 @@ def get_client() -> aioredis.Redis:
 
 
 async def get_json(key: str) -> Any | None:
-    client = get_client()
-    val = await client.get(key)
+    if _client is None:
+        return None
+    val = await _client.get(key)
     if val is None:
         return None
     return json.loads(val)
 
 
 async def set_json(key: str, value: Any, ttl_seconds: int | None = None) -> None:
-    client = get_client()
+    if _client is None:
+        return
     data = json.dumps(value)
     if ttl_seconds:
-        await client.setex(key, ttl_seconds, data)
+        await _client.setex(key, ttl_seconds, data)
     else:
-        await client.set(key, data)
+        await _client.set(key, data)
 
 
 async def delete(key: str) -> None:
-    client = get_client()
-    await client.delete(key)
+    if _client is None:
+        return
+    await _client.delete(key)
 
 
 async def ping() -> bool:

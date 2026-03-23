@@ -32,12 +32,15 @@ class ProductRepository:
         skip: int = 0,
         limit: int = 20,
         category_slug: Optional[str] = None,
+        query: Optional[str] = None,
     ) -> list[dict]:
-        query = {}
+        filter_dict: dict = {}
         if category_slug:
-            query["category.slug"] = category_slug
+            filter_dict["category.slug"] = category_slug
+        if query:
+            filter_dict["name"] = {"$regex": query, "$options": "i"}
 
-        cursor = self.products.find(query).skip(skip).limit(limit)
+        cursor = self.products.find(filter_dict).skip(skip).limit(limit)
         products = []
         async for doc in cursor:
             doc["_id"] = str(doc["_id"])

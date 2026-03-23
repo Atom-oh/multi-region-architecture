@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
 
 export default function RegisterPage() {
   const { login } = useAuth();
@@ -45,14 +46,20 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      // In production: await api('/users/register', { method: 'POST', body: JSON.stringify(formData) });
-      await new Promise(resolve => setTimeout(resolve, 500));
-
+      const data = await api('/users/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          phone: formData.phone,
+        }),
+      });
       login({
-        id: 'USR-NEW',
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
+        id: data.id || data.user_id || `USR-${Date.now()}`,
+        name: data.name || formData.name,
+        email: data.email || formData.email,
+        phone: data.phone || formData.phone,
         address: '',
       });
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
 
 const MOCK_SELLER_DATA = {
   shopName: '김민수 스토어',
@@ -35,8 +36,16 @@ export default function SellerDashboardPage() {
   useEffect(() => {
     const fetchSellerData = async () => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        setSellerData(MOCK_SELLER_DATA);
+        const data = await api(`/sellers/${user.id}`);
+        setSellerData(data && (data.business_name || data.shopName) ? {
+          shopName: data.business_name || data.shopName,
+          totalSales: data.total_sales ?? data.totalSales ?? 0,
+          monthSales: data.month_sales ?? data.monthSales ?? 0,
+          totalOrders: data.total_orders ?? data.totalOrders ?? 0,
+          pendingOrders: data.pending_orders ?? data.pendingOrders ?? 0,
+          products: data.products || MOCK_SELLER_DATA.products,
+          recentOrders: data.recent_orders || data.recentOrders || MOCK_SELLER_DATA.recentOrders,
+        } : MOCK_SELLER_DATA);
       } catch (error) {
         console.error('데이터를 불러올 수 없습니다:', error);
       } finally {

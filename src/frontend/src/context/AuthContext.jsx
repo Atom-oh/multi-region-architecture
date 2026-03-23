@@ -3,11 +3,11 @@ import { createContext, useContext, useState, useEffect } from 'react';
 const AuthContext = createContext(null);
 
 const DEFAULT_USER = {
-  id: 'USR-001',
-  name: '김민수',
-  email: 'minsu.kim@example.com',
+  id: 'a0000001-0000-0000-0000-000000000001',
+  name: '김민준',
+  email: 'kim.minjun@gmail.com',
   phone: '010-1234-5678',
-  address: '서울시 강남구 테헤란로 123',
+  address: '서울특별시 강남구 테헤란로 123',
 };
 
 export function AuthProvider({ children }) {

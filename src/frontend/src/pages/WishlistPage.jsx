@@ -2,13 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-
-const MOCK_WISHLIST = [
-  { id: 'PRD-005', name: '애플 맥북 프로 14', price: 2890000, rating: 4.9, reviewCount: 1892 },
-  { id: 'PRD-004', name: '다이슨 V15 무선청소기', price: 1290000, rating: 4.9, reviewCount: 567 },
-  { id: 'PRD-010', name: '구찌 마몬트 백', price: 2890000, rating: 4.8, reviewCount: 456 },
-  { id: 'PRD-013', name: '삼성 QLED 75인치 TV', price: 3490000, rating: 4.8, reviewCount: 432 },
-];
+import { api } from '../api';
 
 export default function WishlistPage() {
   const { user } = useAuth();
@@ -19,9 +13,16 @@ export default function WishlistPage() {
   useEffect(() => {
     const fetchWishlist = async () => {
       try {
-        // In production: const data = await api(`/wishlists/${user.id}`);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        setWishlist(MOCK_WISHLIST);
+        const data = await api(`/wishlists/${user.id}`);
+        const items = (data.items || data || []).map(item => ({
+          id: item.product_id || item.id,
+          name: item.name,
+          price: item.price,
+          rating: item.rating || 0,
+          reviewCount: item.review_count || item.reviewCount || 0,
+          imageUrl: item.images?.[0] || item.image_url || item.imageUrl,
+        }));
+        setWishlist(items);
       } catch (error) {
         console.error('데이터를 불러올 수 없습니다:', error);
       } finally {
@@ -47,13 +48,36 @@ export default function WishlistPage() {
     );
   };
 
-  const handleRemove = (productId) => {
+  const handleRemove = async (productId) => {
+    try {
+      if (user?.id) {
+        await api(`/wishlists/${user.id}/items/${productId}`, { method: 'DELETE' });
+      }
+    } catch (err) {
+      console.error('위시리스트 삭제 API 오류:', err);
+    }
     setWishlist(prev => prev.filter(item => item.id !== productId));
   };
 
-  const handleAddToCart = (product) => {
-    incrementCart();
-    alert(`${product.name}이(가) 장바구니에 추가되었습니다.`);
+  const handleAddToCart = async (product) => {
+    try {
+      if (user?.id) {
+        await api(`/carts/${user.id}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            product_id: product.id,
+            name: product.name,
+            quantity: 1,
+            price: product.price,
+          }),
+        });
+      }
+      incrementCart();
+      alert(`${product.name}이(가) 장바구니에 추가되었습니다.`);
+    } catch (err) {
+      console.error('장바구니 추가 API 오류:', err);
+      alert('장바구니 추가에 실패했습니다.');
+    }
   };
 
   if (loading) {
@@ -89,7 +113,7 @@ export default function WishlistPage() {
                 <Link to={`/products/${product.id}`}>
                   <div className="aspect-square bg-slate-100 overflow-hidden">
                     <img
-                      src={`https://picsum.photos/seed/${product.id}/400/400`}
+                      src={product.imageUrl || `https://picsum.photos/seed/${product.id}/400/400`}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />

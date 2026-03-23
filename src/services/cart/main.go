@@ -89,7 +89,7 @@ func main() {
 
 	// Initialize Valkey connection (graceful fallback to mock if unavailable)
 	if cfg.CacheHost != "" {
-		client, err := valkey.New(cfg.CacheHost, cfg.CachePort)
+		client, err := valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
 		if err != nil {
 			log.Printf("WARNING: Valkey unavailable, using mock data: %v", err)
 		} else {

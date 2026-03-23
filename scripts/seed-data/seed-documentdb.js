@@ -5,7 +5,7 @@
 
 const { MongoClient } = require('mongodb');
 
-const MONGO_URI = process.env.DOCUMENTDB_URI || 'mongodb://mall_admin:password@localhost:27017/?tls=true&replicaSet=rs0&readPreference=secondaryPreferred';
+const MONGO_URI = process.env.DOCUMENTDB_URI || 'mongodb://docdb_admin:TempPassword123%21ChangeMe@localhost:27017/mall?tls=true&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false&authMechanism=SCRAM-SHA-1';
 const DB_NAME = 'mall';
 
 // ── 10 Categories ──────────────────────────────────────────────────────────
@@ -280,7 +280,7 @@ function generateUserProfiles() {
 function generateWishlists(products) {
   const wishlists = [];
   for (let i = 0; i < 30; i++) {
-    const userId = `a0000001-0000-0000-0000-${String((i % 50) + 1).padStart(12, '0')}`;
+    const user_id = `a0000001-0000-0000-0000-${String((i % 50) + 1).padStart(12, '0')}`;
     const itemCount = Math.floor(Math.random() * 8 + 2);
     const items = [];
     const used = new Set();
@@ -289,18 +289,18 @@ function generateWishlists(products) {
       do { idx = Math.floor(Math.random() * products.length); } while (used.has(idx));
       used.add(idx);
       items.push({
-        productId: products[idx].productId,
-        productName: products[idx].name,
+        product_id: products[idx].productId,
+        name: products[idx].name,
         price: products[idx].price,
-        addedAt: new Date(Date.now() - Math.random() * 90 * 86400000),
+        added_at: new Date(Date.now() - Math.random() * 90 * 86400000),
       });
     }
+    const created = new Date(Date.now() - Math.random() * 180 * 86400000);
     wishlists.push({
-      userId,
-      name: ['나의 위시리스트', '생일 선물 리스트', '장바구니 후보', '나중에 살 것'][i % 4],
+      user_id,
       items,
-      isPublic: i % 5 === 0,
-      createdAt: new Date(Date.now() - Math.random() * 180 * 86400000),
+      created_at: created,
+      updated_at: created,
     });
   }
   return wishlists;
@@ -329,18 +329,22 @@ function generateReviews(products) {
   const reviews = [];
   for (let i = 0; i < 300; i++) {
     const product = products[i % products.length];
-    const userId = `a0000001-0000-0000-0000-${String((i % 50) + 1).padStart(12, '0')}`;
+    const user_id = `a0000001-0000-0000-0000-${String((i % 50) + 1).padStart(12, '0')}`;
     const rating = Math.floor(Math.random() * 3 + 3); // 3-5
+    const now = new Date(Date.now() - Math.random() * 180 * 86400000);
     reviews.push({
-      productId: product.productId,
-      userId,
+      id: `rev-${String(i + 1).padStart(4, '0')}`,
+      user_id,
+      user_name: '',
+      product_id: product.productId,
       rating,
       title: rating >= 4 ? '만족스러운 구매' : '보통이에요',
-      content: comments[i % comments.length],
+      body: comments[i % comments.length],
       images: i % 5 === 0 ? [`https://cdn.mall.example.com/reviews/${i + 1}/photo.webp`] : [],
-      helpful: Math.floor(Math.random() * 50),
-      verified: i % 3 !== 2,
-      createdAt: new Date(Date.now() - Math.random() * 180 * 86400000),
+      helpful_count: Math.floor(Math.random() * 50),
+      verified_purchase: i % 3 !== 2,
+      created_at: now,
+      updated_at: now,
     });
   }
   return reviews;
@@ -375,6 +379,38 @@ function generateNotifications() {
     });
   }
   return notifications;
+}
+
+// ── 500 User Activities (for recommendation engine) ─────────────────────
+function generateUserActivities(products) {
+  const actions = ['view', 'click', 'add_to_cart', 'purchase'];
+  const actionWeights = [50, 25, 15, 10]; // % distribution
+  const activities = [];
+
+  for (let i = 0; i < 500; i++) {
+    const user_id = `a0000001-0000-0000-0000-${String((i % 50) + 1).padStart(12, '0')}`;
+    const product = products[Math.floor(Math.random() * products.length)];
+
+    // Weighted random action selection
+    const rand = Math.random() * 100;
+    let action;
+    if (rand < actionWeights[0]) action = actions[0];
+    else if (rand < actionWeights[0] + actionWeights[1]) action = actions[1];
+    else if (rand < actionWeights[0] + actionWeights[1] + actionWeights[2]) action = actions[2];
+    else action = actions[3];
+
+    activities.push({
+      user_id,
+      product_id: product.productId,
+      action,
+      category: product.category.slug,
+      timestamp: new Date(Date.now() - Math.random() * 30 * 86400000),
+      metadata: {
+        source: ['home', 'search', 'category', 'recommendation'][Math.floor(Math.random() * 4)],
+      },
+    });
+  }
+  return activities;
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────
@@ -420,15 +456,16 @@ async function main() {
     await db.collection('wishlists').deleteMany({});
     await db.collection('wishlists').insertMany(wishlists);
     console.log(`Inserted ${wishlists.length} wishlists`);
-    await db.collection('wishlists').createIndex({ userId: 1 });
+    await db.collection('wishlists').createIndex({ user_id: 1 });
 
-    // Reviews
+    // Reviews (snake_case fields to match review_repo.py)
     const reviews = generateReviews(products);
     await db.collection('reviews').deleteMany({});
     await db.collection('reviews').insertMany(reviews);
     console.log(`Inserted ${reviews.length} reviews`);
-    await db.collection('reviews').createIndex({ productId: 1 });
-    await db.collection('reviews').createIndex({ userId: 1 });
+    await db.collection('reviews').createIndex({ product_id: 1 });
+    await db.collection('reviews').createIndex({ user_id: 1 });
+    await db.collection('reviews').createIndex({ id: 1 }, { unique: true });
     await db.collection('reviews').createIndex({ rating: -1 });
 
     // Notifications
@@ -438,6 +475,15 @@ async function main() {
     console.log(`Inserted ${notifications.length} notifications`);
     await db.collection('notifications').createIndex({ userId: 1, sentAt: -1 });
 
+    // User Activities (for recommendation engine)
+    const activities = generateUserActivities(products);
+    await db.collection('user_activities').deleteMany({});
+    await db.collection('user_activities').insertMany(activities);
+    console.log(`Inserted ${activities.length} user activities`);
+    await db.collection('user_activities').createIndex({ user_id: 1, timestamp: -1 });
+    await db.collection('user_activities').createIndex({ product_id: 1 });
+    await db.collection('user_activities').createIndex({ action: 1 });
+
     console.log('\nSeed complete!');
     console.log(`  ${categories.length} categories`);
     console.log(`  ${products.length} products`);
@@ -445,6 +491,7 @@ async function main() {
     console.log(`  ${wishlists.length} wishlists`);
     console.log(`  ${reviews.length} reviews`);
     console.log(`  ${notifications.length} notifications`);
+    console.log(`  ${activities.length} user activities`);
   } finally {
     await client.close();
   }

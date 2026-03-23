@@ -34,7 +34,7 @@ export default function ProductCard({ product }) {
     >
       <div className="aspect-square bg-slate-100 overflow-hidden">
         <img
-          src={product.image || `https://picsum.photos/seed/${product.id}/400/400`}
+          src={product.imageUrl || `https://picsum.photos/seed/${product.id}/400/400`}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />

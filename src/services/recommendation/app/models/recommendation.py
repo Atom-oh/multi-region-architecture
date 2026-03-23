@@ -11,6 +11,9 @@ class Recommendation(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
     reason: str
     category: Optional[str] = None
+    name: Optional[str] = None
+    price: Optional[int] = None
+    image_url: Optional[str] = None
 
 
 class UserActivity(BaseModel):

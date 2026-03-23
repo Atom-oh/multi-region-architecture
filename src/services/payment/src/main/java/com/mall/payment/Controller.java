@@ -164,7 +164,7 @@ public class Controller {
         if (jdbcTemplate != null) {
             try {
                 List<Map<String, Object>> payments = jdbcTemplate.queryForList(
-                    "SELECT * FROM payments WHERE id::text = ?", id
+                    "SELECT * FROM payments WHERE id = ?::uuid", id
                 );
                 if (!payments.isEmpty()) {
                     Map<String, Object> row = payments.get(0);

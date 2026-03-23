@@ -1,26 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
-const MOCK_RETURNS = [
-  {
-    id: 'RET-001',
-    orderId: 'ORD-20240310-003',
-    productName: '소니 WH-1000XM5 헤드폰',
-    reason: '제품 불량',
-    status: 'processing',
-    createdAt: '2024-03-15',
-    refundAmount: 449000,
-  },
-];
-
-const ELIGIBLE_ORDERS = [
-  { id: 'ORD-20240315-002', product: '다이슨 V15 무선청소기', price: 1290000, deliveredAt: '2024-03-17' },
-];
+import { api } from '../api';
 
 export default function ReturnsPage() {
   const { user } = useAuth();
   const [returns, setReturns] = useState([]);
+  const [eligibleOrders, setEligibleOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -30,10 +16,33 @@ export default function ReturnsPage() {
   });
 
   useEffect(() => {
-    const fetchReturns = async () => {
+    const fetchData = async () => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        setReturns(MOCK_RETURNS);
+        const [returnsData, ordersData] = await Promise.all([
+          api(`/returns?user_id=${user.id}`).catch(() => ({ returns: [] })),
+          api(`/orders/user/${user.id}`).catch(() => ({ orders: [] })),
+        ]);
+
+        const items = (returnsData.returns || returnsData || []).map(r => ({
+          id: r.id,
+          orderId: r.order_id || r.orderId,
+          productName: r.product_name || r.productName,
+          reason: r.reason,
+          status: r.status,
+          createdAt: r.created_at || r.createdAt,
+          refundAmount: r.refund_amount || r.refundAmount,
+        }));
+        setReturns(items);
+
+        const orders = (ordersData.orders || ordersData || [])
+          .filter(o => o.status === 'delivered')
+          .map(o => ({
+            id: o.id,
+            product: (o.items || []).map(i => i.name).join(', ') || '주문 상품',
+            price: o.total_amount || o.total,
+            deliveredAt: o.delivered_at || o.created_at || o.createdAt,
+          }));
+        setEligibleOrders(orders);
       } catch (error) {
         console.error('데이터를 불러올 수 없습니다:', error);
       } finally {
@@ -41,7 +50,7 @@ export default function ReturnsPage() {
       }
     };
 
-    fetchReturns();
+    fetchData();
   }, [user?.id]);
 
   const formatPrice = (price) => {
@@ -68,15 +77,40 @@ export default function ReturnsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const newReturn = {
-      id: `RET-${Date.now()}`,
-      orderId: formData.orderId,
-      productName: ELIGIBLE_ORDERS.find(o => o.id === formData.orderId)?.product,
-      reason: formData.reason,
-      status: 'pending',
-      createdAt: new Date().toISOString().split('T')[0],
-      refundAmount: ELIGIBLE_ORDERS.find(o => o.id === formData.orderId)?.price,
-    };
+    let newReturn;
+    try {
+      const data = await api('/returns', {
+        method: 'POST',
+        body: JSON.stringify({
+          order_id: formData.orderId,
+          reason: formData.reason,
+          reason_detail: formData.reasonDetail,
+          user_id: user.id,
+        }),
+      });
+      const selectedOrder = eligibleOrders.find(o => o.id === formData.orderId);
+      newReturn = {
+        id: data.id || `RET-${Date.now()}`,
+        orderId: data.order_id || formData.orderId,
+        productName: data.product_name || selectedOrder?.product,
+        reason: data.reason || formData.reason,
+        status: data.status || 'pending',
+        createdAt: data.created_at || new Date().toISOString().split('T')[0],
+        refundAmount: data.refund_amount || selectedOrder?.price,
+      };
+    } catch (err) {
+      console.error('반품 신청 API 오류:', err);
+      const selectedOrder = eligibleOrders.find(o => o.id === formData.orderId);
+      newReturn = {
+        id: `RET-${Date.now()}`,
+        orderId: formData.orderId,
+        productName: selectedOrder?.product,
+        reason: formData.reason,
+        status: 'pending',
+        createdAt: new Date().toISOString().split('T')[0],
+        refundAmount: selectedOrder?.price,
+      };
+    }
 
     setReturns(prev => [newReturn, ...prev]);
     setShowForm(false);
@@ -121,12 +155,15 @@ export default function ReturnsPage() {
                 className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">주문을 선택하세요</option>
-                {ELIGIBLE_ORDERS.map((order) => (
+                {eligibleOrders.map((order) => (
                   <option key={order.id} value={order.id}>
-                    {order.product} - {formatPrice(order.price)} (배송완료: {order.deliveredAt})
+                    {order.product} - {formatPrice(order.price)}
                   </option>
                 ))}
               </select>
+              {eligibleOrders.length === 0 && (
+                <p className="text-sm text-slate-500 mt-1">배송완료된 주문이 없습니다.</p>
+              )}
               <p className="text-sm text-slate-500 mt-1">배송완료 후 30일 이내 주문만 신청 가능합니다.</p>
             </div>
 
@@ -220,10 +257,12 @@ export default function ReturnsPage() {
                       <p className="text-slate-500">신청일</p>
                       <p className="font-medium text-slate-800">{returnItem.createdAt}</p>
                     </div>
-                    <div>
-                      <p className="text-slate-500">환불 예정 금액</p>
-                      <p className="font-medium text-blue-600">{formatPrice(returnItem.refundAmount)}</p>
-                    </div>
+                    {returnItem.refundAmount && (
+                      <div>
+                        <p className="text-slate-500">환불 예정 금액</p>
+                        <p className="font-medium text-blue-600">{formatPrice(returnItem.refundAmount)}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

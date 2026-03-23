@@ -2,41 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import OrderStatusBadge from '../components/OrderStatusBadge';
-
-const MOCK_ORDERS = [
-  {
-    id: 'ORD-20240320-001',
-    createdAt: '2024-03-20T10:30:00',
-    status: 'shipping',
-    items: [
-      { name: '삼성 갤럭시 S24 Ultra', quantity: 1, price: 1890000 },
-      { name: '나이키 에어맥스 97', quantity: 2, price: 219000 },
-    ],
-    total: 2328000,
-    trackingNumber: 'KR1234567890',
-  },
-  {
-    id: 'ORD-20240315-002',
-    createdAt: '2024-03-15T14:20:00',
-    status: 'delivered',
-    items: [
-      { name: '다이슨 V15 무선청소기', quantity: 1, price: 1290000 },
-    ],
-    total: 1290000,
-    trackingNumber: 'KR0987654321',
-  },
-  {
-    id: 'ORD-20240310-003',
-    createdAt: '2024-03-10T09:15:00',
-    status: 'delivered',
-    items: [
-      { name: '소니 WH-1000XM5 헤드폰', quantity: 1, price: 449000 },
-      { name: '로지텍 MX Master 3S', quantity: 1, price: 149000 },
-    ],
-    total: 598000,
-    trackingNumber: 'KR1122334455',
-  },
-];
+import { api, mapOrder } from '../api';
 
 export default function OrdersPage() {
   const { user } = useAuth();
@@ -46,9 +12,8 @@ export default function OrdersPage() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        // In production: const data = await api(`/orders/user/${user.id}`);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        setOrders(MOCK_ORDERS);
+        const data = await api(`/orders/user/${user.id}`);
+        setOrders((data.orders || data || []).map(mapOrder));
       } catch (error) {
         console.error('데이터를 불러올 수 없습니다:', error);
       } finally {

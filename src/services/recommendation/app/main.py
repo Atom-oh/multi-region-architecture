@@ -1,17 +1,19 @@
-"""Recommendation Service - FastAPI Application with stub responses."""
+"""Recommendation Service - FastAPI Application."""
 
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
-from mall_common.documentdb import connect, disconnect, get_db
+from mall_common.documentdb import connect, disconnect
+from mall_common import valkey
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
+
+from app.routers.recommendations import router as recommendations_router
 
 logger = logging.getLogger(__name__)
 config = ServiceConfig(service_name="recommendation")
 app = FastAPI(title="Recommendation Service", version="1.0.0")
-_db_connected = False
 
 # CORS middleware
 app.add_middleware(
@@ -24,189 +26,7 @@ app.add_middleware(
 
 init_tracing(config.service_name, app)
 app.include_router(health_router)
-
-# Mock recommendations - consistent with shared IDs
-MOCK_USER_RECOMMENDATIONS = {
-    "USR-001": [
-        {
-            "product_id": "PRD-004",
-            "name": "애플 맥북 프로 M4",
-            "price": 2990000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=MacBook+M4",
-            "score": 0.95,
-            "reason": "최근 본 전자제품과 비슷한 상품",
-        },
-        {
-            "product_id": "PRD-007",
-            "name": "LG 올레드 TV 65\"",
-            "price": 3290000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=LG+OLED+65",
-            "score": 0.92,
-            "reason": "같은 카테고리 인기 상품",
-        },
-        {
-            "product_id": "PRD-003",
-            "name": "다이슨 에어랩",
-            "price": 699000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=Dyson+Airwrap",
-            "score": 0.88,
-            "reason": "위시리스트 기반 추천",
-        },
-        {
-            "product_id": "PRD-006",
-            "name": "아디다스 울트라부스트",
-            "price": 219000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=Ultraboost",
-            "score": 0.85,
-            "reason": "비슷한 고객이 구매한 상품",
-        },
-        {
-            "product_id": "PRD-009",
-            "name": "스타벅스 텀블러 세트",
-            "price": 45000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=Starbucks",
-            "score": 0.82,
-            "reason": "지금 인기 있는 상품",
-        },
-    ],
-    "USR-002": [
-        {
-            "product_id": "PRD-003",
-            "name": "다이슨 에어랩",
-            "price": 699000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=Dyson+Airwrap",
-            "score": 0.96,
-            "reason": "뷰티 카테고리 베스트셀러",
-        },
-        {
-            "product_id": "PRD-005",
-            "name": "르크루제 냄비 세트",
-            "price": 459000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=Le+Creuset",
-            "score": 0.91,
-            "reason": "프리미엄 라이프스타일 추천",
-        },
-        {
-            "product_id": "PRD-010",
-            "name": "소니 WH-1000XM5",
-            "price": 429000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=Sony+XM5",
-            "score": 0.87,
-            "reason": "최근 검색한 상품과 유사",
-        },
-        {
-            "product_id": "PRD-008",
-            "name": "무지 캔버스 토트백",
-            "price": 29000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=MUJI+Tote",
-            "score": 0.83,
-            "reason": "함께 보면 좋은 상품",
-        },
-    ],
-    "USR-003": [
-        {
-            "product_id": "PRD-002",
-            "name": "나이키 에어맥스 97",
-            "price": 189000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=AirMax+97",
-            "score": 0.94,
-            "reason": "관심 카테고리 베스트",
-        },
-        {
-            "product_id": "PRD-006",
-            "name": "아디다스 울트라부스트",
-            "price": 219000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=Ultraboost",
-            "score": 0.92,
-            "reason": "위시리스트 상품과 유사",
-        },
-        {
-            "product_id": "PRD-008",
-            "name": "무지 캔버스 토트백",
-            "price": 29000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=MUJI+Tote",
-            "score": 0.85,
-            "reason": "함께 구매하면 좋은 상품",
-        },
-        {
-            "product_id": "PRD-009",
-            "name": "스타벅스 텀블러 세트",
-            "price": 45000,
-            "image_url": "https://placehold.co/400x400/EEE/333?text=Starbucks",
-            "score": 0.80,
-            "reason": "지역 인기 상품",
-        },
-    ],
-}
-
-MOCK_TRENDING = [
-    {
-        "product_id": "PRD-001",
-        "name": "삼성 갤럭시 S25 울트라",
-        "price": 1890000,
-        "image_url": "https://placehold.co/400x400/EEE/333?text=Galaxy+S25",
-        "trend_score": 0.98,
-        "sales_increase": "45%",
-        "rank": 1,
-    },
-    {
-        "product_id": "PRD-003",
-        "name": "다이슨 에어랩",
-        "price": 699000,
-        "image_url": "https://placehold.co/400x400/EEE/333?text=Dyson+Airwrap",
-        "trend_score": 0.95,
-        "sales_increase": "38%",
-        "rank": 2,
-    },
-    {
-        "product_id": "PRD-007",
-        "name": "LG 올레드 TV 65\"",
-        "price": 3290000,
-        "image_url": "https://placehold.co/400x400/EEE/333?text=LG+OLED+65",
-        "trend_score": 0.92,
-        "sales_increase": "32%",
-        "rank": 3,
-    },
-    {
-        "product_id": "PRD-010",
-        "name": "소니 WH-1000XM5",
-        "price": 429000,
-        "image_url": "https://placehold.co/400x400/EEE/333?text=Sony+XM5",
-        "trend_score": 0.89,
-        "sales_increase": "28%",
-        "rank": 4,
-    },
-    {
-        "product_id": "PRD-004",
-        "name": "애플 맥북 프로 M4",
-        "price": 2990000,
-        "image_url": "https://placehold.co/400x400/EEE/333?text=MacBook+M4",
-        "trend_score": 0.87,
-        "sales_increase": "25%",
-        "rank": 5,
-    },
-]
-
-MOCK_SIMILAR = {
-    "PRD-001": [
-        {"product_id": "PRD-004", "name": "애플 맥북 프로 M4", "price": 2990000, "image_url": "https://placehold.co/400x400/EEE/333?text=MacBook+M4", "similarity": 0.75},
-        {"product_id": "PRD-007", "name": "LG 올레드 TV 65\"", "price": 3290000, "image_url": "https://placehold.co/400x400/EEE/333?text=LG+OLED+65", "similarity": 0.68},
-        {"product_id": "PRD-010", "name": "소니 WH-1000XM5", "price": 429000, "image_url": "https://placehold.co/400x400/EEE/333?text=Sony+XM5", "similarity": 0.65},
-        {"product_id": "PRD-003", "name": "다이슨 에어랩", "price": 699000, "image_url": "https://placehold.co/400x400/EEE/333?text=Dyson+Airwrap", "similarity": 0.55},
-    ],
-    "PRD-002": [
-        {"product_id": "PRD-006", "name": "아디다스 울트라부스트", "price": 219000, "image_url": "https://placehold.co/400x400/EEE/333?text=Ultraboost", "similarity": 0.95},
-        {"product_id": "PRD-008", "name": "무지 캔버스 토트백", "price": 29000, "image_url": "https://placehold.co/400x400/EEE/333?text=MUJI+Tote", "similarity": 0.45},
-        {"product_id": "PRD-009", "name": "스타벅스 텀블러 세트", "price": 45000, "image_url": "https://placehold.co/400x400/EEE/333?text=Starbucks", "similarity": 0.35},
-        {"product_id": "PRD-005", "name": "르크루제 냄비 세트", "price": 459000, "image_url": "https://placehold.co/400x400/EEE/333?text=Le+Creuset", "similarity": 0.30},
-    ],
-    "PRD-003": [
-        {"product_id": "PRD-005", "name": "르크루제 냄비 세트", "price": 459000, "image_url": "https://placehold.co/400x400/EEE/333?text=Le+Creuset", "similarity": 0.72},
-        {"product_id": "PRD-009", "name": "스타벅스 텀블러 세트", "price": 45000, "image_url": "https://placehold.co/400x400/EEE/333?text=Starbucks", "similarity": 0.65},
-        {"product_id": "PRD-008", "name": "무지 캔버스 토트백", "price": 29000, "image_url": "https://placehold.co/400x400/EEE/333?text=MUJI+Tote", "similarity": 0.58},
-        {"product_id": "PRD-010", "name": "소니 WH-1000XM5", "price": 429000, "image_url": "https://placehold.co/400x400/EEE/333?text=Sony+XM5", "similarity": 0.52},
-    ],
-}
+app.include_router(recommendations_router)
 
 
 @app.get("/")
@@ -214,123 +34,20 @@ async def root():
     return {"service": "recommendation", "status": "running"}
 
 
-@app.get("/api/v1/recommendations/{user_id}")
-async def get_user_recommendations(user_id: str, limit: int = 10):
-    """Get personalized recommendations for a user."""
-    recommendations = MOCK_USER_RECOMMENDATIONS.get(user_id, MOCK_TRENDING[:5])
-    return {
-        "user_id": user_id,
-        "recommendations": recommendations[:limit],
-        "total": len(recommendations),
-        "algorithm": "collaborative_filtering_v2",
-    }
-
-
-@app.get("/api/v1/recommendations")
-async def get_recommendations(limit: int = 10):
-    """Get random product recommendations."""
-    if _db_connected:
-        try:
-            db = get_db()
-            pipeline = [{"$sample": {"size": limit}}]
-            cursor = db["products"].aggregate(pipeline)
-            products = []
-            async for doc in cursor:
-                doc["_id"] = str(doc["_id"])
-                products.append(doc)
-            return {
-                "recommendations": products,
-                "total": len(products),
-                "algorithm": "random_sample",
-            }
-        except Exception as e:
-            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
-    # Fallback to mock data
-    return {
-        "recommendations": MOCK_TRENDING[:limit],
-        "total": len(MOCK_TRENDING[:limit]),
-        "algorithm": "mock_trending",
-    }
-
-
-@app.get("/api/v1/recommendations/category/{category}")
-async def get_recommendations_by_category(category: str, limit: int = 10):
-    """Get product recommendations by category."""
-    if _db_connected:
-        try:
-            db = get_db()
-            cursor = db["products"].find({"category.slug": category}).limit(limit)
-            products = []
-            async for doc in cursor:
-                doc["_id"] = str(doc["_id"])
-                products.append(doc)
-            return {
-                "category": category,
-                "recommendations": products,
-                "total": len(products),
-            }
-        except Exception as e:
-            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
-    # Fallback to mock data
-    return {
-        "category": category,
-        "recommendations": MOCK_TRENDING[:limit],
-        "total": len(MOCK_TRENDING[:limit]),
-    }
-
-
-@app.get("/api/v1/recommendations/trending")
-async def get_trending(limit: int = 10, category: str = None):
-    """Get trending products."""
-    if _db_connected:
-        try:
-            db = get_db()
-            pipeline = [{"$sample": {"size": limit}}]
-            cursor = db["products"].aggregate(pipeline)
-            products = []
-            async for doc in cursor:
-                doc["_id"] = str(doc["_id"])
-                products.append(doc)
-            return {
-                "trending": products,
-                "total": len(products),
-                "category": category,
-                "period": "last_7_days",
-            }
-        except Exception as e:
-            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
-    # Fallback to mock data
-    products = MOCK_TRENDING
-    return {
-        "trending": products[:limit],
-        "total": len(products),
-        "category": category,
-        "period": "last_7_days",
-    }
-
-
-@app.get("/api/v1/recommendations/similar/{product_id}")
-async def get_similar_products(product_id: str, limit: int = 5):
-    """Get similar products."""
-    similar = MOCK_SIMILAR.get(product_id, [])
-    return {
-        "product_id": product_id,
-        "similar_products": similar[:limit],
-        "total": len(similar),
-        "algorithm": "content_based_filtering",
-    }
-
-
 @app.on_event("startup")
 async def startup():
-    global _db_connected
     if config.documentdb_host != "localhost":
         try:
             await connect(config.documentdb_uri, config.db_name or "mall")
-            _db_connected = True
             logger.info("Connected to DocumentDB")
         except Exception as e:
             logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
+    if config.cache_host != "localhost":
+        try:
+            await valkey.connect(config.cache_host, config.cache_port)
+            logger.info("Connected to Valkey")
+        except Exception as e:
+            logger.warning(f"Valkey unavailable: {e}")
     set_started(True)
     set_ready(True)
 
@@ -338,6 +55,7 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await disconnect()
+    await valkey.disconnect()
 
 
 if __name__ == "__main__":

@@ -221,7 +221,7 @@ async def get_shipment(shipment_id: str):
         try:
             async with _pg_pool.acquire() as conn:
                 row = await conn.fetchrow(
-                    "SELECT * FROM shipments WHERE id::text = $1", shipment_id
+                    "SELECT * FROM shipments WHERE id = $1::uuid", shipment_id
                 )
                 if row:
                     return _row_to_shipment(row)
@@ -241,7 +241,7 @@ async def get_shipments_by_order(order_id: str):
         try:
             async with _pg_pool.acquire() as conn:
                 rows = await conn.fetch(
-                    "SELECT * FROM shipments WHERE order_id::text = $1 ORDER BY created_at DESC",
+                    "SELECT * FROM shipments WHERE order_id = $1::uuid ORDER BY created_at DESC",
                     order_id
                 )
                 if rows:

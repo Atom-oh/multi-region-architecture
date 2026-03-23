@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
 
 export default function ProfilePage() {
   const { user, login } = useAuth();
@@ -23,9 +24,10 @@ export default function ProfilePage() {
     setIsSaving(true);
 
     try {
-      // In production: await api(`/profiles/${user.id}`, { method: 'PUT', body: JSON.stringify(formData) });
-      await new Promise(resolve => setTimeout(resolve, 500));
-
+      await api(`/profiles/${user.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(formData),
+      });
       login({ ...user, ...formData });
       setIsEditing(false);
       alert('프로필이 업데이트되었습니다.');

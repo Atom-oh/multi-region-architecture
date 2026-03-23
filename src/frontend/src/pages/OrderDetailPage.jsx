@@ -1,41 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import OrderStatusBadge from '../components/OrderStatusBadge';
-
-const MOCK_ORDER = {
-  id: 'ORD-20240320-001',
-  createdAt: '2024-03-20T10:30:00',
-  status: 'shipping',
-  items: [
-    { productId: 'PRD-001', name: '삼성 갤럭시 S24 Ultra', quantity: 1, price: 1890000 },
-    { productId: 'PRD-003', name: '나이키 에어맥스 97', quantity: 2, price: 219000 },
-  ],
-  subtotal: 2328000,
-  shippingFee: 0,
-  total: 2328000,
-  shipping: {
-    name: '김민수',
-    phone: '010-1234-5678',
-    address: '서울시 강남구 테헤란로 123',
-    addressDetail: '멀티리전타워 1004호',
-  },
-  payment: {
-    method: '신용카드',
-    cardNumber: '**** **** **** 1234',
-  },
-  trackingNumber: 'KR1234567890',
-  carrier: 'CJ대한통운',
-};
-
-const TRACKING_HISTORY = [
-  { status: 'delivered', message: '배송 완료', time: '2024-03-22 14:30', completed: false },
-  { status: 'out_for_delivery', message: '배송 출발', time: '2024-03-22 08:00', completed: false },
-  { status: 'in_transit', message: '강남 터미널 도착', time: '2024-03-21 22:00', completed: true },
-  { status: 'in_transit', message: '대전 허브 출발', time: '2024-03-21 18:00', completed: true },
-  { status: 'shipped', message: '상품이 발송되었습니다', time: '2024-03-21 10:00', completed: true },
-  { status: 'processing', message: '상품 준비 중', time: '2024-03-20 14:00', completed: true },
-  { status: 'confirmed', message: '주문 확인', time: '2024-03-20 10:30', completed: true },
-];
+import { api } from '../api';
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -46,10 +12,49 @@ export default function OrderDetailPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        // In production: const data = await api(`/orders/${id}`);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        setOrder({ ...MOCK_ORDER, id });
-        setTracking(TRACKING_HISTORY);
+        const orderData = await api(`/orders/${id}`);
+        const shippingAddr = orderData.shipping_address || {};
+        const addressParts = [shippingAddr.city, shippingAddr.district, shippingAddr.street].filter(Boolean);
+        setOrder({
+          id: orderData.id,
+          createdAt: orderData.created_at || orderData.createdAt,
+          status: orderData.status,
+          items: (orderData.items || []).map(i => ({
+            productId: i.product_id || i.productId,
+            name: i.name,
+            quantity: i.quantity,
+            price: i.price,
+          })),
+          subtotal: orderData.subtotal || orderData.total_amount,
+          shippingFee: orderData.shipping_fee || 0,
+          total: orderData.total_amount || orderData.total,
+          shipping: {
+            name: shippingAddr.name || '',
+            phone: shippingAddr.phone || '',
+            address: addressParts.length > 0 ? addressParts.join(' ') : (shippingAddr.address || ''),
+            addressDetail: shippingAddr.zip || shippingAddr.address_detail || '',
+          },
+          payment: {
+            method: orderData.payment_method || '신용카드',
+            cardNumber: '**** **** **** 1234',
+          },
+          trackingNumber: orderData.tracking_number || '',
+          carrier: orderData.carrier || '',
+        });
+
+        try {
+          const shipData = await api(`/shipments/order/${id}`);
+          const shipment = Array.isArray(shipData) ? shipData[0] : shipData;
+          const events = (shipment?.events || shipment?.tracking_events || []).map(e => ({
+            status: e.status,
+            message: e.message || e.description,
+            time: e.time || e.timestamp,
+            completed: e.completed !== undefined ? e.completed : true,
+          }));
+          setTracking(events);
+        } catch {
+          setTracking([]);
+        }
       } catch (error) {
         console.error('데이터를 불러올 수 없습니다:', error);
       } finally {
@@ -154,46 +159,54 @@ export default function OrderDetailPage() {
           </div>
 
           {/* Tracking Timeline */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-bold text-slate-800 mb-4">배송 추적</h2>
-            <div className="flex items-center gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
-              <div>
-                <p className="text-sm text-slate-500">택배사</p>
-                <p className="font-medium text-slate-800">{order.carrier}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">운송장 번호</p>
-                <p className="font-medium text-slate-800">{order.trackingNumber}</p>
-              </div>
-            </div>
+          {tracking.length > 0 && (
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-bold text-slate-800 mb-4">배송 추적</h2>
+              {(order.carrier || order.trackingNumber) && (
+                <div className="flex items-center gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
+                  {order.carrier && (
+                    <div>
+                      <p className="text-sm text-slate-500">택배사</p>
+                      <p className="font-medium text-slate-800">{order.carrier}</p>
+                    </div>
+                  )}
+                  {order.trackingNumber && (
+                    <div>
+                      <p className="text-sm text-slate-500">운송장 번호</p>
+                      <p className="font-medium text-slate-800">{order.trackingNumber}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
-            <div className="relative">
-              {tracking.map((step, index) => (
-                <div key={index} className="flex gap-4 pb-6 last:pb-0">
-                  <div className="relative">
-                    <div
-                      className={`w-4 h-4 rounded-full ${
-                        step.completed ? 'bg-blue-500' : 'bg-slate-300'
-                      }`}
-                    />
-                    {index < tracking.length - 1 && (
+              <div className="relative">
+                {tracking.map((step, index) => (
+                  <div key={index} className="flex gap-4 pb-6 last:pb-0">
+                    <div className="relative">
                       <div
-                        className={`absolute top-4 left-1.5 w-1 h-full ${
-                          step.completed ? 'bg-blue-500' : 'bg-slate-200'
+                        className={`w-4 h-4 rounded-full ${
+                          step.completed ? 'bg-blue-500' : 'bg-slate-300'
                         }`}
                       />
-                    )}
+                      {index < tracking.length - 1 && (
+                        <div
+                          className={`absolute top-4 left-1.5 w-1 h-full ${
+                            step.completed ? 'bg-blue-500' : 'bg-slate-200'
+                          }`}
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-medium ${step.completed ? 'text-slate-800' : 'text-slate-400'}`}>
+                        {step.message}
+                      </p>
+                      <p className="text-sm text-slate-500">{step.time}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className={`font-medium ${step.completed ? 'text-slate-800' : 'text-slate-400'}`}>
-                      {step.message}
-                    </p>
-                    <p className="text-sm text-slate-500">{step.time}</p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="lg:col-span-1 space-y-6">
@@ -218,17 +231,17 @@ export default function OrderDetailPage() {
             <div className="space-y-3 text-sm">
               <div>
                 <p className="text-slate-500">받는 분</p>
-                <p className="font-medium text-slate-800">{order.shipping.name}</p>
+                <p className="font-medium text-slate-800">{order.shipping.name || '-'}</p>
               </div>
               <div>
                 <p className="text-slate-500">연락처</p>
-                <p className="font-medium text-slate-800">{order.shipping.phone}</p>
+                <p className="font-medium text-slate-800">{order.shipping.phone || '-'}</p>
               </div>
               <div>
                 <p className="text-slate-500">주소</p>
                 <p className="font-medium text-slate-800">
-                  {order.shipping.address}<br />
-                  {order.shipping.addressDetail}
+                  {order.shipping.address || '-'}
+                  {order.shipping.addressDetail && <><br />{order.shipping.addressDetail}</>}
                 </p>
               </div>
             </div>

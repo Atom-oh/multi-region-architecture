@@ -34,8 +34,9 @@ async def list_products(
     skip: int = 0,
     limit: int = 20,
     category_id: Optional[str] = None,
+    query: Optional[str] = None,
 ) -> list[dict]:
-    return await product_repo.list_products(skip=skip, limit=limit, category_id=category_id)
+    return await product_repo.list_products(skip=skip, limit=limit, category_slug=category_id, query=query)
 
 
 async def get_product(product_id: str) -> Optional[dict]:

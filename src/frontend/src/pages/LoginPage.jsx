@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -25,16 +26,17 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // In production: const data = await api('/users/login', { method: 'POST', body: JSON.stringify(formData) });
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Demo login - accept any credentials
+      const data = await api('/users/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: formData.email, password: formData.password }),
+      });
+      const u = data.user || data;
       login({
-        id: 'USR-001',
-        name: '김민수',
-        email: formData.email || 'minsu.kim@example.com',
-        phone: '010-1234-5678',
-        address: '서울시 강남구 테헤란로 123',
+        id: u.user_id || u.id || 'USR-001',
+        name: u.name || '김민수',
+        email: u.email || formData.email,
+        phone: u.phone || '010-1234-5678',
+        address: u.address || '서울시 강남구 테헤란로 123',
       });
 
       navigate('/');

@@ -1,16 +1,21 @@
 package com.mall.returns;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
 @RestController
 @CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 public class Controller {
+
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     @Autowired(required = false)
     private JdbcTemplate jdbcTemplate;
@@ -59,24 +64,36 @@ public class Controller {
     }
 
     @GetMapping("/api/v1/returns")
-    public ResponseEntity<Map<String, Object>> getReturns() {
-        if (jdbcTemplate != null) {
-            try {
-                // Query orders with 'returned' status as returns
-                List<Map<String, Object>> returnedOrders = jdbcTemplate.queryForList(
-                    "SELECT o.id, o.user_id, o.total_amount, o.created_at FROM orders o WHERE o.status = 'returned' LIMIT 20"
-                );
-                if (!returnedOrders.isEmpty()) {
+    public ResponseEntity<Map<String, Object>> getReturns(
+        @RequestParam(required = false) String user_id
+    ) {
+        // Inter-service call to order service instead of direct DB query
+        String orderServiceUrl = System.getenv("ORDER_SERVICE_URL") != null
+            ? System.getenv("ORDER_SERVICE_URL")
+            : "http://order.core-services.svc.cluster.local:80";
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            String url = orderServiceUrl + "/api/v1/orders?status=returned"
+                + (user_id != null ? "&user_id=" + user_id : "")
+                + "&limit=20";
+            @SuppressWarnings("unchecked")
+            Map<String, Object> orderResponse = restTemplate.getForObject(url, Map.class);
+            if (orderResponse != null && orderResponse.containsKey("orders")) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> returnedOrders = (List<Map<String, Object>>) orderResponse.get("orders");
+                if (returnedOrders != null && !returnedOrders.isEmpty()) {
                     List<Map<String, Object>> returns = new ArrayList<>();
                     for (Map<String, Object> row : returnedOrders) {
                         Map<String, Object> ret = new LinkedHashMap<>();
-                        ret.put("id", "RET-" + row.get("id").toString().substring(0, 8));
-                        ret.put("order_id", row.get("id").toString());
-                        ret.put("user_id", row.get("user_id") != null ? row.get("user_id").toString() : "USR-001");
+                        String orderId = row.get("id") != null ? row.get("id").toString() : "unknown";
+                        ret.put("id", "RET-" + orderId.substring(0, Math.min(8, orderId.length())));
+                        ret.put("order_id", orderId);
+                        ret.put("user_id", row.getOrDefault("user_id", "USR-001").toString());
+                        ret.put("product_name", row.getOrDefault("product_name", "상품").toString());
                         ret.put("status", "completed");
                         ret.put("status_display", "반품완료");
-                        ret.put("refund_amount", row.get("total_amount"));
-                        ret.put("created_at", row.get("created_at").toString());
+                        ret.put("refund_amount", row.getOrDefault("total_amount", 0));
+                        ret.put("created_at", row.getOrDefault("created_at", "").toString());
                         returns.add(ret);
                     }
 
@@ -88,18 +105,19 @@ public class Controller {
                         .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                         .body(response);
                 }
-            } catch (Exception e) {
-                // Fall back to mock data
             }
+        } catch (Exception e) {
+            logger.warn("Order service call failed, falling back to mock data: {}", e.getMessage());
         }
 
         // Mock data fallback
-        List<Map<String, Object>> returns = List.of(
+        List<Map<String, Object>> allReturns = List.of(
             Map.ofEntries(
                 Map.entry("id", "RET-001"),
                 Map.entry("order_id", "ORD-OLD-001"),
                 Map.entry("user_id", "USR-001"),
                 Map.entry("user_name", "김민수"),
+                Map.entry("product_name", "나이키 에어맥스 97"),
                 Map.entry("status", "completed"),
                 Map.entry("status_display", "반품완료"),
                 Map.entry("reason", "상품불량"),
@@ -112,6 +130,7 @@ public class Controller {
                 Map.entry("order_id", "ORD-OLD-002"),
                 Map.entry("user_id", "USR-002"),
                 Map.entry("user_name", "이서연"),
+                Map.entry("product_name", "스타벅스 텀블러 세트"),
                 Map.entry("status", "approved"),
                 Map.entry("status_display", "반품승인"),
                 Map.entry("reason", "오배송"),
@@ -119,6 +138,10 @@ public class Controller {
                 Map.entry("created_at", "2026-03-18T09:00:00Z")
             )
         );
+
+        List<Map<String, Object>> returns = user_id != null
+            ? allReturns.stream().filter(r -> user_id.equals(r.get("user_id"))).toList()
+            : allReturns;
 
         Map<String, Object> response = Map.of(
             "returns", returns,

@@ -18,6 +18,7 @@ type Config struct {
 	DBPassword     string
 	CacheHost      string
 	CachePort      int
+	CachePassword  string
 	KafkaBrokers   string
 	OpenSearchURL  string
 	DocumentDBHost string
@@ -39,6 +40,7 @@ func Load(serviceName string) *Config {
 		DBPassword:     getEnv("DB_PASSWORD", ""),
 		CacheHost:      getEnv("CACHE_HOST", "localhost"),
 		CachePort:      getEnvInt("CACHE_PORT", 6379),
+		CachePassword:  getEnv("CACHE_AUTH_TOKEN", ""),
 		KafkaBrokers:   getEnv("KAFKA_BROKERS", "localhost:9092"),
 		OpenSearchURL:  getEnv("OPENSEARCH_ENDPOINT", "http://localhost:9200"),
 		DocumentDBHost: getEnv("DOCUMENTDB_HOST", "localhost"),

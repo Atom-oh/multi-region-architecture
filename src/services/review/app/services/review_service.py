@@ -1,9 +1,10 @@
-"""Review service - business logic with Kafka event publishing."""
+"""Review service - business logic with Kafka event publishing and product enrichment."""
 
 import logging
 from typing import Optional
 
 from mall_common.kafka import Producer
+from mall_common.service_client import get_product, get_products_by_ids
 
 from app.config import config
 from app.models.review import Review, ReviewCreate, ReviewListResponse, ReviewUpdate
@@ -36,8 +37,34 @@ async def _publish_event(topic: str, key: str, data: dict) -> None:
             logger.error("Failed to publish event to %s: %s", topic, e)
 
 
+async def _enrich_review(review: Review) -> Review:
+    """Enrich a review with product name/image from product-catalog."""
+    product = await get_product(review.product_id)
+    if product:
+        review.product_name = product.get("name")
+        review.product_image_url = product.get("image_url")
+    return review
+
+
+async def _enrich_reviews(reviews: list[Review]) -> list[Review]:
+    """Enrich multiple reviews with product details."""
+    if not reviews:
+        return reviews
+    product_ids = list({r.product_id for r in reviews})
+    product_map = await get_products_by_ids(product_ids)
+    for review in reviews:
+        catalog_data = product_map.get(review.product_id)
+        if catalog_data:
+            review.product_name = catalog_data.get("name")
+            review.product_image_url = catalog_data.get("image_url")
+    return reviews
+
+
 async def get_review(review_id: str) -> Optional[Review]:
-    return await review_repo.get_review(review_id)
+    review = await review_repo.get_review(review_id)
+    if review:
+        review = await _enrich_review(review)
+    return review
 
 
 async def get_reviews_by_product(
@@ -46,6 +73,7 @@ async def get_reviews_by_product(
     page_size: int = 10,
 ) -> ReviewListResponse:
     reviews, total = await review_repo.get_reviews_by_product(product_id, page, page_size)
+    reviews = await _enrich_reviews(reviews)
     has_more = (page * page_size) < total
     return ReviewListResponse(
         reviews=reviews,

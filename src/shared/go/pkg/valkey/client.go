@@ -15,14 +15,18 @@ type Client struct {
 	cluster *redis.ClusterClient
 }
 
-func New(host string, port int) (*Client, error) {
-	cluster := redis.NewClusterClient(&redis.ClusterOptions{
+func New(host string, port int, password string) (*Client, error) {
+	opts := &redis.ClusterOptions{
 		Addrs:        []string{fmt.Sprintf("%s:%d", host, port)},
 		ReadTimeout:  3 * time.Second,
 		WriteTimeout: 3 * time.Second,
 		PoolSize:     20,
 		TLSConfig:    &tls.Config{},
-	})
+	}
+	if password != "" {
+		opts.Password = password
+	}
+	cluster := redis.NewClusterClient(opts)
 
 	// Add OTel tracing for automatic Redis span creation
 	if err := redisotel.InstrumentTracing(cluster); err != nil {

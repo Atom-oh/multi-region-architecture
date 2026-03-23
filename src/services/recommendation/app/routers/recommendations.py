@@ -8,12 +8,6 @@ from app.services.recommendation_service import recommendation_service
 router = APIRouter(prefix="/api/v1/recommendations", tags=["recommendations"])
 
 
-@router.get("/{user_id}", response_model=RecommendationResponse)
-async def get_recommendations(user_id: str, limit: int = 10):
-    """Get personalized recommendations for a user."""
-    return await recommendation_service.get_personalized_recommendations(user_id, limit)
-
-
 @router.get("/trending", response_model=TrendingResponse)
 async def get_trending():
     """Get trending products."""
@@ -24,3 +18,21 @@ async def get_trending():
 async def get_similar_products(product_id: str, limit: int = 10):
     """Get similar products based on user behavior."""
     return await recommendation_service.get_similar_products(product_id, limit)
+
+
+@router.get("/category/{category}")
+async def get_recommendations_by_category(category: str, limit: int = 10):
+    """Get product recommendations by category."""
+    return await recommendation_service.get_recommendations_by_category(category, limit)
+
+
+@router.get("/{user_id}", response_model=RecommendationResponse)
+async def get_recommendations(user_id: str, limit: int = 10):
+    """Get personalized recommendations for a user."""
+    return await recommendation_service.get_personalized_recommendations(user_id, limit)
+
+
+@router.get("/")
+async def get_random_recommendations(limit: int = 10):
+    """Get random product recommendations."""
+    return await recommendation_service.get_random_recommendations(limit)

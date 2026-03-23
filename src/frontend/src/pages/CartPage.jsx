@@ -3,12 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import CartItem from '../components/CartItem';
-
-const MOCK_CART_ITEMS = [
-  { productId: 'PRD-001', name: '삼성 갤럭시 S24 Ultra', price: 1890000, quantity: 1 },
-  { productId: 'PRD-003', name: '나이키 에어맥스 97', price: 219000, quantity: 2 },
-  { productId: 'PRD-006', name: '소니 WH-1000XM5 헤드폰', price: 449000, quantity: 1 },
-];
+import { api } from '../api';
 
 export default function CartPage() {
   const { user } = useAuth();
@@ -19,10 +14,16 @@ export default function CartPage() {
   useEffect(() => {
     const fetchCart = async () => {
       try {
-        // In production: const data = await api(`/carts/${user.id}`);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        setCartItems(MOCK_CART_ITEMS);
-        updateCartCount(MOCK_CART_ITEMS.reduce((sum, item) => sum + item.quantity, 0));
+        const data = await api(`/carts/${user.id}`);
+        const items = (data.items || []).map(item => ({
+          productId: item.product_id || item.productId,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          imageUrl: item.image_url || item.imageUrl,
+        }));
+        setCartItems(items);
+        updateCartCount(items.reduce((sum, item) => sum + item.quantity, 0));
       } catch (error) {
         console.error('데이터를 불러올 수 없습니다:', error);
       } finally {
@@ -33,7 +34,8 @@ export default function CartPage() {
     fetchCart();
   }, [user?.id]);
 
-  const handleUpdateQuantity = (productId, newQuantity) => {
+  const handleUpdateQuantity = async (productId, newQuantity) => {
+    if (newQuantity < 1) return;
     setCartItems(prev =>
       prev.map(item =>
         item.productId === productId ? { ...item, quantity: newQuantity } : item
@@ -43,12 +45,34 @@ export default function CartPage() {
       item.productId === productId ? sum + newQuantity : sum + item.quantity, 0
     );
     updateCartCount(newTotal);
+    try {
+      await api(`/carts/${user.id}/items/${productId}`, { method: 'DELETE' });
+      const item = cartItems.find(i => i.productId === productId);
+      if (item) {
+        await api(`/carts/${user.id}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            product_id: productId,
+            name: item.name,
+            quantity: newQuantity,
+            price: item.price,
+          }),
+        });
+      }
+    } catch (error) {
+      console.error('수량 변경 실패:', error);
+    }
   };
 
-  const handleRemove = (productId) => {
+  const handleRemove = async (productId) => {
     const newItems = cartItems.filter(item => item.productId !== productId);
     setCartItems(newItems);
     updateCartCount(newItems.reduce((sum, item) => sum + item.quantity, 0));
+    try {
+      await api(`/carts/${user.id}/items/${productId}`, { method: 'DELETE' });
+    } catch (error) {
+      console.error('장바구니 삭제 실패:', error);
+    }
   };
 
   const formatPrice = (price) => {

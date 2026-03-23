@@ -199,12 +199,12 @@ public class Controller {
             try {
                 // Try to fetch from DB (handle both UUID and mock IDs)
                 List<Map<String, Object>> orders = jdbcTemplate.queryForList(
-                    "SELECT * FROM orders WHERE id::text = ?", id
+                    "SELECT * FROM orders WHERE id = ?::uuid", id
                 );
                 if (!orders.isEmpty()) {
                     Map<String, Object> row = orders.get(0);
                     List<Map<String, Object>> items = jdbcTemplate.queryForList(
-                        "SELECT * FROM order_items WHERE order_id::text = ?", id
+                        "SELECT * FROM order_items WHERE order_id = ?::uuid", id
                     );
 
                     Map<String, Object> order = new LinkedHashMap<>();
@@ -325,7 +325,7 @@ public class Controller {
         if (jdbcTemplate != null) {
             try {
                 List<Map<String, Object>> orders = jdbcTemplate.queryForList(
-                    "SELECT id, total_amount, status, created_at FROM orders WHERE user_id::text = ?", userId
+                    "SELECT id, total_amount, status, created_at FROM orders WHERE user_id = ?::uuid", userId
                 );
                 if (!orders.isEmpty()) {
                     List<Map<String, Object>> result = new ArrayList<>();

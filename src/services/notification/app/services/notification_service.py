@@ -1,10 +1,12 @@
-"""Notification dispatch service."""
+"""Notification dispatch service with user-profile enrichment."""
 
 import logging
 import uuid
 from collections import deque
 from datetime import datetime
 from typing import Deque
+
+from mall_common.service_client import get_user_profile
 
 from app.models.notification import (
     Notification,
@@ -26,6 +28,23 @@ class NotificationService:
     async def send_notification(self, request: NotificationRequest) -> NotificationResponse:
         """Send a notification to a user."""
         notification_id = str(uuid.uuid4())
+
+        # Fetch user profile for notification preferences and contact info
+        profile = await get_user_profile(request.user_id)
+        if profile:
+            prefs = profile.get("notification_preferences", {})
+            contact = profile.get("contact", {})
+            # Override channel based on user preference if available
+            preferred_channel = prefs.get("preferred_channel")
+            if preferred_channel and hasattr(NotificationChannel, preferred_channel.upper()):
+                request.channel = NotificationChannel(preferred_channel.lower())
+            # Attach contact info to metadata for dispatch
+            if request.metadata is None:
+                request.metadata = {}
+            if contact.get("email"):
+                request.metadata["email"] = contact["email"]
+            if contact.get("phone"):
+                request.metadata["phone"] = contact["phone"]
 
         notification = Notification(
             id=notification_id,

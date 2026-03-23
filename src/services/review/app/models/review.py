@@ -9,12 +9,15 @@ from pydantic import BaseModel, Field, field_validator
 class Review(BaseModel):
     id: str = ""
     user_id: str
+    user_name: str = ""
     product_id: str
     rating: int = Field(..., ge=1, le=5)
     title: str
     body: str
     helpful_count: int = 0
     verified_purchase: bool = False
+    product_name: Optional[str] = None
+    product_image_url: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

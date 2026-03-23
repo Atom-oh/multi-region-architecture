@@ -76,10 +76,24 @@ func GinMiddleware(serviceName string) gin.HandlerFunc {
 	return otelgin.Middleware(serviceName)
 }
 
+// lazyOtelTransport defers propagator lookup to request time so that
+// HTTPClient() can be called at package init (before InitTracer sets the
+// global propagator) without capturing a noop propagator.
+type lazyOtelTransport struct {
+	base http.RoundTripper
+}
+
+func (t *lazyOtelTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Inject trace context using the current global propagator (set by InitTracer).
+	otel.GetTextMapPropagator().Inject(req.Context(), propagation.HeaderCarrier(req.Header))
+	return otelhttp.NewTransport(t.base).RoundTrip(req)
+}
+
 // HTTPClient returns an http.Client instrumented with OTEL.
+// Safe to call at package init — trace propagation is resolved lazily per request.
 func HTTPClient() *http.Client {
 	return &http.Client{
-		Transport: otelhttp.NewTransport(http.DefaultTransport),
+		Transport: &lazyOtelTransport{base: http.DefaultTransport},
 	}
 }
 

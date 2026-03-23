@@ -66,6 +66,20 @@ patches:
         value:
           name: OTEL_RESOURCE_ATTRIBUTES
           value: "deployment.environment=production,aws.region=us-west-2"
+  - target:
+      kind: Deployment
+      name: cart
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: CACHE_HOST
+          value: "clustercfg.production-elasticache-us-west-2.0udeym.usw2.cache.amazonaws.com"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: CACHE_PORT
+          value: "6379"
 
 configMapGenerator:
   - name: region-config

@@ -15,11 +15,13 @@ async def list_products(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     category: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
 ):
     products = await product_service.list_products(
         skip=skip,
         limit=limit,
         category_id=category,
+        query=q,
     )
     return {"products": products, "skip": skip, "limit": limit}
 
@@ -56,7 +58,7 @@ async def delete_product(product_id: str):
     return None
 
 
-@router.get("/categories")
+@router.get("/products/categories")
 async def list_categories():
     categories = await product_service.list_categories()
     return {"categories": categories}

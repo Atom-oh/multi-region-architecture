@@ -1,53 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
-const MOCK_NOTIFICATIONS = [
-  {
-    id: 'NOT-001',
-    type: 'shipping',
-    title: '배송 출발',
-    message: '주문하신 상품이 배송을 시작했습니다. 운송장번호: KR1234567890',
-    orderId: 'ORD-20240320-001',
-    createdAt: '2024-03-21T10:00:00',
-    isRead: false,
-  },
-  {
-    id: 'NOT-002',
-    type: 'promotion',
-    title: '특별 할인 이벤트',
-    message: '봄맞이 특별 할인! 전 상품 최대 30% 할인 쿠폰이 발급되었습니다.',
-    createdAt: '2024-03-20T09:00:00',
-    isRead: false,
-  },
-  {
-    id: 'NOT-003',
-    type: 'order',
-    title: '주문 확인',
-    message: '주문이 정상적으로 접수되었습니다. 주문번호: ORD-20240320-001',
-    orderId: 'ORD-20240320-001',
-    createdAt: '2024-03-20T10:30:00',
-    isRead: true,
-  },
-  {
-    id: 'NOT-004',
-    type: 'review',
-    title: '리뷰 작성 요청',
-    message: '구매하신 상품은 만족스러우셨나요? 리뷰를 남겨주세요.',
-    productId: 'PRD-004',
-    createdAt: '2024-03-18T14:00:00',
-    isRead: true,
-  },
-  {
-    id: 'NOT-005',
-    type: 'shipping',
-    title: '배송 완료',
-    message: '주문하신 상품이 배송 완료되었습니다.',
-    orderId: 'ORD-20240315-002',
-    createdAt: '2024-03-17T14:30:00',
-    isRead: true,
-  },
-];
+import { api } from '../api';
 
 export default function NotificationsPage() {
   const { user } = useAuth();
@@ -57,9 +11,18 @@ export default function NotificationsPage() {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        // In production: const data = await api(`/notifications/${user.id}`);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        setNotifications(MOCK_NOTIFICATIONS);
+        const data = await api(`/notifications/${user.id}`);
+        const notifs = (data.notifications || data || []).map(n => ({
+          id: n.id || n._id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          orderId: n.order_id || n.orderId,
+          productId: n.product_id || n.productId,
+          createdAt: n.created_at || n.createdAt,
+          isRead: n.read !== undefined ? n.read : (n.is_read !== undefined ? n.is_read : (n.isRead || false)),
+        }));
+        setNotifications(notifs);
       } catch (error) {
         console.error('데이터를 불러올 수 없습니다:', error);
       } finally {

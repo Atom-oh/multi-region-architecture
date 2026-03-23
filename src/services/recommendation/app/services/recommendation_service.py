@@ -1,10 +1,11 @@
-"""Recommendation service with caching."""
+"""Recommendation service with caching and inter-service enrichment."""
 
 import logging
 from collections import Counter
 from datetime import datetime
 
 from mall_common import valkey
+from mall_common.service_client import get_products_by_ids, get_user_profile
 
 from app.models.recommendation import (
     Recommendation,
@@ -31,7 +32,16 @@ class RecommendationService:
 
         activities = await recommendation_repo.get_user_activities(user_id)
 
-        recommendations = self._generate_recommendations(activities, limit)
+        # Fetch user profile for preference-based score weighting
+        profile = await get_user_profile(user_id)
+        preferred_categories = []
+        if profile:
+            preferred_categories = profile.get("preferred_categories", [])
+
+        recommendations = self._generate_recommendations(activities, limit, preferred_categories)
+
+        # Enrich with product details from product-catalog
+        recommendations = await self._enrich_recommendations(recommendations)
 
         response = RecommendationResponse(
             user_id=user_id,
@@ -54,17 +64,27 @@ class RecommendationService:
 
         trending_data = await recommendation_repo.get_trending_products(limit)
 
-        products = [
-            TrendingProduct(
-                product_id=item["_id"],
-                name=f"Product {item['_id']}",
-                category="general",
-                score=item.get("score", 0),
-                view_count=item.get("view_count", 0),
-                purchase_count=item.get("purchase_count", 0),
+        # Collect product IDs for batch enrichment
+        product_ids = [item["_id"] for item in trending_data]
+        product_map = await get_products_by_ids(product_ids)
+
+        products = []
+        for item in trending_data:
+            pid = item["_id"]
+            catalog_data = product_map.get(pid, {})
+            cat = catalog_data.get("category", "general")
+            if isinstance(cat, dict):
+                cat = cat.get("slug", "general")
+            products.append(
+                TrendingProduct(
+                    product_id=pid,
+                    name=catalog_data.get("name", f"Product {pid}"),
+                    category=cat,
+                    score=item.get("score", 0),
+                    view_count=item.get("view_count", 0),
+                    purchase_count=item.get("purchase_count", 0),
+                )
             )
-            for item in trending_data
-        ]
 
         response = TrendingResponse(products=products, generated_at=datetime.utcnow())
 
@@ -95,6 +115,9 @@ class RecommendationService:
             for pid, count in top_products
         ]
 
+        # Enrich with product details
+        similar = await self._enrich_recommendations(similar)
+
         response = SimilarProductsResponse(
             product_id=product_id,
             similar=similar,
@@ -106,7 +129,70 @@ class RecommendationService:
 
         return response
 
-    def _generate_recommendations(self, activities: list[dict], limit: int) -> list[Recommendation]:
+    async def get_recommendations_by_category(self, category: str, limit: int = 10) -> dict:
+        """Get recommendations filtered by category."""
+        cache_key = f"recommendations:category:{category}"
+
+        cached = await valkey.get_json(cache_key)
+        if cached:
+            return cached
+
+        trending_data = await recommendation_repo.get_trending_products(limit * 2)
+        product_ids = [item["_id"] for item in trending_data]
+        product_map = await get_products_by_ids(product_ids)
+
+        # Filter by category
+        recommendations = []
+        for item in trending_data:
+            pid = item["_id"]
+            catalog_data = product_map.get(pid, {})
+            if catalog_data.get("category") == category:
+                recommendations.append({
+                    "product_id": pid,
+                    "name": catalog_data.get("name", f"Product {pid}"),
+                    "price": catalog_data.get("price"),
+                    "image_url": catalog_data.get("image_url"),
+                    "score": item.get("score", 0),
+                })
+            if len(recommendations) >= limit:
+                break
+
+        response = {
+            "category": category,
+            "recommendations": recommendations,
+            "total": len(recommendations),
+        }
+
+        await valkey.set_json(cache_key, response, CACHE_TTL_SECONDS)
+        return response
+
+    async def get_random_recommendations(self, limit: int = 10) -> dict:
+        """Get random product recommendations."""
+        trending = await recommendation_repo.get_trending_products(limit)
+        product_ids = [item["_id"] for item in trending]
+        product_map = await get_products_by_ids(product_ids)
+
+        recommendations = []
+        for item in trending:
+            pid = item["_id"]
+            catalog_data = product_map.get(pid, {})
+            recommendations.append({
+                "product_id": pid,
+                "name": catalog_data.get("name", f"Product {pid}"),
+                "price": catalog_data.get("price"),
+                "image_url": catalog_data.get("image_url"),
+                "score": item.get("score", 0),
+            })
+
+        return {
+            "recommendations": recommendations,
+            "total": len(recommendations),
+            "algorithm": "random_sample",
+        }
+
+    def _generate_recommendations(
+        self, activities: list[dict], limit: int, preferred_categories: list[str] | None = None
+    ) -> list[Recommendation]:
         if not activities:
             return []
 
@@ -117,6 +203,11 @@ class RecommendationService:
             product_id = activity.get("product_id")
             action = activity.get("action", "view")
             weight = action_weights.get(action, 0.1)
+
+            # Boost score for preferred categories
+            category = activity.get("category", "")
+            if preferred_categories and category in preferred_categories:
+                weight *= 1.5
 
             product_scores[product_id] = product_scores.get(product_id, 0) + weight
 
@@ -130,6 +221,25 @@ class RecommendationService:
             )
             for pid, score in sorted_products
         ]
+
+    async def _enrich_recommendations(self, recommendations: list[Recommendation]) -> list[Recommendation]:
+        """Enrich recommendations with product name/price/image from product-catalog."""
+        if not recommendations:
+            return recommendations
+
+        product_ids = [r.product_id for r in recommendations]
+        product_map = await get_products_by_ids(product_ids)
+
+        for rec in recommendations:
+            catalog_data = product_map.get(rec.product_id)
+            if catalog_data:
+                rec.name = catalog_data.get("name")
+                rec.price = catalog_data.get("price")
+                rec.image_url = catalog_data.get("image_url")
+                cat = catalog_data.get("category")
+                rec.category = cat.get("slug") if isinstance(cat, dict) else cat
+
+        return recommendations
 
 
 recommendation_service = RecommendationService()

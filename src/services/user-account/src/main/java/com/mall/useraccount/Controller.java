@@ -153,7 +153,7 @@ public class Controller {
         if (jdbcTemplate != null) {
             try {
                 List<Map<String, Object>> users = jdbcTemplate.queryForList(
-                    "SELECT * FROM users WHERE id::text = ?", id
+                    "SELECT * FROM users WHERE id = ?::uuid", id
                 );
                 if (!users.isEmpty()) {
                     Map<String, Object> row = users.get(0);

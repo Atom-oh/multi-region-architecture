@@ -1,24 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
-
-const MOCK_PRODUCTS = [
-  { id: 'PRD-001', name: '삼성 갤럭시 S24 Ultra', price: 1890000, rating: 4.8, reviewCount: 1234, category: 'electronics' },
-  { id: 'PRD-002', name: 'LG 그램 17인치 노트북', price: 2190000, rating: 4.7, reviewCount: 856, category: 'electronics' },
-  { id: 'PRD-003', name: '나이키 에어맥스 97', price: 219000, rating: 4.6, reviewCount: 2341, category: 'fashion' },
-  { id: 'PRD-004', name: '다이슨 V15 무선청소기', price: 1290000, rating: 4.9, reviewCount: 567, category: 'home' },
-  { id: 'PRD-005', name: '애플 맥북 프로 14', price: 2890000, rating: 4.9, reviewCount: 1892, category: 'electronics' },
-  { id: 'PRD-006', name: '소니 WH-1000XM5 헤드폰', price: 449000, rating: 4.8, reviewCount: 3421, category: 'electronics' },
-  { id: 'PRD-007', name: '무지 린넨 셔츠', price: 59000, rating: 4.5, reviewCount: 892, category: 'fashion' },
-  { id: 'PRD-008', name: '필립스 에어프라이어 XXL', price: 329000, rating: 4.7, reviewCount: 1567, category: 'home' },
-];
-
-const TRENDING_PRODUCTS = [
-  { id: 'PRD-009', name: '아이패드 프로 12.9', price: 1729000, rating: 4.9, reviewCount: 2134, category: 'electronics' },
-  { id: 'PRD-010', name: '구찌 마몬트 백', price: 2890000, rating: 4.8, reviewCount: 456, category: 'fashion' },
-  { id: 'PRD-011', name: '발뮤다 토스터', price: 329000, rating: 4.6, reviewCount: 789, category: 'home' },
-  { id: 'PRD-012', name: '아디다스 울트라부스트', price: 239000, rating: 4.7, reviewCount: 1823, category: 'fashion' },
-];
+import { api, mapProduct } from '../api';
 
 const CATEGORIES = [
   { id: 'electronics', name: '전자제품', icon: '📱', color: 'bg-blue-100' },
@@ -37,14 +20,16 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // In production, these would be real API calls
-        // const products = await api('/products');
-        // const trending = await api('/recommendations/trending');
-
-        // Using mock data for demo
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setFeaturedProducts(MOCK_PRODUCTS);
-        setTrendingProducts(TRENDING_PRODUCTS);
+        const [productsRes, trendingRes] = await Promise.all([
+          api('/products?limit=8'),
+          api('/recommendations/trending').catch(() => ({ products: [] })),
+        ]);
+        setFeaturedProducts((productsRes.products || productsRes || []).map(mapProduct));
+        const trending = (trendingRes.products || trendingRes || []).map(p => {
+          if (p.product_id && !p.id && !p._id) p.id = p.product_id;
+          return mapProduct(p);
+        });
+        setTrendingProducts(trending);
       } catch (error) {
         console.error('데이터를 불러올 수 없습니다:', error);
       } finally {
@@ -113,11 +98,15 @@ export default function HomePage() {
               전체보기 →
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          {featuredProducts.length === 0 ? (
+            <p className="text-slate-500 text-center py-8">상품을 불러오는 중입니다.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -138,21 +127,23 @@ export default function HomePage() {
       </section>
 
       {/* Trending Products */}
-      <section className="py-12 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold text-slate-800">지금 인기있는 상품</h2>
-            <Link to="/products" className="text-blue-500 hover:text-blue-600 font-medium">
-              전체보기 →
-            </Link>
+      {trendingProducts.length > 0 && (
+        <section className="py-12 bg-slate-50">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold text-slate-800">지금 인기있는 상품</h2>
+              <Link to="/products" className="text-blue-500 hover:text-blue-600 font-medium">
+                전체보기 →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {trendingProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {trendingProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Trust Badges */}
       <section className="py-12">

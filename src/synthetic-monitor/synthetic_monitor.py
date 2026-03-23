@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import random
 import time
 import uuid
 
@@ -22,6 +23,15 @@ ORIGIN_REGION = os.getenv("ORIGIN_REGION", "unknown")
 ORIGIN_LABEL = "test-east" if "east" in ORIGIN_REGION else "test-west" if "west" in ORIGIN_REGION else f"test-{ORIGIN_REGION}"
 STEP_DELAY_MIN = float(os.getenv("STEP_DELAY_MIN", "0.5"))
 STEP_DELAY_MAX = float(os.getenv("STEP_DELAY_MAX", "1.0"))
+
+# Real seed-data IDs (match DB seed scripts)
+PRODUCT_IDS = [f"PRD-{i:03d}" for i in range(1, 26)]
+USER_IDS = [f"a0000001-0000-0000-0000-{i:012d}" for i in range(1, 21)]
+ORDER_IDS = [f"b0000001-0000-0000-0000-{i:012d}" for i in range(1, 11)]
+PAYMENT_IDS = [f"c0000001-0000-0000-0000-{i:012d}" for i in range(1, 4)]
+SHIPMENT_IDS = [f"d0000001-0000-0000-0000-{i:012d}" for i in range(1, 3)]
+TRACKING_NUMBERS = ["6380012345678", "5601098765432"]
+CATEGORY_SLUGS = ["electronics", "fashion", "food", "beauty", "appliances"]
 
 # ---------------------------------------------------------------------------
 # Logging — structured JSON
@@ -110,7 +120,6 @@ def api(session: requests.Session, method: str, path: str, scenario: str, step: 
 
 def delay():
     """Sleep between steps for realistic pacing."""
-    import random
     time.sleep(random.uniform(STEP_DELAY_MIN, STEP_DELAY_MAX))
 
 
@@ -121,11 +130,11 @@ def delay():
 def s1_browse_and_search(session: requests.Session, run_id: str):
     """S1: Browse & Search -> product-catalog, search, pricing, review, recommendation"""
     name = "s1_browse_and_search"
-    product_id = str(uuid.uuid4())
+    product_id = random.choice(PRODUCT_IDS)
 
     api(session, "GET", "/api/v1/products", name, "list_products", run_id)
     delay()
-    api(session, "GET", "/api/v1/products/categories", name, "list_categories", run_id)
+    api(session, "GET", f"/api/v1/products/categories/{random.choice(CATEGORY_SLUGS)}", name, "list_categories", run_id)
     delay()
     api(session, "GET", "/api/v1/search?q=laptop", name, "search_laptop", run_id)
     delay()
@@ -141,8 +150,9 @@ def s1_browse_and_search(session: requests.Session, run_id: str):
 def s2_user_registration(session: requests.Session, run_id: str):
     """S2: User Registration & Profile -> user-account, user-profile, notification"""
     name = "s2_user_registration"
-    user_id = str(uuid.uuid4())
-    email = f"synth-{user_id[:8]}@test.mall"
+    new_user_id = str(uuid.uuid4())
+    email = f"synth-{new_user_id[:8]}@test.mall"
+    existing_user_id = random.choice(USER_IDS)
 
     api(session, "POST", "/api/v1/users/register", name, "register", run_id,
         {"email": email, "password": "SynthTest123!", "name": "Synthetic User"})
@@ -150,25 +160,25 @@ def s2_user_registration(session: requests.Session, run_id: str):
     api(session, "POST", "/api/v1/users/login", name, "login", run_id,
         {"email": email, "password": "SynthTest123!"})
     delay()
-    api(session, "GET", f"/api/v1/users/{user_id}", name, "get_user", run_id)
+    api(session, "GET", f"/api/v1/users/{existing_user_id}", name, "get_user", run_id)
     delay()
-    api(session, "GET", f"/api/v1/profiles/{user_id}", name, "get_profile", run_id)
+    api(session, "GET", f"/api/v1/profiles/{existing_user_id}", name, "get_profile", run_id)
     delay()
-    api(session, "PUT", f"/api/v1/profiles/{user_id}", name, "update_profile", run_id,
+    api(session, "PUT", f"/api/v1/profiles/{existing_user_id}", name, "update_profile", run_id,
         {"display_name": "Synthetic Shopper", "preferences": {"newsletter": False}})
     delay()
-    api(session, "POST", f"/api/v1/profiles/{user_id}/addresses", name, "add_address", run_id,
+    api(session, "POST", f"/api/v1/profiles/{existing_user_id}/addresses", name, "add_address", run_id,
         {"street": "123 Synthetic St", "city": "Testville", "state": "CA", "zip": "90210"})
     delay()
-    api(session, "GET", f"/api/v1/notifications/{user_id}", name, "get_notifications", run_id)
+    api(session, "GET", f"/api/v1/notifications/{existing_user_id}", name, "get_notifications", run_id)
 
 
 def s3_shopping_cart(session: requests.Session, run_id: str):
     """S3: Shopping Cart -> product-catalog, inventory, cart, pricing, recommendation, wishlist"""
     name = "s3_shopping_cart"
-    user_id = str(uuid.uuid4())
-    product_id1 = str(uuid.uuid4())
-    product_id2 = str(uuid.uuid4())
+    user_id = random.choice(USER_IDS)
+    product_id1 = random.choice(PRODUCT_IDS)
+    product_id2 = random.choice([p for p in PRODUCT_IDS if p != product_id1])
 
     api(session, "GET", "/api/v1/products", name, "list_products", run_id)
     delay()
@@ -199,14 +209,14 @@ def s3_shopping_cart(session: requests.Session, run_id: str):
 def s4_purchase_flow(session: requests.Session, run_id: str):
     """S4: Purchase Flow -> order, payment, shipping"""
     name = "s4_purchase_flow"
-    user_id = str(uuid.uuid4())
-    order_id = str(uuid.uuid4())
-    payment_id = str(uuid.uuid4())
-    shipment_id = str(uuid.uuid4())
-    tracking = f"TRK-{uuid.uuid4().hex[:12].upper()}"
+    user_id = random.choice(USER_IDS)
+    order_id = random.choice(ORDER_IDS)
+    payment_id = random.choice(PAYMENT_IDS)
+    shipment_id = random.choice(SHIPMENT_IDS)
+    tracking = random.choice(TRACKING_NUMBERS)
 
     api(session, "POST", "/api/v1/orders", name, "create_order", run_id,
-        {"user_id": user_id, "items": [{"product_id": str(uuid.uuid4()), "quantity": 1}]})
+        {"user_id": user_id, "items": [{"product_id": random.choice(PRODUCT_IDS), "quantity": 1}]})
     delay()
     api(session, "GET", f"/api/v1/orders/{order_id}", name, "get_order", run_id)
     delay()
@@ -226,19 +236,18 @@ def s4_purchase_flow(session: requests.Session, run_id: str):
 def s5_seller_and_warehouse(session: requests.Session, run_id: str):
     """S5: Seller & Warehouse -> seller, warehouse, inventory"""
     name = "s5_seller_and_warehouse"
-    seller_id = str(uuid.uuid4())
-    warehouse_id = str(uuid.uuid4())
+    new_seller_id = str(uuid.uuid4())
 
     api(session, "POST", "/api/v1/sellers/register", name, "register_seller", run_id,
-        {"name": "Synthetic Seller", "email": f"seller-{seller_id[:8]}@test.mall"})
+        {"name": "Synthetic Seller", "email": f"seller-{new_seller_id[:8]}@test.mall"})
     delay()
-    api(session, "GET", f"/api/v1/sellers/{seller_id}", name, "get_seller", run_id)
+    api(session, "GET", f"/api/v1/sellers/{new_seller_id}", name, "get_seller", run_id)
     delay()
-    api(session, "GET", f"/api/v1/sellers/{seller_id}/products", name, "get_seller_products", run_id)
+    api(session, "GET", f"/api/v1/sellers/{new_seller_id}/products", name, "get_seller_products", run_id)
     delay()
     api(session, "GET", "/api/v1/warehouses", name, "list_warehouses", run_id)
     delay()
-    api(session, "GET", f"/api/v1/warehouses/{warehouse_id}/stock", name, "get_warehouse_stock", run_id)
+    api(session, "GET", f"/api/v1/inventory/{random.choice(PRODUCT_IDS)}", name, "check_product_inventory", run_id)
     delay()
     api(session, "GET", "/api/v1/inventory/low-stock", name, "check_low_stock", run_id)
 
@@ -246,18 +255,17 @@ def s5_seller_and_warehouse(session: requests.Session, run_id: str):
 def s6_post_purchase(session: requests.Session, run_id: str):
     """S6: Post-Purchase -> review, returns, notification"""
     name = "s6_post_purchase"
-    user_id = str(uuid.uuid4())
-    product_id = str(uuid.uuid4())
-    review_id = str(uuid.uuid4())
+    user_id = random.choice(USER_IDS)
+    product_id = random.choice(PRODUCT_IDS)
     return_id = str(uuid.uuid4())
 
     api(session, "POST", "/api/v1/reviews", name, "create_review", run_id,
         {"user_id": user_id, "product_id": product_id, "rating": 4, "text": "Synthetic review"})
     delay()
-    api(session, "GET", f"/api/v1/reviews/{review_id}", name, "get_review", run_id)
+    api(session, "GET", f"/api/v1/reviews/product/{product_id}", name, "get_product_reviews", run_id)
     delay()
     api(session, "POST", "/api/v1/returns", name, "create_return", run_id,
-        {"order_id": str(uuid.uuid4()), "reason": "synthetic_test", "items": [product_id]})
+        {"order_id": random.choice(ORDER_IDS), "reason": "synthetic_test", "items": [product_id]})
     delay()
     api(session, "GET", f"/api/v1/returns/{return_id}", name, "get_return", run_id)
     delay()
