@@ -24,24 +24,6 @@ data:
         check_interval: 5s
         limit_mib: 512
         spike_limit_mib: 128
-      tail_sampling:
-        decision_wait: 10s
-        num_traces: 100000
-        expected_new_traces_per_sec: 1000
-        policies:
-          - name: errors-policy
-            type: status_code
-            status_code:
-              status_codes:
-                - ERROR
-          - name: slow-requests-policy
-            type: latency
-            latency:
-              threshold_ms: 500
-          - name: probabilistic-policy
-            type: probabilistic
-            probabilistic:
-              sampling_percentage: 10
       resource:
         attributes:
           - key: k8s.cluster.name
@@ -71,7 +53,7 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [memory_limiter, tail_sampling, batch, resource]
+          processors: [memory_limiter, batch, resource]
           exporters: [otlp/tempo, awsxray]
         metrics:
           receivers: [otlp]
