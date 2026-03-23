@@ -173,7 +173,7 @@
           <span class="hl-key">values:</span>
             - spot
             - on-demand
-        <span class="hl-cm"># 다양한 인스턴스 타입으로 중단 분산</span>
+        <span class="hl-cm"># Distribute interruptions across diverse instance types</span>
         - <span class="hl-key">key:</span> karpenter.k8s.aws/instance-family
           <span class="hl-key">operator:</span> In
           <span class="hl-key">values:</span>
@@ -370,12 +370,12 @@ docker buildx build \
     <span class="hl-key">kind:</span> Deployment
     <span class="hl-key">name:</span> api-server
   <span class="hl-key">updatePolicy:</span>
-    <span class="hl-key">updateMode:</span> <span class="hl-str">"Off"</span>  <span class="hl-cm"># 권장값만 제공, 자동 적용 안함</span></code><span class="code-label">yaml</span></pre>
+    <span class="hl-key">updateMode:</span> <span class="hl-str">"Off"</span>  <span class="hl-cm"># Recommendation only, no auto-apply</span></code><span class="code-label">yaml</span></pre>
 
 <pre><code><span class="hl-cm"># VPA 권장값 조회</span>
 kubectl describe vpa api-server-vpa
 
-<span class="hl-cm"># 결과 예시:</span>
+<span class="hl-cm"># Example output:</span>
 <span class="hl-cm"># Recommendation:</span>
 <span class="hl-cm">#   Container Recommendations:</span>
 <span class="hl-cm">#     Target:          cpu: 250m, memory: 512Mi  (권장 request)</span>
@@ -387,10 +387,10 @@ kubectl describe vpa api-server-vpa
 helm install goldilocks fairwinds-stable/goldilocks \
   --namespace goldilocks --create-namespace
 
-<span class="hl-cm"># 네임스페이스에 Goldilocks 활성화</span>
+<span class="hl-cm"># Enable Goldilocks for namespace</span>
 kubectl label namespace production goldilocks.fairwinds.com/enabled=true
 
-<span class="hl-cm"># 대시보드 접근</span>
+<span class="hl-cm"># Access dashboard</span>
 kubectl port-forward -n goldilocks svc/goldilocks-dashboard 8080:80</code><span class="code-label">bash</span></pre>
 
                         <h4><span class="lang-ko">LimitRange + ResourceQuota로 거버넌스</span><span class="lang-en">Governance with LimitRange + ResourceQuota</span></h4>
@@ -402,13 +402,13 @@ kubectl port-forward -n goldilocks svc/goldilocks-dashboard 8080:80</code><span 
 <span class="hl-key">spec:</span>
   <span class="hl-key">limits:</span>
     - <span class="hl-key">type:</span> Container
-      <span class="hl-key">default:</span>           <span class="hl-cm"># 기본 limit</span>
+      <span class="hl-key">default:</span>           <span class="hl-cm"># Default limit</span>
         <span class="hl-key">cpu:</span> <span class="hl-str">"500m"</span>
         <span class="hl-key">memory:</span> <span class="hl-str">"512Mi"</span>
-      <span class="hl-key">defaultRequest:</span>   <span class="hl-cm"># 기본 request</span>
+      <span class="hl-key">defaultRequest:</span>   <span class="hl-cm"># Default request</span>
         <span class="hl-key">cpu:</span> <span class="hl-str">"100m"</span>
         <span class="hl-key">memory:</span> <span class="hl-str">"128Mi"</span>
-      <span class="hl-key">max:</span>              <span class="hl-cm"># 최대 허용</span>
+      <span class="hl-key">max:</span>              <span class="hl-cm"># Maximum allowed</span>
         <span class="hl-key">cpu:</span> <span class="hl-str">"4"</span>
         <span class="hl-key">memory:</span> <span class="hl-str">"8Gi"</span>
 ---

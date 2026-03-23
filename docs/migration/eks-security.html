@@ -295,7 +295,7 @@ aws eks create-pod-identity-association \
   <span class="hl-key">name:</span> db-credentials
   <span class="hl-key">namespace:</span> production
 <span class="hl-key">spec:</span>
-  <span class="hl-key">refreshInterval:</span> 1h  <span class="hl-cm"># 자동 동기화 주기</span>
+  <span class="hl-key">refreshInterval:</span> 1h  <span class="hl-cm"># Auto-sync interval</span>
   <span class="hl-key">secretStoreRef:</span>
     <span class="hl-key">name:</span> aws-secrets-manager
     <span class="hl-key">kind:</span> ClusterSecretStore
@@ -379,7 +379,7 @@ aws ecr put-registry-scanning-configuration \
   <span class="hl-key">script:</span>
     - trivy image --exit-code 1 --severity CRITICAL,HIGH \
         ${ECR_REGISTRY}/${IMAGE_NAME}:${CI_COMMIT_SHA}
-  <span class="hl-key">allow_failure:</span> <span class="hl-num">false</span>  <span class="hl-cm"># 취약점 발견 시 파이프라인 중단</span></code><span class="code-label">yaml</span></pre>
+  <span class="hl-key">allow_failure:</span> <span class="hl-num">false</span>  <span class="hl-cm"># Fail pipeline on vulnerability found</span></code><span class="code-label">yaml</span></pre>
 
                         <h4><span class="lang-ko">Admission Controller로 이미지 정책 강제</span><span class="lang-en">Enforce Image Policy with Admission Controller</span></h4>
 <pre><code><span class="hl-cm"># Kyverno policy: Only allow images from ECR</span>

@@ -130,8 +130,8 @@
         <span class="hl-key">sasl:</span> scram_sha512
         <span class="hl-key">tls:</span> enable</code><span class="code-label">yaml</span></pre>
 
-                        <h4><span class="lang-ko">Cron 스케일러 (출퇴근 시간 사전 스케일업)</span><span class="lang-en">Cron Scaler (Pre-scale for Peak Hours)</span></h4>
-                        <p><span class="lang-ko">예측 가능한 트래픽 패턴에는 Cron 스케일러로 사전 스케일업하여 콜드 스타트를 방지합니다.</span><span class="lang-en">For predictable traffic patterns, use Cron scaler to pre-scale and prevent cold starts.</span></p>
+                        <h4><span class="lang-ko">Cron 스케일러 (피크 시간 사전 스케일업)</span><span class="lang-en">Cron Scaler (Pre-scale for Peak Hours)</span></h4>
+                        <p><span class="lang-ko">예측 가능한 트래픽 패턴에는 Cron 스케일러로 사전 스케일업하여 콜드 스타트를 방지합니다. 양 리전(PST/EST)의 피크 타임을 모두 커버합니다.</span><span class="lang-en">For predictable traffic patterns, use Cron scaler to pre-scale and prevent cold starts. Covers peak hours for both US coasts (PST/EST).</span></p>
 <pre><code><span class="hl-key">apiVersion:</span> keda.sh/v1alpha1
 <span class="hl-key">kind:</span> ScaledObject
 <span class="hl-key">metadata:</span>
@@ -142,19 +142,26 @@
   <span class="hl-key">minReplicaCount:</span> <span class="hl-num">2</span>
   <span class="hl-key">maxReplicaCount:</span> <span class="hl-num">20</span>
   <span class="hl-key">triggers:</span>
-    <span class="hl-cm"># 출근 시간대 사전 스케일업</span>
+    <span class="hl-cm"># Morning commute — US West Coast (us-west-2)</span>
     - <span class="hl-key">type:</span> cron
       <span class="hl-key">metadata:</span>
-        <span class="hl-key">timezone:</span> Asia/Seoul
-        <span class="hl-key">start:</span> 0 8 * * 1-5       <span class="hl-cm"># 평일 08:00</span>
-        <span class="hl-key">end:</span> 0 10 * * 1-5        <span class="hl-cm"># 평일 10:00</span>
+        <span class="hl-key">timezone:</span> America/Los_Angeles
+        <span class="hl-key">start:</span> 0 7 * * 1-5       <span class="hl-cm"># Weekday 07:00 PST</span>
+        <span class="hl-key">end:</span> 0 10 * * 1-5        <span class="hl-cm"># Weekday 10:00 PST</span>
         <span class="hl-key">desiredReplicas:</span> <span class="hl-str">"10"</span>
-    <span class="hl-cm"># 점심 시간대</span>
+    <span class="hl-cm"># Morning commute — US East Coast (us-east-1)</span>
     - <span class="hl-key">type:</span> cron
       <span class="hl-key">metadata:</span>
-        <span class="hl-key">timezone:</span> Asia/Seoul
-        <span class="hl-key">start:</span> 0 11 * * 1-5
-        <span class="hl-key">end:</span> 0 14 * * 1-5
+        <span class="hl-key">timezone:</span> America/New_York
+        <span class="hl-key">start:</span> 0 7 * * 1-5       <span class="hl-cm"># Weekday 07:00 EST</span>
+        <span class="hl-key">end:</span> 0 10 * * 1-5        <span class="hl-cm"># Weekday 10:00 EST</span>
+        <span class="hl-key">desiredReplicas:</span> <span class="hl-str">"10"</span>
+    <span class="hl-cm"># Evening peak — Both coasts (17:00-21:00 local)</span>
+    - <span class="hl-key">type:</span> cron
+      <span class="hl-key">metadata:</span>
+        <span class="hl-key">timezone:</span> America/New_York
+        <span class="hl-key">start:</span> 0 17 * * 1-5      <span class="hl-cm"># 17:00 EST (= 14:00 PST)</span>
+        <span class="hl-key">end:</span> 0 0 * * 2-6          <span class="hl-cm"># 00:00 EST (= 21:00 PST)</span>
         <span class="hl-key">desiredReplicas:</span> <span class="hl-str">"15"</span></code><span class="code-label">yaml</span></pre>
 
                         <h4><span class="lang-ko">Prometheus 메트릭 스케일러</span><span class="lang-en">Prometheus Metric Scaler</span></h4>
@@ -217,7 +224,7 @@
                         <p><span class="lang-ko">Spot 인스턴스 중단 시 Karpenter가 자동으로 대체 노드를 프로비저닝합니다. 중요한 워크로드는 annotation으로 보호합니다.</span><span class="lang-en">When Spot instances are interrupted, Karpenter automatically provisions replacement nodes. Protect critical workloads with annotations.</span></p>
 <pre><code><span class="hl-key">metadata:</span>
   <span class="hl-key">annotations:</span>
-    <span class="hl-key">karpenter.sh/do-not-disrupt:</span> <span class="hl-str">"true"</span>  <span class="hl-cm"># 이 Pod가 있는 노드는 중단하지 않음</span></code><span class="code-label">yaml</span></pre>
+    <span class="hl-key">karpenter.sh/do-not-disrupt:</span> <span class="hl-str">"true"</span>  <span class="hl-cm"># Do not disrupt nodes running this Pod</span></code><span class="code-label">yaml</span></pre>
 
                         <h4><span class="lang-ko">Consolidation 정책</span><span class="lang-en">Consolidation Policy</span></h4>
                         <p><span class="lang-ko">사용률이 낮은 노드를 자동으로 정리하여 비용을 최적화합니다.</span><span class="lang-en">Automatically clean up underutilized nodes to optimize costs.</span></p>

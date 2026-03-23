@@ -103,7 +103,7 @@
                         </table>
 
                         <h4><span class="lang-ko">Control Plane 업그레이드</span><span class="lang-en">Control Plane Upgrade</span></h4>
-<pre><code><span class="hl-cm"># 현재 클러스터 버전 확인</span>
+<pre><code><span class="hl-cm"># Check current cluster version</span>
 aws eks describe-cluster \
   --name multi-region-mall \
   --query "cluster.version" \
@@ -114,17 +114,17 @@ aws eks update-cluster-version \
   --name multi-region-mall \
   --kubernetes-version <span class="hl-str">1.35</span>
 
-<span class="hl-cm"># 업그레이드 상태 확인</span>
+<span class="hl-cm"># Check upgrade status</span>
 aws eks describe-update \
   --name multi-region-mall \
   --update-id &lt;update-id&gt; \
   --query "update.status"
 
-<span class="hl-cm"># 업그레이드 완료 대기</span>
+<span class="hl-cm"># Wait for upgrade completion</span>
 aws eks wait cluster-active --name multi-region-mall</code><span class="code-label">bash</span></pre>
 
                         <h4><span class="lang-ko">Add-on 업그레이드</span><span class="lang-en">Add-on Upgrade</span></h4>
-<pre><code><span class="hl-cm"># 호환 가능한 Add-on 버전 확인</span>
+<pre><code><span class="hl-cm"># Check compatible Add-on versions</span>
 aws eks describe-addon-versions \
   --addon-name vpc-cni \
   --kubernetes-version <span class="hl-str">1.35</span> \
@@ -228,7 +228,7 @@ aws eks update-addon \
   role_arn = aws_iam_role.cluster.arn
 
   vpc_config {
-    subnet_ids              = var.private_subnet_ids  <span class="hl-cm"># 기존 VPC 공유</span>
+    subnet_ids              = var.private_subnet_ids  <span class="hl-cm"># Share existing VPC</span>
     endpoint_private_access = <span class="hl-num">true</span>
     endpoint_public_access  = <span class="hl-num">true</span>
     security_group_ids      = [aws_security_group.cluster.id]
@@ -246,7 +246,7 @@ argocd cluster add \
   arn:aws:eks:us-east-1:180294183052:cluster/multi-region-mall-green \
   --name green-us-east-1
 
-<span class="hl-cm"># 클러스터 라벨 추가 (ApplicationSet용)</span>
+<span class="hl-cm"># Add cluster labels (for ApplicationSet)</span>
 argocd cluster set green-us-east-1 \
   --label region=us-east-1 \
   --label cluster-color=green \
@@ -284,7 +284,7 @@ argocd cluster set green-us-east-1 \
   <span class="hl-key">name:</span> api-gateway-pdb
   <span class="hl-key">namespace:</span> platform
 <span class="hl-key">spec:</span>
-  <span class="hl-key">minAvailable:</span> <span class="hl-num">2</span>           <span class="hl-cm"># 최소 2개 Pod 유지</span>
+  <span class="hl-key">minAvailable:</span> <span class="hl-num">2</span>           <span class="hl-cm"># Keep minimum 2 Pods available</span>
   <span class="hl-key">selector:</span>
     <span class="hl-key">matchLabels:</span>
       <span class="hl-key">app:</span> api-gateway
@@ -295,7 +295,7 @@ argocd cluster set green-us-east-1 \
   <span class="hl-key">name:</span> order-service-pdb
   <span class="hl-key">namespace:</span> fulfillment
 <span class="hl-key">spec:</span>
-  <span class="hl-key">maxUnavailable:</span> <span class="hl-num">1</span>        <span class="hl-cm"># 최대 1개만 중단 허용</span>
+  <span class="hl-key">maxUnavailable:</span> <span class="hl-num">1</span>        <span class="hl-cm"># Allow maximum 1 Pod unavailable</span>
   <span class="hl-key">selector:</span>
     <span class="hl-key">matchLabels:</span>
       <span class="hl-key">app:</span> order-service</code><span class="code-label">yaml</span></pre>
@@ -310,10 +310,10 @@ argocd cluster set green-us-east-1 \
                         </div>
 
                         <h4><span class="lang-ko">PDB 상태 확인</span><span class="lang-en">Check PDB Status</span></h4>
-<pre><code><span class="hl-cm"># 모든 PDB 상태 확인</span>
+<pre><code><span class="hl-cm"># Check all PDB status</span>
 kubectl get pdb -A
 
-<span class="hl-cm"># 드레인 차단 PDB 찾기 (disruptionsAllowed=0)</span>
+<span class="hl-cm"># Find drain-blocking PDBs (disruptionsAllowed=0)</span>
 kubectl get pdb -A -o json | jq -r '
   .items[] |
   select(.status.disruptionsAllowed == 0) |

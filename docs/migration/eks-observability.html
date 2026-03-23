@@ -188,7 +188,7 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
     <span class="hl-key">decision_wait:</span> 30s
     <span class="hl-key">num_traces:</span> <span class="hl-num">100000</span>
     <span class="hl-key">policies:</span>
-      <span class="hl-cm"># 에러는 100% 샘플링</span>
+      <span class="hl-cm"># Sample 100% of errors</span>
       - <span class="hl-key">name:</span> errors-policy
         <span class="hl-key">type:</span> status_code
         <span class="hl-key">status_code:</span>
@@ -198,20 +198,20 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
         <span class="hl-key">type:</span> latency
         <span class="hl-key">latency:</span>
           <span class="hl-key">threshold_ms:</span> <span class="hl-num">500</span>
-      <span class="hl-cm"># 나머지는 10% 샘플링</span>
+      <span class="hl-cm"># Sample 10% of remaining</span>
       - <span class="hl-key">name:</span> probabilistic-policy
         <span class="hl-key">type:</span> probabilistic
         <span class="hl-key">probabilistic:</span>
           <span class="hl-key">sampling_percentage:</span> <span class="hl-num">10</span></code><span class="code-label">yaml</span></pre>
 
                         <h4><span class="lang-ko">Grafana Tempo TraceQL 쿼리</span><span class="lang-en">Grafana Tempo TraceQL Query</span></h4>
-<pre><code><span class="hl-cm"># 특정 서비스의 에러 트레이스 찾기</span>
+<pre><code><span class="hl-cm"># Find error traces for a specific service</span>
 { resource.service.name = "payment-service" && status = error }
 
 <span class="hl-cm"># 2초 이상 걸린 API Gateway 요청</span>
 { resource.service.name = "api-gateway" && duration > 2s }
 
-<span class="hl-cm"># 서비스 간 호출 패턴 분석</span>
+<span class="hl-cm"># Analyze inter-service call patterns</span>
 { resource.service.name = "order-service" } >> { resource.service.name = "inventory-service" }</code><span class="code-label">traceql</span></pre>
 
                         <div class="callout tip" style="margin-top:12px;">
@@ -322,7 +322,7 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
   <span class="hl-key">groups:</span>
     - <span class="hl-key">name:</span> slo.rules
       <span class="hl-key">rules:</span>
-        <span class="hl-cm"># 에러율 1% 초과 시 알림</span>
+        <span class="hl-cm"># Alert when error rate exceeds 1%</span>
         - <span class="hl-key">alert:</span> HighErrorRate
           <span class="hl-key">expr:</span> |
             sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
