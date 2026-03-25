@@ -27,6 +27,8 @@ spec:
                 enabled: true
                 size: 10Gi
                 storageClassName: gp3
+              plugins:
+                - grafana-clickhouse-datasource
               sidecar:
                 datasources:
                   defaultDatasourceEnabled: false
@@ -57,11 +59,19 @@ spec:
                       url: http://prometheus-us-east-1-kube-prometheus.monitoring:9090
                       access: proxy
                       isDefault: true
+                      jsonData:
+                        exemplarTraceIdDestinations:
+                          - name: traceID
+                            datasourceUid: clickhouse
                     - name: Prometheus (us-west-2)
                       type: prometheus
                       uid: prometheus-west
                       url: http://prometheus-west.internal.atomai.click:9090
                       access: proxy
+                      jsonData:
+                        exemplarTraceIdDestinations:
+                          - name: traceID
+                            datasourceUid: clickhouse
                     - name: Tempo (us-east-1)
                       type: tempo
                       uid: tempo
@@ -70,6 +80,10 @@ spec:
                       jsonData:
                         tracesToMetrics:
                           datasourceUid: prometheus-east
+                        tracesToLogs:
+                          datasourceUid: clickhouse
+                          filterByTraceID: true
+                          filterBySpanID: true
                         serviceMap:
                           datasourceUid: prometheus-east
                         nodeGraph:
@@ -82,6 +96,10 @@ spec:
                       jsonData:
                         tracesToMetrics:
                           datasourceUid: prometheus-west
+                        tracesToLogs:
+                          datasourceUid: clickhouse
+                          filterByTraceID: true
+                          filterBySpanID: true
                         serviceMap:
                           datasourceUid: prometheus-west
                         nodeGraph:
@@ -96,10 +114,20 @@ spec:
                       uid: cloudwatch-west
                       jsonData:
                         defaultRegion: us-west-2
+                    - name: ClickHouse
+                      type: grafana-clickhouse-datasource
+                      uid: clickhouse
+                      url: http://clickhouse-clickhouse.observability:8123
+                      access: proxy
+                      jsonData:
+                        defaultDatabase: otel
+                        protocol: http
             prometheus:
               prometheusSpec:
                 replicas: 2
                 retention: 15d
+                enableFeatures:
+                  - exemplar-storage
                 storageSpec:
                   volumeClaimTemplate:
                     spec:
