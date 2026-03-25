@@ -47,3 +47,25 @@ resource "aws_iam_role_policy" "otel_xray" {
     ]
   })
 }
+
+resource "aws_iam_role_policy" "otel_cloudwatch_logs" {
+  name = "${var.environment}-otel-collector-cloudwatch-logs-policy"
+  role = aws_iam_role.otel_collector.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/eks/*"
+      }
+    ]
+  })
+}
