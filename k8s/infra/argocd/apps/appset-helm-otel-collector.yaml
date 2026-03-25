@@ -31,16 +31,18 @@ spec:
               - operator: Exists
             resources:
               requests:
-                cpu: 100m
-                memory: 512Mi
+                cpu: 200m
+                memory: 768Mi
               limits:
-                cpu: 500m
-                memory: 1Gi
+                cpu: "1"
+                memory: 2Gi
             serviceAccount:
               annotations:
                 eks.amazonaws.com/role-arn: 'arn:aws:iam::180294183052:role/production-otel-collector-{{metadata.labels.region}}'
             presets:
               kubernetesAttributes:
+                enabled: true
+              logsCollection:
                 enabled: true
             config:
               receivers:
@@ -54,6 +56,27 @@ spec:
                 batch:
                   send_batch_size: 1024
                   timeout: 5s
+                memory_limiter:
+                  check_interval: 5s
+                  limit_mib: 512
+                  spike_limit_mib: 128
+                resource:
+                  attributes:
+                    - key: k8s.cluster.name
+                      value: multi-region-mall
+                      action: upsert
+              connectors:
+                spanmetrics:
+                  histogram:
+                    explicit:
+                      buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
+                  dimensions:
+                    - name: http.method
+                    - name: http.status_code
+                    - name: service.name
+                  exemplars:
+                    enabled: true
+                  metrics_flush_interval: 15s
               exporters:
                 otlp/tempo:
                   endpoint: tempo.observability.svc.cluster.local:4317
@@ -66,15 +89,30 @@ spec:
                   namespace: otel
                   resource_to_telemetry_conversion:
                     enabled: true
+                clickhouse:
+                  endpoint: tcp://clickhouse-clickhouse.observability.svc.cluster.local:9000
+                  database: otel
+                  logs_table_name: otel_logs
+                  traces_table_name: otel_traces
+                  ttl: 720h
+                  create_schema: true
+                awscloudwatchlogs:
+                  log_group_name: /eks/multi-region-mall
+                  log_stream_name: otel-collector
+                  region: '{{metadata.labels.region}}'
               service:
                 pipelines:
                   traces:
                     receivers: [otlp]
-                    processors: [batch]
-                    exporters: [otlp/tempo, awsxray]
+                    processors: [memory_limiter, batch, resource]
+                    exporters: [clickhouse, otlp/tempo, awsxray, spanmetrics]
+                  logs:
+                    receivers: [filelog]
+                    processors: [memory_limiter, batch, resource]
+                    exporters: [clickhouse, awscloudwatchlogs]
                   metrics:
-                    receivers: [otlp]
-                    processors: [batch]
+                    receivers: [otlp, spanmetrics]
+                    processors: [memory_limiter, batch]
                     exporters: [prometheus]
       destination:
         server: '{{server}}'
