@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-clickhouse-operator
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: region
+              operator: Exists
+  template:
+    metadata:
+      name: 'clickhouse-operator-{{metadata.labels.region}}'
+    spec:
+      project: default
+      source:
+        chart: altinity-clickhouse-operator
+        repoURL: https://docs.altinity.com/clickhouse-operator-helm-chart/
+        targetRevision: 0.24.1
+      destination:
+        server: '{{server}}'
+        namespace: clickhouse-operator-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

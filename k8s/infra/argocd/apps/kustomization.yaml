@@ -20,3 +20,5 @@ resources:
   - appset-grafana-nlb.yaml
   - appset-prometheus-west-nlb.yaml
   - appset-tempo-west-nlb.yaml
+  - appset-helm-clickhouse-operator.yaml
+  - appset-clickhouse.yaml
