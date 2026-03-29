@@ -117,6 +117,13 @@ resource "aws_eks_cluster" "main" {
   ]
 }
 
+# Tag EKS-managed cluster SG for Karpenter discovery
+resource "aws_ec2_tag" "cluster_sg_karpenter_discovery" {
+  resource_id = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  key         = "karpenter.sh/discovery"
+  value       = var.cluster_name
+}
+
 # Allow ALB to reach pods on port 80 via the EKS-managed cluster security group
 resource "aws_security_group_rule" "eks_cluster_sg_alb_ingress" {
   count = var.alb_security_group_id != "" ? 1 : 0

@@ -7,18 +7,37 @@ spec:
   generators:
     - clusters:
         selector:
-          matchExpressions:
-            - key: region
-              operator: Exists
+          matchLabels:
+            region: us-east-1
+        values:
+          karpenterPath: k8s/infra/karpenter
+    - clusters:
+        selector:
+          matchLabels:
+            region: us-west-2
+        values:
+          karpenterPath: k8s/infra/karpenter
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+        values:
+          karpenterPath: k8s/infra/karpenter-apne2-az-a
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+        values:
+          karpenterPath: k8s/infra/karpenter-apne2-az-c
   template:
     metadata:
-      name: 'karpenter-crds-{{metadata.labels.region}}'
+      name: 'karpenter-crds-{{name}}'
     spec:
       project: default
       source:
         repoURL: git@github.com:Atom-oh/multi-region-architecture.git
         targetRevision: main
-        path: k8s/infra/karpenter
+        path: '{{values.karpenterPath}}'
       destination:
         server: '{{server}}'
         namespace: kube-system

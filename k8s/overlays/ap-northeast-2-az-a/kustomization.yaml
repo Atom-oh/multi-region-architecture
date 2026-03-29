@@ -8,7 +8,6 @@ resources:
   - fulfillment
   - business
   - platform
-  - ../../infra/karpenter
   - ../../infra/otel-collector
   - ../../infra/tempo
 
