@@ -48,7 +48,7 @@ resource "aws_cloudwatch_log_resource_policy" "opensearch" {
 locals {
   # OpenSearch domain name must be <= 28 chars
   # Use shortened region: us-east-1 -> use1, us-west-2 -> usw2
-  short_region = replace(replace(var.region, "us-east-", "use"), "us-west-", "usw")
+  short_region = replace(replace(replace(var.region, "us-east-", "use"), "us-west-", "usw"), "ap-northeast-", "apne")
   domain_name  = "${var.environment}-os-${local.short_region}"
 }
 
@@ -67,7 +67,7 @@ resource "aws_opensearch_domain" "this" {
     zone_awareness_enabled = true
 
     zone_awareness_config {
-      availability_zone_count = 3
+      availability_zone_count = var.availability_zone_count
     }
 
     warm_enabled = var.enable_ultrawarm
@@ -107,7 +107,7 @@ resource "aws_opensearch_domain" "this" {
 
     master_user_options {
       master_user_name     = "admin"
-      master_user_password = "Admin@SecurePass123!" # Should be replaced with Secrets Manager
+      master_user_password = "<YOUR_PASSWORD>" # Should be replaced with Secrets Manager
     }
   }
 

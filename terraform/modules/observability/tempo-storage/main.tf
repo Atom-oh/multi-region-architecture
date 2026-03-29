@@ -2,7 +2,7 @@ data "aws_caller_identity" "current" {}
 
 # S3 bucket for Tempo trace storage
 resource "aws_s3_bucket" "tempo" {
-  bucket = "${var.environment}-mall-tempo-traces-${var.region}"
+  bucket = "${var.environment}-mall-tempo-traces-${var.region}${var.name_suffix}"
 
   tags = merge(var.tags, {
     Name    = "${var.environment}-mall-tempo-traces-${var.region}"
@@ -68,7 +68,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "tempo" {
 
 # IRSA role for Tempo pods
 resource "aws_iam_role" "tempo" {
-  name = "${var.environment}-tempo-${var.region}"
+  name = "${var.environment}-tempo-${var.region}${var.name_suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

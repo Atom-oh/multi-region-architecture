@@ -2,7 +2,7 @@ data "aws_caller_identity" "current" {}
 
 # IRSA role for OTel Collector pods (X-Ray write access)
 resource "aws_iam_role" "otel_collector" {
-  name = "${var.environment}-otel-collector-${var.region}"
+  name = "${var.environment}-otel-collector-${var.region}${var.name_suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

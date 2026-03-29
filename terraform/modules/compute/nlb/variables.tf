@@ -44,6 +44,12 @@ variable "certificate_arn" {
   type        = string
 }
 
+variable "name_override" {
+  description = "Override NLB name (use when auto-generated name exceeds 32 chars)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

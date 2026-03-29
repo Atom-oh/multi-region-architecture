@@ -324,6 +324,19 @@ resource "aws_eks_addon" "aws_ebs_csi_driver" {
   resolve_conflicts_on_update = "OVERWRITE"
   service_account_role_arn    = aws_iam_role.ebs_csi.arn
 
+  configuration_values = jsonencode({
+    controller = {
+      tolerations = [
+        {
+          key      = "node-role"
+          operator = "Equal"
+          value    = "system-critical"
+          effect   = "NoSchedule"
+        }
+      ]
+    }
+  })
+
   tags = var.tags
 
   depends_on = [aws_eks_addon.vpc_cni, aws_iam_role_policy_attachment.ebs_csi]
@@ -335,6 +348,19 @@ resource "aws_eks_addon" "aws_efs_csi_driver" {
   addon_version               = var.addon_versions.efs_csi_driver
   resolve_conflicts_on_update = "OVERWRITE"
   service_account_role_arn    = aws_iam_role.efs_csi.arn
+
+  configuration_values = jsonencode({
+    controller = {
+      tolerations = [
+        {
+          key      = "node-role"
+          operator = "Equal"
+          value    = "system-critical"
+          effect   = "NoSchedule"
+        }
+      ]
+    }
+  })
 
   tags = var.tags
 

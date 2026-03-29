@@ -1,5 +1,5 @@
 resource "aws_lb" "this" {
-  name               = "${var.environment}-api-nlb-${var.region}"
+  name               = var.name_override != "" ? var.name_override : "${var.environment}-api-nlb-${var.region}"
   internal           = false
   load_balancer_type = "network"
   security_groups    = [var.security_group_id]
@@ -14,7 +14,7 @@ resource "aws_lb" "this" {
 }
 
 resource "aws_lb_target_group" "this" {
-  name        = "${var.environment}-api-tg-${var.region}"
+  name        = var.name_override != "" ? replace(var.name_override, "nlb", "tg") : "${var.environment}-api-tg-${var.region}"
   port        = 80
   protocol    = "TCP"
   vpc_id      = var.vpc_id

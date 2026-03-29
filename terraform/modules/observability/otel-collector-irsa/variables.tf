@@ -29,6 +29,12 @@ variable "oidc_provider_url" {
   type        = string
 }
 
+variable "name_suffix" {
+  description = "Suffix for resource names (e.g., -az-a for multi-cluster same region)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

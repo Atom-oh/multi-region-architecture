@@ -86,12 +86,18 @@ variable "master_password" {
   description = "Master password for OpenSearch admin user"
   type        = string
   sensitive   = true
-  default     = "Admin@SecurePass123!"
+  default     = "<YOUR_PASSWORD>"
 }
 
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
+}
+
+variable "availability_zone_count" {
+  description = "Number of AZs for zone awareness (2 or 3)"
+  type        = number
+  default     = 3
 }
 
 variable "create_service_linked_role" {
