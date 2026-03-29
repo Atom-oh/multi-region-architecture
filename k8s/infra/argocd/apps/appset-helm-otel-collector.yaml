@@ -100,7 +100,6 @@ spec:
                   dimensions:
                     - name: http.method
                     - name: http.status_code
-                    - name: service.name
                   exemplars:
                     enabled: true
                   metrics_flush_interval: 15s

@@ -7,12 +7,39 @@ spec:
   generators:
     - clusters:
         selector:
-          matchExpressions:
-            - key: region
-              operator: Exists
+          matchLabels:
+            region: us-east-1
+        values:
+          awsRegion: us-east-1
+          tempoRoleArn: "arn:aws:iam::180294183052:role/production-tempo-us-east-1"
+          tempoS3Bucket: "production-mall-tempo-traces-us-east-1"
+    - clusters:
+        selector:
+          matchLabels:
+            region: us-west-2
+        values:
+          awsRegion: us-west-2
+          tempoRoleArn: "arn:aws:iam::180294183052:role/production-tempo-us-west-2"
+          tempoS3Bucket: "production-mall-tempo-traces-us-west-2"
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+        values:
+          awsRegion: ap-northeast-2
+          tempoRoleArn: "arn:aws:iam::180294183052:role/production-tempo-ap-northeast-2-az-a"
+          tempoS3Bucket: "production-mall-tempo-traces-ap-northeast-2-az-a"
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+        values:
+          awsRegion: ap-northeast-2
+          tempoRoleArn: "arn:aws:iam::180294183052:role/production-tempo-ap-northeast-2-az-c"
+          tempoS3Bucket: "production-mall-tempo-traces-ap-northeast-2-az-c"
   template:
     metadata:
-      name: 'infra-tempo-{{metadata.labels.region}}'
+      name: 'infra-tempo-{{name}}'
     spec:
       project: default
       source:
@@ -27,7 +54,7 @@ spec:
               patch: |-
                 - op: replace
                   path: /metadata/annotations/eks.amazonaws.com~1role-arn
-                  value: "arn:aws:iam::180294183052:role/production-tempo-{{metadata.labels.region}}"
+                  value: "{{values.tempoRoleArn}}"
             - target:
                 kind: Deployment
                 name: tempo
@@ -36,9 +63,9 @@ spec:
                   path: /spec/template/spec/containers/0/env
                   value:
                     - name: AWS_REGION
-                      value: "{{metadata.labels.region}}"
+                      value: "{{values.awsRegion}}"
                     - name: TEMPO_S3_BUCKET
-                      value: "production-mall-tempo-traces-{{metadata.labels.region}}"
+                      value: "{{values.tempoS3Bucket}}"
       destination:
         server: '{{server}}'
         namespace: observability
