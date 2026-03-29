@@ -30,6 +30,12 @@ spec:
         chart: altinity-clickhouse-operator
         repoURL: https://altinity.github.io/clickhouse-operator
         targetRevision: 0.24.1
+        helm:
+          valuesObject:
+            operator:
+              env:
+                - name: WATCH_NAMESPACES
+                  value: "observability,clickhouse-operator-system"
       destination:
         server: '{{server}}'
         namespace: clickhouse-operator-system
