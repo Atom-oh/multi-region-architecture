@@ -10,18 +10,40 @@ spec:
           matchLabels:
             region: us-east-1
         values:
-          roleSuffix: ""
-          vpcId: vpc-06c7b792a4010cfed
+          roleArn: "arn:aws:iam::180294183052:role/multi-region-mall-alb-controller"
+          vpcId: vpc-0123456789abcdef0
+          awsRegion: us-east-1
+          clusterName: multi-region-mall
     - clusters:
         selector:
           matchLabels:
             region: us-west-2
         values:
-          roleSuffix: "-us-west-2"
-          vpcId: vpc-0938160b63c0c785e
+          roleArn: "arn:aws:iam::180294183052:role/multi-region-mall-alb-controller-us-west-2"
+          vpcId: vpc-0abcdef1234567890
+          awsRegion: us-west-2
+          clusterName: multi-region-mall
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+        values:
+          roleArn: "arn:aws:iam::180294183052:role/mall-apne2-az-a-alb-controller-apne2-az-a"
+          vpcId: vpc-0e1b8458f46f9f81d
+          awsRegion: ap-northeast-2
+          clusterName: mall-apne2-az-a
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+        values:
+          roleArn: "arn:aws:iam::180294183052:role/mall-apne2-az-c-alb-controller-apne2-az-c"
+          vpcId: vpc-0e1b8458f46f9f81d
+          awsRegion: ap-northeast-2
+          clusterName: mall-apne2-az-c
   template:
     metadata:
-      name: 'alb-controller-{{metadata.labels.region}}'
+      name: 'alb-controller-{{name}}'
     spec:
       project: default
       source:
@@ -30,14 +52,14 @@ spec:
         targetRevision: 3.1.0
         helm:
           valuesObject:
-            clusterName: multi-region-mall
-            region: '{{metadata.labels.region}}'
+            clusterName: '{{values.clusterName}}'
+            region: '{{values.awsRegion}}'
             vpcId: '{{values.vpcId}}'
             serviceAccount:
               create: true
               name: aws-load-balancer-controller
               annotations:
-                eks.amazonaws.com/role-arn: 'arn:aws:iam::180294183052:role/multi-region-mall-alb-controller{{values.roleSuffix}}'
+                eks.amazonaws.com/role-arn: '{{values.roleArn}}'
       destination:
         server: '{{server}}'
         namespace: kube-system

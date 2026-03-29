@@ -10,16 +10,32 @@ spec:
           matchLabels:
             region: us-east-1
         values:
-          roleSuffix: ""
+          roleArn: "arn:aws:iam::180294183052:role/multi-region-mall-karpenter-controller"
+          clusterName: multi-region-mall
     - clusters:
         selector:
           matchLabels:
             region: us-west-2
         values:
-          roleSuffix: "-us-west-2"
+          roleArn: "arn:aws:iam::180294183052:role/multi-region-mall-karpenter-controller-us-west-2"
+          clusterName: multi-region-mall
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+        values:
+          roleArn: "arn:aws:iam::180294183052:role/mall-apne2-az-a-karpenter-controller-apne2-az-a"
+          clusterName: mall-apne2-az-a
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+        values:
+          roleArn: "arn:aws:iam::180294183052:role/mall-apne2-az-c-karpenter-controller-apne2-az-c"
+          clusterName: mall-apne2-az-c
   template:
     metadata:
-      name: 'karpenter-{{metadata.labels.region}}'
+      name: 'karpenter-{{name}}'
     spec:
       project: default
       source:
@@ -29,11 +45,11 @@ spec:
         helm:
           valuesObject:
             settings:
-              clusterName: multi-region-mall
+              clusterName: '{{values.clusterName}}'
             serviceAccount:
               name: karpenter
               annotations:
-                eks.amazonaws.com/role-arn: 'arn:aws:iam::180294183052:role/multi-region-mall-karpenter-controller{{values.roleSuffix}}'
+                eks.amazonaws.com/role-arn: '{{values.roleArn}}'
             replicas: 2
             tolerations:
               - key: node-role

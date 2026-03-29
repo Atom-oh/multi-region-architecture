@@ -7,12 +7,39 @@ spec:
   generators:
     - clusters:
         selector:
-          matchExpressions:
-            - key: region
-              operator: Exists
+          matchLabels:
+            region: us-east-1
+        values:
+          awsRegion: us-east-1
+          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-us-east-1"
+          clusterName: multi-region-mall
+    - clusters:
+        selector:
+          matchLabels:
+            region: us-west-2
+        values:
+          awsRegion: us-west-2
+          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-us-west-2"
+          clusterName: multi-region-mall
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+        values:
+          awsRegion: ap-northeast-2
+          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-ap-northeast-2-az-a"
+          clusterName: mall-apne2-az-a
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+        values:
+          awsRegion: ap-northeast-2
+          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-ap-northeast-2-az-c"
+          clusterName: mall-apne2-az-c
   template:
     metadata:
-      name: 'otel-collector-{{metadata.labels.region}}'
+      name: 'otel-collector-{{name}}'
     spec:
       project: default
       source:
@@ -38,7 +65,7 @@ spec:
                 memory: 2Gi
             serviceAccount:
               annotations:
-                eks.amazonaws.com/role-arn: 'arn:aws:iam::180294183052:role/production-otel-collector-{{metadata.labels.region}}'
+                eks.amazonaws.com/role-arn: '{{values.roleArn}}'
             presets:
               kubernetesAttributes:
                 enabled: true
@@ -63,7 +90,7 @@ spec:
                 resource:
                   attributes:
                     - key: k8s.cluster.name
-                      value: multi-region-mall
+                      value: '{{values.clusterName}}'
                       action: upsert
               connectors:
                 spanmetrics:
@@ -83,7 +110,7 @@ spec:
                   tls:
                     insecure: true
                 awsxray:
-                  region: '{{metadata.labels.region}}'
+                  region: '{{values.awsRegion}}'
                 prometheus:
                   endpoint: 0.0.0.0:8889
                   namespace: otel
@@ -99,7 +126,7 @@ spec:
                 awscloudwatchlogs:
                   log_group_name: /eks/multi-region-mall
                   log_stream_name: otel-collector
-                  region: '{{metadata.labels.region}}'
+                  region: '{{values.awsRegion}}'
               service:
                 pipelines:
                   traces:
