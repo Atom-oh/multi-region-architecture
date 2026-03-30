@@ -1,0 +1,50 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['terraform/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+env:
+  AWS_REGION: ap-northeast-2
+  TF_VERSION: "1.9.0"
+
+jobs:
+  plan:
+    runs-on: self-hosted-x86
+    strategy:
+      matrix:
+        environment:
+          - production/us-east-1
+          - production/us-west-2
+          - production/ap-northeast-2/shared
+          - production/ap-northeast-2/eks-mgmt
+          - production/ap-northeast-2/eks-az-a
+          - production/ap-northeast-2/eks-az-c
+      fail-fast: false
+    defaults:
+      run:
+        working-directory: terraform/environments/${{ matrix.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color

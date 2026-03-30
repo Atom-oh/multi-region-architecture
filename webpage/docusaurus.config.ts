@@ -5,7 +5,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'Multi-Region Shopping Mall',
   tagline: 'AWS 기반 멀티리전 마이크로서비스 아키텍처',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/logo.svg',
 
   url: 'https://atom-oh.github.io',
   baseUrl: '/multi-region-architecture/',

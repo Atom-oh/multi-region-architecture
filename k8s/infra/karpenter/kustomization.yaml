@@ -9,3 +9,7 @@ resources:
   - nodepools/worker-nodepool.yaml
   - nodepools/memory-nodepool.yaml
   - nodepools/batch-nodepool.yaml
+  - runner-x86-ec2nodeclass.yaml
+  - runner-x86-nodepool.yaml
+  - runner-arm-ec2nodeclass.yaml
+  - runner-arm-nodepool.yaml

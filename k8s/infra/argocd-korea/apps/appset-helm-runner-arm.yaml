@@ -1,0 +1,62 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-runner-arm
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-mgmt
+  template:
+    metadata:
+      name: 'runner-arm-{{name}}'
+    spec:
+      project: default
+      source:
+        chart: gha-runner-scale-set
+        repoURL: oci://ghcr.io/actions/actions-runner-controller-charts
+        targetRevision: 0.10.1
+        helm:
+          valuesObject:
+            githubConfigUrl: https://github.com/Atom-oh/multi-region-architecture
+            githubConfigSecret: github-app-secret
+            runnerScaleSetName: self-hosted-arm
+            minRunners: 0
+            maxRunners: 10
+            template:
+              spec:
+                nodeSelector:
+                  kubernetes.io/arch: arm64
+                  node-pool: runner-arm
+                tolerations:
+                  - key: workload-type
+                    value: ci-runner
+                    effect: NoSchedule
+                containers:
+                  - name: runner
+                    image: ghcr.io/actions/actions-runner:latest
+                    command: ["/home/runner/run.sh"]
+                    resources:
+                      requests:
+                        cpu: "1"
+                        memory: 2Gi
+                      limits:
+                        cpu: "4"
+                        memory: 8Gi
+      destination:
+        server: '{{server}}'
+        namespace: actions-runner-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

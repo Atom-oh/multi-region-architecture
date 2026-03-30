@@ -1,0 +1,130 @@
+name: Build & Push Services
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/services/**', 'src/shared/**']
+  pull_request:
+    branches: [main]
+    paths: ['src/services/**', 'src/shared/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REGISTRY: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com
+
+jobs:
+  detect-changes:
+    runs-on: self-hosted-x86
+    outputs:
+      go-services: ${{ steps.changes.outputs.go }}
+      java-services: ${{ steps.changes.outputs.java }}
+      python-services: ${{ steps.changes.outputs.python }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            go:
+              - 'src/services/api-gateway/**'
+              - 'src/services/cart/**'
+              - 'src/services/event-bus/**'
+              - 'src/services/inventory/**'
+              - 'src/services/search/**'
+              - 'src/shared/go/**'
+            java:
+              - 'src/services/order/**'
+              - 'src/services/payment/**'
+              - 'src/services/user-account/**'
+              - 'src/services/warehouse/**'
+              - 'src/services/returns/**'
+              - 'src/services/pricing/**'
+              - 'src/services/seller/**'
+              - 'src/shared/java/**'
+            python:
+              - 'src/services/product-catalog/**'
+              - 'src/services/shipping/**'
+              - 'src/services/user-profile/**'
+              - 'src/services/recommendation/**'
+              - 'src/services/wishlist/**'
+              - 'src/services/analytics/**'
+              - 'src/services/notification/**'
+              - 'src/services/review/**'
+              - 'src/shared/python/**'
+            frontend:
+              - 'src/frontend/**'
+
+  build-go:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.go-services == 'true'
+    runs-on: self-hosted-x86
+    strategy:
+      matrix:
+        service: [api-gateway, cart, event-bus, inventory, search]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push
+        run: |
+          docker build -t ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
+            -f src/services/${{ matrix.service }}/Dockerfile src/
+          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }}
+          docker tag ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
+            ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
+          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
+
+  build-java:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.java-services == 'true'
+    runs-on: self-hosted-x86
+    strategy:
+      matrix:
+        service: [order, payment, user-account, warehouse, returns, pricing, seller]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push
+        run: |
+          docker build -t ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
+            -f src/services/${{ matrix.service }}/Dockerfile src/
+          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }}
+          docker tag ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
+            ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
+          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
+
+  build-python:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.python-services == 'true'
+    runs-on: self-hosted-x86
+    strategy:
+      matrix:
+        service: [product-catalog, shipping, user-profile, recommendation, wishlist, analytics, notification, review]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push
+        run: |
+          docker build -t ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
+            -f src/services/${{ matrix.service }}/Dockerfile src/
+          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }}
+          docker tag ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
+            ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
+          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
