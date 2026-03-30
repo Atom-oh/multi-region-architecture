@@ -85,6 +85,12 @@ spec:
     podTemplates:
       - name: clickhouse-pod
         spec:
+          tolerations:
+            - key: node-role
+              value: system-critical
+              effect: NoSchedule
+          nodeSelector:
+            role: system
           securityContext:
             runAsUser: 101
             runAsGroup: 101

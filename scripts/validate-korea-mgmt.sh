@@ -133,8 +133,13 @@ fi
 header "Phase 3: Management Cluster IRSA Roles"
 # ─────────────────────────────────────────────────────────────────────────────
 
-for ROLE_SUFFIX in "otel-collector-apne2-mgmt" "tempo-apne2-mgmt" "alb-controller-apne2-mgmt" "karpenter-controller-apne2-mgmt"; do
-  ROLE_NAME="production-$ROLE_SUFFIX"
+IRSA_ROLES=(
+  "production-otel-collector-ap-northeast-2-mgmt"
+  "production-tempo-ap-northeast-2-mgmt"
+  "mall-apne2-mgmt-alb-controller-apne2-mgmt"
+  "mall-apne2-mgmt-karpenter-controller-apne2-mgmt"
+)
+for ROLE_NAME in "${IRSA_ROLES[@]}"; do
   if aws iam get-role --role-name "$ROLE_NAME" --output json 2>/dev/null | jq -r '.Role.RoleName' | grep -q "$ROLE_NAME"; then
     green "IAM role '$ROLE_NAME' exists"
   else

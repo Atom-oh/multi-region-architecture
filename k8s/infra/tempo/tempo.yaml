@@ -85,6 +85,12 @@ spec:
         app: tempo
     spec:
       serviceAccountName: tempo
+      tolerations:
+        - key: node-role
+          value: system-critical
+          effect: NoSchedule
+      nodeSelector:
+        role: system
       containers:
         - name: tempo
           image: grafana/tempo:2.6.1

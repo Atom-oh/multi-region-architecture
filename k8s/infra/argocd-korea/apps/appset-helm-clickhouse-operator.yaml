@@ -25,6 +25,12 @@ spec:
               env:
                 - name: WATCH_NAMESPACES
                   value: "observability,clickhouse-operator-system"
+            tolerations:
+              - key: node-role
+                value: system-critical
+                effect: NoSchedule
+            nodeSelector:
+              role: system
       destination:
         server: '{{server}}'
         namespace: clickhouse-operator-system

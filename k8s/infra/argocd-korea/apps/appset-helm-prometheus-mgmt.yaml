@@ -20,9 +20,22 @@ spec:
         targetRevision: 68.4.0
         helm:
           valuesObject:
+            global:
+              tolerations:
+                - key: node-role
+                  value: system-critical
+                  effect: NoSchedule
+              nodeSelector:
+                role: system
             grafana:
               enabled: true
               replicas: 1
+              tolerations:
+                - key: node-role
+                  value: system-critical
+                  effect: NoSchedule
+              nodeSelector:
+                role: system
               persistence:
                 enabled: true
                 size: 10Gi
@@ -61,6 +74,21 @@ spec:
                           query: "sum(rate(traces_spanmetrics_calls_total{$$__tags}[5m]))"
                     serviceMap:
                       datasourceUid: prometheus
+            prometheusOperator:
+              tolerations:
+                - key: node-role
+                  value: system-critical
+                  effect: NoSchedule
+              nodeSelector:
+                role: system
+              admissionWebhooks:
+                patch:
+                  tolerations:
+                    - key: node-role
+                      value: system-critical
+                      effect: NoSchedule
+                  nodeSelector:
+                    role: system
             prometheus:
               prometheusSpec:
                 replicas: 2
@@ -68,6 +96,12 @@ spec:
                 enableFeatures:
                   - exemplar-storage
                   - remote-write-receiver
+                tolerations:
+                  - key: node-role
+                    value: system-critical
+                    effect: NoSchedule
+                nodeSelector:
+                  role: system
                 storageSpec:
                   volumeClaimTemplate:
                     spec:
@@ -83,6 +117,24 @@ spec:
             alertmanager:
               alertmanagerSpec:
                 replicas: 2
+                tolerations:
+                  - key: node-role
+                    value: system-critical
+                    effect: NoSchedule
+                nodeSelector:
+                  role: system
+            kube-state-metrics:
+              tolerations:
+                - key: node-role
+                  value: system-critical
+                  effect: NoSchedule
+              nodeSelector:
+                role: system
+            prometheus-node-exporter:
+              tolerations:
+                - key: node-role
+                  value: system-critical
+                  effect: NoSchedule
       destination:
         server: '{{server}}'
         namespace: monitoring
