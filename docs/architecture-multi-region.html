@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Region Architecture — Shopping Mall Platform</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --border: #2e3348;
+    --text: #e1e4ed;
+    --text-dim: #8b90a5;
+    --accent: #6c8aff;
+    --accent2: #38bdf8;
+    --accent3: #a78bfa;
+    --green: #34d399;
+    --orange: #fb923c;
+    --red: #f87171;
+    --pink: #f472b6;
+    --yellow: #fbbf24;
+    --sidebar-w: 280px;
+    --header-h: 56px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* Header */
+  .header {
+    position: fixed; top:0; left:0; right:0; height: var(--header-h);
+    background: rgba(15,17,23,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 24px;
+    z-index: 100;
+  }
+  .header-logo { font-size: 16px; font-weight: 700; color: var(--accent); letter-spacing: -0.3px; }
+  .header-logo span { color: var(--text-dim); font-weight: 400; margin-left: 8px; }
+  .header-badge {
+    margin-left: 12px; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+    background: rgba(108,138,255,0.15); color: var(--accent); border: 1px solid rgba(108,138,255,0.25);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    position: fixed; top: var(--header-h); left:0; bottom:0; width: var(--sidebar-w);
+    background: var(--surface); border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 20px 0; z-index: 50;
+  }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .nav-section { padding: 8px 20px 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.8px; margin-top: 8px; }
+  .nav-link {
+    display: block; padding: 6px 20px 6px 28px; font-size: 13px; color: var(--text-dim);
+    text-decoration: none; transition: all 0.15s; border-left: 2px solid transparent;
+  }
+  .nav-link:hover { color: var(--text); background: rgba(108,138,255,0.06); }
+  .nav-link.active { color: var(--accent); border-left-color: var(--accent); background: rgba(108,138,255,0.08); }
+  .nav-link.sub { padding-left: 40px; font-size: 12px; }
+
+  /* Content */
+  .content {
+    margin-left: var(--sidebar-w); margin-top: var(--header-h);
+    padding: 40px 48px 80px; max-width: 960px;
+  }
+
+  /* Typography */
+  h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { font-size: 16px; color: var(--text-dim); margin-bottom: 40px; }
+  h2 { font-size: 22px; font-weight: 700; margin: 48px 0 16px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text); }
+  h2:first-of-type { border-top: none; }
+  h3 { font-size: 17px; font-weight: 600; margin: 32px 0 12px; color: var(--accent2); }
+  h4 { font-size: 15px; font-weight: 600; margin: 24px 0 8px; color: var(--accent3); }
+  p { margin-bottom: 14px; }
+  ul, ol { margin: 0 0 16px 20px; }
+  li { margin-bottom: 4px; }
+  strong { color: #fff; font-weight: 600; }
+  code {
+    background: var(--surface2); padding: 2px 6px; border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; color: var(--accent2);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; margin: 16px 0;
+  }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card-title .icon { font-size: 18px; }
+
+  /* Grid */
+  .grid { display: grid; gap: 16px; margin: 16px 0; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  /* Stat Box */
+  .stat-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px; text-align: center;
+  }
+  .stat-value { font-size: 28px; font-weight: 800; color: var(--accent); }
+  .stat-label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  thead th {
+    background: var(--surface2); padding: 10px 14px; text-align: left;
+    font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-dim); border-bottom: 1px solid var(--border);
+  }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: rgba(108,138,255,0.04); }
+
+  /* Code Block */
+  .code-block {
+    background: #0d0f14; border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; margin: 12px 0; overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; color: var(--text-dim);
+  }
+  .code-block .comment { color: #565b70; }
+  .code-block .keyword { color: var(--accent3); }
+  .code-block .string { color: var(--green); }
+  .code-block .highlight { color: var(--accent2); }
+
+  /* Diagram */
+  .diagram {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 32px; margin: 20px 0; text-align: center; overflow-x: auto;
+  }
+  .diagram svg { max-width: 100%; }
+  .diagram-caption { font-size: 12px; color: var(--text-dim); margin-top: 12px; }
+
+  /* Tag / Badge */
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    margin-right: 4px;
+  }
+  .tag-blue { background: rgba(108,138,255,0.15); color: var(--accent); }
+  .tag-green { background: rgba(52,211,153,0.15); color: var(--green); }
+  .tag-orange { background: rgba(251,146,60,0.15); color: var(--orange); }
+  .tag-purple { background: rgba(167,139,250,0.15); color: var(--accent3); }
+  .tag-red { background: rgba(248,113,113,0.15); color: var(--red); }
+  .tag-pink { background: rgba(244,114,182,0.15); color: var(--pink); }
+
+  /* Callout */
+  .callout {
+    border-left: 3px solid var(--accent); background: rgba(108,138,255,0.06);
+    padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 14px;
+  }
+  .callout-warn { border-left-color: var(--orange); background: rgba(251,146,60,0.06); }
+  .callout-ok { border-left-color: var(--green); background: rgba(52,211,153,0.06); }
+
+  /* Flow */
+  .flow {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin: 16px 0; font-size: 13px; font-weight: 600;
+  }
+  .flow-node {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 16px; white-space: nowrap;
+  }
+  .flow-arrow { color: var(--text-dim); font-size: 18px; }
+  .flow-node.primary { border-color: var(--accent); color: var(--accent); }
+  .flow-node.green { border-color: var(--green); color: var(--green); }
+
+  /* Region Comparison */
+  .region-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .region-col {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+  }
+  .region-col h4 { margin-top: 0; }
+  .region-col.east { border-top: 3px solid var(--accent); }
+  .region-col.west { border-top: 3px solid var(--accent3); }
+
+  /* Print */
+  @media print {
+    .sidebar, .header { display: none; }
+    .content { margin-left: 0; margin-top: 0; max-width: 100%; }
+    body { background: #fff; color: #000; font-size: 12px; }
+    .card, .stat-box, .diagram { border-color: #ccc; background: #f9f9f9; }
+  }
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .content { margin-left: 0; padding: 24px; }
+    .grid-2, .grid-3, .region-cols { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">Multi-Region Architecture <span>Shopping Mall Platform</span></div>
+  <div class="header-badge">us-east-1 + us-west-2</div>
+</div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="nav-section">Overview</div>
+  <a class="nav-link" href="#summary">Executive Summary</a>
+  <a class="nav-link" href="#stats">Key Metrics</a>
+  <a class="nav-link" href="#principles">Design Principles</a>
+
+  <div class="nav-section">Infrastructure</div>
+  <a class="nav-link" href="#traffic">Traffic Flow</a>
+  <a class="nav-link" href="#network">Network Architecture</a>
+  <a class="nav-link sub" href="#vpc">VPC Design</a>
+  <a class="nav-link sub" href="#endpoints">VPC Endpoints</a>
+  <a class="nav-link" href="#compute">Compute Layer</a>
+  <a class="nav-link sub" href="#eks">EKS Clusters</a>
+  <a class="nav-link sub" href="#karpenter">Karpenter</a>
+
+  <div class="nav-section">Data</div>
+  <a class="nav-link" href="#data">Data Layer Overview</a>
+  <a class="nav-link sub" href="#aurora">Aurora Global</a>
+  <a class="nav-link sub" href="#dsql">Aurora DSQL</a>
+  <a class="nav-link sub" href="#documentdb">DocumentDB Global</a>
+  <a class="nav-link sub" href="#elasticache">ElastiCache Global</a>
+  <a class="nav-link sub" href="#msk">Amazon MSK</a>
+  <a class="nav-link sub" href="#opensearch">OpenSearch</a>
+  <a class="nav-link sub" href="#s3">S3</a>
+
+  <div class="nav-section">Edge & Security</div>
+  <a class="nav-link" href="#edge">Edge Layer</a>
+  <a class="nav-link sub" href="#cloudfront">CloudFront + WAF</a>
+  <a class="nav-link sub" href="#route53">Route53</a>
+  <a class="nav-link" href="#security">Security</a>
+  <a class="nav-link sub" href="#sg">Security Groups</a>
+  <a class="nav-link sub" href="#cognito">Cognito</a>
+  <a class="nav-link sub" href="#irsa">IAM / IRSA</a>
+  <a class="nav-link sub" href="#kms">KMS Encryption</a>
+
+  <div class="nav-section">Observability</div>
+  <a class="nav-link" href="#observability">Observability Stack</a>
+  <a class="nav-link sub" href="#otel">OTel Collector</a>
+  <a class="nav-link sub" href="#clickhouse">ClickHouse</a>
+  <a class="nav-link sub" href="#tempo">Tempo</a>
+  <a class="nav-link sub" href="#prometheus">Prometheus + Grafana</a>
+
+  <div class="nav-section">Application</div>
+  <a class="nav-link" href="#microservices">Microservices</a>
+  <a class="nav-link" href="#deployment">Deployment & GitOps</a>
+  <a class="nav-link" href="#dr">DR & HA Strategy</a>
+</nav>
+
+<!-- Content -->
+<div class="content">
+
+<!-- ========== EXECUTIVE SUMMARY ========== -->
+<h1 id="summary">Multi-Region Architecture</h1>
+<p class="subtitle">AWS 기반 멀티리전 쇼핑몰 플랫폼 &mdash; Write-Primary / Read-Local 패턴</p>
+
+<div class="card">
+  <div class="card-title"><span class="icon">&#9432;</span> Executive Summary</div>
+  <p>본 아키텍처는 AWS의 두 리전(<strong>us-east-1</strong> Primary, <strong>us-west-2</strong> Secondary)에 걸쳐 운영되는 쇼핑몰 플랫폼입니다. <strong>Write-Primary / Read-Local</strong> 패턴을 채택하여 쓰기는 Primary 리전으로 포워딩하고, 읽기는 가장 가까운 리전에서 처리합니다.</p>
+  <p>20개 마이크로서비스가 5개 도메인(Core, User, Fulfillment, Business, Platform)으로 조직되며, Go/Gin, Java/Spring Boot, Python/FastAPI 세 가지 기술 스택으로 구현됩니다. 모든 트래픽은 <strong>CloudFront &rarr; Route53 (Latency-based) &rarr; NLB &rarr; EKS</strong> 경로로 흐르며, 직접 ALB 접근은 차단됩니다.</p>
+</div>
+
+<!-- Stats -->
+<div class="grid grid-3" id="stats">
+  <div class="stat-box"><div class="stat-value">2</div><div class="stat-label">Active Regions</div></div>
+  <div class="stat-box"><div class="stat-value">20</div><div class="stat-label">Microservices</div></div>
+  <div class="stat-box"><div class="stat-value">~520</div><div class="stat-label">Terraform Resources</div></div>
+</div>
+<div class="grid grid-3">
+  <div class="stat-box"><div class="stat-value">5</div><div class="stat-label">Service Domains</div></div>
+  <div class="stat-box"><div class="stat-value">7</div><div class="stat-label">Data Stores</div></div>
+  <div class="stat-box"><div class="stat-value">~30</div><div class="stat-label">Nodes (total)</div></div>
+</div>
+
+<!-- Design Principles -->
+<h2 id="principles">Design Principles</h2>
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-title"><span class="icon">&#9881;</span> Write-Primary / Read-Local</div>
+    <p>모든 쓰기 요청은 us-east-1(Primary)에서 처리. 읽기는 각 리전의 로컬 복제본 사용. Aurora Global Write Forwarding으로 Secondary에서도 쓰기 가능 (forwarded).</p>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128274;</span> CloudFront-First Security</div>
+    <p>모든 퍼블릭 트래픽은 반드시 CloudFront를 통과. ALB/NLB 보안 그룹은 CloudFront managed prefix list로만 제한. <code>0.0.0.0/0</code> 인바운드 규칙 완전 금지.</p>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128736;</span> GitOps with ArgoCD</div>
+    <p>모든 K8s 리소스는 ArgoCD ApplicationSet으로 관리. 리전별 Kustomize overlay로 환경 분리. Git 커밋이 배포의 single source of truth.</p>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128202;</span> Unified Observability</div>
+    <p>OTel Collector가 traces/logs/metrics를 통합 수집. ClickHouse + Tempo + Prometheus 3중 백엔드. Grafana에서 metric &rarr; trace &rarr; log 연결 (exemplar).</p>
+  </div>
+</div>
+
+<!-- ========== TRAFFIC FLOW ========== -->
+<h2 id="traffic">Traffic Flow</h2>
+
+<div class="diagram">
+  <svg width="820" height="320" viewBox="0 0 820 320" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect x="0" y="0" width="820" height="320" fill="#1a1d27" rx="12"/>
+    <!-- User -->
+    <circle cx="60" cy="160" r="28" fill="none" stroke="#6c8aff" stroke-width="2"/>
+    <text x="60" y="155" text-anchor="middle" fill="#e1e4ed" font-size="11" font-weight="600">User</text>
+    <text x="60" y="170" text-anchor="middle" fill="#8b90a5" font-size="9">mall.atomai.click</text>
+    <!-- Arrow -->
+    <line x1="92" y1="160" x2="140" y2="160" stroke="#6c8aff" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- CloudFront -->
+    <rect x="142" y="130" width="100" height="60" rx="8" fill="none" stroke="#38bdf8" stroke-width="2"/>
+    <text x="192" y="155" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="600">CloudFront</text>
+    <text x="192" y="170" text-anchor="middle" fill="#8b90a5" font-size="9">+ WAF</text>
+    <!-- Arrow -->
+    <line x1="244" y1="160" x2="290" y2="160" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- Route53 -->
+    <rect x="292" y="130" width="100" height="60" rx="8" fill="none" stroke="#a78bfa" stroke-width="2"/>
+    <text x="342" y="152" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="600">Route53</text>
+    <text x="342" y="167" text-anchor="middle" fill="#8b90a5" font-size="9">Latency-based</text>
+    <text x="342" y="180" text-anchor="middle" fill="#8b90a5" font-size="9">api-internal.*</text>
+    <!-- Fork arrows -->
+    <line x1="394" y1="145" x2="460" y2="90" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="394" y1="175" x2="460" y2="230" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- us-east-1 -->
+    <rect x="462" y="40" width="340" height="100" rx="10" fill="rgba(108,138,255,0.08)" stroke="#6c8aff" stroke-width="1.5"/>
+    <text x="480" y="62" fill="#6c8aff" font-size="10" font-weight="700">us-east-1 (Primary)</text>
+    <rect x="480" y="72" width="70" height="50" rx="6" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="515" y="95" text-anchor="middle" fill="#34d399" font-size="10" font-weight="600">NLB</text>
+    <text x="515" y="108" text-anchor="middle" fill="#8b90a5" font-size="8">TLS:443</text>
+    <line x1="552" y1="97" x2="590" y2="97" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <rect x="592" y="72" width="90" height="50" rx="6" fill="none" stroke="#fb923c" stroke-width="1.5"/>
+    <text x="637" y="92" text-anchor="middle" fill="#fb923c" font-size="10" font-weight="600">API Gateway</text>
+    <text x="637" y="107" text-anchor="middle" fill="#8b90a5" font-size="8">EKS Pod</text>
+    <line x1="684" y1="97" x2="718" y2="97" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <rect x="720" y="72" width="66" height="50" rx="6" fill="none" stroke="#f472b6" stroke-width="1.5"/>
+    <text x="753" y="92" text-anchor="middle" fill="#f472b6" font-size="10" font-weight="600">Services</text>
+    <text x="753" y="107" text-anchor="middle" fill="#8b90a5" font-size="8">20 pods</text>
+    <!-- us-west-2 -->
+    <rect x="462" y="180" width="340" height="100" rx="10" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="480" y="202" fill="#a78bfa" font-size="10" font-weight="700">us-west-2 (Secondary)</text>
+    <rect x="480" y="212" width="70" height="50" rx="6" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="515" y="235" text-anchor="middle" fill="#34d399" font-size="10" font-weight="600">NLB</text>
+    <text x="515" y="248" text-anchor="middle" fill="#8b90a5" font-size="8">TLS:443</text>
+    <line x1="552" y1="237" x2="590" y2="237" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <rect x="592" y="212" width="90" height="50" rx="6" fill="none" stroke="#fb923c" stroke-width="1.5"/>
+    <text x="637" y="232" text-anchor="middle" fill="#fb923c" font-size="10" font-weight="600">API Gateway</text>
+    <text x="637" y="247" text-anchor="middle" fill="#8b90a5" font-size="8">EKS Pod</text>
+    <line x1="684" y1="237" x2="718" y2="237" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <rect x="720" y="212" width="66" height="50" rx="6" fill="none" stroke="#f472b6" stroke-width="1.5"/>
+    <text x="753" y="232" text-anchor="middle" fill="#f472b6" font-size="10" font-weight="600">Services</text>
+    <text x="753" y="247" text-anchor="middle" fill="#8b90a5" font-size="8">20 pods</text>
+    <!-- Write forwarding arrow -->
+    <line x1="637" y1="212" x2="637" y2="124" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrow-y)"/>
+    <text x="655" y="172" fill="#fbbf24" font-size="8" font-weight="600">Write Fwd</text>
+    <!-- Arrow marker -->
+    <defs>
+      <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="none" stroke="#8b90a5" stroke-width="1"/></marker>
+      <marker id="arrow-y" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="none" stroke="#fbbf24" stroke-width="1"/></marker>
+    </defs>
+  </svg>
+  <div class="diagram-caption">그림 1. End-to-end traffic flow: User &rarr; CloudFront &rarr; Route53 (Latency) &rarr; NLB &rarr; API Gateway &rarr; Services</div>
+</div>
+
+<div class="callout">
+  <strong>핵심 규칙:</strong> 모든 퍼블릭 트래픽은 반드시 CloudFront를 경유합니다. NLB 보안 그룹은 CloudFront managed prefix list(<code>com.amazonaws.global.cloudfront.origin-facing</code>)만 허용하며, 포트 범위 80-443의 단일 규칙을 사용합니다 (prefix list 45엔트리 &times; 규칙 한도 60의 제약).
+</div>
+
+<!-- ========== NETWORK ========== -->
+<h2 id="network">Network Architecture</h2>
+
+<h3 id="vpc">VPC Design</h3>
+<p>각 리전에 독립된 VPC가 배포되며, 3-tier 서브넷 구조(Public / Private / Data)를 사용합니다. AZ별 NAT Gateway를 두어 단일 AZ 장애 시에도 다른 AZ의 아웃바운드 트래픽이 영향받지 않습니다.</p>
+
+<table>
+  <thead><tr><th>구분</th><th>us-east-1</th><th>us-west-2</th></tr></thead>
+  <tbody>
+    <tr><td><strong>VPC CIDR</strong></td><td><code>10.0.0.0/16</code></td><td><code>10.1.0.0/16</code></td></tr>
+    <tr><td><strong>AZs</strong></td><td>us-east-1a, 1b</td><td>us-west-2a, 2b</td></tr>
+    <tr><td><strong>Public Subnets</strong></td><td>/24 &times; 2 (NLB, NAT GW)</td><td>/24 &times; 2</td></tr>
+    <tr><td><strong>Private Subnets</strong></td><td>/24 &times; 2 (EKS Pods)</td><td>/24 &times; 2</td></tr>
+    <tr><td><strong>Data Subnets</strong></td><td>/24 &times; 2 (RDS, DocDB, Cache)</td><td>/24 &times; 2</td></tr>
+    <tr><td><strong>NAT Gateway</strong></td><td>2 (AZ별 1개)</td><td>2 (AZ별 1개)</td></tr>
+    <tr><td><strong>Transit Gateway</strong></td><td>Yes (Cross-VPC peering 준비)</td><td>Planned</td></tr>
+  </tbody>
+</table>
+
+<h3 id="endpoints">VPC Endpoints</h3>
+<p>비용 절감과 보안을 위해 주요 AWS 서비스에 대한 VPC Endpoint를 설정합니다. Gateway endpoint(S3)와 Interface endpoint(ECR, STS, CloudWatch Logs)를 사용합니다.</p>
+
+<table>
+  <thead><tr><th>Endpoint</th><th>Type</th><th>용도</th></tr></thead>
+  <tbody>
+    <tr><td><strong>S3</strong></td><td>Gateway</td><td>ECR 이미지, Tempo traces, Analytics data</td></tr>
+    <tr><td><strong>ECR API</strong></td><td>Interface</td><td>컨테이너 이미지 Pull (API 호출)</td></tr>
+    <tr><td><strong>ECR DKR</strong></td><td>Interface</td><td>컨테이너 이미지 Pull (Docker 프로토콜)</td></tr>
+    <tr><td><strong>STS</strong></td><td>Interface</td><td>IRSA 토큰 교환</td></tr>
+    <tr><td><strong>CloudWatch Logs</strong></td><td>Interface</td><td>OTel Collector 로그 전송</td></tr>
+  </tbody>
+</table>
+
+<!-- ========== COMPUTE ========== -->
+<h2 id="compute">Compute Layer</h2>
+
+<h3 id="eks">EKS Clusters</h3>
+
+<div class="region-cols">
+  <div class="region-col east">
+    <h4>&#128309; us-east-1 — Primary</h4>
+    <table>
+      <tbody>
+        <tr><td>Cluster Name</td><td><code>multi-region-mall</code></td></tr>
+        <tr><td>EKS Version</td><td><code>v1.35</code> (v1.35.2-eks-f69f56f)</td></tr>
+        <tr><td>Bootstrap Nodes</td><td>2&times; t3.medium/t3a.medium</td></tr>
+        <tr><td>App Nodes</td><td>~14-15 (Karpenter)</td></tr>
+        <tr><td>Node IAM Role</td><td><code>multi-region-mall-node-group</code></td></tr>
+        <tr><td>Karpenter Role</td><td><code>multi-region-mall-karpenter-controller</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="region-col west">
+    <h4>&#128995; us-west-2 — Secondary</h4>
+    <table>
+      <tbody>
+        <tr><td>Cluster Name</td><td><code>multi-region-mall</code></td></tr>
+        <tr><td>EKS Version</td><td><code>v1.35</code> (v1.35.2-eks-f69f56f)</td></tr>
+        <tr><td>Bootstrap Nodes</td><td>2&times; t3.medium/t3a.medium</td></tr>
+        <tr><td>App Nodes</td><td>~14-15 (Karpenter)</td></tr>
+        <tr><td>Node IAM Role</td><td><code>multi-region-mall-node-group-us-west-2</code></td></tr>
+        <tr><td>Karpenter Role</td><td><code>...-karpenter-controller-us-west-2</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h4>EKS Addon Versions</h4>
+<table>
+  <thead><tr><th>Addon</th><th>Version</th><th>비고</th></tr></thead>
+  <tbody>
+    <tr><td>VPC CNI</td><td><code>v1.21.1</code></td><td>eksbuild suffix differs by region</td></tr>
+    <tr><td>CoreDNS</td><td><code>v1.13.2</code></td><td></td></tr>
+    <tr><td>kube-proxy</td><td><code>v1.35.0</code></td><td></td></tr>
+    <tr><td>EBS CSI</td><td><code>v1.56.0</code></td><td>IRSA 필수 (1.35에서 IMDS 제한)</td></tr>
+    <tr><td>EFS CSI</td><td><code>v2.3.0</code></td><td>IRSA 필수</td></tr>
+  </tbody>
+</table>
+
+<h3 id="karpenter">Karpenter v1.9</h3>
+<p>부트스트랩 노드 그룹(2&times; m5.large)은 시스템 워크로드(Karpenter, ArgoCD, CoreDNS)를 실행하고, 애플리케이션 노드는 Karpenter가 6개 NodePool을 통해 동적 프로비저닝합니다.</p>
+
+<table>
+  <thead><tr><th>NodePool</th><th>용도</th><th>Instance Types</th></tr></thead>
+  <tbody>
+    <tr><td><code>general</code></td><td>일반 워크로드</td><td>m5, m6i, m7i (mixed)</td></tr>
+    <tr><td><code>critical</code></td><td>핵심 서비스 (API GW, Order)</td><td>c5, c6i (compute-optimized)</td></tr>
+    <tr><td><code>api-tier</code></td><td>API 계층 서비스</td><td>m5, c5 (balanced)</td></tr>
+    <tr><td><code>worker-tier</code></td><td>백그라운드 처리</td><td>m5, r5 (general)</td></tr>
+    <tr><td><code>batch-tier</code></td><td>배치 작업</td><td>m5, c5 (spot 가능)</td></tr>
+    <tr><td><code>memory-tier</code></td><td>메모리 집약 워크로드</td><td>r5, r6i (memory-optimized)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>Architecture:</strong> amd64 only. arm64(Graviton)는 Phase 2에서 도입 예정. EC2NodeClass는 <code>role: multi-region-mall-node-group</code>을 사용하며, IAM이 글로벌이므로 양쪽 리전에서 동작합니다.
+</div>
+
+<!-- ========== DATA LAYER ========== -->
+<h2 id="data">Data Layer Overview</h2>
+
+<div class="diagram">
+  <svg width="780" height="350" viewBox="0 0 780 350" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="780" height="350" fill="#1a1d27" rx="12"/>
+    <!-- Title -->
+    <text x="390" y="28" text-anchor="middle" fill="#8b90a5" font-size="11" font-weight="600">DATA REPLICATION TOPOLOGY</text>
+    <!-- us-east-1 box -->
+    <rect x="20" y="45" width="350" height="280" rx="10" fill="rgba(108,138,255,0.06)" stroke="#6c8aff" stroke-width="1"/>
+    <text x="195" y="68" text-anchor="middle" fill="#6c8aff" font-size="12" font-weight="700">us-east-1 (Primary)</text>
+    <!-- us-west-2 box -->
+    <rect x="410" y="45" width="350" height="280" rx="10" fill="rgba(167,139,250,0.06)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="585" y="68" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="700">us-west-2 (Secondary)</text>
+    <!-- Aurora -->
+    <rect x="40" y="82" width="140" height="44" rx="6" fill="none" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="110" y="101" text-anchor="middle" fill="#38bdf8" font-size="10" font-weight="600">Aurora PostgreSQL</text>
+    <text x="110" y="117" text-anchor="middle" fill="#8b90a5" font-size="9">Writer + Reader</text>
+    <rect x="430" y="82" width="140" height="44" rx="6" fill="none" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="500" y="101" text-anchor="middle" fill="#38bdf8" font-size="10" font-weight="600">Aurora PostgreSQL</text>
+    <text x="500" y="117" text-anchor="middle" fill="#8b90a5" font-size="9">Reader + Write Fwd</text>
+    <line x1="182" y1="104" x2="428" y2="104" stroke="#38bdf8" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="305" y="99" text-anchor="middle" fill="#38bdf8" font-size="8">Global DB</text>
+    <!-- DSQL -->
+    <rect x="200" y="82" width="150" height="44" rx="6" fill="none" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="275" y="101" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">Aurora DSQL</text>
+    <text x="275" y="117" text-anchor="middle" fill="#8b90a5" font-size="9">IAM Auth</text>
+    <!-- DocumentDB -->
+    <rect x="40" y="140" width="140" height="44" rx="6" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="110" y="159" text-anchor="middle" fill="#34d399" font-size="10" font-weight="600">DocumentDB</text>
+    <text x="110" y="175" text-anchor="middle" fill="#8b90a5" font-size="9">Primary 8.0</text>
+    <rect x="430" y="140" width="140" height="44" rx="6" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="500" y="159" text-anchor="middle" fill="#34d399" font-size="10" font-weight="600">DocumentDB</text>
+    <text x="500" y="175" text-anchor="middle" fill="#8b90a5" font-size="9">Secondary 8.0</text>
+    <line x1="182" y1="162" x2="428" y2="162" stroke="#34d399" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="305" y="157" text-anchor="middle" fill="#34d399" font-size="8">Global Cluster</text>
+    <!-- ElastiCache -->
+    <rect x="40" y="198" width="140" height="44" rx="6" fill="none" stroke="#f87171" stroke-width="1.5"/>
+    <text x="110" y="217" text-anchor="middle" fill="#f87171" font-size="10" font-weight="600">ElastiCache Valkey</text>
+    <text x="110" y="233" text-anchor="middle" fill="#8b90a5" font-size="9">Primary r7g.medium</text>
+    <rect x="430" y="198" width="140" height="44" rx="6" fill="none" stroke="#f87171" stroke-width="1.5"/>
+    <text x="500" y="217" text-anchor="middle" fill="#f87171" font-size="10" font-weight="600">ElastiCache Valkey</text>
+    <text x="500" y="233" text-anchor="middle" fill="#8b90a5" font-size="9">Secondary</text>
+    <line x1="182" y1="220" x2="428" y2="220" stroke="#f87171" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="305" y="215" text-anchor="middle" fill="#f87171" font-size="8">Global Datastore</text>
+    <!-- MSK -->
+    <rect x="40" y="256" width="140" height="44" rx="6" fill="none" stroke="#fb923c" stroke-width="1.5"/>
+    <text x="110" y="275" text-anchor="middle" fill="#fb923c" font-size="10" font-weight="600">MSK (Kafka)</text>
+    <text x="110" y="291" text-anchor="middle" fill="#8b90a5" font-size="9">3 brokers SASL/SCRAM</text>
+    <rect x="430" y="256" width="140" height="44" rx="6" fill="none" stroke="#fb923c" stroke-width="1.5"/>
+    <text x="500" y="275" text-anchor="middle" fill="#fb923c" font-size="10" font-weight="600">MSK (Kafka)</text>
+    <text x="500" y="291" text-anchor="middle" fill="#8b90a5" font-size="9">3 brokers SASL/SCRAM</text>
+    <text x="305" y="273" text-anchor="middle" fill="#fb923c" font-size="8">Independent</text>
+    <!-- OpenSearch -->
+    <rect x="200" y="198" width="150" height="44" rx="6" fill="none" stroke="#f472b6" stroke-width="1.5"/>
+    <text x="275" y="217" text-anchor="middle" fill="#f472b6" font-size="10" font-weight="600">OpenSearch</text>
+    <text x="275" y="233" text-anchor="middle" fill="#8b90a5" font-size="9">3M + 3D per region</text>
+    <rect x="590" y="198" width="150" height="44" rx="6" fill="none" stroke="#f472b6" stroke-width="1.5"/>
+    <text x="665" y="217" text-anchor="middle" fill="#f472b6" font-size="10" font-weight="600">OpenSearch</text>
+    <text x="665" y="233" text-anchor="middle" fill="#8b90a5" font-size="9">3M + 3D per region</text>
+    <!-- S3 -->
+    <rect x="200" y="256" width="150" height="44" rx="6" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="275" y="275" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">S3</text>
+    <text x="275" y="291" text-anchor="middle" fill="#8b90a5" font-size="9">Static + Analytics</text>
+    <rect x="590" y="256" width="150" height="44" rx="6" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="665" y="275" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">S3</text>
+    <text x="665" y="291" text-anchor="middle" fill="#8b90a5" font-size="9">Static + Analytics</text>
+  </svg>
+  <div class="diagram-caption">그림 2. Data Replication Topology &mdash; Aurora/DocumentDB/ElastiCache는 글로벌 복제, MSK/OpenSearch/S3는 리전 독립</div>
+</div>
+
+<h3 id="aurora">Aurora Global Database</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Engine</td><td>Aurora PostgreSQL <code>17.7</code></td></tr>
+    <tr><td>Global Cluster</td><td>Write Forwarding 활성화 (Secondary &rarr; Primary)</td></tr>
+    <tr><td>us-east-1</td><td>Writer 1 + Reader 1 (<code>db.r6g.large</code>)</td></tr>
+    <tr><td>us-west-2</td><td>Reader 2 (Secondary Cluster)</td></tr>
+    <tr><td>Encryption</td><td>KMS CMK per region</td></tr>
+    <tr><td>Monitoring</td><td>Enhanced Monitoring 60s + Performance Insights</td></tr>
+    <tr><td>Backup</td><td>Primary 7-day retention, Daily 03:00-04:00 UTC</td></tr>
+    <tr><td>Endpoint (east)</td><td><code>production-aurora-global-us-east-1.cluster-*.rds.amazonaws.com</code></td></tr>
+    <tr><td>Endpoint (west)</td><td><code>production-aurora-global-us-west-2.cluster-*.rds.amazonaws.com</code></td></tr>
+  </tbody>
+</table>
+
+<h3 id="dsql">Aurora DSQL</h3>
+<div class="card">
+  <div class="card-title"><span class="icon">&#9889;</span> Serverless Distributed SQL</div>
+  <p>Go 서비스(inventory, shipping)가 Aurora DSQL을 사용합니다. IAM 토큰 기반 인증으로 <code>aws dsql generate-db-connect-admin-auth-token</code>을 통해 연결합니다.</p>
+  <p><strong>제약사항:</strong> JSONB 미지원, Foreign Key 미지원, Advisory Lock 미지원, <code>CREATE INDEX ASYNC</code> 필수</p>
+  <p><strong>IRSA:</strong> <code>production-dsql-access-us-east-1</code></p>
+  <p><strong>Endpoint:</strong> <code>xxxxxxxxxxxxxxxxxxxxxxxxxxxx.dsql.us-east-1.on.aws</code></p>
+</div>
+
+<h3 id="documentdb">DocumentDB Global Cluster</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Engine</td><td>DocumentDB <code>8.0.0</code> (MongoDB 호환)</td></tr>
+    <tr><td>Global Cluster ID</td><td><code>production-docdb-global</code></td></tr>
+    <tr><td>us-east-1 (Primary)</td><td><code>production-docdb-global-primary</code> (2 instances, db.r6g.large)</td></tr>
+    <tr><td>us-west-2 (Secondary)</td><td><code>production-docdb-global-us-west-2</code> (2 instances)</td></tr>
+    <tr><td>연결 서비스</td><td>7개 Python 서비스 (motor + pymongo&lt;4.8)</td></tr>
+    <tr><td>인증</td><td>SCRAM-SHA-1, TLS (tlsAllowInvalidCertificates=true)</td></tr>
+  </tbody>
+</table>
+<div class="callout-warn callout">
+  <strong>주의:</strong> DocumentDB는 5.0&rarr;8.0 in-place 업그레이드가 불가능합니다. Global Cluster 생성 순서도 중요합니다: 먼저 standalone primary 생성 &rarr; <code>create-global-cluster --source-db-cluster-identifier</code>로 글로벌 클러스터에 연결 &rarr; secondary 추가.
+</div>
+
+<h3 id="elasticache">ElastiCache Global Datastore (Valkey)</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Engine</td><td>Valkey 7</td></tr>
+    <tr><td>us-east-1 (Primary)</td><td><code>cache.r7g.medium</code>, 2 shard, 1 replica/shard</td></tr>
+    <tr><td>us-west-2 (Secondary)</td><td>engine/encryption 파라미터 null (Global Datastore에서 상속)</td></tr>
+    <tr><td>Go 클라이언트</td><td><code>go-redis ClusterClient + TLS</code> (NewClusterClient 필수)</td></tr>
+    <tr><td>용도</td><td>Cart 서비스 (세션, 장바구니 데이터)</td></tr>
+  </tbody>
+</table>
+
+<h3 id="msk">Amazon MSK</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Instance Type</td><td><code>kafka.m5.large</code></td></tr>
+    <tr><td>Brokers</td><td>3 per region</td></tr>
+    <tr><td>인증</td><td>SASL/SCRAM (port 9096)</td></tr>
+    <tr><td>EBS</td><td>100 GiB per broker</td></tr>
+    <tr><td>Cross-region</td><td>Independent (Replicator 미설정)</td></tr>
+  </tbody>
+</table>
+
+<h3 id="opensearch">OpenSearch</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Domain</td><td><code>production-os-use1</code> / <code>production-os-usw2</code> (28자 제한)</td></tr>
+    <tr><td>Master Nodes</td><td>3&times; <code>r6g.medium.search</code></td></tr>
+    <tr><td>Data Nodes</td><td>3&times; <code>r6g.medium.search</code></td></tr>
+    <tr><td>EBS</td><td>100 GiB per node</td></tr>
+    <tr><td>Cross-region</td><td>Independent (리전별 독립 도메인)</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s3">S3</h3>
+<p>리전별 두 개의 S3 버킷을 운영합니다:</p>
+<ul>
+  <li><strong>Static Assets:</strong> <code>production-mall-static-assets-{region}</code> &mdash; 프론트엔드 정적 파일, CloudFront OAC로 배포</li>
+  <li><strong>Analytics:</strong> <code>production-mall-analytics-{region}</code> &mdash; 분석 데이터 저장</li>
+</ul>
+<p>S3 KMS 정책에 CloudFront 서비스 프린시펄의 <code>kms:Decrypt</code> 권한을 추가하여 OAC가 암호화된 객체를 복호화합니다.</p>
+
+<!-- ========== EDGE & SECURITY ========== -->
+<h2 id="edge">Edge Layer</h2>
+
+<h3 id="cloudfront">CloudFront + WAF</h3>
+<div class="card">
+  <div class="card-title"><span class="icon">&#127760;</span> CloudFront Distributions</div>
+  <table>
+    <thead><tr><th>Distribution</th><th>Domain</th><th>Origin</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Main (Frontend)</strong></td><td><code>mall.atomai.click</code></td><td>S3 (Static Assets) + API (api-internal.*)</td></tr>
+      <tr><td><strong>ArgoCD</strong></td><td><code>argocd.atomai.click</code></td><td>NLB (ArgoCD server)</td></tr>
+      <tr><td><strong>Grafana</strong></td><td><code>grafana.atomai.click</code></td><td>NLB (Grafana server)</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:12px"><strong>WAF:</strong> 현재 비활성화 (Bot Control이 curl/headless 브라우저 차단). ArgoCD/Grafana는 자체 인증으로 보호.</p>
+</div>
+
+<h3 id="route53">Route53</h3>
+<table>
+  <thead><tr><th>Record</th><th>Type</th><th>Routing Policy</th><th>Target</th></tr></thead>
+  <tbody>
+    <tr><td><code>api-internal.atomai.click</code></td><td>A (Alias)</td><td><strong>Latency-based</strong></td><td>리전별 NLB</td></tr>
+    <tr><td><code>mall.atomai.click</code></td><td>A (Alias)</td><td>Simple</td><td>CloudFront</td></tr>
+    <tr><td><code>argocd.atomai.click</code></td><td>A (Alias)</td><td>Simple</td><td>CloudFront (ArgoCD)</td></tr>
+    <tr><td><code>grafana.atomai.click</code></td><td>A (Alias)</td><td>Simple</td><td>CloudFront (Grafana)</td></tr>
+    <tr><td><code>argocd-internal.atomai.click</code></td><td>A (Alias)</td><td>Latency-based</td><td>리전별 NLB (ArgoCD)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="security">Security</h2>
+
+<h3 id="sg">Security Groups Strategy</h3>
+<div class="card">
+  <div class="card-title"><span class="icon">&#128737;</span> Zero Public Exposure</div>
+  <p>모든 보안 그룹은 Terraform으로 관리됩니다. K8s ALB Controller가 자동 생성하는 SG를 방지하기 위해 <code>manage-backend-security-group-rules: "false"</code>를 필수적으로 설정합니다.</p>
+  <table>
+    <thead><tr><th>SG</th><th>us-east-1</th><th>us-west-2</th><th>Inbound Source</th></tr></thead>
+    <tbody>
+      <tr><td><strong>ALB SG</strong></td><td><code>sg-0123456789abcdef0</code></td><td><code>sg-0abcdef1234567890</code></td><td>CloudFront Prefix List (80-443)</td></tr>
+      <tr><td><strong>NLB SG</strong></td><td>TF managed</td><td>TF managed</td><td>CloudFront Prefix List</td></tr>
+      <tr><td><strong>EKS SG</strong></td><td>TF managed</td><td>TF managed</td><td>VPC CIDR only</td></tr>
+      <tr><td><strong>Data SGs</strong></td><td>TF managed</td><td>TF managed</td><td>EKS Node SG only</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="cognito">Amazon Cognito</h3>
+<div class="card">
+  <div class="card-title"><span class="icon">&#128100;</span> User Authentication (In Progress)</div>
+  <p>Cognito User Pool을 통한 이메일 기반 인증. Go API Gateway에 JWT 검증 미들웨어가 구현되어 있으며, JWKS 캐싱과 <code>COGNITO_USER_POOL_ID</code> 미설정 시 graceful degradation을 지원합니다.</p>
+  <p><strong>모듈:</strong> <code>terraform/modules/security/cognito/</code></p>
+  <p><strong>미들웨어:</strong> <code>src/shared/go/pkg/auth/</code></p>
+</div>
+
+<h3 id="irsa">IAM / IRSA</h3>
+<p>EKS 서비스 계정에 대한 IAM Role은 IRSA(IAM Roles for Service Accounts)로 구성됩니다:</p>
+<table>
+  <thead><tr><th>IRSA Role</th><th>서비스</th><th>권한</th></tr></thead>
+  <tbody>
+    <tr><td><code>production-otel-collector-*</code></td><td>OTel Collector</td><td>X-Ray PutTraceSegments, CloudWatch Logs</td></tr>
+    <tr><td><code>production-dsql-access-*</code></td><td>Go Services</td><td>DSQL generate-db-connect-admin-auth-token</td></tr>
+    <tr><td><code>production-tempo-*</code></td><td>Tempo</td><td>S3 read/write (trace storage)</td></tr>
+    <tr><td>EBS CSI IRSA</td><td>EBS CSI Driver</td><td>EBS volume management</td></tr>
+    <tr><td>EFS CSI IRSA</td><td>EFS CSI Driver</td><td>EFS access point management</td></tr>
+    <tr><td>ALB Controller IRSA</td><td>ALB Controller</td><td>EC2, ELB, WAF management</td></tr>
+  </tbody>
+</table>
+
+<h3 id="kms">KMS Encryption</h3>
+<p>리전별로 서비스 전용 KMS CMK(Customer Managed Key)를 생성합니다:</p>
+<ul>
+  <li><code>aurora</code> &mdash; Aurora/DocumentDB 클러스터 암호화</li>
+  <li><code>elasticache</code> &mdash; ElastiCache at-rest 암호화</li>
+  <li><code>msk</code> &mdash; MSK 브로커 디스크 암호화</li>
+  <li><code>s3</code> &mdash; S3 버킷 SSE-KMS + CloudFront OAC Decrypt 권한 포함</li>
+  <li><code>documentdb</code> &mdash; DocumentDB 클러스터 암호화</li>
+</ul>
+
+<!-- ========== OBSERVABILITY ========== -->
+<h2 id="observability">Observability Stack</h2>
+
+<div class="diagram">
+  <svg width="760" height="280" viewBox="0 0 760 280" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="760" height="280" fill="#1a1d27" rx="12"/>
+    <text x="380" y="24" text-anchor="middle" fill="#8b90a5" font-size="11" font-weight="600">UNIFIED OBSERVABILITY PIPELINE</text>
+    <!-- OTel Collector -->
+    <rect x="40" y="60" width="160" height="180" rx="8" fill="none" stroke="#38bdf8" stroke-width="2"/>
+    <text x="120" y="82" text-anchor="middle" fill="#38bdf8" font-size="12" font-weight="700">OTel Collector</text>
+    <text x="120" y="98" text-anchor="middle" fill="#8b90a5" font-size="9">contrib v0.115.0</text>
+    <text x="120" y="115" text-anchor="middle" fill="#8b90a5" font-size="9">DaemonSet</text>
+    <!-- Receivers -->
+    <rect x="52" y="128" width="136" height="24" rx="4" fill="rgba(52,211,153,0.1)" stroke="#34d399" stroke-width="1"/>
+    <text x="120" y="144" text-anchor="middle" fill="#34d399" font-size="9">OTLP + filelog + k8s</text>
+    <!-- Processors -->
+    <rect x="52" y="158" width="136" height="24" rx="4" fill="rgba(167,139,250,0.1)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="120" y="174" text-anchor="middle" fill="#a78bfa" font-size="9">batch + k8sattr + spanmetrics</text>
+    <!-- Exporters label -->
+    <rect x="52" y="188" width="136" height="40" rx="4" fill="rgba(251,146,60,0.1)" stroke="#fb923c" stroke-width="1"/>
+    <text x="120" y="206" text-anchor="middle" fill="#fb923c" font-size="9">Traces / Logs / Metrics</text>
+    <text x="120" y="220" text-anchor="middle" fill="#fb923c" font-size="8">exporters &rarr;</text>
+    <!-- Arrows out -->
+    <!-- Traces -->
+    <line x1="202" y1="100" x2="280" y2="80" stroke="#38bdf8" stroke-width="1.2"/>
+    <line x1="202" y1="100" x2="280" y2="130" stroke="#38bdf8" stroke-width="1.2"/>
+    <line x1="202" y1="100" x2="280" y2="180" stroke="#38bdf8" stroke-width="1.2"/>
+    <!-- Logs -->
+    <line x1="202" y1="160" x2="470" y2="80" stroke="#34d399" stroke-width="1.2"/>
+    <line x1="202" y1="160" x2="470" y2="130" stroke="#34d399" stroke-width="1.2"/>
+    <!-- Metrics -->
+    <line x1="202" y1="208" x2="470" y2="200" stroke="#fb923c" stroke-width="1.2"/>
+    <!-- Backends -->
+    <rect x="280" y="62" width="160" height="38" rx="6" fill="none" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="360" y="78" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">ClickHouse</text>
+    <text x="360" y="92" text-anchor="middle" fill="#8b90a5" font-size="8">otel_traces + otel_logs</text>
+    <rect x="280" y="112" width="160" height="38" rx="6" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="360" y="128" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">Tempo</text>
+    <text x="360" y="142" text-anchor="middle" fill="#8b90a5" font-size="8">S3 backend, v2.6.1</text>
+    <rect x="280" y="162" width="160" height="38" rx="6" fill="none" stroke="#f87171" stroke-width="1.5"/>
+    <text x="360" y="178" text-anchor="middle" fill="#f87171" font-size="10" font-weight="600">AWS X-Ray</text>
+    <text x="360" y="192" text-anchor="middle" fill="#8b90a5" font-size="8">PutTraceSegments</text>
+    <rect x="470" y="62" width="140" height="38" rx="6" fill="none" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="540" y="78" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">ClickHouse</text>
+    <text x="540" y="92" text-anchor="middle" fill="#8b90a5" font-size="8">(logs)</text>
+    <rect x="470" y="112" width="140" height="38" rx="6" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="540" y="128" text-anchor="middle" fill="#34d399" font-size="10" font-weight="600">CloudWatch Logs</text>
+    <text x="540" y="142" text-anchor="middle" fill="#8b90a5" font-size="8">filelog receiver</text>
+    <rect x="470" y="182" width="140" height="38" rx="6" fill="none" stroke="#fb923c" stroke-width="1.5"/>
+    <text x="540" y="198" text-anchor="middle" fill="#fb923c" font-size="10" font-weight="600">Prometheus</text>
+    <text x="540" y="212" text-anchor="middle" fill="#8b90a5" font-size="8">spanmetrics + exemplars</text>
+    <!-- Grafana -->
+    <rect x="620" y="100" width="120" height="80" rx="8" fill="none" stroke="#f472b6" stroke-width="2"/>
+    <text x="680" y="126" text-anchor="middle" fill="#f472b6" font-size="12" font-weight="700">Grafana</text>
+    <text x="680" y="143" text-anchor="middle" fill="#8b90a5" font-size="8">ClickHouse DS</text>
+    <text x="680" y="156" text-anchor="middle" fill="#8b90a5" font-size="8">Tempo DS</text>
+    <text x="680" y="169" text-anchor="middle" fill="#8b90a5" font-size="8">Prometheus DS</text>
+    <line x1="612" y1="140" x2="618" y2="140" stroke="#f472b6" stroke-width="1.2"/>
+  </svg>
+  <div class="diagram-caption">그림 3. Unified OTel Pipeline: Traces &rarr; ClickHouse + Tempo + X-Ray, Logs &rarr; ClickHouse + CloudWatch, Metrics &rarr; Prometheus</div>
+</div>
+
+<h3 id="otel">OTel Collector</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Image</td><td>OTel Collector Contrib <code>v0.115.0</code></td></tr>
+    <tr><td>Deployment</td><td>DaemonSet (Kustomize + Helm ApplicationSet)</td></tr>
+    <tr><td>Receivers</td><td>OTLP (gRPC:4317, HTTP:4318), filelog, k8s_events</td></tr>
+    <tr><td>Processors</td><td>batch, k8sattributes, spanmetrics connector</td></tr>
+    <tr><td>Trace Exporters</td><td>ClickHouse, Tempo, AWS X-Ray (3중 출력)</td></tr>
+    <tr><td>Log Exporters</td><td>ClickHouse, CloudWatch Logs (FluentBit 대체)</td></tr>
+    <tr><td>Metric Exporters</td><td>Prometheus (spanmetrics &rarr; exemplar with trace_id)</td></tr>
+    <tr><td>IRSA</td><td><code>production-otel-collector-{region}</code></td></tr>
+  </tbody>
+</table>
+
+<h3 id="clickhouse">ClickHouse</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Operator</td><td>Altinity ClickHouse Operator <code>v0.24.1</code></td></tr>
+    <tr><td>Server</td><td><code>clickhouse-server:24.8</code></td></tr>
+    <tr><td>Topology</td><td>1 shard / 1 replica</td></tr>
+    <tr><td>Storage</td><td>50Gi gp3</td></tr>
+    <tr><td>Schema</td><td><code>otel.otel_traces</code>, <code>otel.otel_logs</code> (MergeTree, 30-day TTL)</td></tr>
+    <tr><td>Endpoint</td><td><code>clickhouse-clickhouse.observability:9000</code> (tcp) / <code>:8123</code> (http)</td></tr>
+  </tbody>
+</table>
+
+<h3 id="tempo">Tempo</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Version</td><td><code>v2.6.1</code> monolithic mode</td></tr>
+    <tr><td>Backend</td><td>S3 (Terraform <code>tempo-storage</code> 모듈로 IRSA + 버킷 생성)</td></tr>
+    <tr><td>tracesToLogs</td><td>ClickHouse datasource (filterByTraceID + filterBySpanID)</td></tr>
+    <tr><td>Config</td><td><code>${VAR}</code> expansion via <code>-config.expand-env=true</code></td></tr>
+  </tbody>
+</table>
+
+<h3 id="prometheus">Prometheus + Grafana</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Stack</td><td>kube-prometheus-stack Helm <code>v68.4.0</code></td></tr>
+    <tr><td>Exemplars</td><td>exemplar-storage enabled, tracesToTraces &rarr; ClickHouse datasource</td></tr>
+    <tr><td>Grafana Plugins</td><td><code>grafana-clickhouse-datasource</code></td></tr>
+    <tr><td>Datasources</td><td>Prometheus, ClickHouse, Tempo</td></tr>
+    <tr><td>Flow</td><td>Metric graph &rarr; click exemplar point &rarr; trace in ClickHouse &rarr; logs</td></tr>
+  </tbody>
+</table>
+
+<!-- ========== MICROSERVICES ========== -->
+<h2 id="microservices">Microservices</h2>
+
+<table>
+  <thead><tr><th>Domain</th><th>Service</th><th>Stack</th><th>Data Store</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="4"><span class="tag tag-blue">Core</span></td><td>product-catalog</td><td>Python/FastAPI</td><td>DocumentDB</td></tr>
+    <tr><td>inventory</td><td>Go/Gin</td><td>Aurora DSQL</td></tr>
+    <tr><td>cart</td><td>Go/Gin</td><td>ElastiCache (Valkey)</td></tr>
+    <tr><td>search</td><td>Python/FastAPI</td><td>OpenSearch</td></tr>
+    <tr><td rowspan="4"><span class="tag tag-green">User</span></td><td>user-account</td><td>Java/Spring Boot</td><td>Aurora</td></tr>
+    <tr><td>user-profile</td><td>Python/FastAPI</td><td>DocumentDB</td></tr>
+    <tr><td>review</td><td>Python/FastAPI</td><td>DocumentDB</td></tr>
+    <tr><td>wishlist</td><td>Python/FastAPI</td><td>DocumentDB</td></tr>
+    <tr><td rowspan="4"><span class="tag tag-orange">Fulfillment</span></td><td>order</td><td>Java/Spring Boot</td><td>Aurora</td></tr>
+    <tr><td>payment</td><td>Java/Spring Boot</td><td>Aurora</td></tr>
+    <tr><td>shipping</td><td>Go/Gin</td><td>Aurora DSQL</td></tr>
+    <tr><td>returns</td><td>Java/Spring Boot</td><td>Aurora</td></tr>
+    <tr><td rowspan="4"><span class="tag tag-purple">Business</span></td><td>notification</td><td>Python/FastAPI</td><td>DocumentDB</td></tr>
+    <tr><td>recommendation</td><td>Python/FastAPI</td><td>DocumentDB</td></tr>
+    <tr><td>analytics</td><td>Python/FastAPI</td><td>ClickHouse / S3</td></tr>
+    <tr><td>seller</td><td>Java/Spring Boot</td><td>Aurora</td></tr>
+    <tr><td rowspan="4"><span class="tag tag-pink">Platform</span></td><td>api-gateway</td><td>Go/Gin</td><td>&mdash;</td></tr>
+    <tr><td>event-bus</td><td>Go/Gin</td><td>MSK (Kafka)</td></tr>
+    <tr><td>pricing</td><td>Java/Spring Boot</td><td>Aurora</td></tr>
+    <tr><td>warehouse</td><td>Java/Spring Boot</td><td>Aurora</td></tr>
+  </tbody>
+</table>
+
+<div class="grid grid-3" style="margin-top: 16px;">
+  <div class="stat-box"><div class="stat-value" style="color:var(--accent2)">5</div><div class="stat-label">Go / Gin</div></div>
+  <div class="stat-box"><div class="stat-value" style="color:var(--green)">8</div><div class="stat-label">Python / FastAPI</div></div>
+  <div class="stat-box"><div class="stat-value" style="color:var(--orange)">7</div><div class="stat-label">Java / Spring Boot</div></div>
+</div>
+
+<h3>Container Configuration</h3>
+<table>
+  <thead><tr><th>설정</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Image Registry</td><td><code>123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/*:latest</code></td></tr>
+    <tr><td>Container Port</td><td><code>8080</code></td></tr>
+    <tr><td>K8s Service Port</td><td><code>80 &rarr; targetPort: 8080</code></td></tr>
+    <tr><td>Health Probes</td><td><code>/health/ready</code>, <code>/health/live</code>, <code>/health/startup</code></td></tr>
+    <tr><td>imagePullPolicy</td><td><code>Always</code> (:latest 태그로 인한 노드 캐시 방지)</td></tr>
+  </tbody>
+</table>
+
+<!-- ========== DEPLOYMENT ========== -->
+<h2 id="deployment">Deployment & GitOps</h2>
+
+<h3>ArgoCD ApplicationSets</h3>
+<p>21개의 ApplicationSet이 두 리전의 K8s 리소스를 관리합니다:</p>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-title">Service Domains (5)</div>
+    <ul>
+      <li><code>appset-core.yaml</code></li>
+      <li><code>appset-user.yaml</code></li>
+      <li><code>appset-fulfillment.yaml</code></li>
+      <li><code>appset-business.yaml</code></li>
+      <li><code>appset-platform.yaml</code></li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">Infrastructure (16)</div>
+    <ul>
+      <li><code>appset-infra.yaml</code>, <code>appset-tempo.yaml</code></li>
+      <li><code>appset-storageclass.yaml</code></li>
+      <li><code>appset-helm-karpenter.yaml</code></li>
+      <li><code>appset-helm-prometheus[-west|-korea].yaml</code></li>
+      <li><code>appset-helm-otel-collector.yaml</code></li>
+      <li><code>appset-helm-alb-controller.yaml</code></li>
+      <li><code>appset-helm-external-secrets.yaml</code></li>
+      <li><code>appset-helm-clickhouse-operator.yaml</code></li>
+      <li><code>appset-clickhouse.yaml</code></li>
+      <li><code>appset-grafana-nlb.yaml</code></li>
+      <li>+ NLB AppSets (prometheus-west, tempo-west)</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Terraform State Management</h3>
+<div class="code-block">
+<span class="comment"># State Backend</span>
+S3 Bucket: <span class="string">multi-region-mall-terraform-state</span>
+DynamoDB:  <span class="highlight">Lock table for state locking</span>
+
+<span class="comment"># State Keys</span>
+production/us-east-1/terraform.tfstate     <span class="comment"># ~260 resources</span>
+production/us-west-2/terraform.tfstate     <span class="comment"># ~260 resources</span>
+</div>
+
+<h3>Terraform Module Structure</h3>
+<div class="code-block">
+terraform/
+├── environments/production/
+│   ├── <span class="highlight">us-east-1/</span>main.tf    <span class="comment"># Primary region root module</span>
+│   └── <span class="highlight">us-west-2/</span>main.tf    <span class="comment"># Secondary region root module</span>
+├── modules/
+│   ├── networking/   <span class="comment"># vpc, security-groups, transit-gateway</span>
+│   ├── compute/      <span class="comment"># eks, alb, nlb</span>
+│   ├── data/         <span class="comment"># aurora-global, documentdb-global, elasticache-global,</span>
+│   │                 <span class="comment"># msk, opensearch, s3, dsql, dsql-irsa</span>
+│   ├── edge/         <span class="comment"># cloudfront, cloudfront-argocd, cloudfront-grafana, waf, route53</span>
+│   ├── security/     <span class="comment"># kms, secrets-manager, iam, cognito</span>
+│   ├── observability/<span class="comment"># cloudwatch, xray, tempo-storage, otel-collector-irsa</span>
+│   └── dr-automation/<span class="comment"># Lambda failover functions</span>
+└── global/           <span class="comment"># Cross-region resources</span>
+</div>
+
+<!-- ========== DR ========== -->
+<h2 id="dr">DR & HA Strategy</h2>
+
+<h3>Failover Components</h3>
+<table>
+  <thead><tr><th>Component</th><th>Failover Method</th><th>RTO Target</th></tr></thead>
+  <tbody>
+    <tr><td>Aurora Global</td><td>Global Cluster Failover (managed)</td><td>&lt; 1 min</td></tr>
+    <tr><td>DocumentDB Global</td><td>Lambda 자동 Failover (<code>dr-automation</code> 모듈)</td><td>&lt; 5 min</td></tr>
+    <tr><td>ElastiCache Global</td><td>Global Datastore Failover</td><td>&lt; 1 min</td></tr>
+    <tr><td>MSK</td><td>Independent clusters (RPO: unbounded)</td><td>N/A</td></tr>
+    <tr><td>Route53</td><td>Latency-based 자동 라우팅 전환</td><td>&lt; 60s (TTL)</td></tr>
+    <tr><td>CloudFront</td><td>Origin failover 미설정 (수동 전환)</td><td>수동</td></tr>
+  </tbody>
+</table>
+
+<h3>DR Automation Module</h3>
+<div class="card">
+  <div class="card-title"><span class="icon">&#9888;</span> terraform/modules/dr-automation/</div>
+  <p><strong>DocumentDB Failover Lambda</strong>: <code>production-docdb-failover</code> Lambda 함수가 DocumentDB Global Cluster를 us-west-2로 장애 조치합니다.</p>
+  <p><strong>SNS Alerts</strong>: <code>production-dr-alerts</code> 토픽으로 이메일 알림 (ops@example.com)</p>
+  <p><strong>Auto Failover</strong>: 현재 비활성화 (<code>enable_auto_failover = false</code>) &mdash; 수동 승인 후 실행</p>
+</div>
+
+<div class="callout-warn callout">
+  <strong>Known Gaps (Deep Research Audit 결과):</strong>
+  <ul>
+    <li>us-west-2는 사실상 read-only (완전한 active-active 아님)</li>
+    <li>MSK에 cross-region replication 미설정 (unbounded RPO)</li>
+    <li>CloudFront에 origin failover group 미설정</li>
+    <li>현재 RTO: ~15-20분 (목표 &lt;10분)</li>
+    <li>Circuit breaker 미구현</li>
+  </ul>
+</div>
+
+<hr style="margin-top:48px; border-color: var(--border);">
+<p style="text-align:center; color: var(--text-dim); font-size: 12px; margin-top: 24px;">
+  Multi-Region Shopping Mall Platform &mdash; Architecture Document v1.0<br>
+  Generated 2026-03-29 &bull; AWS Account 123456789012 &bull; Domain: atomai.click
+</p>
+
+</div>
+
+<!-- Active nav highlight -->
+<script>
+const links = document.querySelectorAll('.nav-link');
+const sections = [];
+links.forEach(l => {
+  const id = l.getAttribute('href')?.slice(1);
+  if (id) { const el = document.getElementById(id); if (el) sections.push({el, link: l}); }
+});
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const s = sections.find(s => s.el === e.target);
+      if (s) s.link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-80px 0px -70% 0px' });
+sections.forEach(s => observer.observe(s.el));
+</script>
+</body>
+</html>

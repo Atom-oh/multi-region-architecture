@@ -145,6 +145,38 @@ const sidebars: SidebarsConfig = {
         'operations/troubleshooting',
       ],
     },
+    {
+      type: 'category',
+      label: 'Multi-Region (US)',
+      link: {type: 'doc', id: 'multi-region/overview'},
+      items: [
+        'multi-region/traffic-flow',
+        'multi-region/network',
+        'multi-region/compute',
+        'multi-region/data-layer',
+        'multi-region/edge-security',
+        'multi-region/observability',
+        'multi-region/microservices',
+        'multi-region/deployment',
+        'multi-region/dr-ha',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Multi Independent AZ (Korea)',
+      link: {type: 'doc', id: 'multi-az-korea/overview'},
+      items: [
+        'multi-az-korea/why-multi-az',
+        'multi-az-korea/design-decisions',
+        'multi-az-korea/terraform',
+        'multi-az-korea/network',
+        'multi-az-korea/compute',
+        'multi-az-korea/data-strategy',
+        'multi-az-korea/k8s-overlays',
+        'multi-az-korea/app-changes',
+        'multi-az-korea/cost-roadmap',
+      ],
+    },
   ],
 };
 

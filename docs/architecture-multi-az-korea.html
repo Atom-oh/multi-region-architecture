@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi Independent AZ Architecture — Korea Region</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --border: #2e3348;
+    --text: #e1e4ed;
+    --text-dim: #8b90a5;
+    --accent: #f59e0b;
+    --accent2: #38bdf8;
+    --accent3: #a78bfa;
+    --green: #34d399;
+    --orange: #fb923c;
+    --red: #f87171;
+    --pink: #f472b6;
+    --yellow: #fbbf24;
+    --blue: #6c8aff;
+    --sidebar-w: 280px;
+    --header-h: 56px;
+    --az-a: #38bdf8;
+    --az-c: #a78bfa;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7; font-size: 15px;
+  }
+  .header {
+    position: fixed; top:0; left:0; right:0; height: var(--header-h);
+    background: rgba(15,17,23,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 24px; z-index: 100;
+  }
+  .header-logo { font-size: 16px; font-weight: 700; color: var(--accent); letter-spacing: -0.3px; }
+  .header-logo span { color: var(--text-dim); font-weight: 400; margin-left: 8px; }
+  .header-badge {
+    margin-left: 12px; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+    background: rgba(245,158,11,0.15); color: var(--accent); border: 1px solid rgba(245,158,11,0.25);
+  }
+  .header-badge2 {
+    margin-left: 6px; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+    background: rgba(56,189,248,0.15); color: var(--az-a); border: 1px solid rgba(56,189,248,0.25);
+  }
+  .header-badge3 {
+    margin-left: 4px; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+    background: rgba(167,139,250,0.15); color: var(--az-c); border: 1px solid rgba(167,139,250,0.25);
+  }
+  .sidebar {
+    position: fixed; top: var(--header-h); left:0; bottom:0; width: var(--sidebar-w);
+    background: var(--surface); border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 20px 0; z-index: 50;
+  }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .nav-section { padding: 8px 20px 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.8px; margin-top: 8px; }
+  .nav-link {
+    display: block; padding: 6px 20px 6px 28px; font-size: 13px; color: var(--text-dim);
+    text-decoration: none; transition: all 0.15s; border-left: 2px solid transparent;
+  }
+  .nav-link:hover { color: var(--text); background: rgba(245,158,11,0.06); }
+  .nav-link.active { color: var(--accent); border-left-color: var(--accent); background: rgba(245,158,11,0.08); }
+  .nav-link.sub { padding-left: 40px; font-size: 12px; }
+  .content {
+    margin-left: var(--sidebar-w); margin-top: var(--header-h);
+    padding: 40px 48px 80px; max-width: 960px;
+  }
+  h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; background: linear-gradient(135deg, var(--accent), var(--orange)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { font-size: 16px; color: var(--text-dim); margin-bottom: 40px; }
+  h2 { font-size: 22px; font-weight: 700; margin: 48px 0 16px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text); }
+  h2:first-of-type { border-top: none; }
+  h3 { font-size: 17px; font-weight: 600; margin: 32px 0 12px; color: var(--accent2); }
+  h4 { font-size: 15px; font-weight: 600; margin: 24px 0 8px; color: var(--accent3); }
+  p { margin-bottom: 14px; }
+  ul, ol { margin: 0 0 16px 20px; }
+  li { margin-bottom: 4px; }
+  strong { color: #fff; font-weight: 600; }
+  code {
+    background: var(--surface2); padding: 2px 6px; border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; color: var(--accent2);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; margin: 16px 0;
+  }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card-title .icon { font-size: 18px; }
+  .grid { display: grid; gap: 16px; margin: 16px 0; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .stat-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px; text-align: center;
+  }
+  .stat-value { font-size: 28px; font-weight: 800; color: var(--accent); }
+  .stat-label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  thead th {
+    background: var(--surface2); padding: 10px 14px; text-align: left;
+    font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-dim); border-bottom: 1px solid var(--border);
+  }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: rgba(245,158,11,0.04); }
+  .code-block {
+    background: #0d0f14; border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; margin: 12px 0; overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; color: var(--text-dim);
+  }
+  .code-block .comment { color: #565b70; }
+  .code-block .keyword { color: var(--accent3); }
+  .code-block .string { color: var(--green); }
+  .code-block .highlight { color: var(--accent2); }
+  .diagram {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 32px; margin: 20px 0; text-align: center; overflow-x: auto;
+  }
+  .diagram-caption { font-size: 12px; color: var(--text-dim); margin-top: 12px; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+  .tag-blue { background: rgba(56,189,248,0.15); color: var(--az-a); }
+  .tag-purple { background: rgba(167,139,250,0.15); color: var(--az-c); }
+  .tag-green { background: rgba(52,211,153,0.15); color: var(--green); }
+  .tag-orange { background: rgba(251,146,60,0.15); color: var(--orange); }
+  .tag-yellow { background: rgba(245,158,11,0.15); color: var(--accent); }
+  .tag-red { background: rgba(248,113,113,0.15); color: var(--red); }
+  .callout {
+    border-left: 3px solid var(--accent); background: rgba(245,158,11,0.06);
+    padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 14px;
+  }
+  .callout-warn { border-left-color: var(--red); background: rgba(248,113,113,0.06); }
+  .callout-ok { border-left-color: var(--green); background: rgba(52,211,153,0.06); }
+  .callout-info { border-left-color: var(--blue); background: rgba(108,138,255,0.06); }
+  .az-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .az-col {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+  }
+  .az-col.az-a { border-top: 3px solid var(--az-a); }
+  .az-col.az-c { border-top: 3px solid var(--az-c); }
+  .az-col h4 { margin-top: 0; }
+  .vs-box {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; margin: 20px 0;
+  }
+  .vs-divider { color: var(--text-dim); font-size: 20px; font-weight: 800; }
+  @media print {
+    .sidebar, .header { display: none; }
+    .content { margin-left: 0; margin-top: 0; max-width: 100%; }
+    body { background: #fff; color: #000; font-size: 12px; }
+  }
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .content { margin-left: 0; padding: 24px; }
+    .grid-2, .grid-3, .az-cols, .vs-box { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">Multi Independent AZ <span>Korea Region</span></div>
+  <div class="header-badge">ap-northeast-2</div>
+  <div class="header-badge2">AZ-A</div>
+  <div class="header-badge3">AZ-C</div>
+</div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="nav-section">Overview</div>
+  <a class="nav-link" href="#summary">Executive Summary</a>
+  <a class="nav-link" href="#why">Why Multi Independent AZ</a>
+  <a class="nav-link" href="#decisions">Design Decisions</a>
+
+  <div class="nav-section">Infrastructure</div>
+  <a class="nav-link" href="#topology">Architecture Topology</a>
+  <a class="nav-link" href="#terraform">Terraform Structure</a>
+  <a class="nav-link sub" href="#tf-shared">Shared Layer</a>
+  <a class="nav-link sub" href="#tf-eks">EKS per AZ</a>
+  <a class="nav-link" href="#network">Network Design</a>
+  <a class="nav-link sub" href="#vpc">VPC & Subnets</a>
+  <a class="nav-link sub" href="#sg">Security Groups</a>
+
+  <div class="nav-section">Compute</div>
+  <a class="nav-link" href="#eks">EKS Clusters</a>
+  <a class="nav-link sub" href="#eks-a">mall-apne2-az-a</a>
+  <a class="nav-link sub" href="#eks-c">mall-apne2-az-c</a>
+  <a class="nav-link" href="#karpenter">Karpenter per AZ</a>
+  <a class="nav-link" href="#nlb">NLB per AZ</a>
+
+  <div class="nav-section">Data</div>
+  <a class="nav-link" href="#data">Data Strategy Overview</a>
+  <a class="nav-link sub" href="#aurora-kr">Aurora</a>
+  <a class="nav-link sub" href="#documentdb-kr">DocumentDB</a>
+  <a class="nav-link sub" href="#elasticache-kr">ElastiCache</a>
+  <a class="nav-link sub" href="#msk-kr">MSK</a>
+  <a class="nav-link sub" href="#opensearch-kr">OpenSearch</a>
+
+  <div class="nav-section">Kubernetes</div>
+  <a class="nav-link" href="#k8s">K8s Overlay Structure</a>
+  <a class="nav-link sub" href="#k8s-common">Common Config</a>
+  <a class="nav-link sub" href="#k8s-az">Per-AZ Overlays</a>
+  <a class="nav-link" href="#argocd">ArgoCD Integration</a>
+
+  <div class="nav-section">Application</div>
+  <a class="nav-link" href="#app-changes">App Code Changes</a>
+  <a class="nav-link sub" href="#env-vars">Environment Variables</a>
+  <a class="nav-link sub" href="#az-local">AZ-Local Access Patterns</a>
+  <a class="nav-link" href="#observability">Observability</a>
+
+  <div class="nav-section">Operations</div>
+  <a class="nav-link" href="#cost">Cost Analysis</a>
+  <a class="nav-link" href="#roadmap">Implementation Roadmap</a>
+  <a class="nav-link" href="#comparison">AI Comparison Matrix</a>
+</nav>
+
+<!-- Content -->
+<div class="content">
+
+<!-- ========== EXECUTIVE SUMMARY ========== -->
+<h1 id="summary">Multi Independent AZ Architecture</h1>
+<p class="subtitle">ap-northeast-2 (Seoul) &mdash; AZ-A / AZ-C 독립 클러스터 + AZ-Local 데이터 접근</p>
+
+<div class="card">
+  <div class="card-title"><span class="icon">&#9432;</span> Executive Summary</div>
+  <p>한국 리전(ap-northeast-2)은 기존 Multi-Region(US) 아키텍처와 달리 <strong>Multi Independent AZ</strong> 패턴을 채택합니다. 하나의 VPC 내에서 <strong>AZ-A</strong>와 <strong>AZ-C</strong>에 각각 독립된 EKS 클러스터를 운영하여 <strong>AZ-level blast radius isolation</strong>과 <strong>cross-AZ 데이터 전송 비용 절감</strong>을 달성합니다.</p>
+  <p>데이터 스토어는 공유 VPC에 배포되되, 각 EKS 클러스터는 <strong>AZ-local 엔드포인트</strong>를 통해 같은 AZ의 데이터에 우선 접근합니다. Aurora Custom Endpoint, DocumentDB 개별 Instance Endpoint, ElastiCache RouteByLatency, MSK rack-aware 소비 패턴을 조합하여 구현합니다.</p>
+</div>
+
+<!-- Stats -->
+<div class="grid grid-3" id="stats">
+  <div class="stat-box"><div class="stat-value">2</div><div class="stat-label">EKS Clusters (per AZ)</div></div>
+  <div class="stat-box"><div class="stat-value">3</div><div class="stat-label">Terraform Layers</div></div>
+  <div class="stat-box"><div class="stat-value">1</div><div class="stat-label">Shared VPC</div></div>
+</div>
+<div class="grid grid-3">
+  <div class="stat-box"><div class="stat-value" style="color:var(--az-a)">AZ-A</div><div class="stat-label">ap-northeast-2a</div></div>
+  <div class="stat-box"><div class="stat-value" style="color:var(--text-dim)">AZ-B</div><div class="stat-label">Reserved (미사용)</div></div>
+  <div class="stat-box"><div class="stat-value" style="color:var(--az-c)">AZ-C</div><div class="stat-label">ap-northeast-2c</div></div>
+</div>
+
+<!-- ========== WHY ========== -->
+<h2 id="why">Why Multi Independent AZ</h2>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128165;</span> Blast Radius Isolation</div>
+    <p>단일 AZ 장애 시 해당 AZ의 EKS 클러스터만 영향을 받고, 다른 AZ의 클러스터는 완전히 독립적으로 동작합니다. 일반적인 multi-AZ EKS(단일 클러스터, 여러 AZ)보다 강한 격리 수준을 제공합니다.</p>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128176;</span> Cross-AZ 비용 절감</div>
+    <p>AWS cross-AZ 데이터 전송 비용은 $0.01/GB입니다. AZ-local 데이터 접근으로 읽기 트래픽의 cross-AZ 전송을 제거하면, read-heavy 워크로드에서 <strong>$500~2,000/월</strong> 절감 가능합니다.</p>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128640;</span> Independent Scaling</div>
+    <p>AZ별 독립 Karpenter가 해당 AZ의 워크로드에 맞춰 독립적으로 노드를 스케일링합니다. AZ 간 워크로드 불균형이 있어도 각 AZ가 자체적으로 최적화됩니다.</p>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128736;</span> Canary Deployment</div>
+    <p>AZ-A에 먼저 배포 후 검증, AZ-C에 롤아웃하는 Blue/Green AZ 전략이 가능합니다. 리전 전체를 한번에 롤아웃하는 것보다 안전합니다.</p>
+  </div>
+</div>
+
+<div class="callout">
+  <strong>Trade-off:</strong> EKS 클러스터 추가 비용 ~$73/월. 2-cluster가 cost-effective하려면 월 7.3TB 이상의 cross-AZ 트래픽이 필요합니다 (EKS $73 / $0.01/GB). Read-heavy 쇼핑몰 특성상 이 기준을 초과할 가능성이 높습니다.
+</div>
+
+<!-- ========== DESIGN DECISIONS ========== -->
+<h2 id="decisions">Design Decisions</h2>
+<p>4개 AI(Claude, Codex, Gemini, Kiro-CLI)의 설계를 비교 분석하여 각 영역의 최적 접근을 선택했습니다.</p>
+
+<table>
+  <thead><tr><th>영역</th><th>선택</th><th>출처</th><th>근거</th></tr></thead>
+  <tbody>
+    <tr><td><strong>TF 구조</strong></td><td>3-layer (shared + eks-az-a + eks-az-c)</td><td>Claude/Kiro</td><td>기존 패턴 일관성, 운영 단순</td></tr>
+    <tr><td><strong>VPC 서브넷</strong></td><td>/20 Private (4,096 IPs)</td><td>Codex</td><td>Karpenter 노드 스케일링 대비</td></tr>
+    <tr><td><strong>EKS 이름</strong></td><td><code>mall-apne2-az-a</code> / <code>mall-apne2-az-c</code></td><td>Kiro</td><td>간결 + 리전/AZ 식별</td></tr>
+    <tr><td><strong>Karpenter AZ 고정</strong></td><td>서브넷 태그 + NodePool zone (이중 안전장치)</td><td>Kiro</td><td>AZ 격리 보장</td></tr>
+    <tr><td><strong>MSK</strong></td><td>4 brokers + KAFKA_BROKERS_LOCAL</td><td>Codex</td><td>가용성 + Go/Python AZ locality</td></tr>
+    <tr><td><strong>Aurora</strong></td><td>1W + 2R + Custom Endpoint per AZ</td><td>Claude/Kiro</td><td>균형적 AZ 배치</td></tr>
+    <tr><td><strong>ElastiCache</strong></td><td>RouteByLatency + PREFER_REPLICA_AZ</td><td>Kiro</td><td>최소 코드 변경</td></tr>
+    <tr><td><strong>DocumentDB</strong></td><td>개별 Instance Endpoint</td><td>Kiro</td><td>Custom EP 미지원 대응 (유일 정답)</td></tr>
+    <tr><td><strong>K8s overlay</strong></td><td>common/ + az-a/ + az-c/</td><td>Codex</td><td>DRY 원칙</td></tr>
+    <tr><td><strong>앱 코드</strong></td><td>상세 코드 + 명시적 환경변수</td><td>Kiro + Codex</td><td>구현 가이드 + 명시성</td></tr>
+  </tbody>
+</table>
+
+<!-- ========== TOPOLOGY ========== -->
+<h2 id="topology">Architecture Topology</h2>
+
+<div class="diagram">
+  <svg width="800" height="520" viewBox="0 0 800 520" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="800" height="520" fill="#1a1d27" rx="12"/>
+    <!-- Title -->
+    <text x="400" y="24" text-anchor="middle" fill="#8b90a5" font-size="11" font-weight="600">ap-northeast-2 — MULTI INDEPENDENT AZ TOPOLOGY</text>
+
+    <!-- VPC box -->
+    <rect x="20" y="38" width="760" height="468" rx="10" fill="rgba(245,158,11,0.04)" stroke="#f59e0b" stroke-width="1.5"/>
+    <text x="400" y="58" text-anchor="middle" fill="#f59e0b" font-size="12" font-weight="700">VPC 10.2.0.0/16 (Shared)</text>
+
+    <!-- AZ-A box -->
+    <rect x="40" y="72" width="350" height="420" rx="8" fill="rgba(56,189,248,0.04)" stroke="#38bdf8" stroke-width="1.2"/>
+    <text x="215" y="92" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="700">AZ-A (ap-northeast-2a)</text>
+
+    <!-- AZ-C box -->
+    <rect x="410" y="72" width="350" height="420" rx="8" fill="rgba(167,139,250,0.04)" stroke="#a78bfa" stroke-width="1.2"/>
+    <text x="585" y="92" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="700">AZ-C (ap-northeast-2c)</text>
+
+    <!-- AZ-A EKS -->
+    <rect x="60" y="108" width="310" height="120" rx="6" fill="rgba(56,189,248,0.08)" stroke="#38bdf8" stroke-width="1"/>
+    <text x="215" y="126" text-anchor="middle" fill="#38bdf8" font-size="10" font-weight="600">EKS: mall-apne2-az-a</text>
+    <!-- NLB -->
+    <rect x="72" y="136" width="68" height="36" rx="4" fill="none" stroke="#34d399" stroke-width="1"/>
+    <text x="106" y="156" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600">NLB-A</text>
+    <text x="106" y="166" text-anchor="middle" fill="#8b90a5" font-size="7">Public Subnet</text>
+    <!-- API GW -->
+    <rect x="152" y="136" width="68" height="36" rx="4" fill="none" stroke="#fb923c" stroke-width="1"/>
+    <text x="186" y="156" text-anchor="middle" fill="#fb923c" font-size="9" font-weight="600">API GW</text>
+    <!-- Services -->
+    <rect x="232" y="136" width="126" height="36" rx="4" fill="none" stroke="#f472b6" stroke-width="1"/>
+    <text x="295" y="152" text-anchor="middle" fill="#f472b6" font-size="9" font-weight="600">20 Services</text>
+    <text x="295" y="163" text-anchor="middle" fill="#8b90a5" font-size="7">Private: 10.2.16.0/20</text>
+    <!-- Karpenter -->
+    <rect x="72" y="182" width="286" height="28" rx="4" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3,2"/>
+    <text x="215" y="200" text-anchor="middle" fill="#fbbf24" font-size="9">Karpenter (zone: ap-northeast-2a only)</text>
+
+    <!-- AZ-C EKS -->
+    <rect x="430" y="108" width="310" height="120" rx="6" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="585" y="126" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">EKS: mall-apne2-az-c</text>
+    <!-- NLB -->
+    <rect x="442" y="136" width="68" height="36" rx="4" fill="none" stroke="#34d399" stroke-width="1"/>
+    <text x="476" y="156" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600">NLB-C</text>
+    <text x="476" y="166" text-anchor="middle" fill="#8b90a5" font-size="7">Public Subnet</text>
+    <!-- API GW -->
+    <rect x="522" y="136" width="68" height="36" rx="4" fill="none" stroke="#fb923c" stroke-width="1"/>
+    <text x="556" y="156" text-anchor="middle" fill="#fb923c" font-size="9" font-weight="600">API GW</text>
+    <!-- Services -->
+    <rect x="602" y="136" width="126" height="36" rx="4" fill="none" stroke="#f472b6" stroke-width="1"/>
+    <text x="665" y="152" text-anchor="middle" fill="#f472b6" font-size="9" font-weight="600">20 Services</text>
+    <text x="665" y="163" text-anchor="middle" fill="#8b90a5" font-size="7">Private: 10.2.32.0/20</text>
+    <!-- Karpenter -->
+    <rect x="442" y="182" width="286" height="28" rx="4" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3,2"/>
+    <text x="585" y="200" text-anchor="middle" fill="#fbbf24" font-size="9">Karpenter (zone: ap-northeast-2c only)</text>
+
+    <!-- Shared Data Layer -->
+    <rect x="40" y="240" width="720" height="240" rx="8" fill="rgba(245,158,11,0.04)" stroke="#f59e0b" stroke-width="1" stroke-dasharray="5,3"/>
+    <text x="400" y="260" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="700">SHARED DATA LAYER (Data Subnets)</text>
+
+    <!-- Aurora -->
+    <rect x="60" y="275" width="170" height="65" rx="6" fill="none" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="145" y="293" text-anchor="middle" fill="#38bdf8" font-size="10" font-weight="600">Aurora PostgreSQL 17.7</text>
+    <text x="145" y="308" text-anchor="middle" fill="#8b90a5" font-size="8">Writer (AZ-A) + Reader &times;2</text>
+    <text x="90" y="328" fill="#38bdf8" font-size="7">Custom EP: reader-az-a</text>
+    <text x="145" y="328" fill="#a78bfa" font-size="7">reader-az-c</text>
+
+    <!-- DocumentDB -->
+    <rect x="245" y="275" width="170" height="65" rx="6" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="330" y="293" text-anchor="middle" fill="#34d399" font-size="10" font-weight="600">DocumentDB 8.0</text>
+    <text x="330" y="308" text-anchor="middle" fill="#8b90a5" font-size="8">Secondary (Global Cluster)</text>
+    <text x="330" y="328" text-anchor="middle" fill="#fb923c" font-size="7">Instance EP per AZ (no Custom EP)</text>
+
+    <!-- ElastiCache -->
+    <rect x="430" y="275" width="170" height="65" rx="6" fill="none" stroke="#f87171" stroke-width="1.5"/>
+    <text x="515" y="293" text-anchor="middle" fill="#f87171" font-size="10" font-weight="600">ElastiCache (Valkey)</text>
+    <text x="515" y="308" text-anchor="middle" fill="#8b90a5" font-size="8">Standalone (Independent)</text>
+    <text x="515" y="328" text-anchor="middle" fill="#8b90a5" font-size="7">RouteByLatency + ReadFrom.NEAREST</text>
+
+    <!-- MSK -->
+    <rect x="60" y="355" width="170" height="65" rx="6" fill="none" stroke="#fb923c" stroke-width="1.5"/>
+    <text x="145" y="373" text-anchor="middle" fill="#fb923c" font-size="10" font-weight="600">MSK (Kafka)</text>
+    <text x="145" y="388" text-anchor="middle" fill="#8b90a5" font-size="8">4 brokers (2 + 2 per AZ)</text>
+    <text x="145" y="408" text-anchor="middle" fill="#8b90a5" font-size="7">client.rack + KAFKA_BROKERS_LOCAL</text>
+
+    <!-- OpenSearch -->
+    <rect x="245" y="355" width="170" height="65" rx="6" fill="none" stroke="#f472b6" stroke-width="1.5"/>
+    <text x="330" y="373" text-anchor="middle" fill="#f472b6" font-size="10" font-weight="600">OpenSearch</text>
+    <text x="330" y="388" text-anchor="middle" fill="#8b90a5" font-size="8">3 Master + 2 Data (2-AZ)</text>
+    <text x="330" y="408" text-anchor="middle" fill="#8b90a5" font-size="7">Independent domain</text>
+
+    <!-- S3 -->
+    <rect x="430" y="355" width="170" height="65" rx="6" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="515" y="373" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">S3</text>
+    <text x="515" y="388" text-anchor="middle" fill="#8b90a5" font-size="8">Static + Analytics</text>
+    <text x="515" y="408" text-anchor="middle" fill="#8b90a5" font-size="7">Secondary (no replication source)</text>
+
+    <!-- AZ-local arrows -->
+    <line x1="215" y1="228" x2="145" y2="273" stroke="#38bdf8" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr-a)"/>
+    <line x1="585" y1="228" x2="515" y2="273" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr-c)"/>
+    <text x="170" y="248" fill="#38bdf8" font-size="7" font-weight="600">AZ-local read</text>
+    <text x="548" y="248" fill="#a78bfa" font-size="7" font-weight="600">AZ-local read</text>
+
+    <defs>
+      <marker id="arr-a" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto"><path d="M0,0 L6,2.5 L0,5" fill="none" stroke="#38bdf8" stroke-width="0.8"/></marker>
+      <marker id="arr-c" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto"><path d="M0,0 L6,2.5 L0,5" fill="none" stroke="#a78bfa" stroke-width="0.8"/></marker>
+    </defs>
+  </svg>
+  <div class="diagram-caption">그림 1. Multi Independent AZ Topology &mdash; 공유 VPC, 독립 EKS 클러스터, AZ-local 데이터 접근</div>
+</div>
+
+<!-- ========== TERRAFORM ========== -->
+<h2 id="terraform">Terraform Structure</h2>
+<p>3-Layer 구조로 공유 리소스(VPC, Data Stores)와 AZ별 리소스(EKS, NLB)를 분리합니다.</p>
+
+<div class="code-block">
+terraform/environments/production/ap-northeast-2/
+├── <span class="highlight">shared/</span>                     <span class="comment"># Layer 1: VPC + Data Stores</span>
+│   ├── main.tf                <span class="comment"># VPC, SG, KMS, Aurora, DocumentDB, ElastiCache,</span>
+│   │                          <span class="comment"># MSK, OpenSearch, S3, Secrets Manager</span>
+│   ├── variables.tf
+│   ├── outputs.tf             <span class="comment"># vpc_id, subnet_ids, sg_ids → remote state</span>
+│   ├── terraform.tfvars
+│   └── backend.tf             <span class="comment"># S3 key: production/ap-northeast-2/shared/</span>
+│
+├── <span class="highlight" style="color:#38bdf8">eks-az-a/</span>                   <span class="comment"># Layer 2: EKS + NLB for AZ-A</span>
+│   ├── main.tf                <span class="comment"># EKS(mall-apne2-az-a), ALB IRSA, NLB, OTel IRSA</span>
+│   ├── variables.tf
+│   ├── terraform.tfvars
+│   └── backend.tf             <span class="comment"># S3 key: production/ap-northeast-2/eks-az-a/</span>
+│
+└── <span class="highlight" style="color:#a78bfa">eks-az-c/</span>                   <span class="comment"># Layer 3: EKS + NLB for AZ-C</span>
+    ├── main.tf                <span class="comment"># EKS(mall-apne2-az-c), ALB IRSA, NLB, OTel IRSA</span>
+    ├── variables.tf
+    ├── terraform.tfvars
+    └── backend.tf             <span class="comment"># S3 key: production/ap-northeast-2/eks-az-c/</span>
+</div>
+
+<div class="callout-info callout">
+  <strong>State 참조:</strong> eks-az-a/c는 <code>terraform_remote_state.shared</code>를 통해 Layer 1의 VPC ID, Subnet IDs, SG IDs를 참조합니다. 3개의 독립 state file로 blast radius를 최소화합니다.
+</div>
+
+<h3 id="tf-shared">Layer 1: Shared</h3>
+<table>
+  <thead><tr><th>Module</th><th>Resource</th><th>특이사항</th></tr></thead>
+  <tbody>
+    <tr><td><code>vpc</code></td><td>VPC, 2 AZ subnets (Public/Private/Data)</td><td>Private /20 (4,096 IPs for Karpenter)</td></tr>
+    <tr><td><code>security_groups</code></td><td>ALB, NLB, EKS, Data SGs</td><td>VPC CIDR에서만 접근</td></tr>
+    <tr><td><code>kms</code></td><td>5 CMKs (aurora, docdb, cache, msk, s3)</td><td></td></tr>
+    <tr><td><code>aurora</code></td><td>1 Writer + 2 Reader (AZ-A, AZ-C)</td><td><code>is_primary=true</code> (독립 클러스터)</td></tr>
+    <tr><td><code>documentdb</code></td><td>2 instances (Global Cluster secondary)</td><td><code>is_primary=false</code>, source: us-east-1</td></tr>
+    <tr><td><code>elasticache</code></td><td>1 shard, 1 replica (Standalone)</td><td>Global Datastore 미참여 (독립)</td></tr>
+    <tr><td><code>msk</code></td><td>4 brokers (2+2 per AZ)</td><td>Independent cluster</td></tr>
+    <tr><td><code>opensearch</code></td><td>3 Master + 2 Data (2-AZ)</td><td><code>create_service_linked_role=false</code></td></tr>
+    <tr><td><code>s3</code></td><td>Static + Analytics buckets</td><td>Secondary (no replication)</td></tr>
+  </tbody>
+</table>
+
+<h3 id="tf-eks">Layer 2/3: EKS per AZ</h3>
+
+<div class="az-cols">
+  <div class="az-col az-a">
+    <h4>&#128309; eks-az-a</h4>
+    <table>
+      <tbody>
+        <tr><td>Cluster</td><td><code>mall-apne2-az-a</code></td></tr>
+        <tr><td>Subnet</td><td><code>private_subnet_ids[0]</code> (AZ-A only)</td></tr>
+        <tr><td>NLB</td><td><code>public_subnet_ids[0]</code> (AZ-A only)</td></tr>
+        <tr><td>Role Suffix</td><td><code>-apne2-az-a</code></td></tr>
+        <tr><td>IRSA</td><td>ALB Controller, OTel Collector, Tempo</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="az-col az-c">
+    <h4>&#128995; eks-az-c</h4>
+    <table>
+      <tbody>
+        <tr><td>Cluster</td><td><code>mall-apne2-az-c</code></td></tr>
+        <tr><td>Subnet</td><td><code>private_subnet_ids[1]</code> (AZ-C only)</td></tr>
+        <tr><td>NLB</td><td><code>public_subnet_ids[1]</code> (AZ-C only)</td></tr>
+        <tr><td>Role Suffix</td><td><code>-apne2-az-c</code></td></tr>
+        <tr><td>IRSA</td><td>ALB Controller, OTel Collector, Tempo</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ========== NETWORK ========== -->
+<h2 id="network">Network Design</h2>
+
+<h3 id="vpc">VPC & Subnets</h3>
+<table>
+  <thead><tr><th>Subnet</th><th>AZ-A (ap-northeast-2a)</th><th>AZ-C (ap-northeast-2c)</th><th>Size</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Public</strong></td><td><code>10.2.1.0/24</code></td><td><code>10.2.3.0/24</code></td><td>256 IPs</td></tr>
+    <tr><td><strong>Private</strong></td><td><code>10.2.16.0/20</code></td><td><code>10.2.32.0/20</code></td><td><strong>4,096 IPs</strong></td></tr>
+    <tr><td><strong>Data</strong></td><td><code>10.2.48.0/24</code></td><td><code>10.2.49.0/24</code></td><td>256 IPs</td></tr>
+  </tbody>
+</table>
+
+<div class="callout-ok callout">
+  <strong>Private /20:</strong> 기존 US 리전의 /24(256 IPs)와 달리 <strong>/20(4,096 IPs)</strong>을 사용합니다. Karpenter가 AZ 내에서만 노드를 프로비저닝하므로 단일 AZ에서 충분한 IP 공간이 필요합니다. /24에서는 노드 ~50개 미만으로 제한됩니다.
+</div>
+
+<h3 id="sg">Security Groups</h3>
+<p>Shared layer에서 생성한 SG를 양쪽 EKS 클러스터가 공유합니다. 두 클러스터 모두 같은 VPC 내에 있으므로 하나의 SG 세트로 관리 가능합니다.</p>
+
+<!-- ========== EKS ========== -->
+<h2 id="eks">EKS Clusters</h2>
+
+<h3 id="eks-a">mall-apne2-az-a</h3>
+<div class="card">
+  <div class="card-title"><span style="color:var(--az-a)">&#128309;</span> AZ-A Cluster</div>
+  <p><strong>핵심:</strong> 모든 리소스(EKS 노드, NLB, Pod)가 <code>ap-northeast-2a</code>에만 존재합니다. private_subnet_ids 중 index [0]만 사용하여 single-AZ 격리를 달성합니다.</p>
+  <p><strong>Bootstrap:</strong> t3.medium / t3a.medium (시스템 워크로드)</p>
+  <p><strong>ACM:</strong> <code>arn:aws:acm:ap-northeast-2:123456789012:certificate/d5f951df-...</code></p>
+</div>
+
+<h3 id="eks-c">mall-apne2-az-c</h3>
+<div class="card">
+  <div class="card-title"><span style="color:var(--az-c)">&#128995;</span> AZ-C Cluster</div>
+  <p>AZ-A와 동일한 구조로 <code>ap-northeast-2c</code>에만 존재합니다. private_subnet_ids index [1]만 사용합니다.</p>
+</div>
+
+<h2 id="karpenter">Karpenter per AZ</h2>
+<p>각 EKS 클러스터의 Karpenter EC2NodeClass는 해당 AZ의 서브넷만 선택하도록 이중 안전장치를 적용합니다.</p>
+
+<div class="az-cols">
+  <div class="az-col az-a">
+    <h4>&#128309; AZ-A EC2NodeClass</h4>
+    <div class="code-block">
+<span class="keyword">spec:</span>
+  <span class="keyword">role:</span> <span class="string">mall-apne2-az-a-node-group</span>
+  <span class="keyword">subnetSelectorTerms:</span>
+    - <span class="keyword">tags:</span>
+        <span class="highlight">Tier: private</span>
+        <span class="highlight">topology.kubernetes.io/zone: ap-northeast-2a</span>
+  <span class="keyword">securityGroupSelectorTerms:</span>
+    - <span class="keyword">tags:</span>
+        <span class="highlight">karpenter.sh/discovery: mall-apne2-az-a</span>
+  <span class="keyword">amiSelectorTerms:</span>
+    - <span class="keyword">alias:</span> <span class="string">al2023@latest</span>
+    </div>
+  </div>
+  <div class="az-col az-c">
+    <h4>&#128995; AZ-C EC2NodeClass</h4>
+    <div class="code-block">
+<span class="keyword">spec:</span>
+  <span class="keyword">role:</span> <span class="string">mall-apne2-az-c-node-group</span>
+  <span class="keyword">subnetSelectorTerms:</span>
+    - <span class="keyword">tags:</span>
+        <span class="highlight">Tier: private</span>
+        <span class="highlight">topology.kubernetes.io/zone: ap-northeast-2c</span>
+  <span class="keyword">securityGroupSelectorTerms:</span>
+    - <span class="keyword">tags:</span>
+        <span class="highlight">karpenter.sh/discovery: mall-apne2-az-c</span>
+  <span class="keyword">amiSelectorTerms:</span>
+    - <span class="keyword">alias:</span> <span class="string">al2023@latest</span>
+    </div>
+  </div>
+</div>
+
+<div class="callout">
+  <strong>이중 AZ 고정:</strong> (1) <code>topology.kubernetes.io/zone</code> 서브넷 태그로 물리적 AZ 고정, (2) <code>karpenter.sh/discovery</code> SG 태그로 논리적 격리. NodePool의 <code>topology.kubernetes.io/zone</code> requirement도 추가하면 3중 안전장치.
+</div>
+
+<h2 id="nlb">NLB per AZ</h2>
+<p>각 AZ에 독립 NLB를 배포합니다. Route53 Latency-based 또는 Weighted routing으로 트래픽을 분배합니다.</p>
+<table>
+  <thead><tr><th></th><th>AZ-A NLB</th><th>AZ-C NLB</th></tr></thead>
+  <tbody>
+    <tr><td>Public Subnet</td><td><code>10.2.1.0/24</code></td><td><code>10.2.3.0/24</code></td></tr>
+    <tr><td>TLS</td><td>ACM cert (*.atomai.click)</td><td>ACM cert (*.atomai.click)</td></tr>
+    <tr><td>SG</td><td colspan="2">Shared NLB SG (CloudFront prefix list)</td></tr>
+  </tbody>
+</table>
+
+<!-- ========== DATA ========== -->
+<h2 id="data">Data Strategy Overview</h2>
+
+<div class="callout">
+  <strong>핵심 원칙:</strong> 데이터 스토어는 공유 VPC에 배포하되, 각 EKS 클러스터는 같은 AZ의 데이터 노드에 우선 접근합니다. 쓰기는 항상 Writer(또는 Primary)로, 읽기만 AZ-local로 라우팅합니다.
+</div>
+
+<h3 id="aurora-kr">Aurora PostgreSQL</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Engine</td><td>Aurora PostgreSQL <code>17.7</code></td></tr>
+    <tr><td>Cluster</td><td><code>is_primary=true</code> (독립 클러스터, Global Cluster 미참여)</td></tr>
+    <tr><td>Topology</td><td>Writer 1 (AZ-A) + <strong>Reader 2</strong> (AZ-A, AZ-C 각 1개)</td></tr>
+    <tr><td>Custom Endpoints</td><td><code>reader-az-a</code>, <code>reader-az-c</code></td></tr>
+    <tr><td>환경변수</td><td><code>DB_WRITE_HOST</code> (Writer) + <code>DB_READ_HOST_LOCAL</code> (AZ Custom EP)</td></tr>
+  </tbody>
+</table>
+
+<div class="diagram">
+  <svg width="600" height="160" viewBox="0 0 600 160" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="600" height="160" fill="#1a1d27" rx="10"/>
+    <!-- Writer -->
+    <rect x="230" y="20" width="140" height="40" rx="6" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
+    <text x="300" y="38" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="600">Writer (AZ-A)</text>
+    <text x="300" y="52" text-anchor="middle" fill="#8b90a5" font-size="8">Writes from both AZs</text>
+    <!-- Reader AZ-A -->
+    <rect x="60" y="90" width="180" height="50" rx="6" fill="none" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="150" y="112" text-anchor="middle" fill="#38bdf8" font-size="10" font-weight="600">Reader (AZ-A)</text>
+    <text x="150" y="127" text-anchor="middle" fill="#8b90a5" font-size="8">Custom EP: reader-az-a</text>
+    <!-- Reader AZ-C -->
+    <rect x="360" y="90" width="180" height="50" rx="6" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="450" y="112" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">Reader (AZ-C)</text>
+    <text x="450" y="127" text-anchor="middle" fill="#8b90a5" font-size="8">Custom EP: reader-az-c</text>
+    <!-- Arrows -->
+    <line x1="270" y1="62" x2="150" y2="88" stroke="#38bdf8" stroke-width="1" marker-end="url(#arr-a)"/>
+    <line x1="330" y1="62" x2="450" y2="88" stroke="#a78bfa" stroke-width="1" marker-end="url(#arr-c)"/>
+    <text x="195" y="74" fill="#8b90a5" font-size="7">replication</text>
+    <text x="375" y="74" fill="#8b90a5" font-size="7">replication</text>
+    <defs>
+      <marker id="arr-a" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto"><path d="M0,0 L6,2.5 L0,5" fill="none" stroke="#38bdf8" stroke-width="0.8"/></marker>
+      <marker id="arr-c" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto"><path d="M0,0 L6,2.5 L0,5" fill="none" stroke="#a78bfa" stroke-width="0.8"/></marker>
+    </defs>
+  </svg>
+  <div class="diagram-caption">그림 2. Aurora Custom Endpoint per AZ &mdash; AZ-A 클러스터는 reader-az-a, AZ-C 클러스터는 reader-az-c 사용</div>
+</div>
+
+<h3 id="documentdb-kr">DocumentDB</h3>
+<div class="card">
+  <div class="card-title"><span class="icon">&#9888;</span> Custom Endpoint 미지원</div>
+  <p>DocumentDB는 Aurora와 달리 <strong>Custom Endpoint를 지원하지 않습니다</strong>. 따라서 <strong>개별 Instance Endpoint</strong>를 직접 환경변수로 주입하는 방식을 사용합니다.</p>
+  <table>
+    <thead><tr><th></th><th>AZ-A</th><th>AZ-C</th></tr></thead>
+    <tbody>
+      <tr><td><code>DOCUMENTDB_HOST</code></td><td>AZ-A instance endpoint</td><td>AZ-C instance endpoint</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:12px"><strong>Cluster:</strong> Global Cluster secondary (<code>is_primary=false</code>), 2 instances (db.r6g.large), source_region: us-east-1</p>
+</div>
+
+<h3 id="elasticache-kr">ElastiCache (Valkey)</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Type</td><td><strong>Standalone</strong> (Global Datastore 미참여)</td></tr>
+    <tr><td>Instance</td><td><code>cache.r6g.large</code>, 1 shard, 1 replica</td></tr>
+    <tr><td>AZ-local</td><td>Go: <code>RouteByLatency: true</code>, Python: <code>read_from_replicas=True</code>, Java: <code>ReadFrom.NEAREST</code></td></tr>
+    <tr><td>환경변수</td><td><code>PREFER_REPLICA_AZ=ap-northeast-2a</code> (or 2c)</td></tr>
+  </tbody>
+</table>
+<div class="callout-ok callout">
+  <strong>왜 Standalone?</strong> 한국 리전은 독립 운영 단위입니다. US Global Datastore에 참여하면 cross-region 레이턴시가 추가되므로, 독립 클러스터가 적합합니다.
+</div>
+
+<h3 id="msk-kr">MSK (Kafka)</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Brokers</td><td><strong>4</strong> (2 in AZ-A + 2 in AZ-C)</td></tr>
+    <tr><td>Instance</td><td><code>kafka.m5.large</code></td></tr>
+    <tr><td>AZ-local 소비</td><td><code>client.rack</code> (Java), <code>KAFKA_BROKERS_LOCAL</code> (Go/Python)</td></tr>
+    <tr><td>rack-aware</td><td>Go: <code>RackAffinityGroupBalancer</code> (kafka-go), Java: <code>client.rack</code> 설정</td></tr>
+  </tbody>
+</table>
+<div class="callout">
+  <strong>4 Brokers:</strong> MSK의 <code>number_of_broker_nodes</code>는 AZ 수의 배수여야 합니다. 2 AZ에서 최소 2지만, HA와 처리량을 위해 <strong>4 (2+2)</strong>를 선택. Codex의 <code>KAFKA_BROKERS_LOCAL</code> 패턴으로 rack-aware가 안 되는 Go/Python에서도 AZ locality를 확보합니다.
+</div>
+
+<h3 id="opensearch-kr">OpenSearch</h3>
+<table>
+  <thead><tr><th>속성</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td>Domain</td><td>독립 도메인 (리전별)</td></tr>
+    <tr><td>Master</td><td>3&times; <code>r6g.large.search</code></td></tr>
+    <tr><td>Data</td><td>2&times; <code>r6g.large.search</code> (2-AZ)</td></tr>
+    <tr><td>AZ Count</td><td><code>availability_zone_count = 2</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ========== K8S ========== -->
+<h2 id="k8s">K8s Overlay Structure</h2>
+
+<div class="code-block">
+k8s/overlays/ap-northeast-2/
+├── <span class="highlight">common/</span>                           <span class="comment"># 리전 공통 패치 (DRY)</span>
+│   ├── region-config-patch.yaml     <span class="comment"># AWS_REGION, OTEL_ENDPOINT</span>
+│   └── common-labels.yaml           <span class="comment"># region: ap-northeast-2</span>
+│
+├── <span class="highlight" style="color:#38bdf8">az-a/</span>                              <span class="comment"># AZ-A overlay</span>
+│   ├── kustomization.yaml           <span class="comment"># base + services + infra + AZ patches</span>
+│   ├── karpenter/
+│   │   └── ec2nodeclass.yaml        <span class="comment"># zone: ap-northeast-2a only</span>
+│   ├── core/kustomization.yaml
+│   ├── user/kustomization.yaml
+│   ├── fulfillment/kustomization.yaml
+│   ├── business/kustomization.yaml
+│   └── platform/kustomization.yaml
+│
+└── <span class="highlight" style="color:#a78bfa">az-c/</span>                              <span class="comment"># AZ-C overlay (mirror of az-a)</span>
+    ├── kustomization.yaml           <span class="comment"># base + services + infra + AZ patches</span>
+    ├── karpenter/
+    │   └── ec2nodeclass.yaml        <span class="comment"># zone: ap-northeast-2c only</span>
+    ├── core/kustomization.yaml
+    └── ...
+</div>
+
+<h3 id="k8s-common">Common Config</h3>
+<p><code>common/region-config-patch.yaml</code>는 모든 Deployment에 적용되는 리전 공통 환경변수(AWS_REGION, OTEL endpoint)를 정의합니다.</p>
+
+<h3 id="k8s-az">Per-AZ Overlays</h3>
+<p>각 AZ overlay의 kustomization.yaml은 두 가지 핵심 패치를 적용합니다:</p>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-title">1. AZ 환경변수 주입</div>
+    <div class="code-block" style="font-size:11px">
+<span class="comment"># JSON6902 patch on all Deployments</span>
+- op: add
+  path: /spec/.../env/-
+  value:
+    name: <span class="highlight">AVAILABILITY_ZONE</span>
+    value: <span class="string">"ap-northeast-2a"</span>
+- op: add
+  path: /spec/.../env/-
+  value:
+    name: <span class="highlight">CLIENT_RACK</span>
+    value: <span class="string">"ap-northeast-2a"</span>
+- op: add
+  path: /spec/.../env/-
+  value:
+    name: <span class="highlight">OTEL_RESOURCE_ATTRIBUTES</span>
+    value: <span class="string">"...aws.zone=ap-northeast-2a"</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">2. TopologySpreadConstraints 제거</div>
+    <div class="code-block" style="font-size:11px">
+<span class="comment"># 단일 AZ 클러스터에서 TSC는 불필요</span>
+<span class="comment"># (모든 노드가 같은 AZ에 있음)</span>
+- op: <span class="highlight">remove</span>
+  path: /spec/template/spec/<span class="highlight">topologySpreadConstraints</span>
+    </div>
+    <p style="margin-top:12px; font-size:13px;">base의 Deployment에 정의된 TSC(cross-AZ 분산)가 단일 AZ에서는 의미가 없으므로 제거합니다.</p>
+  </div>
+</div>
+
+<h3>ConfigMap Generator</h3>
+<p>각 AZ overlay에서 <code>region-config</code> ConfigMap을 생성합니다:</p>
+<table>
+  <thead><tr><th>Key</th><th>AZ-A 값</th><th>AZ-C 값</th></tr></thead>
+  <tbody>
+    <tr><td><code>REGION</code></td><td colspan="2"><code>ap-northeast-2</code></td></tr>
+    <tr><td><code>AZ</code></td><td><code>ap-northeast-2a</code></td><td><code>ap-northeast-2c</code></td></tr>
+    <tr><td><code>REGION_ROLE</code></td><td colspan="2"><code>PRIMARY</code></td></tr>
+    <tr><td><code>MSK_BROKERS</code></td><td colspan="2">Terraform 적용 후 실제 엔드포인트로 교체</td></tr>
+    <tr><td><code>VALKEY_ENDPOINT</code></td><td colspan="2">placeholder (교체 필요)</td></tr>
+    <tr><td><code>DOCUMENTDB_ENDPOINT</code></td><td colspan="2">placeholder (교체 필요)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="argocd">ArgoCD Integration</h2>
+<p>ArgoCD ApplicationSet의 <code>generators.clusters</code>에서 클러스터 라벨로 overlay 디렉토리를 매칭합니다. 각 AZ EKS 클러스터를 ArgoCD에 등록하면 자동으로 해당 overlay가 적용됩니다.</p>
+
+<div class="callout-info callout">
+  <strong>Korea-specific AppSet:</strong> Prometheus 등 Helm 차트는 리전별 커스텀이 필요하여 <code>appset-helm-prometheus-korea.yaml</code>이 별도 생성되었습니다.
+</div>
+
+<!-- ========== APP CHANGES ========== -->
+<h2 id="app-changes">Application Code Changes</h2>
+
+<h3 id="env-vars">New Environment Variables</h3>
+<table>
+  <thead><tr><th>Variable</th><th>용도</th><th>예시 (AZ-A)</th></tr></thead>
+  <tbody>
+    <tr><td><code>AVAILABILITY_ZONE</code></td><td>현재 AZ 식별</td><td><code>ap-northeast-2a</code></td></tr>
+    <tr><td><code>CLIENT_RACK</code></td><td>Kafka rack-aware 소비</td><td><code>ap-northeast-2a</code></td></tr>
+    <tr><td><code>DB_WRITE_HOST</code></td><td>Aurora Writer endpoint</td><td>Cluster writer endpoint</td></tr>
+    <tr><td><code>DB_READ_HOST_LOCAL</code></td><td>Aurora AZ-local reader</td><td>Custom EP: reader-az-a</td></tr>
+    <tr><td><code>PREFER_REPLICA_AZ</code></td><td>ElastiCache AZ preference</td><td><code>ap-northeast-2a</code></td></tr>
+    <tr><td><code>DOCUMENTDB_HOST</code></td><td>DocumentDB AZ-local instance</td><td>AZ-A instance endpoint</td></tr>
+    <tr><td><code>KAFKA_BROKERS_LOCAL</code></td><td>로컬 AZ MSK 브로커</td><td>AZ-A broker endpoints</td></tr>
+  </tbody>
+</table>
+
+<h3 id="az-local">AZ-Local Access Patterns</h3>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-title">Go Services</div>
+    <div class="code-block" style="font-size:11px">
+<span class="comment">// ElastiCache — RouteByLatency</span>
+client := redis.<span class="keyword">NewClusterClient</span>(&redis.ClusterOptions{
+    RouteByLatency: <span class="string">true</span>,
+})
+
+<span class="comment">// Kafka — RackAffinityGroupBalancer</span>
+reader := kafka.<span class="keyword">NewReader</span>(kafka.ReaderConfig{
+    GroupBalancers: []kafka.GroupBalancer{
+        kafka.<span class="highlight">RackAffinityGroupBalancer</span>{
+            Rack: os.Getenv(<span class="string">"CLIENT_RACK"</span>),
+        },
+    },
+})
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Python Services</div>
+    <div class="code-block" style="font-size:11px">
+<span class="comment"># ElastiCache — read_from_replicas</span>
+client = RedisCluster(
+    <span class="highlight">read_from_replicas</span>=<span class="string">True</span>,
+)
+
+<span class="comment"># DocumentDB — AZ-local instance EP</span>
+client = motor.AsyncIOMotorClient(
+    os.environ[<span class="string">"DOCUMENTDB_HOST"</span>],
+    <span class="comment"># AZ-specific instance endpoint</span>
+)
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Java Services</div>
+    <div class="code-block" style="font-size:11px">
+<span class="comment">// ElastiCache — ReadFrom.NEAREST</span>
+<span class="keyword">@Bean</span>
+LettuceClientConfiguration config() {
+    return LettuceClientConfiguration.builder()
+        .readFrom(<span class="highlight">ReadFrom.NEAREST</span>)
+        .build();
+}
+
+<span class="comment">// Kafka — client.rack</span>
+props.put(<span class="string">"client.rack"</span>,
+    System.getenv(<span class="string">"CLIENT_RACK"</span>));
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">하위 호환성</div>
+    <p>모든 새 환경변수에 <strong>기본값 fallback</strong>을 설정하여, 한국 리전 이외(US)에서는 기존 동작을 유지합니다.</p>
+    <div class="code-block" style="font-size:11px">
+<span class="comment">// Go example</span>
+readHost := os.Getenv(<span class="string">"DB_READ_HOST_LOCAL"</span>)
+<span class="keyword">if</span> readHost == <span class="string">""</span> {
+    readHost = os.Getenv(<span class="string">"DB_HOST"</span>) <span class="comment">// fallback</span>
+}
+    </div>
+  </div>
+</div>
+
+<!-- ========== OBSERVABILITY ========== -->
+<h2 id="observability">Observability</h2>
+<p>각 AZ 클러스터에 독립 OTel Collector DaemonSet이 배포됩니다. <code>OTEL_RESOURCE_ATTRIBUTES</code>에 <code>aws.zone</code>을 포함하여 trace/log에서 AZ 식별이 가능합니다.</p>
+<table>
+  <thead><tr><th>Component</th><th>AZ-A</th><th>AZ-C</th></tr></thead>
+  <tbody>
+    <tr><td>OTel Collector</td><td>DaemonSet (IRSA: apne2-az-a)</td><td>DaemonSet (IRSA: apne2-az-c)</td></tr>
+    <tr><td>Tempo</td><td>S3 backend (IRSA per cluster)</td><td>S3 backend (IRSA per cluster)</td></tr>
+    <tr><td>Prometheus</td><td>kube-prometheus-stack (korea AppSet)</td><td>kube-prometheus-stack</td></tr>
+    <tr><td>Resource Attr</td><td><code>aws.zone=ap-northeast-2a</code></td><td><code>aws.zone=ap-northeast-2c</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ========== COST ========== -->
+<h2 id="cost">Cost Analysis</h2>
+
+<h3>추가 비용 항목</h3>
+<table>
+  <thead><tr><th>항목</th><th>월 비용</th><th>비고</th></tr></thead>
+  <tbody>
+    <tr><td>EKS 클러스터 추가 (1개)</td><td><strong>~$73</strong></td><td>$0.10/hr per cluster</td></tr>
+    <tr><td>NLB 추가 (1개)</td><td>~$20-30</td><td>기본 요금 + LCU</td></tr>
+    <tr><td>NAT Gateway (이미 AZ별 존재)</td><td>$0</td><td>Shared layer에서 생성</td></tr>
+    <tr><td style="font-weight:700;">합계 추가</td><td style="font-weight:700;">~$100/월</td><td></td></tr>
+  </tbody>
+</table>
+
+<h3>절감 항목</h3>
+<table>
+  <thead><tr><th>항목</th><th>월 절감</th><th>조건</th></tr></thead>
+  <tbody>
+    <tr><td>Cross-AZ 데이터 전송 (읽기)</td><td><strong>$500~2,000</strong></td><td>Read-heavy 워크로드, 트래픽 규모 의존</td></tr>
+    <tr><td>Cross-AZ 데이터 전송 (Kafka)</td><td>$100~500</td><td>rack-aware 소비로 브로커 &harr; 컨슈머 로컬화</td></tr>
+  </tbody>
+</table>
+
+<div class="callout-ok callout">
+  <strong>손익분기점:</strong> 월 7.3TB 이상의 cross-AZ 읽기 트래픽이 있으면 2-cluster 비용이 정당화됩니다. 쇼핑몰의 상품 조회, 검색, 추천 등 read-heavy 특성을 감안하면 이를 초과할 가능성이 높습니다.
+</div>
+
+<!-- ========== ROADMAP ========== -->
+<h2 id="roadmap">Implementation Roadmap</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Week</th><th>Tasks</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Infrastructure</strong></td><td>Week 1</td>
+      <td>
+        TF shared/ (VPC, SGs, KMS, Data Stores)<br>
+        TF eks-az-a/ + eks-az-c/ (EKS, NLB, IRSA)
+      </td>
+      <td><span class="tag tag-green">Complete</span></td>
+    </tr>
+    <tr>
+      <td><strong>2. K8s Manifests</strong></td><td>Week 2</td>
+      <td>
+        overlays/ap-northeast-2/{common, az-a, az-c}/<br>
+        Karpenter EC2NodeClass + NodePool per AZ<br>
+        ArgoCD ApplicationSet update
+      </td>
+      <td><span class="tag tag-green">Complete</span></td>
+    </tr>
+    <tr>
+      <td><strong>3. App Code</strong></td><td>Week 2-3</td>
+      <td>
+        DB_WRITE_HOST / DB_READ_HOST_LOCAL support<br>
+        ElastiCache RouteByLatency<br>
+        Kafka CLIENT_RACK + KAFKA_BROKERS_LOCAL
+      </td>
+      <td><span class="tag tag-yellow">Pending</span></td>
+    </tr>
+    <tr>
+      <td><strong>4. Verification</strong></td><td>Week 3</td>
+      <td>
+        terraform plan (all 3 layers)<br>
+        kubectl kustomize build<br>
+        Cross-AZ traffic monitoring
+      </td>
+      <td><span class="tag tag-yellow">Pending</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ========== AI COMPARISON ========== -->
+<h2 id="comparison">AI Comparison Matrix</h2>
+<p>4개 AI에게 동일한 요구사항으로 설계를 요청하고 7개 축으로 비교한 결과입니다.</p>
+
+<table>
+  <thead><tr><th>평가 축</th><th>Claude</th><th>Codex</th><th>Gemini</th><th>Kiro-CLI</th></tr></thead>
+  <tbody>
+    <tr><td><strong>구조 설계</strong></td><td>&#11088;&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;</td></tr>
+    <tr><td><strong>코드 상세도</strong></td><td>&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;&#11088;</td></tr>
+    <tr><td><strong>비용 분석</strong></td><td>&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;</td></tr>
+    <tr><td><strong>AWS 제약 인지</strong></td><td>&#11088;&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;&#11088;</td></tr>
+    <tr><td><strong>실행 가능성</strong></td><td>&#11088;&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;&#11088;</td></tr>
+    <tr><td><strong>기존 패턴 일관성</strong></td><td>&#11088;&#11088;&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;</td><td>&#11088;&#11088;</td><td>&#11088;&#11088;&#11088;&#11088;</td></tr>
+    <tr style="font-weight:700;"><td><strong>종합</strong></td><td>4.0</td><td>3.8</td><td>3.0</td><td style="color: var(--green);">4.2</td></tr>
+  </tbody>
+</table>
+
+<div class="grid grid-2" style="margin-top: 16px;">
+  <div class="card">
+    <div class="card-title">&#128293; Kiro-CLI (1위, 4.2)</div>
+    <p>코드베이스를 실제로 읽고 가장 구체적인 코드 변경 제시. <strong>DocumentDB Custom EP 미지원을 유일하게 인지</strong>. Go kafka-go의 <code>RackAffinityGroupBalancer</code>를 발견.</p>
+  </div>
+  <div class="card">
+    <div class="card-title">&#128218; Codex (3.8)</div>
+    <p>가장 세밀한 비용/구조 분석. 5-layer TF와 <code>KAFKA_BROKERS_LOCAL/FALLBACK</code> 패턴이 독창적. <strong>"single cluster가 cost-efficient할 수 있다"</strong>는 중요한 트레이드오프 제시.</p>
+  </div>
+  <div class="card">
+    <div class="card-title">&#129302; Claude (4.0)</div>
+    <p>기존 코드베이스와의 일관성 최우선. 보수적이지만 안정적. <strong>MSK Go rack-aware를 포기한 점이 약점.</strong></p>
+  </div>
+  <div class="card">
+    <div class="card-title">&#128161; Gemini (3.0)</div>
+    <p>간결한 설계와 직관적 비용 비교. 코드 상세도 부족. <strong>DocumentDB Custom EP 미지원 인지 실패.</strong></p>
+  </div>
+</div>
+
+<hr style="margin-top:48px; border-color: var(--border);">
+<p style="text-align:center; color: var(--text-dim); font-size: 12px; margin-top: 24px;">
+  Multi Independent AZ Architecture &mdash; Korea Region Document v1.0<br>
+  Generated 2026-03-29 &bull; AWS Account 123456789012 &bull; Region: ap-northeast-2 (Seoul)
+</p>
+
+</div>
+
+<!-- Active nav highlight -->
+<script>
+const links = document.querySelectorAll('.nav-link');
+const sections = [];
+links.forEach(l => {
+  const id = l.getAttribute('href')?.slice(1);
+  if (id) { const el = document.getElementById(id); if (el) sections.push({el, link: l}); }
+});
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const s = sections.find(s => s.el === e.target);
+      if (s) s.link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-80px 0px -70% 0px' });
+sections.forEach(s => observer.observe(s.el));
+</script>
+</body>
+</html>

@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Region Architecture — Deep Research Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>Chart.defaults.animation = false;</script>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { interpolate-size: allow-keywords; }
+
+    html.theme-dark {
+      --bg: #0A0A0A; --surface: #141414; --surface-hover: #1C1C1C;
+      --border: rgba(255,255,255,0.06);
+      --text: #EDEDED; --text-secondary: #888;
+      --accent: #3b82f6; --accent-secondary: #8b5cf6;
+      --positive: #10b981; --negative: #f43f5e; --warning: #f59e0b;
+      --slide-gradient-1: linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #172554 100%);
+      --slide-gradient-2: linear-gradient(135deg, #0c0a09 0%, #1c1917 100%);
+      --glass-bg: rgba(255,255,255,0.04);
+      --glass-border: rgba(255,255,255,0.08);
+    }
+    html.theme-light {
+      --bg: #FAFAF9; --surface: #FFFFFF; --surface-hover: #F5F5F4;
+      --border: rgba(0,0,0,0.06);
+      --text: #0f172a; --text-secondary: #64748b;
+      --accent: #2563eb; --accent-secondary: #7c3aed;
+      --positive: #059669; --negative: #e11d48; --warning: #d97706;
+      --slide-gradient-1: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 40%, #dbeafe 100%);
+      --slide-gradient-2: linear-gradient(135deg, #fafaf9 0%, #f5f5f4 100%);
+      --glass-bg: rgba(0,0,0,0.02);
+      --glass-border: rgba(0,0,0,0.08);
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg); color: var(--text);
+      line-height: 1.6; -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.01em;
+      transition: background 0.3s, color 0.3s;
+    }
+    h1,h2,h3,h4 { color: var(--text); letter-spacing: -0.03em; line-height: 1.1; text-wrap: balance; }
+    h1 { font-weight: 800; font-size: clamp(2.5rem, 5vw, 3.5rem); }
+    h2 { font-weight: 700; font-size: clamp(2rem, 4vw, 2.8rem); }
+    h3 { font-weight: 600; font-size: clamp(1.3rem, 2.5vw, 1.6rem); }
+    .text-secondary { color: var(--text-secondary); }
+
+    /* ===== SLIDES ===== */
+    .slides-container { width: 100%; height: 100%; position: relative; }
+    .slide {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 60px 80px;
+      opacity: 0; transform: translateX(60px);
+      transition: opacity 0.5s cubic-bezier(0.4,0,0.2,1), transform 0.5s cubic-bezier(0.4,0,0.2,1);
+      pointer-events: none; overflow-y: auto;
+    }
+    .slide.active {
+      opacity: 1; transform: translateX(0); pointer-events: auto; z-index: 1;
+    }
+    .slide.exit-left {
+      opacity: 0; transform: translateX(-60px); pointer-events: none;
+    }
+    .slide-title-bg { background: var(--slide-gradient-1); }
+    .slide-content-bg { background: var(--bg); }
+
+    /* ===== PROGRESS BAR ===== */
+    .progress-bar {
+      position: fixed; top: 0; left: 0; height: 3px; z-index: 9998;
+      background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+      transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px;
+      transition: box-shadow 0.2s ease;
+    }
+    .card:hover { box-shadow: 0 0 0 1px var(--border), 0 8px 24px rgba(0,0,0,0.12); }
+    .glass-card {
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: 12px; padding: 24px;
+      backdrop-filter: blur(12px);
+    }
+
+    /* ===== SCORE RING ===== */
+    .score-ring {
+      width: 72px; height: 72px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; font-weight: 800;
+      position: relative; flex-shrink: 0;
+    }
+    .score-ring::before {
+      content: ''; position: absolute; inset: 0; border-radius: 50%;
+      background: conic-gradient(var(--ring-color) var(--ring-pct), transparent var(--ring-pct));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+    }
+
+    /* ===== GRIDS ===== */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+
+    /* ===== SEVERITY BADGES ===== */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 6px; font-size: 0.75rem;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .badge-critical { background: rgba(244,63,94,0.15); color: var(--negative); }
+    .badge-high { background: rgba(245,158,11,0.15); color: var(--warning); }
+    .badge-medium { background: rgba(59,130,246,0.15); color: var(--accent); }
+    .badge-low { background: rgba(16,185,129,0.15); color: var(--positive); }
+    .badge-ok { background: rgba(16,185,129,0.15); color: var(--positive); }
+
+    /* ===== TAG PILLS ===== */
+    .tag {
+      display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem;
+      font-weight: 500; letter-spacing: 0.03em; border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    /* ===== TABLE ===== */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .data-table th {
+      text-align: left; padding: 10px 14px; font-weight: 600; font-size: 0.7rem;
+      text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary);
+      border-bottom: 2px solid var(--border);
+    }
+    .data-table td {
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .data-table tr:hover td { background: var(--glass-bg); }
+
+    /* ===== CHART CONTAINER ===== */
+    .chart-container {
+      height: 320px; padding: 20px; border-radius: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      position: relative;
+    }
+
+    /* ===== PHASE TIMELINE ===== */
+    .phase-item {
+      display: flex; gap: 20px; align-items: flex-start; position: relative;
+      padding-left: 32px; padding-bottom: 28px;
+    }
+    .phase-item::before {
+      content: ''; position: absolute; left: 10px; top: 28px;
+      width: 2px; height: calc(100% - 28px); background: var(--border);
+    }
+    .phase-item:last-child::before { display: none; }
+    .phase-dot {
+      position: absolute; left: 0; top: 4px;
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; font-weight: 700; color: white;
+    }
+
+    /* ===== FINDING ROW ===== */
+    .finding-row {
+      display: flex; gap: 16px; align-items: flex-start;
+      padding: 14px 0; border-bottom: 1px solid var(--border);
+    }
+    .finding-row:last-child { border-bottom: none; }
+
+    /* ===== STAT VALUE ===== */
+    .stat-value { font-size: 2.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+    .stat-label { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+
+    /* ===== SLIDE NAV ===== */
+    .slide-nav {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 8px; z-index: 9998;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 6px 12px; backdrop-filter: blur(16px);
+    }
+    .slide-nav button {
+      width: 32px; height: 32px; border-radius: 8px; background: transparent;
+      border: none; color: var(--text-secondary); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .slide-nav button:hover { background: var(--surface-hover); color: var(--text); }
+    .slide-counter { font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; min-width: 48px; text-align: center; }
+
+    /* ===== SLIDE OVERVIEW ===== */
+    .slide-overview {
+      position: fixed; inset: 0; z-index: 9997;
+      background: var(--bg); padding: 40px;
+      display: none; overflow-y: auto;
+    }
+    .slide-overview.open { display: block; }
+    .slide-overview h2 { margin-bottom: 24px; }
+    .overview-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .overview-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px; cursor: pointer;
+      transition: all 0.15s; aspect-ratio: 16/9;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      text-align: center; gap: 8px;
+    }
+    .overview-card:hover { background: var(--surface-hover); border-color: var(--accent); }
+    .overview-card .num { font-size: 2rem; font-weight: 800; color: var(--accent); }
+    .overview-card .label { font-size: 0.8rem; color: var(--text-secondary); }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideInLeft { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .animate { animation: fadeInUp 0.6s ease-out both; }
+    .animate.delay-1 { animation-delay: 0.1s; }
+    .animate.delay-2 { animation-delay: 0.2s; }
+    .animate.delay-3 { animation-delay: 0.3s; }
+    .animate.delay-4 { animation-delay: 0.4s; }
+    .animate.delay-5 { animation-delay: 0.5s; }
+    .animate.delay-6 { animation-delay: 0.6s; }
+    .animate.delay-7 { animation-delay: 0.7s; }
+
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .reveal { opacity: 1; transform: none; }
+      .slide { transition: none; }
+    }
+
+    /* ===== PRINT ===== */
+    @media print {
+      html, body { height: auto; overflow: visible; }
+      .slide { position: relative; opacity: 1; transform: none; pointer-events: auto; page-break-after: always; }
+      .viz-menu, .slide-nav, .progress-bar, .slide-overview { display: none !important; }
+      .card { break-inside: avoid; border: 1px solid #ddd; box-shadow: none; }
+      * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+    @page { margin: 0.5in; }
+
+    /* ===== MENU ===== */
+    .viz-menu { position: fixed; top: 16px; right: 16px; z-index: 9999; }
+    .viz-menu-toggle {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(12px); transition: all 0.2s;
+    }
+    .viz-menu-toggle:hover { background: var(--surface-hover); }
+    .viz-menu-dropdown {
+      position: absolute; top: 52px; right: 0; min-width: 200px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 8px;
+      opacity: 0; visibility: hidden; transform: translateY(-8px);
+      transition: all 0.2s; backdrop-filter: blur(16px);
+    }
+    .viz-menu-dropdown.open { opacity: 1; visibility: visible; transform: translateY(0); }
+    .viz-menu-dropdown button {
+      width: 100%; padding: 10px 14px; border: none; border-radius: 8px;
+      background: transparent; color: var(--text); font-size: 14px;
+      font-family: inherit; cursor: pointer; text-align: left;
+      display: flex; align-items: center; gap: 10px; transition: background 0.15s;
+    }
+    .viz-menu-dropdown button:hover { background: var(--surface-hover); }
+
+    .skip-link {
+      position: absolute; left: -9999px; top: auto; width: 1px; height: 1px;
+      overflow: hidden; z-index: 10000; padding: 8px 16px;
+      background: var(--accent); color: white; text-decoration: none; border-radius: 4px;
+    }
+    .skip-link:focus { position: fixed; left: 16px; top: 16px; width: auto; height: auto; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .slide { padding: 40px 24px; }
+      .grid-2, .grid-3, .grid-4, .grid-6 { grid-template-columns: 1fr; }
+      .stat-value { font-size: 2rem; }
+    }
+    @media (max-width: 375px) {
+      body { overflow-x: hidden; }
+      .slide { padding: 32px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to content</a>
+
+  <!-- MENU -->
+  <div class="viz-menu">
+    <button class="viz-menu-toggle" onclick="toggleMenu()" aria-label="Menu">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="5" x2="17" y2="5"/><line x1="3" y1="10" x2="17" y2="10"/><line x1="3" y1="15" x2="17" y2="15"/>
+      </svg>
+    </button>
+    <div class="viz-menu-dropdown" id="vizMenuDropdown">
+      <button onclick="cycleTheme()"><span id="themeIcon"></span><span id="themeLabel">Dark</span></button>
+      <button onclick="toggleOverview()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Slide Overview</span></button>
+      <button onclick="downloadImage()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Download PNG</span></button>
+      <button onclick="window.print()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span>Print / PDF</span></button>
+    </div>
+  </div>
+
+  <!-- PROGRESS BAR -->
+  <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+
+  <!-- SLIDE OVERVIEW -->
+  <div class="slide-overview" id="slideOverview" role="dialog" aria-label="Slide overview">
+    <h2>Slide Overview</h2>
+    <div class="overview-grid" id="overviewGrid"></div>
+  </div>
+
+  <main id="main-content" role="main">
+    <div class="slides-container" id="slidesContainer">
+
+      <!-- SLIDE 0: TITLE -->
+      <section class="slide slide-title-bg active" data-title="Title">
+        <div style="max-width: 900px;">
+          <div class="animate" style="margin-bottom: 24px;">
+            <span class="tag" style="border-color: var(--accent); color: var(--accent);">DEEP RESEARCH REPORT</span>
+          </div>
+          <h1 class="animate delay-1" style="font-size: clamp(2.8rem, 6vw, 4.2rem); margin-bottom: 16px;">Multi-Region Shopping Mall<br>Architecture Audit</h1>
+          <p class="animate delay-2" style="font-size: 1.2rem; color: var(--text-secondary); max-width: 640px; margin-bottom: 48px;">
+            Full-stack assessment across 6 dimensions. 20 microservices, 2 AWS regions, 100+ files analyzed by 6 parallel research agents.
+          </p>
+          <div class="animate delay-3 grid-3" style="max-width: 640px; gap: 16px;">
+            <div class="glass-card" style="text-align: center; padding: 16px;">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent);" data-count="20" data-suffix=" svc">0</div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">Microservices</div>
+            </div>
+            <div class="glass-card" style="text-align: center; padding: 16px;">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent);" data-count="2">0</div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">AWS Regions</div>
+            </div>
+            <div class="glass-card" style="text-align: center; padding: 16px;">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent);" data-count="100" data-suffix="+">0</div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">Files Analyzed</div>
+            </div>
+          </div>
+          <div class="animate delay-4" style="margin-top: 32px; font-size: 0.8rem; color: var(--text-secondary);">
+            2026-03-24 &nbsp;&middot;&nbsp; us-east-1 (primary) / us-west-2 (secondary) &nbsp;&middot;&nbsp; EKS v1.35 + Karpenter v1.9
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 1: EXECUTIVE SUMMARY -->
+      <section class="slide slide-content-bg" data-title="Executive Summary">
+        <div>
+          <div class="animate">
+            <span class="tag">01 / EXECUTIVE SUMMARY</span>
+            <h2 style="margin-top: 12px; margin-bottom: 32px;">Production-Readiness Score</h2>
+          </div>
+          <div class="grid-2" style="gap: 32px;">
+            <div class="animate delay-1">
+              <div role="img" aria-label="Radar chart showing production-readiness scores across 6 dimensions">
+                <div class="chart-container" style="height: 340px;">
+                  <canvas id="radarChart"></canvas>
+                </div>
+              </div>
+            </div>
+            <div class="animate delay-2">
+              <h3 style="margin-bottom: 20px;">Top 5 Critical Findings</h3>
+              <div class="finding-row">
+                <span class="badge badge-critical">C</span>
+                <div><strong>No authentication on API Gateway</strong><br><span class="text-secondary" style="font-size: 0.8rem;">All 20 services accessible without auth</span></div>
+              </div>
+              <div class="finding-row">
+                <span class="badge badge-critical">C</span>
+                <div><strong>Writes broken in us-west-2</strong><br><span class="text-secondary" style="font-size: 0.8rem;">DocumentDB/Valkey secondary is read-only</span></div>
+              </div>
+              <div class="finding-row">
+                <span class="badge badge-critical">C</span>
+                <div><strong>Hardcoded DB password in Terraform</strong><br><span class="text-secondary" style="font-size: 0.8rem;"><YOUR_PASSWORD> in source code</span></div>
+              </div>
+              <div class="finding-row">
+                <span class="badge badge-high">H</span>
+                <div><strong>MSK replication disabled</strong><br><span class="text-secondary" style="font-size: 0.8rem;">Events are region-local only, data loss risk</span></div>
+              </div>
+              <div class="finding-row">
+                <span class="badge badge-high">H</span>
+                <div><strong>No circuit breakers or retries</strong><br><span class="text-secondary" style="font-size: 0.8rem;">Cascading failure risk across all services</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 2: ARCHITECTURE -->
+      <section class="slide slide-content-bg" data-title="Architecture">
+        <div>
+          <div class="animate">
+            <span class="tag">02 / ARCHITECTURE RESILIENCE</span>
+            <h2 style="margin-top: 12px; margin-bottom: 8px;">Missing Resilience Patterns</h2>
+            <p class="text-secondary" style="margin-bottom: 28px; font-size: 0.9rem;">API Gateway is a single point of failure with no defensive mechanisms</p>
+          </div>
+          <div class="grid-2" style="gap: 24px;">
+            <div class="animate delay-1">
+              <div class="card" style="margin-bottom: 16px;">
+                <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--negative)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  API Gateway Gaps
+                </h3>
+                <table class="data-table">
+                  <thead><tr><th>Issue</th><th>Severity</th></tr></thead>
+                  <tbody>
+                    <tr><td>No circuit breaker</td><td><span class="badge badge-critical">Critical</span></td></tr>
+                    <tr><td>No rate limiting</td><td><span class="badge badge-critical">Critical</span></td></tr>
+                    <tr><td>No timeout config</td><td><span class="badge badge-critical">Critical</span></td></tr>
+                    <tr><td>No retry logic</td><td><span class="badge badge-high">High</span></td></tr>
+                    <tr><td>Wildcard CORS (*)</td><td><span class="badge badge-high">High</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="animate delay-2">
+              <div class="card" style="margin-bottom: 16px;">
+                <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  Inter-Service Communication
+                </h3>
+                <table class="data-table">
+                  <thead><tr><th>Pattern</th><th>Issue</th></tr></thead>
+                  <tbody>
+                    <tr><td>Python HTTP client</td><td>2s timeout, no retry</td></tr>
+                    <tr><td>Batch product fetch</td><td>N sequential calls</td></tr>
+                    <tr><td>Java RestTemplate</td><td>Silent mock fallback</td></tr>
+                    <tr><td>Event-Bus</td><td>Mock only (no Kafka)</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="card">
+                <h3 style="margin-bottom: 8px; font-size: 1rem;">K8s Resilience</h3>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
+                  <span class="badge badge-critical" style="margin-right: 4px;">Missing</span> PodDisruptionBudgets<br>
+                  <span class="badge badge-high" style="margin-right: 4px;">Limited</span> HPA (CPU/memory only)<br>
+                  <span class="badge badge-medium" style="margin-right: 4px;">None</span> Pod anti-affinity rules
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 3: DATA CONSISTENCY -->
+      <section class="slide slide-content-bg" data-title="Data Consistency">
+        <div>
+          <div class="animate">
+            <span class="tag">03 / DATA CONSISTENCY</span>
+            <h2 style="margin-top: 12px; margin-bottom: 8px;">us-west-2 is Effectively Read-Only</h2>
+            <p class="text-secondary" style="margin-bottom: 24px; font-size: 0.9rem;">Despite "active-active" design, writes fail silently in the secondary region</p>
+          </div>
+          <div class="grid-2" style="gap: 24px;">
+            <div class="animate delay-1">
+              <div role="img" aria-label="Bar chart showing write capability per data store across regions">
+                <div class="chart-container" style="height: 300px;">
+                  <canvas id="consistencyChart"></canvas>
+                </div>
+              </div>
+            </div>
+            <div class="animate delay-2">
+              <h3 style="margin-bottom: 14px;">Write-Path Status by Data Store</h3>
+              <div class="finding-row" style="padding: 10px 0;">
+                <span class="badge badge-critical">Broken</span>
+                <div><strong>DocumentDB</strong> (7 services)<br><span class="text-secondary" style="font-size: 0.8rem;">Secondary is read-only. No write forwarding. Silent mock fallback.</span></div>
+              </div>
+              <div class="finding-row" style="padding: 10px 0;">
+                <span class="badge badge-critical">Broken</span>
+                <div><strong>Valkey/ElastiCache</strong> (4 services)<br><span class="text-secondary" style="font-size: 0.8rem;">READONLY error. Cart falls back to in-memory map.</span></div>
+              </div>
+              <div class="finding-row" style="padding: 10px 0;">
+                <span class="badge badge-high">Missing</span>
+                <div><strong>Aurora DSQL</strong> (4 services)<br><span class="text-secondary" style="font-size: 0.8rem;">No cluster in us-west-2. Uses placeholder endpoint.</span></div>
+              </div>
+              <div class="finding-row" style="padding: 10px 0;">
+                <span class="badge badge-high">Isolated</span>
+                <div><strong>MSK/Kafka</strong> (3 services)<br><span class="text-secondary" style="font-size: 0.8rem;">Standalone per region. enable_replicator=false.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 4: DISASTER RECOVERY -->
+      <section class="slide slide-content-bg" data-title="Disaster Recovery">
+        <div>
+          <div class="animate">
+            <span class="tag">04 / DISASTER RECOVERY</span>
+            <h2 style="margin-top: 12px; margin-bottom: 8px;">RTO / RPO Analysis</h2>
+            <p class="text-secondary" style="margin-bottom: 24px; font-size: 0.9rem;">Current RTO ~15-20 min vs target &lt;10 min. MSK has unbounded RPO.</p>
+          </div>
+          <div class="grid-2" style="gap: 24px;">
+            <div class="animate delay-1">
+              <table class="data-table">
+                <thead><tr><th>Component</th><th>RPO</th><th>RTO</th><th>Gap</th></tr></thead>
+                <tbody>
+                  <tr><td>Aurora</td><td>&lt;1 sec</td><td>1-5 min</td><td><span class="badge badge-ok">OK</span></td></tr>
+                  <tr><td>DocumentDB</td><td>&lt;1 sec</td><td>5-10 min</td><td><span class="badge badge-high">5-8 min</span></td></tr>
+                  <tr><td>ElastiCache</td><td>&lt;1 sec</td><td>1-3 min</td><td><span class="badge badge-ok">OK</span></td></tr>
+                  <tr><td>MSK/Kafka</td><td style="color: var(--negative); font-weight: 700;">Unbounded</td><td style="color: var(--negative); font-weight: 700;">N/A</td><td><span class="badge badge-critical">Critical</span></td></tr>
+                  <tr><td>CloudFront</td><td>N/A</td><td style="color: var(--negative); font-weight: 700;">Manual</td><td><span class="badge badge-critical">Critical</span></td></tr>
+                  <tr style="font-weight: 700; border-top: 2px solid var(--border);">
+                    <td>Overall</td><td>Variable</td><td>~15-20 min</td><td><span class="badge badge-high">Significant</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="animate delay-2">
+              <h3 style="margin-bottom: 14px;">Critical DR Gaps</h3>
+              <div class="card" style="margin-bottom: 12px; padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                  <span class="badge badge-critical">P0</span>
+                  <strong style="font-size: 0.9rem;">MSK Replicator Disabled</strong>
+                </div>
+                <p class="text-secondary" style="font-size: 0.8rem;">enable_replicator=false in both regions. All in-flight Kafka events lost during failover.</p>
+              </div>
+              <div class="card" style="margin-bottom: 12px; padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                  <span class="badge badge-critical">P0</span>
+                  <strong style="font-size: 0.9rem;">CloudFront Single Origin</strong>
+                </div>
+                <p class="text-secondary" style="font-size: 0.8rem;">No origin failover group configured. API origin failure returns errors to users.</p>
+              </div>
+              <div class="card" style="padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                  <span class="badge badge-high">P1</span>
+                  <strong style="font-size: 0.9rem;">Secrets Not Replicated</strong>
+                </div>
+                <p class="text-secondary" style="font-size: 0.8rem;">Secrets Manager and KMS keys are regional only. No cross-region replication.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 5: COST OPTIMIZATION -->
+      <section class="slide slide-content-bg" data-title="Cost Optimization">
+        <div>
+          <div class="animate">
+            <span class="tag">05 / COST OPTIMIZATION</span>
+            <h2 style="margin-top: 12px; margin-bottom: 8px;">$62K-$71K Annual Savings Identified</h2>
+            <p class="text-secondary" style="margin-bottom: 24px; font-size: 0.9rem;">Production-grade infrastructure running stub-level services</p>
+          </div>
+          <div class="grid-2" style="gap: 24px;">
+            <div class="animate delay-1">
+              <div role="img" aria-label="Horizontal bar chart showing monthly savings per resource">
+                <div class="chart-container" style="height: 300px;">
+                  <canvas id="costChart"></canvas>
+                </div>
+              </div>
+            </div>
+            <div class="animate delay-2">
+              <div class="card" style="margin-bottom: 16px;">
+                <h3 style="margin-bottom: 14px; font-size: 1rem;">Unused Resources</h3>
+                <table class="data-table">
+                  <thead><tr><th>Resource</th><th>Status</th></tr></thead>
+                  <tbody>
+                    <tr><td>4 NodePools</td><td><span class="badge badge-medium">No pods</span></td></tr>
+                    <tr><td>Graviton families</td><td><span class="badge badge-medium">amd64 only</span></td></tr>
+                    <tr><td>OpenSearch</td><td><span class="badge badge-high">Not connected</span></td></tr>
+                    <tr><td>MSK Replicator</td><td><span class="badge badge-medium">Disabled</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="glass-card" style="text-align: center;">
+                <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em;">Est. Monthly Savings</div>
+                <div class="stat-value" style="color: var(--positive); margin: 8px 0;" data-count="5900" data-prefix="$">$0</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">~$71K per year</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 6: SECURITY -->
+      <section class="slide slide-content-bg" data-title="Security Audit">
+        <div>
+          <div class="animate">
+            <span class="tag">06 / SECURITY AUDIT</span>
+            <h2 style="margin-top: 12px; margin-bottom: 8px;">23 Vulnerabilities Found</h2>
+            <p class="text-secondary" style="margin-bottom: 24px; font-size: 0.9rem;">3 Critical, 7 High, 8 Medium, 5 Low — OWASP Top 10 coverage</p>
+          </div>
+          <div class="grid-2" style="gap: 24px;">
+            <div class="animate delay-1">
+              <div role="img" aria-label="Doughnut chart showing vulnerability distribution by severity">
+                <div class="chart-container" style="height: 300px;">
+                  <canvas id="securityChart"></canvas>
+                </div>
+              </div>
+            </div>
+            <div class="animate delay-2">
+              <h3 style="margin-bottom: 14px;">Critical & High Findings</h3>
+              <div style="max-height: 360px; overflow-y: auto;">
+                <div class="finding-row" style="padding: 8px 0;">
+                  <span class="badge badge-critical" style="min-width: 28px; justify-content: center;">C1</span>
+                  <div><strong>No Auth on API Gateway</strong><br><span class="text-secondary" style="font-size: 0.75rem;">api-gateway/main.go:50-72</span></div>
+                </div>
+                <div class="finding-row" style="padding: 8px 0;">
+                  <span class="badge badge-critical" style="min-width: 28px; justify-content: center;">C2</span>
+                  <div><strong>Hardcoded DB Password</strong><br><span class="text-secondary" style="font-size: 0.75rem;">documentdb-global/main.tf:52</span></div>
+                </div>
+                <div class="finding-row" style="padding: 8px 0;">
+                  <span class="badge badge-critical" style="min-width: 28px; justify-content: center;">C3</span>
+                  <div><strong>IDOR on Cart/Profile/Orders</strong><br><span class="text-secondary" style="font-size: 0.75rem;">No authorization checks on user resources</span></div>
+                </div>
+                <div class="finding-row" style="padding: 8px 0;">
+                  <span class="badge badge-high" style="min-width: 28px; justify-content: center;">H1</span>
+                  <div><strong>Wildcard CORS (*)</strong><br><span class="text-secondary" style="font-size: 0.75rem;">Enables CSRF from any origin</span></div>
+                </div>
+                <div class="finding-row" style="padding: 8px 0;">
+                  <span class="badge badge-high" style="min-width: 28px; justify-content: center;">H2</span>
+                  <div><strong>Mock Authentication</strong><br><span class="text-secondary" style="font-size: 0.75rem;">Any login succeeds, mock JWT returned</span></div>
+                </div>
+                <div class="finding-row" style="padding: 8px 0;">
+                  <span class="badge badge-high" style="min-width: 28px; justify-content: center;">H3</span>
+                  <div><strong>NoSQL Regex Injection</strong><br><span class="text-secondary" style="font-size: 0.75rem;">Unsanitized regex in product search</span></div>
+                </div>
+                <div class="finding-row" style="padding: 8px 0;">
+                  <span class="badge badge-high" style="min-width: 28px; justify-content: center;">H7</span>
+                  <div><strong>Raw Credit Card Data</strong><br><span class="text-secondary" style="font-size: 0.75rem;">PCI DSS non-compliant checkout form</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 7: PERFORMANCE -->
+      <section class="slide slide-content-bg" data-title="Performance">
+        <div>
+          <div class="animate">
+            <span class="tag">07 / PERFORMANCE</span>
+            <h2 style="margin-top: 12px; margin-bottom: 8px;">17 Bottlenecks Identified</h2>
+            <p class="text-secondary" style="margin-bottom: 24px; font-size: 0.9rem;">Sequential calls, no sampling, Origin Shield disabled, PriceClass excludes Asia</p>
+          </div>
+          <div class="grid-2" style="gap: 24px;">
+            <div class="animate delay-1">
+              <div role="img" aria-label="Bar chart showing performance impact of quick-win optimizations">
+                <div class="chart-container" style="height: 300px;">
+                  <canvas id="perfChart"></canvas>
+                </div>
+              </div>
+            </div>
+            <div class="animate delay-2">
+              <h3 style="margin-bottom: 14px;">Quick Wins (&lt; 1 Day Effort)</h3>
+              <div class="card" style="padding: 14px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="font-size: 0.85rem;">Parallelize get_products_by_ids()</strong>
+                  <span style="color: var(--positive); font-weight: 700; font-size: 0.85rem;">-90% latency</span>
+                </div>
+                <span class="text-secondary" style="font-size: 0.75rem;">asyncio.gather() in service_client.py</span>
+              </div>
+              <div class="card" style="padding: 14px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="font-size: 0.85rem;">OTel tail-based sampling</strong>
+                  <span style="color: var(--positive); font-weight: 700; font-size: 0.85rem;">-90% traces</span>
+                </div>
+                <span class="text-secondary" style="font-size: 0.75rem;">10% default, 100% errors/slow</span>
+              </div>
+              <div class="card" style="padding: 14px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="font-size: 0.85rem;">CloudFront Origin Shield</strong>
+                  <span style="color: var(--positive); font-weight: 700; font-size: 0.85rem;">-50% origin</span>
+                </div>
+                <span class="text-secondary" style="font-size: 0.75rem;">Enable in us-east-1</span>
+              </div>
+              <div class="card" style="padding: 14px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="font-size: 0.85rem;">Cache product list (60s TTL)</strong>
+                  <span style="color: var(--positive); font-weight: 700; font-size: 0.85rem;">-80% DB load</span>
+                </div>
+                <span class="text-secondary" style="font-size: 0.75rem;">Homepage hits DB on every request</span>
+              </div>
+              <div class="card" style="padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="font-size: 0.85rem;">httpx connection reuse</strong>
+                  <span style="color: var(--positive); font-weight: 700; font-size: 0.85rem;">-30% latency</span>
+                </div>
+                <span class="text-secondary" style="font-size: 0.75rem;">Single client instance vs per-request</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 8: CROSS-CUTTING -->
+      <section class="slide slide-title-bg" data-title="Cross-Cutting Findings">
+        <div style="max-width: 900px;">
+          <div class="animate">
+            <span class="tag">08 / CROSS-CUTTING</span>
+            <h2 style="margin-top: 12px; margin-bottom: 32px;">Three Systemic Issues</h2>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div class="glass-card animate delay-1" style="display: flex; gap: 20px; align-items: flex-start;">
+              <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(244,63,94,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--negative)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size: 1.2rem; margin-bottom: 6px;">Mock/Stub Architecture Gap</h3>
+                <p class="text-secondary" style="font-size: 0.9rem;">Production-grade infrastructure ($10K+/month) running stub-level services. Event-bus doesn't connect to Kafka. Search doesn't connect to OpenSearch. Authentication is entirely mock.</p>
+              </div>
+            </div>
+            <div class="glass-card animate delay-2" style="display: flex; gap: 20px; align-items: flex-start;">
+              <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245,158,11,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size: 1.2rem; margin-bottom: 6px;">us-west-2 is Warm Standby, Not Active-Active</h3>
+                <p class="text-secondary" style="font-size: 0.9rem;">DocumentDB writes fail. Valkey writes fail (falls back to in-memory). No DSQL cluster. MSK events are region-local. Reality: warm standby for reads with degraded write capability.</p>
+              </div>
+            </div>
+            <div class="glass-card animate delay-3" style="display: flex; gap: 20px; align-items: flex-start;">
+              <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(59,130,246,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size: 1.2rem; margin-bottom: 6px;">Graceful Degradation = Silent Data Loss</h3>
+                <p class="text-secondary" style="font-size: 0.9rem;">Every service falls back to mock data on failure. Orders "created" with mock inventory. Reviews stored only in memory. No alerts on mock fallback activation.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 9: ACTION PLAN -->
+      <section class="slide slide-content-bg" data-title="Action Plan">
+        <div>
+          <div class="animate">
+            <span class="tag">09 / ACTION PLAN</span>
+            <h2 style="margin-top: 12px; margin-bottom: 28px;">Phased Remediation Roadmap</h2>
+          </div>
+          <div class="animate delay-1">
+            <div class="phase-item">
+              <div class="phase-dot" style="background: var(--negative);">0</div>
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <strong style="font-size: 1.1rem;">Stop the Bleeding</strong>
+                  <span class="tag" style="font-size: 0.65rem;">This Week</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Rotate DB password</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Add JWT auth middleware</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Fix IDOR vulnerabilities</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Fix wildcard CORS</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Parallelize HTTP calls</span>
+                </div>
+              </div>
+            </div>
+            <div class="phase-item">
+              <div class="phase-dot" style="background: var(--warning);">1</div>
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <strong style="font-size: 1.1rem;">Foundation</strong>
+                  <span class="tag" style="font-size: 0.65rem;">Weeks 2-3</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Write forwarding</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Circuit breakers</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">PodDisruptionBudgets</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">CloudFront failover</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">OTel sampling</span>
+                </div>
+              </div>
+            </div>
+            <div class="phase-item">
+              <div class="phase-dot" style="background: var(--accent);">2</div>
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <strong style="font-size: 1.1rem;">Resilience</strong>
+                  <span class="tag" style="font-size: 0.65rem;">Weeks 4-6</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">MSK Replicator</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">DocumentDB auto-failover</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Secrets replication</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Rate limiting</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Right-size databases</span>
+                </div>
+              </div>
+            </div>
+            <div class="phase-item">
+              <div class="phase-dot" style="background: var(--positive);">3</div>
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <strong style="font-size: 1.1rem;">Optimization</strong>
+                  <span class="tag" style="font-size: 0.65rem;">Weeks 7-10</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Real Kafka producer</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Bulk product API</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">Graviton (arm64)</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">PCI-compliant payments</span>
+                  <span class="card" style="padding: 8px 14px; font-size: 0.8rem;">KEDA scaling</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 10: CLOSING -->
+      <section class="slide slide-title-bg" data-title="Summary">
+        <div style="max-width: 800px; text-align: center; margin: 0 auto;">
+          <div class="animate" style="margin-bottom: 40px;">
+            <h2 style="font-size: clamp(2rem, 5vw, 3rem); margin-bottom: 16px;">The Bottom Line</h2>
+            <p style="font-size: 1.1rem; color: var(--text-secondary); max-width: 600px; margin: 0 auto;">
+              Solid infrastructure foundation with critical gaps in security, consistency, and resilience.
+              A focused 10-week remediation plan can bring the platform to production readiness.
+            </p>
+          </div>
+          <div class="animate delay-1 grid-3" style="max-width: 640px; margin: 0 auto; gap: 16px;">
+            <div class="glass-card" style="text-align: center;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--negative);" data-count="23">0</div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">Vulnerabilities</div>
+            </div>
+            <div class="glass-card" style="text-align: center;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--warning);" data-count="23">0</div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">Action Items</div>
+            </div>
+            <div class="glass-card" style="text-align: center;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--positive);">10w</div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">Remediation Plan</div>
+            </div>
+          </div>
+          <div class="animate delay-2" style="margin-top: 40px; font-size: 0.8rem; color: var(--text-secondary);">
+            Full report: <code style="background: var(--glass-bg); padding: 2px 8px; border-radius: 4px;">docs/deep-research-report.md</code>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- SLIDE NAV -->
+  <nav class="slide-nav" aria-label="Slide navigation">
+    <button onclick="prevSlide()" aria-label="Previous slide">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <span class="slide-counter" id="slideCounter">1 / 11</span>
+    <button onclick="nextSlide()" aria-label="Next slide">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </nav>
+
+  <script>
+    // === Menu ===
+    function toggleMenu() {
+      var dropdown = document.getElementById('vizMenuDropdown');
+      if (dropdown) dropdown.classList.toggle('open');
+    }
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.viz-menu')) {
+        var dropdown = document.getElementById('vizMenuDropdown');
+        if (dropdown) dropdown.classList.remove('open');
+      }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var dropdown = document.getElementById('vizMenuDropdown');
+        if (dropdown) dropdown.classList.remove('open');
+        var overview = document.getElementById('slideOverview');
+        if (overview) overview.classList.remove('open');
+      }
+    });
+
+    // === Theme ===
+    var savedTheme = localStorage.getItem('viz-theme');
+    var currentTheme = savedTheme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    function applyTheme(t) {
+      document.documentElement.className = 'theme-' + t;
+      var icon = document.getElementById('themeIcon');
+      var label = document.getElementById('themeLabel');
+      if (icon) icon.textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+      if (label) label.textContent = t === 'dark' ? 'Dark' : 'Light';
+      localStorage.setItem('viz-theme', t);
+      currentTheme = t;
+      if (typeof onThemeChange === 'function') onThemeChange();
+    }
+    function cycleTheme() { applyTheme(currentTheme === 'dark' ? 'light' : 'dark'); }
+    applyTheme(currentTheme);
+
+    // === Slides ===
+    var currentSlide = 0;
+    var slides = document.querySelectorAll('.slide');
+    var totalSlides = slides.length;
+
+    function showSlide(n) {
+      if (n < 0 || n >= totalSlides) return;
+      slides[currentSlide].classList.remove('active');
+      slides[currentSlide].classList.add('exit-left');
+      setTimeout(function() { slides[currentSlide === n ? currentSlide : (currentSlide)].classList.remove('exit-left'); }, 500);
+      currentSlide = n;
+      slides[currentSlide].classList.remove('exit-left');
+      slides[currentSlide].classList.add('active');
+      document.getElementById('slideCounter').textContent = (currentSlide + 1) + ' / ' + totalSlides;
+      document.getElementById('progressBar').style.width = ((currentSlide + 1) / totalSlides * 100) + '%';
+      animateCounters();
+    }
+    function nextSlide() { showSlide(currentSlide + 1); }
+    function prevSlide() { showSlide(currentSlide - 1); }
+
+    // Keyboard nav
+    document.addEventListener('keydown', function(e) {
+      if (document.getElementById('slideOverview').classList.contains('open')) return;
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); nextSlide(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+    });
+
+    // Touch nav
+    var touchStartX = 0;
+    document.addEventListener('touchstart', function(e) { touchStartX = e.changedTouches[0].screenX; });
+    document.addEventListener('touchend', function(e) {
+      var diff = touchStartX - e.changedTouches[0].screenX;
+      if (Math.abs(diff) > 50) { diff > 0 ? nextSlide() : prevSlide(); }
+    });
+
+    // === Slide Overview ===
+    function toggleOverview() {
+      var ov = document.getElementById('slideOverview');
+      ov.classList.toggle('open');
+      if (ov.classList.contains('open')) {
+        var grid = document.getElementById('overviewGrid');
+        grid.innerHTML = '';
+        slides.forEach(function(s, i) {
+          var card = document.createElement('div');
+          card.className = 'overview-card';
+          if (i === currentSlide) card.style.borderColor = 'var(--accent)';
+          card.innerHTML = '<div class="num">' + (i + 1) + '</div><div class="label">' + (s.dataset.title || 'Slide ' + (i + 1)) + '</div>';
+          card.onclick = function() { showSlide(i); ov.classList.remove('open'); };
+          grid.appendChild(card);
+        });
+      }
+      var dropdown = document.getElementById('vizMenuDropdown');
+      if (dropdown) dropdown.classList.remove('open');
+    }
+
+    // === Number Counter ===
+    function animateCounters() {
+      document.querySelectorAll('[data-count]').forEach(function(el) {
+        if (el.dataset.counted) return;
+        var rect = el.getBoundingClientRect();
+        if (rect.top > window.innerHeight || rect.bottom < 0) return;
+        el.dataset.counted = '1';
+        var target = parseFloat(el.dataset.count);
+        var prefix = el.dataset.prefix || '';
+        var suffix = el.dataset.suffix || '';
+        var start = performance.now();
+        var duration = 1200;
+        (function tick(now) {
+          var p = Math.min((now - start) / duration, 1);
+          var eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = prefix + Math.round(target * eased).toLocaleString() + suffix;
+          if (p < 1) requestAnimationFrame(tick);
+        })(start);
+      });
+    }
+
+    // === Download PNG ===
+    async function downloadImage() {
+      var menu = document.querySelector('.viz-menu');
+      var nav = document.querySelector('.slide-nav');
+      menu.style.display = 'none';
+      nav.style.display = 'none';
+      try {
+        var url = await htmlToImage.toPng(slides[currentSlide], { quality: 1, pixelRatio: 2 });
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'deep-research-slide-' + (currentSlide + 1) + '.png';
+        a.click();
+      } catch (e) { console.error('Download failed:', e); }
+      menu.style.display = '';
+      nav.style.display = '';
+    }
+
+    // === Charts ===
+    var chartsBuilt = false;
+
+    function resetCanvas(id) {
+      var old = document.getElementById(id);
+      if (!old) return null;
+      var parent = old.parentNode;
+      var canvas = document.createElement('canvas');
+      canvas.id = id;
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label', old.getAttribute('aria-label') || 'Chart');
+      parent.replaceChild(canvas, old);
+      return canvas;
+    }
+
+    function getChartColors() {
+      var s = getComputedStyle(document.documentElement);
+      return {
+        text: s.getPropertyValue('--text').trim(),
+        textSecondary: s.getPropertyValue('--text-secondary').trim(),
+        border: s.getPropertyValue('--border').trim(),
+        accent: s.getPropertyValue('--accent').trim(),
+        accentSecondary: s.getPropertyValue('--accent-secondary').trim(),
+        positive: s.getPropertyValue('--positive').trim(),
+        negative: s.getPropertyValue('--negative').trim(),
+        warning: s.getPropertyValue('--warning').trim(),
+      };
+    }
+
+    function buildCharts() {
+      if (typeof Chart === 'undefined') return;
+      var c = getChartColors();
+      var isDark = document.documentElement.classList.contains('theme-dark');
+      var gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)';
+
+      Chart.defaults.color = c.textSecondary;
+      Chart.defaults.font.family = 'Inter';
+
+      // Radar Chart
+      var ctx1 = resetCanvas('radarChart');
+      if (ctx1) {
+        new Chart(ctx1, {
+          type: 'radar',
+          data: {
+            labels: ['Architecture', 'Consistency', 'DR', 'Cost', 'Security', 'Performance'],
+            datasets: [{
+              label: 'Current Score',
+              data: [3, 2, 4, 4, 2, 5],
+              backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : 'rgba(37,99,235,0.1)',
+              borderColor: c.accent,
+              borderWidth: 2,
+              pointBackgroundColor: c.accent,
+              pointRadius: 4, pointHoverRadius: 6,
+            }, {
+              label: 'Target (Post-Remediation)',
+              data: [7, 7, 8, 7, 7, 8],
+              backgroundColor: isDark ? 'rgba(16,185,129,0.08)' : 'rgba(5,150,105,0.06)',
+              borderColor: c.positive,
+              borderWidth: 2, borderDash: [4, 4],
+              pointBackgroundColor: c.positive,
+              pointRadius: 3, pointHoverRadius: 5,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { tooltip: { enabled: true, padding: 12, cornerRadius: 8 }, legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } } },
+            scales: { r: { min: 0, max: 10, ticks: { stepSize: 2, color: c.textSecondary, backdropColor: 'transparent', font: { size: 10 } }, grid: { color: gridColor }, pointLabels: { color: c.text, font: { size: 12, weight: '500' } } } }
+          }
+        });
+      }
+
+      // Consistency Chart
+      var ctx2 = resetCanvas('consistencyChart');
+      if (ctx2) {
+        new Chart(ctx2, {
+          type: 'bar',
+          data: {
+            labels: ['DocumentDB', 'Valkey', 'Aurora DSQL', 'MSK'],
+            datasets: [{
+              label: 'us-east-1 (Primary)',
+              data: [100, 100, 100, 100],
+              backgroundColor: c.positive,
+              borderRadius: 4,
+            }, {
+              label: 'us-west-2 (Secondary)',
+              data: [0, 10, 0, 0],
+              backgroundColor: c.negative,
+              borderRadius: 4,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            plugins: {
+              tooltip: { enabled: true, padding: 12, cornerRadius: 8,
+                callbacks: { label: function(ctx) { var v = ctx.raw; return ctx.dataset.label + ': ' + (v === 100 ? 'Full Read/Write' : v === 10 ? 'Read-only (in-memory fallback)' : 'BROKEN'); } }
+              },
+              legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } }
+            },
+            scales: {
+              x: { max: 100, ticks: { callback: function(v) { return v + '%'; }, color: c.textSecondary }, grid: { color: gridColor }, title: { display: true, text: 'Write Capability', color: c.textSecondary, font: { size: 11 } } },
+              y: { ticks: { color: c.text, font: { size: 12 } }, grid: { display: false } }
+            }
+          }
+        });
+      }
+
+      // Cost Chart
+      var ctx3 = resetCanvas('costChart');
+      if (ctx3) {
+        new Chart(ctx3, {
+          type: 'bar',
+          data: {
+            labels: ['OpenSearch', 'DocumentDB', 'MSK', 'ElastiCache', 'NodePool (Spot)'],
+            datasets: [{
+              label: 'Monthly Savings',
+              data: [1600, 1200, 800, 800, 1500],
+              backgroundColor: [c.positive, c.positive, c.positive, c.positive, c.accent],
+              borderRadius: 4,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            plugins: {
+              tooltip: { enabled: true, padding: 12, cornerRadius: 8, callbacks: { label: function(ctx) { return '$' + ctx.raw.toLocaleString() + '/month'; } } },
+              legend: { display: false }
+            },
+            scales: {
+              x: { ticks: { callback: function(v) { return '$' + v.toLocaleString(); }, color: c.textSecondary }, grid: { color: gridColor } },
+              y: { ticks: { color: c.text, font: { size: 12 } }, grid: { display: false } }
+            }
+          }
+        });
+      }
+
+      // Security Chart
+      var ctx4 = resetCanvas('securityChart');
+      if (ctx4) {
+        new Chart(ctx4, {
+          type: 'doughnut',
+          data: {
+            labels: ['Critical (3)', 'High (7)', 'Medium (8)', 'Low (5)'],
+            datasets: [{
+              data: [3, 7, 8, 5],
+              backgroundColor: [c.negative, c.warning, c.accent, c.positive],
+              borderWidth: 0, spacing: 3, borderRadius: 4,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, cutout: '60%',
+            plugins: {
+              tooltip: { enabled: true, padding: 12, cornerRadius: 8 },
+              legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } }
+            }
+          }
+        });
+      }
+
+      // Performance Chart
+      var ctx5 = resetCanvas('perfChart');
+      if (ctx5) {
+        new Chart(ctx5, {
+          type: 'bar',
+          data: {
+            labels: ['Parallelize HTTP', 'OTel Sampling', 'Origin Shield', 'Product Cache', 'Connection Reuse'],
+            datasets: [{
+              label: 'Improvement',
+              data: [90, 90, 50, 80, 30],
+              backgroundColor: [c.positive, c.accent, c.accentSecondary, c.positive, c.accent],
+              borderRadius: 4,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            plugins: {
+              tooltip: { enabled: true, padding: 12, cornerRadius: 8, callbacks: { label: function(ctx) { return ctx.raw + '% reduction'; } } },
+              legend: { display: false }
+            },
+            scales: {
+              x: { max: 100, ticks: { callback: function(v) { return v + '%'; }, color: c.textSecondary }, grid: { color: gridColor }, title: { display: true, text: 'Reduction / Improvement', color: c.textSecondary, font: { size: 11 } } },
+              y: { ticks: { color: c.text, font: { size: 11 } }, grid: { display: false } }
+            }
+          }
+        });
+      }
+
+      chartsBuilt = true;
+    }
+
+    function onThemeChange() {
+      chartsBuilt = false;
+      setTimeout(buildCharts, 100);
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', function() {
+      buildCharts();
+      animateCounters();
+      document.getElementById('progressBar').style.width = (1 / totalSlides * 100) + '%';
+    });
+
+    // Scroll reveal (for print mode)
+    document.querySelectorAll('[data-reveal]').forEach(function(el) { el.classList.add('reveal'); });
+    var revealObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) { if (e.isIntersecting) { e.target.classList.add('visible'); revealObserver.unobserve(e.target); } });
+    }, { threshold: 0.15 });
+    document.querySelectorAll('.reveal').forEach(function(el) { revealObserver.observe(el); });
+  </script>
+</body>
+</html>
