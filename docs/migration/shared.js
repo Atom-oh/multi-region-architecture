@@ -14,9 +14,6 @@
     }
 
     const sidebarHTML = `
-        <div class="sidebar-header">
-            <img src="logo.png" alt="Hyundai AutoEver" class="sidebar-logo-img">
-        </div>
         <nav class="sidebar-nav">
             <div class="sidebar-section">
                 <div class="sidebar-section-title"><span class="lang-ko">개요</span><span class="lang-en">Overview</span></div>
