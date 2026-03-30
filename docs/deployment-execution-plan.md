@@ -63,7 +63,7 @@ Phase 5: Verify       ▼
 |----------|-----------|-----------|
 | domain_name | example.com | atomai.click |
 | route53_zone_id | PLACEHOLDER | Z0123456789ABCDEFGHIJ |
-| acm_certificate_arn (us-east-1) | PLACEHOLDER | arn:aws:acm:us-east-1:123456789012:certificate/f6b6907a-... |
+| acm_certificate_arn (us-east-1) | PLACEHOLDER | arn:aws:acm:us-east-1:123456789012:certificate/zzzzzzzz-... |
 | acm_certificate_arn (us-west-2) | PLACEHOLDER | (created in Step 1.2) |
 
 ### Step 1.2: Create us-west-2 ACM Certificate

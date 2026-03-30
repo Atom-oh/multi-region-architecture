@@ -11,7 +11,7 @@ spec:
             region: us-east-1
         values:
           awsRegion: us-east-1
-          tempoRoleArn: "arn:aws:iam::180294183052:role/production-tempo-us-east-1"
+          tempoRoleArn: "arn:aws:iam::123456789012:role/production-tempo-us-east-1"
           tempoS3Bucket: "production-mall-tempo-traces-us-east-1"
     - clusters:
         selector:
@@ -19,7 +19,7 @@ spec:
             region: us-west-2
         values:
           awsRegion: us-west-2
-          tempoRoleArn: "arn:aws:iam::180294183052:role/production-tempo-us-west-2"
+          tempoRoleArn: "arn:aws:iam::123456789012:role/production-tempo-us-west-2"
           tempoS3Bucket: "production-mall-tempo-traces-us-west-2"
   template:
     metadata:

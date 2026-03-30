@@ -20,7 +20,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:ap-northeast-2:180294183052:targetgroup/prod-wtg-apne2-az-c/03a95765e5928b7b"
+        value: "arn:aws:elasticloadbalancing:ap-northeast-2:123456789012:targetgroup/prod-wtg-apne2-az-c/zzzzzzzzzzzzzzzz"
   - target:
       kind: Deployment
     patch: |-
@@ -43,12 +43,12 @@ patches:
         path: /spec/template/spec/containers/0/env/-
         value:
           name: DB_WRITE_HOST
-          value: "production-aurora-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.rds.amazonaws.com"
+          value: "production-aurora-global-ap-northeast-2.cluster-zzzzzzzzzzzz.ap-northeast-2.rds.amazonaws.com"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
           name: DB_READ_HOST_LOCAL
-          value: "reader-2c.cluster-custom-ch0io48c0dqx.ap-northeast-2.rds.amazonaws.com"
+          value: "reader-2c.cluster-custom-zzzzzzzzzzzz.ap-northeast-2.rds.amazonaws.com"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
@@ -67,7 +67,7 @@ patches:
         path: /spec/template/spec/containers/0/env/-
         value:
           name: CACHE_HOST
-          value: "master.production-elasticache-ap-northeast-2.wfdxww.apn2.cache.amazonaws.com"
+          value: "master.production-elasticache-ap-northeast-2.zzzzzz.apn2.cache.amazonaws.com"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
@@ -81,17 +81,17 @@ configMapGenerator:
       - REGION=ap-northeast-2
       - REGION_ROLE=SECONDARY
       - AVAILABILITY_ZONE=ap-northeast-2c
-      - AURORA_WRITER_ENDPOINT=production-aurora-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.rds.amazonaws.com
-      - AURORA_READER_LOCAL_ENDPOINT=reader-2c.cluster-custom-ch0io48c0dqx.ap-northeast-2.rds.amazonaws.com
-      - DOCUMENTDB_ENDPOINT=production-docdb-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com
-      - VALKEY_ENDPOINT=master.production-elasticache-ap-northeast-2.wfdxww.apn2.cache.amazonaws.com
-      - MSK_BROKERS=b-2.productionmskapno.v9ccd7.c3.kafka.ap-northeast-2.amazonaws.com:9096,b-3.productionmskapno.v9ccd7.c3.kafka.ap-northeast-2.amazonaws.com:9096,b-4.productionmskapno.v9ccd7.c3.kafka.ap-northeast-2.amazonaws.com:9096
-      - OPENSEARCH_ENDPOINT=https://vpc-production-os-apne2-w3yhkzkr2hmskdngwdkqqe3vli.ap-northeast-2.es.amazonaws.com
+      - AURORA_WRITER_ENDPOINT=production-aurora-global-ap-northeast-2.cluster-zzzzzzzzzzzz.ap-northeast-2.rds.amazonaws.com
+      - AURORA_READER_LOCAL_ENDPOINT=reader-2c.cluster-custom-zzzzzzzzzzzz.ap-northeast-2.rds.amazonaws.com
+      - DOCUMENTDB_ENDPOINT=production-docdb-global-ap-northeast-2.cluster-zzzzzzzzzzzz.ap-northeast-2.docdb.amazonaws.com
+      - VALKEY_ENDPOINT=master.production-elasticache-ap-northeast-2.zzzzzz.apn2.cache.amazonaws.com
+      - MSK_BROKERS=b-2.productionmskapne2.zzzzzz.c3.kafka.ap-northeast-2.amazonaws.com:9096,b-3.productionmskapne2.zzzzzz.c3.kafka.ap-northeast-2.amazonaws.com:9096,b-4.productionmskapne2.zzzzzz.c3.kafka.ap-northeast-2.amazonaws.com:9096
+      - OPENSEARCH_ENDPOINT=https://vpc-production-os-apne2-zzzzzzzzzzzzzzzzzzzzzzzzzz.ap-northeast-2.es.amazonaws.com
   - name: tempo-region-config
     namespace: observability
     literals:
       - TEMPO_S3_BUCKET=production-mall-tempo-traces-ap-northeast-2-az-c
-      - TEMPO_ROLE_ARN=arn:aws:iam::180294183052:role/production-tempo-ap-northeast-2-az-c
+      - TEMPO_ROLE_ARN=arn:aws:iam::123456789012:role/production-tempo-ap-northeast-2-az-c
 
 commonLabels:
   region: ap-northeast-2

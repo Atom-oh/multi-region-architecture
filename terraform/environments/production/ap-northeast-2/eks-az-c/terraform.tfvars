@@ -1,7 +1,7 @@
 environment = "production"
 region      = "ap-northeast-2"
 
-acm_certificate_arn = "arn:aws:acm:ap-northeast-2:180294183052:certificate/d5f951df-418a-4124-8d06-e55a2079bd26"
+acm_certificate_arn = "arn:aws:acm:ap-northeast-2:123456789012:certificate/zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"
 
 tags = {
   Project = "multi-region-mall"

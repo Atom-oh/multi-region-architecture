@@ -14,7 +14,7 @@ route53_zone_id = "Z0123456789ABCDEFGHIJ"
 eks_az_a_cluster_name = "mall-apne2-az-a"
 eks_az_c_cluster_name = "mall-apne2-az-c"
 
-acm_certificate_arn = "arn:aws:acm:ap-northeast-2:180294183052:certificate/d5f951df-418a-4124-8d06-e55a2079bd26"
+acm_certificate_arn = "arn:aws:acm:ap-northeast-2:123456789012:certificate/zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"
 
 docdb_global_cluster_identifier = "multi-region-mall-docdb"
 

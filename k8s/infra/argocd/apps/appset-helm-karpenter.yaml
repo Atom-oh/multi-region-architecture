@@ -10,14 +10,14 @@ spec:
           matchLabels:
             region: us-east-1
         values:
-          roleArn: "arn:aws:iam::180294183052:role/multi-region-mall-karpenter-controller"
+          roleArn: "arn:aws:iam::123456789012:role/multi-region-mall-karpenter-controller"
           clusterName: multi-region-mall
     - clusters:
         selector:
           matchLabels:
             region: us-west-2
         values:
-          roleArn: "arn:aws:iam::180294183052:role/multi-region-mall-karpenter-controller-us-west-2"
+          roleArn: "arn:aws:iam::123456789012:role/multi-region-mall-karpenter-controller-us-west-2"
           clusterName: multi-region-mall
   template:
     metadata:

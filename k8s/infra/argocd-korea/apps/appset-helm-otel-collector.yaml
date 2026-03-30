@@ -11,7 +11,7 @@ spec:
             cluster-name: mall-apne2-az-a
         values:
           awsRegion: ap-northeast-2
-          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-ap-northeast-2-az-a"
+          roleArn: "arn:aws:iam::123456789012:role/production-otel-collector-ap-northeast-2-az-a"
           clusterName: mall-apne2-az-a
     - clusters:
         selector:
@@ -19,7 +19,7 @@ spec:
             cluster-name: mall-apne2-az-c
         values:
           awsRegion: ap-northeast-2
-          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-ap-northeast-2-az-c"
+          roleArn: "arn:aws:iam::123456789012:role/production-otel-collector-ap-northeast-2-az-c"
           clusterName: mall-apne2-az-c
   template:
     metadata:
