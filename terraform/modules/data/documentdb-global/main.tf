@@ -49,7 +49,7 @@ resource "aws_docdb_cluster" "this" {
 
   # Primary cluster needs master credentials (secondary inherits from global cluster)
   master_username = var.is_primary ? "docdb_admin" : null
-  master_password = var.is_primary ? "TempPassword123!ChangeMe" : null
+  master_password = var.is_primary ? "<YOUR_PASSWORD>" : null
 
   db_subnet_group_name            = aws_docdb_subnet_group.this.name
   db_cluster_parameter_group_name = var.is_primary ? aws_docdb_cluster_parameter_group.this.name : null

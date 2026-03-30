@@ -17,11 +17,12 @@ type Client struct {
 
 func New(host string, port int, password string) (*Client, error) {
 	opts := &redis.ClusterOptions{
-		Addrs:        []string{fmt.Sprintf("%s:%d", host, port)},
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
-		PoolSize:     20,
-		TLSConfig:    &tls.Config{},
+		Addrs:          []string{fmt.Sprintf("%s:%d", host, port)},
+		ReadTimeout:    3 * time.Second,
+		WriteTimeout:   3 * time.Second,
+		PoolSize:       20,
+		RouteByLatency: true, // Prefer same-AZ replicas for reads
+		TLSConfig:      &tls.Config{},
 	}
 	if password != "" {
 		opts.Password = password

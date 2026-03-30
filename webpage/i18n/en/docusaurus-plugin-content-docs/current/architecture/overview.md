@@ -28,7 +28,7 @@ flowchart TB
     end
 
     subgraph Edge["Edge Layer"]
-        CF[CloudFront CDN<br/>d1muyxliujbszf.cloudfront.net]
+        CF[CloudFront CDN<br/>dXXXXXXXXXXXXX.cloudfront.net]
         WAF[AWS WAF v2]
         R53[Route 53<br/>atomai.click]
     end

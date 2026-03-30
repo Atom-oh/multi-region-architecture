@@ -52,7 +52,8 @@ export default function ProductDetailPage() {
   }, [id]);
 
   const formatPrice = (price) => {
-    return `₩${price.toLocaleString('ko-KR')}`;
+    if (price == null) return '';
+    return `₩${Number(price).toLocaleString('ko-KR')}`;
   };
 
   const renderStars = (rating) => {

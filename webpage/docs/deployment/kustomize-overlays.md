@@ -213,17 +213,17 @@ configMapGenerator:
     literals:
       - REGION=us-east-1
       - REGION_ROLE=PRIMARY
-      - AURORA_ENDPOINT=production-aurora-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.rds.amazonaws.com
-      - AURORA_READER_ENDPOINT=production-aurora-global-us-east-1.cluster-ro-c4pe2u8kgt26.us-east-1.rds.amazonaws.com
-      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.docdb.amazonaws.com
-      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com
-      - MSK_BROKERS=b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,b-2.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,b-3.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096
-      - OPENSEARCH_ENDPOINT=https://vpc-production-os-use1-kpvt3o2c36ru7kyikdx6qoluk4.us-east-1.es.amazonaws.com
+      - AURORA_ENDPOINT=production-aurora-global-us-east-1.cluster-xxxxxxxxxxxx.us-east-1.rds.amazonaws.com
+      - AURORA_READER_ENDPOINT=production-aurora-global-us-east-1.cluster-ro-xxxxxxxxxxxx.us-east-1.rds.amazonaws.com
+      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-east-1.cluster-xxxxxxxxxxxx.us-east-1.docdb.amazonaws.com
+      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-east-1.xxxxxx.use1.cache.amazonaws.com
+      - MSK_BROKERS=b-1.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096,b-2.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096,b-3.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096
+      - OPENSEARCH_ENDPOINT=https://vpc-production-os-use1-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.us-east-1.es.amazonaws.com
   - name: tempo-region-config
     namespace: observability
     literals:
       - TEMPO_S3_BUCKET=production-mall-tempo-traces-us-east-1
-      - TEMPO_ROLE_ARN=arn:aws:iam::180294183052:role/production-tempo-us-east-1
+      - TEMPO_ROLE_ARN=arn:aws:iam::123456789012:role/production-tempo-us-east-1
 
 commonLabels:
   region: us-east-1
@@ -284,17 +284,17 @@ configMapGenerator:
     literals:
       - REGION=us-west-2
       - REGION_ROLE=SECONDARY
-      - AURORA_ENDPOINT=production-aurora-global-us-west-2.cluster-cj00m0aai7ry.us-west-2.rds.amazonaws.com
-      - AURORA_READER_ENDPOINT=production-aurora-global-us-west-2.cluster-ro-cj00m0aai7ry.us-west-2.rds.amazonaws.com
-      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-west-2.cluster-cj00m0aai7ry.us-west-2.docdb.amazonaws.com
-      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-west-2.0udeym.usw2.cache.amazonaws.com
-      - MSK_BROKERS=b-1.productionmskuswest2.nckvxn.c3.kafka.us-west-2.amazonaws.com:9096
-      - OPENSEARCH_ENDPOINT=https://vpc-production-os-usw2-pgtswpgymfnk6lsxmn7oxn3gzi.us-west-2.es.amazonaws.com
+      - AURORA_ENDPOINT=production-aurora-global-us-west-2.cluster-yyyyyyyyyyyy.us-west-2.rds.amazonaws.com
+      - AURORA_READER_ENDPOINT=production-aurora-global-us-west-2.cluster-ro-yyyyyyyyyyyy.us-west-2.rds.amazonaws.com
+      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-west-2.cluster-yyyyyyyyyyyy.us-west-2.docdb.amazonaws.com
+      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-west-2.yyyyyy.usw2.cache.amazonaws.com
+      - MSK_BROKERS=b-1.productionmskuswest2.yyyyyy.yyy.kafka.us-west-2.amazonaws.com:9096
+      - OPENSEARCH_ENDPOINT=https://vpc-production-os-usw2-yyyyyyyyyyyyyyyyyyyyyyyyyyyy.us-west-2.es.amazonaws.com
   - name: tempo-region-config
     namespace: observability
     literals:
       - TEMPO_S3_BUCKET=production-mall-tempo-traces-us-west-2
-      - TEMPO_ROLE_ARN=arn:aws:iam::180294183052:role/production-tempo-us-west-2
+      - TEMPO_ROLE_ARN=arn:aws:iam::123456789012:role/production-tempo-us-west-2
 
 commonLabels:
   region: us-west-2

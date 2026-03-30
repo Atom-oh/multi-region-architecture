@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/segmentio/kafka-go"
@@ -93,7 +94,14 @@ func (t *lazyOtelTransport) RoundTrip(req *http.Request) (*http.Response, error)
 // Safe to call at package init — trace propagation is resolved lazily per request.
 func HTTPClient() *http.Client {
 	return &http.Client{
-		Transport: &lazyOtelTransport{base: http.DefaultTransport},
+		Transport: &lazyOtelTransport{
+			base: &http.Transport{
+				MaxIdleConns:        200,
+				MaxIdleConnsPerHost: 50,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
+		Timeout: 30 * time.Second,
 	}
 }
 

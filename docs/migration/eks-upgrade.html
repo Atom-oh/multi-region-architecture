@@ -243,7 +243,7 @@ aws eks update-addon \
                         <h4><span class="lang-ko">ArgoCD 클러스터 등록</span><span class="lang-en">ArgoCD Cluster Registration</span></h4>
 <pre><code><span class="hl-cm"># Register Green cluster with ArgoCD</span>
 argocd cluster add \
-  arn:aws:eks:us-east-1:180294183052:cluster/multi-region-mall-green \
+  arn:aws:eks:us-east-1:123456789012:cluster/multi-region-mall-green \
   --name green-us-east-1
 
 <span class="hl-cm"># Add cluster labels (for ApplicationSet)</span>

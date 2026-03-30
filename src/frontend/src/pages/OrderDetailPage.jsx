@@ -66,7 +66,8 @@ export default function OrderDetailPage() {
   }, [id]);
 
   const formatPrice = (price) => {
-    return `₩${price.toLocaleString('ko-KR')}`;
+    if (price == null) return '';
+    return `₩${Number(price).toLocaleString('ko-KR')}`;
   };
 
   const formatDate = (dateString) => {

@@ -3,8 +3,11 @@ kind: Kustomization
 
 resources:
   - shipping/deployment.yaml
+  - shipping/pdb.yaml
   - warehouse/deployment.yaml
+  - warehouse/pdb.yaml
   - returns/deployment.yaml
+  - returns/pdb.yaml
 
 commonLabels:
   tier: fulfillment

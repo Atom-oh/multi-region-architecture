@@ -7,12 +7,15 @@ spec:
   generators:
     - clusters:
         selector:
-          matchExpressions:
-            - key: region
-              operator: Exists
+          matchLabels:
+            region: us-east-1
+    - clusters:
+        selector:
+          matchLabels:
+            region: us-west-2
   template:
     metadata:
-      name: 'storageclass-{{metadata.labels.region}}'
+      name: 'storageclass-{{name}}'
     spec:
       project: default
       source:

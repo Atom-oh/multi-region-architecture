@@ -86,8 +86,8 @@ flowchart LR
 
 | Cluster | Region | Endpoint | Role |
 |---------|--------|----------|------|
-| Primary | us-east-1 | `production-aurora-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.rds.amazonaws.com` | Writer |
-| Secondary | us-west-2 | `production-aurora-global-us-west-2.cluster-cj00m0aai7ry.us-west-2.rds.amazonaws.com` | Reader |
+| Primary | us-east-1 | `production-aurora-global-us-east-1.cluster-xxxxxxxxxxxx.us-east-1.rds.amazonaws.com` | Writer |
+| Secondary | us-west-2 | `production-aurora-global-us-west-2.cluster-yyyyyyyyyyyy.us-west-2.rds.amazonaws.com` | Reader |
 
 ### Schema Design
 
@@ -355,8 +355,8 @@ flowchart LR
 
 | Cluster | Region | Endpoint | Role |
 |---------|--------|----------|------|
-| Primary | us-east-1 | `production-docdb-global-primary.cluster-c4pe2u8kgt26.us-east-1.docdb.amazonaws.com` | Writer |
-| Secondary | us-west-2 | `production-docdb-global-us-west-2.cluster-cj00m0aai7ry.us-west-2.docdb.amazonaws.com` | Reader |
+| Primary | us-east-1 | `production-docdb-global-primary.cluster-xxxxxxxxxxxx.us-east-1.docdb.amazonaws.com` | Writer |
+| Secondary | us-west-2 | `production-docdb-global-us-west-2.cluster-yyyyyyyyyyyy.us-west-2.docdb.amazonaws.com` | Reader |
 
 ### Collection Schemas
 
@@ -630,8 +630,8 @@ flowchart LR
 
 | Cluster | Region | Endpoint | Role |
 |---------|--------|----------|------|
-| Primary | us-east-1 | `clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com:6379` | Primary |
-| Secondary | us-west-2 | `clustercfg.production-elasticache-us-west-2.0udeym.usw2.cache.amazonaws.com:6379` | Replica |
+| Primary | us-east-1 | `clustercfg.production-elasticache-us-east-1.xxxxxx.use1.cache.amazonaws.com:6379` | Primary |
+| Secondary | us-west-2 | `clustercfg.production-elasticache-us-west-2.yyyyyy.usw2.cache.amazonaws.com:6379` | Replica |
 
 ### Key Patterns and TTL
 
@@ -721,8 +721,8 @@ OpenSearch operates independent clusters per region (no global replication).
 
 | Region | Domain | Endpoint |
 |--------|--------|----------|
-| us-east-1 | production-os-use1 | `vpc-production-os-use1-kpvt3o2c36ru7kyikdx6qoluk4.us-east-1.es.amazonaws.com` |
-| us-west-2 | production-os-usw2 | `vpc-production-os-usw2-pgtswpgymfnk6lsxmn7oxn3gzi.us-west-2.es.amazonaws.com` |
+| us-east-1 | production-os-use1 | `vpc-production-os-use1-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.us-east-1.es.amazonaws.com` |
+| us-west-2 | production-os-usw2 | `vpc-production-os-usw2-yyyyyyyyyyyyyyyyyyyyyyyyyyyy.us-west-2.es.amazonaws.com` |
 
 ### Index Mappings
 

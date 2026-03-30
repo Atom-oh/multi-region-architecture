@@ -95,7 +95,7 @@ resource "aws_kms_key_policy" "s3_cloudfront" {
         Sid    = "EnableIAMUserPermissions"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::180294183052:root"
+          AWS = "arn:aws:iam::123456789012:root"
         }
         Action   = "kms:*"
         Resource = "*"
@@ -463,4 +463,34 @@ module "otel_collector_irsa" {
   oidc_provider_arn = module.eks.oidc_provider_arn
   oidc_provider_url = module.eks.oidc_provider_url
   tags              = var.tags
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DR Automation
+# ─────────────────────────────────────────────────────────────────────────────
+
+module "dr_automation" {
+  source = "../../../modules/dr-automation"
+
+  environment                 = var.environment
+  region                      = var.region
+  docdb_global_cluster_id     = "production-docdb-global"
+  docdb_target_cluster_id     = "production-docdb-global-us-west-2"
+  elasticache_global_group_id = module.elasticache.global_replication_group_id
+  elasticache_target_region   = "us-west-2"
+  elasticache_target_group_id = "production-elasticache-us-west-2"
+  notification_email          = "ops@example.com"
+  enable_auto_failover        = false # Manual approval required initially
+  tags                        = var.tags
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Authentication (Cognito)
+# ─────────────────────────────────────────────────────────────────────────────
+
+module "cognito" {
+  source      = "../../../modules/security/cognito"
+  environment = var.environment
+  region      = var.region
+  tags        = var.tags
 }

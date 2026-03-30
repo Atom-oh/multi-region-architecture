@@ -13,14 +13,6 @@ spec:
         selector:
           matchLabels:
             region: us-west-2
-    - clusters:
-        selector:
-          matchLabels:
-            cluster-name: mall-apne2-az-a
-    - clusters:
-        selector:
-          matchLabels:
-            cluster-name: mall-apne2-az-c
   template:
     metadata:
       name: 'clickhouse-operator-{{name}}'

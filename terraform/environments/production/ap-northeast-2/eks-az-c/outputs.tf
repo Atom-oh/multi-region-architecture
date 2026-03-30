@@ -51,26 +51,3 @@ output "alb_controller_role_arn" {
   value       = module.alb.alb_controller_role_arn
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# NLB
-# ─────────────────────────────────────────────────────────────────────────────
-
-output "nlb_arn" {
-  description = "ARN of the NLB"
-  value       = module.nlb.nlb_arn
-}
-
-output "nlb_dns_name" {
-  description = "DNS name of the NLB"
-  value       = module.nlb.nlb_dns_name
-}
-
-output "nlb_zone_id" {
-  description = "Hosted zone ID of the NLB (for Route53 alias records)"
-  value       = module.nlb.nlb_zone_id
-}
-
-output "nlb_target_group_arn" {
-  description = "ARN of the target group (used by k8s TargetGroupBinding)"
-  value       = module.nlb.target_group_arn
-}

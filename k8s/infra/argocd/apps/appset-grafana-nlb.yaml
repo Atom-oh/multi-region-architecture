@@ -26,7 +26,7 @@ spec:
               patch: |-
                 - op: add
                   path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-security-groups
-                  value: "sg-0dddefc502b0f7369"
+                  value: "sg-0aaaa11111bbbbb22"
       destination:
         server: '{{server}}'
         namespace: monitoring

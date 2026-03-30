@@ -81,13 +81,13 @@ flowchart TB
 
 | 엔드포인트 유형 | 값 |
 |---------------|-----|
-| **Configuration** | `clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com:6379` |
+| **Configuration** | `clustercfg.production-elasticache-us-east-1.xxxxxx.use1.cache.amazonaws.com:6379` |
 
 ### us-west-2
 
 | 엔드포인트 유형 | 값 |
 |---------------|-----|
-| **Configuration** | `clustercfg.production-elasticache-us-west-2.0udeym.usw2.cache.amazonaws.com:6379` |
+| **Configuration** | `clustercfg.production-elasticache-us-west-2.yyyyyy.usw2.cache.amazonaws.com:6379` |
 
 :::warning 중요
 us-west-2는 **읽기 전용**입니다. 쓰기 작업은 us-east-1의 프라이머리 클러스터에서만 가능합니다.

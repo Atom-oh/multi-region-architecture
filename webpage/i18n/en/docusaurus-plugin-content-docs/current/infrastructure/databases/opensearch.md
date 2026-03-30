@@ -79,8 +79,8 @@ OpenSearch domain names must be 28 characters or less. Therefore, region names a
 
 | Region | Endpoint |
 |--------|----------|
-| **us-east-1** | `https://vpc-production-os-use1-kpvt3o2c36ru7kyikdx6qoluk4.us-east-1.es.amazonaws.com` |
-| **us-west-2** | `https://vpc-production-os-usw2-pgtswpgymfnk6lsxmn7oxn3gzi.us-west-2.es.amazonaws.com` |
+| **us-east-1** | `https://vpc-production-os-use1-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.us-east-1.es.amazonaws.com` |
+| **us-west-2** | `https://vpc-production-os-usw2-yyyyyyyyyyyyyyyyyyyyyyyyyyyy.us-west-2.es.amazonaws.com` |
 
 ## Terraform Configuration
 

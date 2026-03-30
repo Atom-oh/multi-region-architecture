@@ -114,6 +114,61 @@ spec:
                       uid: cloudwatch-west
                       jsonData:
                         defaultRegion: us-west-2
+                    - name: Prometheus (apne2-az-a)
+                      type: prometheus
+                      uid: prometheus-korea-az-a
+                      url: http://prometheus-korea-az-a.internal.atomai.click:9090
+                      access: proxy
+                      jsonData:
+                        exemplarTraceIdDestinations:
+                          - name: traceID
+                            datasourceUid: clickhouse
+                    - name: Prometheus (apne2-az-c)
+                      type: prometheus
+                      uid: prometheus-korea-az-c
+                      url: http://prometheus-korea-az-c.internal.atomai.click:9090
+                      access: proxy
+                      jsonData:
+                        exemplarTraceIdDestinations:
+                          - name: traceID
+                            datasourceUid: clickhouse
+                    - name: Tempo (apne2-az-a)
+                      type: tempo
+                      uid: tempo-korea-az-a
+                      url: http://tempo-korea-az-a.internal.atomai.click:3200
+                      access: proxy
+                      jsonData:
+                        tracesToMetrics:
+                          datasourceUid: prometheus-korea-az-a
+                        tracesToLogs:
+                          datasourceUid: clickhouse
+                          filterByTraceID: true
+                          filterBySpanID: true
+                        serviceMap:
+                          datasourceUid: prometheus-korea-az-a
+                        nodeGraph:
+                          enabled: true
+                    - name: Tempo (apne2-az-c)
+                      type: tempo
+                      uid: tempo-korea-az-c
+                      url: http://tempo-korea-az-c.internal.atomai.click:3200
+                      access: proxy
+                      jsonData:
+                        tracesToMetrics:
+                          datasourceUid: prometheus-korea-az-c
+                        tracesToLogs:
+                          datasourceUid: clickhouse
+                          filterByTraceID: true
+                          filterBySpanID: true
+                        serviceMap:
+                          datasourceUid: prometheus-korea-az-c
+                        nodeGraph:
+                          enabled: true
+                    - name: CloudWatch (ap-northeast-2)
+                      type: cloudwatch
+                      uid: cloudwatch-korea
+                      jsonData:
+                        defaultRegion: ap-northeast-2
                     - name: ClickHouse
                       type: grafana-clickhouse-datasource
                       uid: clickhouse

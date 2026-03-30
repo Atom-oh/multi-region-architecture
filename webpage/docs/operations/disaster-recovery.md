@@ -157,7 +157,7 @@ aws cloudwatch get-metric-statistics \
 # 3. Secondary를 Primary로 승격 (Planned)
 aws rds failover-global-cluster \
   --global-cluster-identifier production-aurora-global \
-  --target-db-cluster-identifier arn:aws:rds:us-west-2:180294183052:cluster:production-aurora-global-us-west-2
+  --target-db-cluster-identifier arn:aws:rds:us-west-2:123456789012:cluster:production-aurora-global-us-west-2
 
 # 4. 승격 완료 확인
 aws rds describe-global-clusters \
@@ -191,7 +191,7 @@ aws route53 change-resource-record-sets \
         "SetIdentifier": "us-east-1",
         "Weight": 0,
         "AliasTarget": {
-          "HostedZoneId": "Z35SXDOTRQ7X7K",
+          "HostedZoneId": "Z0EXAMPLE7654321",
           "DNSName": "alb-us-east-1.elb.amazonaws.com",
           "EvaluateTargetHealth": true
         }
@@ -211,7 +211,7 @@ aws route53 change-resource-record-sets \
         "SetIdentifier": "us-west-2",
         "Weight": 100,
         "AliasTarget": {
-          "HostedZoneId": "Z1H1FL5HABSF5",
+          "HostedZoneId": "Z0EXAMPLEABCDEFG",
           "DNSName": "alb-us-west-2.elb.amazonaws.com",
           "EvaluateTargetHealth": true
         }
@@ -270,7 +270,7 @@ echo ""
 echo "[1/5] Aurora Global Database 페일오버..."
 aws rds failover-global-cluster \
   --global-cluster-identifier production-aurora-global \
-  --target-db-cluster-identifier arn:aws:rds:${TARGET_REGION}:180294183052:cluster:production-aurora-global-${TARGET_REGION}
+  --target-db-cluster-identifier arn:aws:rds:${TARGET_REGION}:123456789012:cluster:production-aurora-global-${TARGET_REGION}
 echo "Aurora 페일오버 시작됨"
 
 # 2. DocumentDB 페일오버 (수동)

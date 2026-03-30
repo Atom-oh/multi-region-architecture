@@ -7,8 +7,8 @@ private_subnet_cidrs             = ["10.1.11.0/24", "10.1.12.0/24", "10.1.13.0/2
 data_subnet_cidrs                = ["10.1.21.0/24", "10.1.22.0/24", "10.1.23.0/24"]
 eks_cluster_name                 = "multi-region-mall"
 domain_name                      = "atomai.click"
-route53_zone_id                  = "Z01703432E9KT1G1FIRFM"
-acm_certificate_arn              = "arn:aws:acm:us-west-2:180294183052:certificate/18ed9116-1f33-4cfa-b922-9fde952ea169"
+route53_zone_id                  = "Z0123456789ABCDEFGHIJ"
+acm_certificate_arn              = "arn:aws:acm:us-west-2:123456789012:certificate/yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
 docdb_global_cluster_identifier  = "multi-region-mall-docdb"
 
 tags = {

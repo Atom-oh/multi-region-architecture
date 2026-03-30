@@ -388,7 +388,7 @@ aws route53 change-resource-record-sets \
                     "SetIdentifier": "us-east-1",
                     "Weight": 0,
                     "AliasTarget": {
-                        "HostedZoneId": "Z35SXDOTRQ7X7K",
+                        "HostedZoneId": "Z0EXAMPLE7654321",
                         "DNSName": "alb-use1.us-east-1.elb.amazonaws.com",
                         "EvaluateTargetHealth": false
                     }
@@ -402,7 +402,7 @@ aws route53 change-resource-record-sets \
                     "SetIdentifier": "us-west-2",
                     "Weight": 100,
                     "AliasTarget": {
-                        "HostedZoneId": "Z1H1FL5HABSF5",
+                        "HostedZoneId": "Z0EXAMPLEABCDEFG",
                         "DNSName": "alb-usw2.us-west-2.elb.amazonaws.com",
                         "EvaluateTargetHealth": false
                     }

@@ -11,7 +11,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:ap-northeast-2:180294183052:targetgroup/prod-api-tg-apne2-az-a/a8ec4e652bacac33"
+        value: "arn:aws:elasticloadbalancing:ap-northeast-2:180294183052:targetgroup/prod-wtg-apne2-az-a/56b6d65d7ffe61ba"
   - target:
       kind: Deployment
     patch: |-

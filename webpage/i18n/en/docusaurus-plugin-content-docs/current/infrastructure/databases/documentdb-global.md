@@ -65,16 +65,16 @@ The primary cluster in us-east-1 is the `production-docdb-global-primary` cluste
 
 | Endpoint Type | Value |
 |---------------|-------|
-| **Primary** | `production-docdb-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.docdb.amazonaws.com` |
-| **Reader** | `production-docdb-global-us-east-1.cluster-ro-c4pe2u8kgt26.us-east-1.docdb.amazonaws.com` |
+| **Primary** | `production-docdb-global-us-east-1.cluster-xxxxxxxxxxxx.us-east-1.docdb.amazonaws.com` |
+| **Reader** | `production-docdb-global-us-east-1.cluster-ro-xxxxxxxxxxxx.us-east-1.docdb.amazonaws.com` |
 | Port | 27017 |
 
 ### us-west-2
 
 | Endpoint Type | Value |
 |---------------|-------|
-| **Primary** | `production-docdb-global-us-west-2.cluster-cj00m0aai7ry.us-west-2.docdb.amazonaws.com` |
-| **Reader** | `production-docdb-global-us-west-2.cluster-ro-cj00m0aai7ry.us-west-2.docdb.amazonaws.com` |
+| **Primary** | `production-docdb-global-us-west-2.cluster-yyyyyyyyyyyy.us-west-2.docdb.amazonaws.com` |
+| **Reader** | `production-docdb-global-us-west-2.cluster-ro-yyyyyyyyyyyy.us-west-2.docdb.amazonaws.com` |
 | Port | 27017 |
 
 ## Terraform Configuration

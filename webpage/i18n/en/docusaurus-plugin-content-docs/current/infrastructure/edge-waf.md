@@ -251,7 +251,7 @@ flowchart LR
 
 | Record | Type | Routing Policy | Value |
 |--------|------|----------------|-------|
-| `mall.atomai.click` | CNAME | Simple | `d1muyxliujbszf.cloudfront.net` |
+| `mall.atomai.click` | CNAME | Simple | `dXXXXXXXXXXXXX.cloudfront.net` |
 | `api-internal.atomai.click` | A (Alias) | Latency | ALB (us-east-1) |
 | `api-internal.atomai.click` | A (Alias) | Latency | ALB (us-west-2) |
 

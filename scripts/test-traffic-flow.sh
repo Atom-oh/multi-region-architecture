@@ -11,19 +11,19 @@ set -uo pipefail
 
 # --- Configuration ---
 DOMAIN="atomai.click"
-CF_DOMAIN="d1muyxliujbszf.cloudfront.net"
-CF_DIST_ID="E2XBVTVYBYX8T6"
+CF_DOMAIN="dXXXXXXXXXXXXX.cloudfront.net"
+CF_DIST_ID="EXXXXXXXXXXXXX"
 CF_ORIGIN="api-internal.${DOMAIN}"
 MALL_DOMAIN="mall.${DOMAIN}"
-HOSTED_ZONE_ID="Z01703432E9KT1G1FIRFM"
+HOSTED_ZONE_ID="Z0123456789ABCDEFGHIJ"
 
 declare -A NLB_NAMES=(
   [us-east-1]="production-api-nlb-us-east-1"
   [us-west-2]="production-api-nlb-us-west-2"
 )
 declare -A NLB_SG_IDS=(
-  [us-east-1]="sg-048c7e63db40686b8"
-  [us-west-2]="sg-0bfd63c6e6188327b"
+  [us-east-1]="sg-0123456789abcdef0"
+  [us-west-2]="sg-0abcdef1234567890"
 )
 
 # --- Counters ---

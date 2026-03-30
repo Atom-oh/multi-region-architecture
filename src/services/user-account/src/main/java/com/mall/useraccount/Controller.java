@@ -102,46 +102,74 @@ public class Controller {
 
     @PostMapping("/api/v1/users/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, Object> credentials) {
+        // NOTE: In production, this endpoint should integrate with AWS Cognito using the AWS SDK.
+        // The frontend should call Cognito directly for authentication, or this service should
+        // use cognito-idp:InitiateAuth / AdminInitiateAuth to authenticate users.
+        // This mock response demonstrates the expected token structure from Cognito.
+
         String email = (String) credentials.getOrDefault("email", "");
         Map<String, Object> userInfo;
+        String userId;
 
         if (email.contains("minsu")) {
+            userId = "USR-001";
             userInfo = Map.of(
-                "user_id", "USR-001",
+                "user_id", userId,
+                "sub", "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
                 "name", "김민수",
                 "email", "minsu@example.com",
+                "email_verified", true,
                 "membership_tier", "GOLD"
             );
         } else if (email.contains("seoyeon")) {
+            userId = "USR-002";
             userInfo = Map.of(
-                "user_id", "USR-002",
+                "user_id", userId,
+                "sub", "b2c3d4e5-f6a7-8901-bcde-f12345678901",
                 "name", "이서연",
                 "email", "seoyeon@example.com",
+                "email_verified", true,
                 "membership_tier", "PLATINUM"
             );
         } else if (email.contains("jihoon")) {
+            userId = "USR-003";
             userInfo = Map.of(
-                "user_id", "USR-003",
+                "user_id", userId,
+                "sub", "c3d4e5f6-a7b8-9012-cdef-123456789012",
                 "name", "박지훈",
                 "email", "jihoon@example.com",
+                "email_verified", true,
                 "membership_tier", "SILVER"
             );
         } else {
+            userId = "USR-001";
             userInfo = Map.of(
-                "user_id", "USR-001",
+                "user_id", userId,
+                "sub", "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
                 "name", "김민수",
                 "email", "minsu@example.com",
+                "email_verified", true,
                 "membership_tier", "GOLD"
             );
         }
 
-        Map<String, Object> response = Map.of(
-            "user", userInfo,
-            "token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock.token." + System.currentTimeMillis(),
-            "token_type", "Bearer",
-            "expires_in", 3600,
-            "expires_at", "2026-03-21T10:00:00Z",
-            "message", "로그인되었습니다"
+        // Mock Cognito-style token response structure
+        // In production, these would be actual JWTs from Cognito's InitiateAuth response
+        long currentTime = System.currentTimeMillis() / 1000;
+        long expiresIn = 3600; // 1 hour
+
+        Map<String, Object> response = Map.ofEntries(
+            Map.entry("user", userInfo),
+            // Cognito returns these token fields in AuthenticationResult
+            Map.entry("access_token", "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im1vY2sta2V5LWlkIn0.eyJzdWIiOiIiLCJpc3MiOiJodHRwczovL2NvZ25pdG8taWRwLnVzLWVhc3QtMS5hbWF6b25hd3MuY29tL3VzLWVhc3QtMV9tb2NrIiwiY2xpZW50X2lkIjoibW9jay1jbGllbnQtaWQiLCJ0b2tlbl91c2UiOiJhY2Nlc3MiLCJzY29wZSI6Im9wZW5pZCBlbWFpbCBwcm9maWxlIiwiYXV0aF90aW1lIjoxNzExMDAwMDAwLCJleHAiOjE3MTEwMDM2MDAsImlhdCI6MTcxMTAwMDAwMH0.mock-signature-" + System.currentTimeMillis()),
+            Map.entry("id_token", "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im1vY2sta2V5LWlkIn0.eyJzdWIiOiIiLCJpc3MiOiJodHRwczovL2NvZ25pdG8taWRwLnVzLWVhc3QtMS5hbWF6b25hd3MuY29tL3VzLWVhc3QtMV9tb2NrIiwiYXVkIjoibW9jay1jbGllbnQtaWQiLCJ0b2tlbl91c2UiOiJpZCIsImVtYWlsIjoiIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiIiLCJleHAiOjE3MTEwMDM2MDAsImlhdCI6MTcxMTAwMDAwMH0.mock-signature-" + System.currentTimeMillis()),
+            Map.entry("refresh_token", "mock-refresh-token-" + System.currentTimeMillis()),
+            Map.entry("token_type", "Bearer"),
+            Map.entry("expires_in", expiresIn),
+            // Additional fields for client convenience
+            Map.entry("issued_at", currentTime),
+            Map.entry("expires_at", currentTime + expiresIn),
+            Map.entry("message", "로그인되었습니다. Note: In production, use Cognito SDK for authentication.")
         );
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")

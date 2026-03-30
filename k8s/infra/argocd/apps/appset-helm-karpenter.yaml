@@ -19,20 +19,6 @@ spec:
         values:
           roleArn: "arn:aws:iam::180294183052:role/multi-region-mall-karpenter-controller-us-west-2"
           clusterName: multi-region-mall
-    - clusters:
-        selector:
-          matchLabels:
-            cluster-name: mall-apne2-az-a
-        values:
-          roleArn: "arn:aws:iam::180294183052:role/mall-apne2-az-a-karpenter-controller-apne2-az-a"
-          clusterName: mall-apne2-az-a
-    - clusters:
-        selector:
-          matchLabels:
-            cluster-name: mall-apne2-az-c
-        values:
-          roleArn: "arn:aws:iam::180294183052:role/mall-apne2-az-c-karpenter-controller-apne2-az-c"
-          clusterName: mall-apne2-az-c
   template:
     metadata:
       name: 'karpenter-{{name}}'

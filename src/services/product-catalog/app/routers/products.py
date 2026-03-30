@@ -26,6 +26,12 @@ async def list_products(
     return {"products": products, "skip": skip, "limit": limit}
 
 
+@router.get("/products/categories")
+async def list_categories():
+    categories = await product_service.list_categories()
+    return {"categories": categories}
+
+
 @router.get("/products/{product_id}")
 async def get_product(product_id: str):
     product = await product_service.get_product(product_id)
@@ -56,9 +62,3 @@ async def delete_product(product_id: str):
     if not deleted:
         raise HTTPException(status_code=404, detail="Product not found")
     return None
-
-
-@router.get("/products/categories")
-async def list_categories():
-    categories = await product_service.list_categories()
-    return {"categories": categories}

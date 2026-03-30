@@ -31,7 +31,7 @@ variable "lb_zone_ids" {
 variable "health_check_path" {
   description = "Path for health check endpoint"
   type        = string
-  default     = "/"
+  default     = "/health/ready"
 }
 
 variable "health_check_interval" {

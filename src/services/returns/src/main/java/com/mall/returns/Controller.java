@@ -3,8 +3,12 @@ package com.mall.returns;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -16,6 +20,20 @@ import java.util.*;
 public class Controller {
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+
+    private final RestTemplate restTemplate;
+    {
+        PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+        cm.setMaxTotal(100);
+        cm.setDefaultMaxPerRoute(20);
+        CloseableHttpClient httpClient = HttpClients.custom()
+            .setConnectionManager(cm)
+            .build();
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
+        factory.setConnectTimeout(3000);
+        factory.setConnectionRequestTimeout(5000);
+        restTemplate = new RestTemplate(factory);
+    }
 
     @Autowired(required = false)
     private JdbcTemplate jdbcTemplate;
@@ -72,7 +90,6 @@ public class Controller {
             ? System.getenv("ORDER_SERVICE_URL")
             : "http://order.core-services.svc.cluster.local:80";
         try {
-            RestTemplate restTemplate = new RestTemplate();
             String url = orderServiceUrl + "/api/v1/orders?status=returned"
                 + (user_id != null ? "&user_id=" + user_id : "")
                 + "&limit=20";

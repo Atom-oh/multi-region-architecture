@@ -91,7 +91,8 @@ resource "aws_rds_cluster_instance" "readers" {
   engine         = aws_rds_cluster.this.engine
   engine_version = aws_rds_cluster.this.engine_version
 
-  instance_class = var.reader_instance_class
+  instance_class    = var.reader_instance_class
+  availability_zone = length(var.reader_availability_zones) > 0 ? var.reader_availability_zones[count.index] : null
 
   db_subnet_group_name = aws_db_subnet_group.this.name
 
@@ -106,6 +107,14 @@ resource "aws_rds_cluster_instance" "readers" {
   tags = merge(var.tags, {
     Name = "${var.environment}-aurora-global-reader-${count.index + 1}"
   })
+}
+
+resource "aws_rds_cluster_endpoint" "reader_per_az" {
+  count                       = length(var.reader_availability_zones)
+  cluster_identifier          = aws_rds_cluster.this.id
+  cluster_endpoint_identifier = "reader-${element(split("-", var.reader_availability_zones[count.index]), length(split("-", var.reader_availability_zones[count.index])) - 1)}"
+  custom_endpoint_type        = "READER"
+  static_members              = [aws_rds_cluster_instance.readers[count.index].id]
 }
 
 # IAM role for enhanced monitoring

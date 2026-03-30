@@ -2,6 +2,12 @@ region:
   role: ${REGION_ROLE:PRIMARY}
   aws-region: ${AWS_REGION:us-east-1}
   primary-host: ${PRIMARY_HOST:}
+  availability-zone: ${AVAILABILITY_ZONE:}
+  db-write-host: ${DB_WRITE_HOST:}
+  db-read-host-local: ${DB_READ_HOST_LOCAL:}
+  client-rack: ${CLIENT_RACK:}
+  prefer-replica-az: ${PREFER_REPLICA_AZ:}
+  kafka-brokers-local: ${KAFKA_BROKERS_LOCAL:}
 
 server:
   port: 8080

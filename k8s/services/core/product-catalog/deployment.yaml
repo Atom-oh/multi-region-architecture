@@ -4,7 +4,7 @@ metadata:
   name: product-catalog
   namespace: core-services
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::180294183052:role/placeholder
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/placeholder
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -28,7 +28,7 @@ spec:
       serviceAccountName: product-catalog
       containers:
         - name: product-catalog
-          image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/product-catalog:latest
+          image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/product-catalog:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

@@ -62,8 +62,8 @@ Phase 5: Verify       ▼
 | Variable | Old Value | New Value |
 |----------|-----------|-----------|
 | domain_name | example.com | atomai.click |
-| route53_zone_id | PLACEHOLDER | Z01703432E9KT1G1FIRFM |
-| acm_certificate_arn (us-east-1) | PLACEHOLDER | arn:aws:acm:us-east-1:180294183052:certificate/f6b6907a-... |
+| route53_zone_id | PLACEHOLDER | Z0123456789ABCDEFGHIJ |
+| acm_certificate_arn (us-east-1) | PLACEHOLDER | arn:aws:acm:us-east-1:123456789012:certificate/f6b6907a-... |
 | acm_certificate_arn (us-west-2) | PLACEHOLDER | (created in Step 1.2) |
 
 ### Step 1.2: Create us-west-2 ACM Certificate
@@ -85,7 +85,7 @@ aws acm wait certificate-validated \
 
 ### Step 1.3: Verify Domain Configuration
 
-- Ensure Route53 zone Z01703432E9KT1G1FIRFM is accessible
+- Ensure Route53 zone Z0123456789ABCDEFGHIJ is accessible
 - Confirm us-east-1 ACM cert is valid and issued
 
 ---
@@ -228,7 +228,7 @@ kubectl apply -k k8s/infra/argocd/
 
 ```bash
 argocd login <argocd-server-url>
-argocd cluster add arn:aws:eks:us-west-2:180294183052:cluster/multi-region-mall \
+argocd cluster add arn:aws:eks:us-west-2:123456789012:cluster/multi-region-mall \
   --label region=us-west-2
 ```
 

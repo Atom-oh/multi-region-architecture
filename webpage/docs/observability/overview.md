@@ -219,7 +219,7 @@ patches:
     patch: |-
       - op: replace
         path: /metadata/annotations/eks.amazonaws.com~1role-arn
-        value: "arn:aws:iam::180294183052:role/production-tempo-{{metadata.labels.region}}"
+        value: "arn:aws:iam::123456789012:role/production-tempo-{{metadata.labels.region}}"
 ```
 
 ## 알림 및 에스컬레이션

@@ -22,3 +22,13 @@ output "cluster_port" {
   description = "The database port"
   value       = aws_rds_cluster.this.port
 }
+
+output "reader_custom_endpoints" {
+  description = "AZ-specific custom reader endpoints"
+  value       = aws_rds_cluster_endpoint.reader_per_az[*].endpoint
+}
+
+output "instance_ids" {
+  description = "Reader instance identifiers"
+  value       = aws_rds_cluster_instance.readers[*].id
+}

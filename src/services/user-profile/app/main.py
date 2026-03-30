@@ -10,7 +10,7 @@ from mall_common.tracing import init_tracing
 
 logger = logging.getLogger(__name__)
 config = ServiceConfig(service_name="user-profile")
-app = FastAPI(title="User Profile Service", version="1.0.0")
+app = FastAPI(redirect_slashes=False, title="User Profile Service", version="1.0.0")
 _db_connected = False
 
 # CORS middleware

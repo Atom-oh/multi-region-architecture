@@ -3,9 +3,13 @@ kind: Kustomization
 
 resources:
   - pricing/deployment.yaml
+  - pricing/pdb.yaml
   - recommendation/deployment.yaml
+  - recommendation/pdb.yaml
   - notification/deployment.yaml
+  - notification/pdb.yaml
   - seller/deployment.yaml
+  - seller/pdb.yaml
 
 commonLabels:
   tier: business

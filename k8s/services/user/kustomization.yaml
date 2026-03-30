@@ -3,9 +3,13 @@ kind: Kustomization
 
 resources:
   - user-account/deployment.yaml
+  - user-account/pdb.yaml
   - user-profile/deployment.yaml
+  - user-profile/pdb.yaml
   - wishlist/deployment.yaml
+  - wishlist/pdb.yaml
   - review/deployment.yaml
+  - review/pdb.yaml
 
 commonLabels:
   tier: user

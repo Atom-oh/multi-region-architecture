@@ -4,8 +4,11 @@ kind: Kustomization
 resources:
   - api-gateway/deployment.yaml
   - api-gateway/target-group-binding.yaml
+  - api-gateway/pdb.yaml
   - event-bus/deployment.yaml
+  - event-bus/pdb.yaml
   - analytics/deployment.yaml
+  - analytics/pdb.yaml
 
 commonLabels:
   tier: platform

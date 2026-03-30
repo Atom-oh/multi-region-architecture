@@ -8,7 +8,7 @@ set -euo pipefail
 
 OS_ENDPOINT="${OPENSEARCH_ENDPOINT:-https://localhost:9200}"
 OS_USER="${OPENSEARCH_USER:-admin}"
-OS_PASS="${OPENSEARCH_PASS:-Admin@SecurePass123!}"
+OS_PASS="${OPENSEARCH_PASS:-<YOUR_PASSWORD>}"
 CURL="curl -s -u ${OS_USER}:${OS_PASS} --insecure"
 
 echo "=== OpenSearch Seed Data ==="

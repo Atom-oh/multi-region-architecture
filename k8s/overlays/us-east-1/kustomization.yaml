@@ -24,7 +24,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:us-east-1:180294183052:targetgroup/production-api-tg-us-east-1/3d190a4dd7c161bd"
+        value: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/production-api-tg-us-east-1/xxxxxxxxxxxxxxxx"
   - target:
       kind: Service
       name: argocd-server-nlb
@@ -32,10 +32,10 @@ patches:
     patch: |-
       - op: add
         path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-security-groups
-        value: "sg-0dddefc502b0f7369"
+        value: "sg-0aaaa11111bbbbb22"
       - op: add
         path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-ssl-cert
-        value: "arn:aws:acm:us-east-1:180294183052:certificate/f6b6907a-5747-4039-967a-a8c7c73116a7"
+        value: "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   - target:
       kind: Deployment
     patch: |-
@@ -67,7 +67,7 @@ patches:
         path: /spec/template/spec/containers/0/env/-
         value:
           name: CACHE_HOST
-          value: "clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com"
+          value: "clustercfg.production-elasticache-us-east-1.xxxxxx.use1.cache.amazonaws.com"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
@@ -81,15 +81,15 @@ configMapGenerator:
       - REGION=us-east-1
       - REGION_ROLE=PRIMARY
       - DSQL_ENDPOINT=<placeholder-until-apply>.us-east-1.dsql.amazonaws.com
-      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.docdb.amazonaws.com
-      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com
-      - MSK_BROKERS=b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,b-2.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,b-3.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096
-      - OPENSEARCH_ENDPOINT=https://vpc-production-os-use1-kpvt3o2c36ru7kyikdx6qoluk4.us-east-1.es.amazonaws.com
+      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-east-1.cluster-xxxxxxxxxxxx.us-east-1.docdb.amazonaws.com
+      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-east-1.xxxxxx.use1.cache.amazonaws.com
+      - MSK_BROKERS=b-1.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096,b-2.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096,b-3.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096
+      - OPENSEARCH_ENDPOINT=https://vpc-production-os-use1-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.us-east-1.es.amazonaws.com
   - name: tempo-region-config
     namespace: observability
     literals:
       - TEMPO_S3_BUCKET=production-mall-tempo-traces-us-east-1
-      - TEMPO_ROLE_ARN=arn:aws:iam::180294183052:role/production-tempo-us-east-1
+      - TEMPO_ROLE_ARN=arn:aws:iam::123456789012:role/production-tempo-us-east-1
 
 commonLabels:
   region: us-east-1

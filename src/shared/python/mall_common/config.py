@@ -22,6 +22,12 @@ class ServiceConfig(BaseSettings):
     documentdb_port: int = 27017
     s3_bucket: str = ""
     log_level: str = "info"
+    db_write_host: str = ""
+    db_read_host_local: str = ""
+    kafka_brokers_local: str = ""
+    client_rack: str = ""
+    prefer_replica_az: str = ""
+    availability_zone: str = ""
 
     class Config:
         env_prefix = ""
@@ -38,6 +44,7 @@ class ServiceConfig(BaseSettings):
                 f"mongodb://{self.db_user}:{self.db_password}"
                 f"@{self.documentdb_host}:{self.documentdb_port}"
                 f"/{self.db_name}?tls=true&tlsAllowInvalidCertificates=true&retryWrites=false"
+                f"&readPreference=secondaryPreferred"
             )
         return f"mongodb://{self.documentdb_host}:{self.documentdb_port}/{self.db_name}"
 
@@ -47,3 +54,23 @@ class ServiceConfig(BaseSettings):
             f"postgresql://{self.db_user}:{self.db_password}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
         )
+
+    @property
+    def aurora_writer_dsn(self) -> str:
+        host = self.db_write_host or self.db_host
+        return (
+            f"postgresql://{self.db_user}:{self.db_password}"
+            f"@{host}:{self.db_port}/{self.db_name}"
+        )
+
+    @property
+    def aurora_reader_dsn(self) -> str:
+        host = self.db_read_host_local or self.db_host
+        return (
+            f"postgresql://{self.db_user}:{self.db_password}"
+            f"@{host}:{self.db_port}/{self.db_name}"
+        )
+
+    @property
+    def kafka_brokers_effective(self) -> str:
+        return self.kafka_brokers_local or self.kafka_brokers

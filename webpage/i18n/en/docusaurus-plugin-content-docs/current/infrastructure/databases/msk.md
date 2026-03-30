@@ -77,14 +77,14 @@ flowchart TB
 
 | Item | Value |
 |------|-------|
-| **Bootstrap Servers (SASL)** | `b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,b-2.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,b-3.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096` |
+| **Bootstrap Servers (SASL)** | `b-1.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096,b-2.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096,b-3.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096` |
 | Port | 9096 (SASL/SCRAM) |
 
 ### us-west-2
 
 | Item | Value |
 |------|-------|
-| **Bootstrap Servers (SASL)** | `b-1.productionmskuswest2.nckvxn.c3.kafka.us-west-2.amazonaws.com:9096` |
+| **Bootstrap Servers (SASL)** | `b-1.productionmskuswest2.yyyyyy.yyy.kafka.us-west-2.amazonaws.com:9096` |
 | Port | 9096 (SASL/SCRAM) |
 
 ## Terraform Configuration

@@ -12,11 +12,18 @@ import (
 	"github.com/multi-region-mall/shared/pkg/aurora"
 	"github.com/multi-region-mall/shared/pkg/config"
 	"github.com/multi-region-mall/shared/pkg/health"
+	"github.com/multi-region-mall/shared/pkg/kafka"
 	"github.com/multi-region-mall/shared/pkg/tracing"
+	"go.uber.org/zap"
 )
 
 // Global DB client - nil if DB unavailable (graceful degradation)
 var dbClient *aurora.Client
+
+// Kafka producers for inventory events - nil if Kafka unavailable
+var reservedProducer *kafka.Producer
+var releasedProducer *kafka.Producer
+var kafkaLogger *zap.Logger
 
 type InventoryItem struct {
 	ProductID   string    `json:"product_id"`
@@ -60,6 +67,15 @@ var lowStockItems = []InventoryItem{
 func main() {
 	cfg := config.Load("inventory")
 
+	// Initialize logger for Kafka
+	var err error
+	kafkaLogger, err = zap.NewProduction()
+	if err != nil {
+		log.Printf("WARNING: Failed to initialize zap logger: %v", err)
+		kafkaLogger, _ = zap.NewDevelopment()
+	}
+	defer kafkaLogger.Sync()
+
 	// Initialize OTel tracer — exports spans to OTel Collector
 	ctx := context.Background()
 	tp, err := tracing.InitTracer(ctx, cfg.ServiceName)
@@ -79,6 +95,15 @@ func main() {
 		}
 	} else {
 		log.Printf("INFO: No DB_HOST configured, using mock data")
+	}
+
+	// Initialize Kafka producers for inventory events (graceful degradation)
+	if cfg.KafkaBrokers != "" && cfg.KafkaBrokers != "localhost:9092" {
+		reservedProducer = kafka.NewProducer(cfg.KafkaBrokers, "inventory.reserved", kafkaLogger)
+		releasedProducer = kafka.NewProducer(cfg.KafkaBrokers, "inventory.released", kafkaLogger)
+		log.Printf("INFO: Kafka producers initialized for MSK brokers: %s", cfg.KafkaBrokers)
+	} else {
+		log.Printf("INFO: No MSK brokers configured (KAFKA_BROKERS=%s), Kafka events disabled", cfg.KafkaBrokers)
 	}
 
 	r := gin.Default()
@@ -228,12 +253,55 @@ func updateStock(cfg *config.Config) gin.HandlerFunc {
 		item.Available = newQuantity - item.Reserved
 		item.LastUpdated = time.Now()
 
+		// Publish inventory event to Kafka if available
+		publishInventoryEvent(c.Request.Context(), productID, req.Operation, req.Quantity, req.Reason, item)
+
 		c.JSON(http.StatusOK, gin.H{
 			"message":   "재고가 업데이트되었습니다",
 			"operation": req.Operation,
 			"reason":    req.Reason,
 			"inventory": item,
 		})
+	}
+}
+
+// publishInventoryEvent publishes inventory changes to Kafka
+func publishInventoryEvent(ctx context.Context, productID, operation string, quantity int, reason string, item InventoryItem) {
+	if reservedProducer == nil && releasedProducer == nil {
+		return // Kafka not configured
+	}
+
+	event := map[string]interface{}{
+		"event_type":  "inventory." + operation,
+		"product_id":  productID,
+		"operation":   operation,
+		"quantity":    quantity,
+		"reason":      reason,
+		"new_total":   item.Quantity,
+		"available":   item.Available,
+		"reserved":    item.Reserved,
+		"warehouse":   item.Warehouse,
+		"timestamp":   time.Now().Format(time.RFC3339),
+	}
+
+	var producer *kafka.Producer
+	if operation == "subtract" && reservedProducer != nil {
+		producer = reservedProducer
+	} else if operation == "add" && releasedProducer != nil {
+		producer = releasedProducer
+	}
+
+	if producer != nil {
+		if err := producer.Publish(ctx, productID, event); err != nil {
+			kafkaLogger.Error("failed to publish inventory event",
+				zap.String("product_id", productID),
+				zap.String("operation", operation),
+				zap.Error(err))
+		} else {
+			kafkaLogger.Debug("published inventory event",
+				zap.String("product_id", productID),
+				zap.String("operation", operation))
+		}
 	}
 }
 

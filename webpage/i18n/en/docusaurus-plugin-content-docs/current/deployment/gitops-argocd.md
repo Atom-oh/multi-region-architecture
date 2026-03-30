@@ -248,7 +248,7 @@ spec:
               patch: |-
                 - op: replace
                   path: /metadata/annotations/eks.amazonaws.com~1role-arn
-                  value: "arn:aws:iam::180294183052:role/production-tempo-{{metadata.labels.region}}"
+                  value: "arn:aws:iam::123456789012:role/production-tempo-{{metadata.labels.region}}"
       destination:
         server: '{{server}}'
         namespace: observability
@@ -272,12 +272,12 @@ Register multi-region EKS clusters with ArgoCD.
 
 ```bash
 # Register us-east-1 cluster
-argocd cluster add arn:aws:eks:us-east-1:180294183052:cluster/multi-region-mall \
+argocd cluster add arn:aws:eks:us-east-1:123456789012:cluster/multi-region-mall \
   --name multi-region-mall-us-east-1 \
   --label region=us-east-1
 
 # Register us-west-2 cluster
-argocd cluster add arn:aws:eks:us-west-2:180294183052:cluster/multi-region-mall \
+argocd cluster add arn:aws:eks:us-west-2:123456789012:cluster/multi-region-mall \
   --name multi-region-mall-us-west-2 \
   --label region=us-west-2
 ```

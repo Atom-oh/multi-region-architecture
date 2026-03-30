@@ -17,18 +17,6 @@ spec:
             region: us-west-2
         values:
           karpenterPath: k8s/infra/karpenter
-    - clusters:
-        selector:
-          matchLabels:
-            cluster-name: mall-apne2-az-a
-        values:
-          karpenterPath: k8s/infra/karpenter-apne2-az-a
-    - clusters:
-        selector:
-          matchLabels:
-            cluster-name: mall-apne2-az-c
-        values:
-          karpenterPath: k8s/infra/karpenter-apne2-az-c
   template:
     metadata:
       name: 'karpenter-crds-{{name}}'

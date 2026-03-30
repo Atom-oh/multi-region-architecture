@@ -108,6 +108,39 @@ output "kms_key_ids" {
 # S3
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# NLB (Multi-AZ, weighted routing)
+# ─────────────────────────────────────────────────────────────────────────────
+
+output "nlb_arn" {
+  description = "ARN of the multi-AZ NLB"
+  value       = module.nlb.nlb_arn
+}
+
+output "nlb_dns_name" {
+  description = "DNS name of the multi-AZ NLB"
+  value       = module.nlb.nlb_dns_name
+}
+
+output "nlb_zone_id" {
+  description = "Hosted zone ID of the NLB (for Route53 alias records)"
+  value       = module.nlb.nlb_zone_id
+}
+
+output "nlb_target_group_arn_az_a" {
+  description = "ARN of the AZ-A target group (used by k8s TargetGroupBinding)"
+  value       = module.nlb.target_group_arns["az-a"]
+}
+
+output "nlb_target_group_arn_az_c" {
+  description = "ARN of the AZ-C target group (used by k8s TargetGroupBinding)"
+  value       = module.nlb.target_group_arns["az-c"]
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# S3
+# ─────────────────────────────────────────────────────────────────────────────
+
 output "s3_static_assets_bucket_arn" {
   description = "The ARN of the static assets S3 bucket"
   value       = module.s3.static_assets_bucket_arn

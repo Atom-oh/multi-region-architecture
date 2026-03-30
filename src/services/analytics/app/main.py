@@ -4,17 +4,20 @@ import logging
 from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from mall_common.config import ServiceConfig
 from mall_common.documentdb import connect, disconnect, get_db
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
+from app.config import settings as config
+
 logger = logging.getLogger(__name__)
 # pymongo.DESCENDING = -1
 DESCENDING = -1
-config = ServiceConfig(service_name="analytics")
-app = FastAPI(title="Analytics Service", version="1.0.0")
+app = FastAPI(redirect_slashes=False, title="Analytics Service", version="1.0.0")
 _db_connected = False
+
+# Event consumer for analytics - initialized on startup
+_event_consumer = None
 
 # CORS middleware
 app.add_middleware(
@@ -238,7 +241,8 @@ async def list_reports(report_type: str = None, limit: int = 10):
 
 @app.on_event("startup")
 async def startup():
-    global _db_connected
+    global _db_connected, _event_consumer
+
     if config.documentdb_host != "localhost":
         try:
             await connect(config.documentdb_uri, config.db_name or "mall")
@@ -246,13 +250,41 @@ async def startup():
             logger.info("Connected to DocumentDB")
         except Exception as e:
             logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
+
+    # Initialize Kafka consumer for all events (graceful degradation)
+    if config.kafka_brokers and config.kafka_brokers != "localhost:9092":
+        try:
+            from app.consumers.all_events_consumer import EventConsumer
+            from app.services.analytics_service import AnalyticsService
+
+            analytics_service = AnalyticsService()
+            _event_consumer = EventConsumer(config, analytics_service)
+            await _event_consumer.start()
+            # Start consuming in background task
+            import asyncio
+            asyncio.create_task(_event_consumer.consume())
+            logger.info(f"Event consumer started for brokers: {config.kafka_brokers}")
+        except Exception as e:
+            logger.warning(f"Kafka unavailable: {e}, event consumer disabled")
+    else:
+        logger.info(f"No MSK brokers configured (KAFKA_BROKERS={config.kafka_brokers}), event consumer disabled")
+
     set_started(True)
     set_ready(True)
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    global _event_consumer
+
     await disconnect()
+
+    if _event_consumer:
+        try:
+            await _event_consumer.stop()
+            logger.info("Event consumer stopped")
+        except Exception as e:
+            logger.warning(f"Error stopping event consumer: {e}")
 
 
 if __name__ == "__main__":

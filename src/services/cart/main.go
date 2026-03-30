@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,6 +43,7 @@ type AddItemRequest struct {
 }
 
 // Mock cart data - consistent with shared IDs
+var mockCartsMu sync.RWMutex
 var mockCarts = map[string]Cart{
 	"USR-001": {
 		UserID: "USR-001",
@@ -160,7 +162,10 @@ func getCart(cfg *config.Config) gin.HandlerFunc {
 		}
 
 		// Fallback to mock data
-		if cart, exists := mockCarts[userID]; exists {
+		mockCartsMu.RLock()
+		cart, exists := mockCarts[userID]
+		mockCartsMu.RUnlock()
+		if exists {
 			cart.UpdatedAt = time.Now()
 			c.JSON(http.StatusOK, cart)
 			return
@@ -223,7 +228,8 @@ func addItem(cfg *config.Config) gin.HandlerFunc {
 			ImageURL:  productImage,
 		}
 
-		// Get current cart, add item, and save to Valkey
+		// Get current cart, add item, and save to Valkey (fallback to in-memory)
+		saved := false
 		if cacheClient != nil {
 			var cart Cart
 			cartJSON, err := cacheClient.Get(c.Request.Context(), "cart:"+userID)
@@ -259,8 +265,40 @@ func addItem(cfg *config.Config) gin.HandlerFunc {
 			// Save to Valkey with 24h TTL
 			updatedCartJSON, _ := json.Marshal(cart)
 			if err := cacheClient.Set(c.Request.Context(), "cart:"+userID, updatedCartJSON, 24*time.Hour); err != nil {
-				log.Printf("Valkey set failed for user %s: %v", userID, err)
+				log.Printf("Valkey set failed for user %s (falling back to in-memory): %v", userID, err)
+			} else {
+				saved = true
 			}
+		}
+
+		// Fallback: save to in-memory map when Valkey is unavailable or write failed (e.g. READONLY replica)
+		if !saved {
+			mockCartsMu.Lock()
+			cart := mockCarts[userID]
+			if cart.UserID == "" {
+				cart = Cart{UserID: userID, Items: []CartItem{}}
+			}
+			found := false
+			for i, item := range cart.Items {
+				if item.ProductID == req.ProductID {
+					cart.Items[i].Quantity += req.Quantity
+					found = true
+					break
+				}
+			}
+			if !found {
+				cart.Items = append(cart.Items, newItem)
+			}
+			cart.Total = 0
+			cart.ItemCount = 0
+			for _, item := range cart.Items {
+				cart.Total += item.Price * item.Quantity
+				cart.ItemCount += item.Quantity
+			}
+			cart.UpdatedAt = time.Now()
+			mockCarts[userID] = cart
+			mockCartsMu.Unlock()
+			log.Printf("INFO: Cart saved to in-memory fallback for user %s", userID)
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -277,13 +315,13 @@ func removeItem(cfg *config.Config) gin.HandlerFunc {
 		userID := c.Param("userId")
 		itemID := c.Param("itemId") // itemID is the productID to remove
 
-		// Remove from Valkey if available
+		// Remove from Valkey if available, fallback to in-memory
+		removed := false
 		if cacheClient != nil {
 			cartJSON, err := cacheClient.Get(c.Request.Context(), "cart:"+userID)
 			if err == nil {
 				var cart Cart
 				if json.Unmarshal([]byte(cartJSON), &cart) == nil {
-					// Remove the item
 					newItems := []CartItem{}
 					for _, item := range cart.Items {
 						if item.ProductID != itemID {
@@ -292,7 +330,6 @@ func removeItem(cfg *config.Config) gin.HandlerFunc {
 					}
 					cart.Items = newItems
 
-					// Recalculate totals
 					cart.Total = 0
 					cart.ItemCount = 0
 					for _, item := range cart.Items {
@@ -301,13 +338,37 @@ func removeItem(cfg *config.Config) gin.HandlerFunc {
 					}
 					cart.UpdatedAt = time.Now()
 
-					// Save back to Valkey
 					updatedCartJSON, _ := json.Marshal(cart)
 					if err := cacheClient.Set(c.Request.Context(), "cart:"+userID, updatedCartJSON, 24*time.Hour); err != nil {
-						log.Printf("Valkey set failed for user %s: %v", userID, err)
+						log.Printf("Valkey set failed for user %s (falling back to in-memory): %v", userID, err)
+					} else {
+						removed = true
 					}
 				}
 			}
+		}
+
+		// Fallback: remove from in-memory map
+		if !removed {
+			mockCartsMu.Lock()
+			if cart, exists := mockCarts[userID]; exists {
+				newItems := []CartItem{}
+				for _, item := range cart.Items {
+					if item.ProductID != itemID {
+						newItems = append(newItems, item)
+					}
+				}
+				cart.Items = newItems
+				cart.Total = 0
+				cart.ItemCount = 0
+				for _, item := range cart.Items {
+					cart.Total += item.Price * item.Quantity
+					cart.ItemCount += item.Quantity
+				}
+				cart.UpdatedAt = time.Now()
+				mockCarts[userID] = cart
+			}
+			mockCartsMu.Unlock()
 		}
 
 		c.JSON(http.StatusOK, gin.H{

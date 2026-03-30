@@ -61,6 +61,11 @@ variable "eks_az_c_cluster_name" {
   type        = string
 }
 
+variable "acm_certificate_arn" {
+  description = "ACM certificate ARN for TLS listener (*.atomai.click)"
+  type        = string
+}
+
 variable "tags" {
   description = "Additional tags"
   type        = map(string)

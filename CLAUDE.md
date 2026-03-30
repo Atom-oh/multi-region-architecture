@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Multi-region shopping mall platform on AWS. Two active regions: **us-east-1** (primary) and **us-west-2** (secondary). Write-Primary/Read-Local data pattern with Aurora Global Write Forwarding. 20 microservices across 5 domains, currently running nginx:alpine placeholders.
 
-- **AWS Account**: 180294183052
+- **AWS Account**: 123456789012
 - **Domain**: atomai.click (wildcard cert `*.atomai.click`)
 - **EKS Cluster**: `multi-region-mall` in both regions
 
@@ -43,11 +43,11 @@ kubectl kustomize k8s/overlays/us-east-1/
 kubectl kustomize k8s/overlays/us-west-2/
 
 # Apply (ArgoCD manages deployments — prefer GitOps over manual apply)
-kubectl apply -k k8s/overlays/us-east-1/ --context arn:aws:eks:us-east-1:180294183052:cluster/multi-region-mall
+kubectl apply -k k8s/overlays/us-east-1/ --context arn:aws:eks:us-east-1:123456789012:cluster/multi-region-mall
 
 # Check cluster status
-kubectl get nodes --context arn:aws:eks:us-east-1:180294183052:cluster/multi-region-mall
-kubectl get pods -A --context arn:aws:eks:us-east-1:180294183052:cluster/multi-region-mall
+kubectl get nodes --context arn:aws:eks:us-east-1:123456789012:cluster/multi-region-mall
+kubectl get pods -A --context arn:aws:eks:us-east-1:123456789012:cluster/multi-region-mall
 ```
 
 ### Microservice Build
@@ -113,7 +113,7 @@ go test ./...
 - **NEVER create `0.0.0.0/0` inbound rules on any security group.** All SGs are managed by Terraform.
 - **K8s Ingress**: MUST include `alb.ingress.kubernetes.io/security-groups` annotation referencing the Terraform-managed ALB SG. MUST include `alb.ingress.kubernetes.io/manage-backend-security-group-rules: "false"` to prevent ALB Controller from auto-creating SGs.
 - **K8s Service type: LoadBalancer**: MUST use `service.beta.kubernetes.io/aws-load-balancer-security-groups` annotation referencing the Terraform-managed ALB SG. Never let the controller auto-generate SGs — they default to `0.0.0.0/0`.
-- Terraform-managed ALB SG IDs: us-east-1 `sg-048c7e63db40686b8`, us-west-2 `sg-0bfd63c6e6188327b`.
+- Terraform-managed ALB SG IDs: us-east-1 `sg-0123456789abcdef0`, us-west-2 `sg-0abcdef1234567890`.
 
 ### Post-Deployment Verification
 

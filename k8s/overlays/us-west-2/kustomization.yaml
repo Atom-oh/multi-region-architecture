@@ -24,7 +24,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:us-west-2:180294183052:targetgroup/production-api-tg-us-west-2/6e707c837e2a626c"
+        value: "arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/production-api-tg-us-west-2/yyyyyyyyyyyyyyyy"
   - target:
       kind: Service
       name: argocd-server-nlb
@@ -32,17 +32,17 @@ patches:
     patch: |-
       - op: add
         path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-security-groups
-        value: "sg-07fa08075444bda59"
+        value: "sg-0cccc33333ddddd44"
       - op: add
         path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-ssl-cert
-        value: "arn:aws:acm:us-west-2:180294183052:certificate/18ed9116-1f33-4cfa-b922-9fde952ea169"
+        value: "arn:aws:acm:us-west-2:123456789012:certificate/yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
   - target:
       kind: CronJob
       name: synthetic-monitor
     patch: |-
       - op: replace
         path: /spec/jobTemplate/spec/template/spec/containers/0/image
-        value: "180294183052.dkr.ecr.us-west-2.amazonaws.com/shopping-mall/synthetic-monitor:latest"
+        value: "123456789012.dkr.ecr.us-west-2.amazonaws.com/shopping-mall/synthetic-monitor:latest"
   - target:
       kind: Deployment
     patch: |-
@@ -74,7 +74,7 @@ patches:
         path: /spec/template/spec/containers/0/env/-
         value:
           name: CACHE_HOST
-          value: "clustercfg.production-elasticache-us-west-2.0udeym.usw2.cache.amazonaws.com"
+          value: "clustercfg.production-elasticache-us-west-2.yyyyyy.usw2.cache.amazonaws.com"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
@@ -88,15 +88,15 @@ configMapGenerator:
       - REGION=us-west-2
       - REGION_ROLE=SECONDARY
       - DSQL_ENDPOINT=<placeholder-until-apply>.us-west-2.dsql.amazonaws.com
-      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-west-2.cluster-cj00m0aai7ry.us-west-2.docdb.amazonaws.com
-      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-west-2.0udeym.usw2.cache.amazonaws.com
-      - MSK_BROKERS=b-1.productionmskuswest2.nckvxn.c3.kafka.us-west-2.amazonaws.com:9096
-      - OPENSEARCH_ENDPOINT=https://vpc-production-os-usw2-pgtswpgymfnk6lsxmn7oxn3gzi.us-west-2.es.amazonaws.com
+      - DOCUMENTDB_ENDPOINT=production-docdb-global-us-west-2.cluster-yyyyyyyyyyyy.us-west-2.docdb.amazonaws.com
+      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-west-2.yyyyyy.usw2.cache.amazonaws.com
+      - MSK_BROKERS=b-1.productionmskuswest2.yyyyyy.yyy.kafka.us-west-2.amazonaws.com:9096
+      - OPENSEARCH_ENDPOINT=https://vpc-production-os-usw2-yyyyyyyyyyyyyyyyyyyyyyyyyyyy.us-west-2.es.amazonaws.com
   - name: tempo-region-config
     namespace: observability
     literals:
       - TEMPO_S3_BUCKET=production-mall-tempo-traces-us-west-2
-      - TEMPO_ROLE_ARN=arn:aws:iam::180294183052:role/production-tempo-us-west-2
+      - TEMPO_ROLE_ARN=arn:aws:iam::123456789012:role/production-tempo-us-west-2
 
 commonLabels:
   region: us-west-2

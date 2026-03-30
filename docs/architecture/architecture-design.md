@@ -309,7 +309,7 @@ Route 53 resolves `*.atomai.click` via CNAME to the CloudFront distribution, whi
 │       ▼                                                                     │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
 │   │                     Route 53 (DNS CNAME)                            │  │
-│   │   • *.atomai.click → d1muyxliujbszf.cloudfront.net                  │  │
+│   │   • *.atomai.click → dXXXXXXXXXXXXX.cloudfront.net                  │  │
 │   │   • DNS resolution to nearest CloudFront POP                        │  │
 │   └────────────────────────────┬────────────────────────────────────────┘  │
 │                                │                                           │

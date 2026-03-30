@@ -13,7 +13,7 @@ from app.routers.wishlists import router as wishlists_router
 
 logger = logging.getLogger(__name__)
 config = ServiceConfig(service_name="wishlist")
-app = FastAPI(title="Wishlist Service", version="1.0.0")
+app = FastAPI(redirect_slashes=False, title="Wishlist Service", version="1.0.0")
 
 # CORS middleware
 app.add_middleware(

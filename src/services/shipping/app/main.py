@@ -1,22 +1,27 @@
 """Shipping Service - FastAPI Application with Aurora PostgreSQL backend."""
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, date
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from mall_common.config import ServiceConfig
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
+from app.config import config
+
 logger = logging.getLogger(__name__)
 
-config = ServiceConfig(service_name="shipping")
-app = FastAPI(title="Shipping Service", version="1.0.0")
+app = FastAPI(redirect_slashes=False, title="Shipping Service", version="1.0.0")
 
 # PostgreSQL connection pool (initialized on startup)
 _pg_pool = None
+
+# Kafka consumer for order events - initialized on startup
+_order_consumer = None
+_consumer_task = None
 
 # CORS middleware
 app.add_middleware(
@@ -286,7 +291,8 @@ def _generate_dsql_token(hostname: str, region: str) -> str:
 
 @app.on_event("startup")
 async def startup():
-    global _pg_pool
+    global _pg_pool, _order_consumer, _consumer_task
+
     if config.db_host and config.db_host != "localhost":
         try:
             import asyncpg
@@ -315,16 +321,45 @@ async def startup():
             logger.warning(f"PostgreSQL unavailable, using mock data: {e}")
     else:
         logger.info("No DB_HOST configured, using mock data")
+
+    # Initialize Kafka consumer for order events (graceful degradation)
+    if config.kafka_brokers and config.kafka_brokers != "localhost:9092":
+        try:
+            from app.consumers.order_consumer import create_consumer
+            _order_consumer = create_consumer(config.kafka_brokers)
+            await _order_consumer.start()
+            _consumer_task = asyncio.create_task(_order_consumer.consume())
+            logger.info(f"Order consumer started for brokers: {config.kafka_brokers}")
+        except Exception as e:
+            logger.warning(f"Kafka unavailable: {e}, order consumer disabled")
+    else:
+        logger.info(f"No MSK brokers configured (KAFKA_BROKERS={config.kafka_brokers}), order consumer disabled")
+
     set_started(True)
     set_ready(True)
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    global _pg_pool
+    global _pg_pool, _order_consumer, _consumer_task
+
     if _pg_pool:
         await _pg_pool.close()
         logger.info("Closed Aurora PostgreSQL connection pool")
+
+    if _consumer_task:
+        _consumer_task.cancel()
+        try:
+            await _consumer_task
+        except asyncio.CancelledError:
+            pass
+
+    if _order_consumer:
+        try:
+            await _order_consumer.stop()
+            logger.info("Order consumer stopped")
+        except Exception as e:
+            logger.warning(f"Error stopping order consumer: {e}")
 
 
 if __name__ == "__main__":

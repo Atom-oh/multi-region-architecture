@@ -42,7 +42,8 @@ export default function CheckoutPage() {
   }, [user?.id]);
 
   const formatPrice = (price) => {
-    return `₩${price.toLocaleString('ko-KR')}`;
+    if (price == null) return '';
+    return `₩${Number(price).toLocaleString('ko-KR')}`;
   };
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shippingFee = subtotal >= 50000 ? 0 : 3000;

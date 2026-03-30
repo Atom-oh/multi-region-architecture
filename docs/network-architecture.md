@@ -154,7 +154,7 @@ Route: 10.0.0.0/16 → TGW Peering Attachment (us-west-2 → us-east-1)
 
 ```
 [User] → DNS: mall.atomai.click
-       → Route 53 CNAME → d1muyxliujbszf.cloudfront.net
+       → Route 53 CNAME → dXXXXXXXXXXXXX.cloudfront.net
        → CloudFront Edge (nearest POP)
            ├─ Cache HIT → 즉시 응답
            └─ Cache MISS → Origin: api.atomai.click
@@ -179,7 +179,7 @@ Route: 10.0.0.0/16 → TGW Peering Attachment (us-west-2 → us-east-1)
 
 | Record | Type | Routing | Target |
 |--------|------|---------|--------|
-| mall.atomai.click | CNAME | Simple | d1muyxliujbszf.cloudfront.net |
+| mall.atomai.click | CNAME | Simple | dXXXXXXXXXXXXX.cloudfront.net |
 
 **Origin DNS (CloudFront → ALB, Latency-based)**
 

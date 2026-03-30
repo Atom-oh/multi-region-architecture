@@ -1,10 +1,11 @@
 module github.com/multi-region-mall/shared
 
-go 1.24
+go 1.22
 
 require (
 	github.com/exaring/otelpgx v0.10.0
 	github.com/gin-gonic/gin v1.10.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/redis/go-redis/extra/redisotel/v9 v9.18.0
 	github.com/redis/go-redis/v9 v9.18.0

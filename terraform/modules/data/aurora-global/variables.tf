@@ -92,6 +92,12 @@ variable "source_region" {
   default     = null
 }
 
+variable "reader_availability_zones" {
+  description = "List of AZs to pin reader instances to. When set, creates AZ-specific custom reader endpoints."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

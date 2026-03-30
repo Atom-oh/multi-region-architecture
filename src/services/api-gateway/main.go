@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/multi-region-mall/shared/pkg/auth"
 	"github.com/multi-region-mall/shared/pkg/config"
 	"github.com/multi-region-mall/shared/pkg/health"
 	"github.com/multi-region-mall/shared/pkg/tracing"
@@ -24,6 +25,10 @@ func main() {
 		defer func() { _ = tp.Shutdown(ctx) }()
 	}
 
+	// Load auth configuration from environment variables
+	// If COGNITO_USER_POOL_ID is not set, auth is skipped (graceful degradation)
+	authCfg := auth.LoadConfigFromEnv()
+
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))
 	r.Use(corsMiddleware())
@@ -31,12 +36,12 @@ func main() {
 	hc := health.New()
 	hc.RegisterRoutes(r)
 
-	// Root route - returns mall landing page HTML
+	// Root route - returns mall landing page HTML (public)
 	r.GET("/", func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(mallLandingHTML))
 	})
 
-	// API health endpoint
+	// API health endpoint (public)
 	r.GET("/api/v1/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "healthy",
@@ -47,28 +52,83 @@ func main() {
 		})
 	})
 
-	// Reverse proxy routes to backend K8s services
-	api := r.Group("/api/v1")
+	// Public routes - no authentication required
+	publicAPI := r.Group("/api/v1")
 	{
-		api.Any("/products/*path", reverseProxy("product-catalog.core-services.svc.cluster.local:80"))
-		api.Any("/inventory/*path", reverseProxy("inventory.core-services.svc.cluster.local:80"))
-		api.Any("/carts/*path", reverseProxy("cart.core-services.svc.cluster.local:80"))
-		api.Any("/search/*path", reverseProxy("search.core-services.svc.cluster.local:80"))
-		api.Any("/orders/*path", reverseProxy("order.core-services.svc.cluster.local:80"))
-		api.Any("/payments/*path", reverseProxy("payment.core-services.svc.cluster.local:80"))
-		api.Any("/users/*path", reverseProxy("user-account.user-services.svc.cluster.local:80"))
-		api.Any("/profiles/*path", reverseProxy("user-profile.user-services.svc.cluster.local:80"))
-		api.Any("/wishlists/*path", reverseProxy("wishlist.user-services.svc.cluster.local:80"))
-		api.Any("/reviews/*path", reverseProxy("review.user-services.svc.cluster.local:80"))
-		api.Any("/shipments/*path", reverseProxy("shipping.fulfillment.svc.cluster.local:80"))
-		api.Any("/returns/*path", reverseProxy("returns.fulfillment.svc.cluster.local:80"))
-		api.Any("/warehouses/*path", reverseProxy("warehouse.fulfillment.svc.cluster.local:80"))
-		api.Any("/prices/*path", reverseProxy("pricing.business-services.svc.cluster.local:80"))
-		api.Any("/recommendations/*path", reverseProxy("recommendation.business-services.svc.cluster.local:80"))
-		api.Any("/notifications/*path", reverseProxy("notification.business-services.svc.cluster.local:80"))
-		api.Any("/sellers/*path", reverseProxy("seller.business-services.svc.cluster.local:80"))
-		api.Any("/events/*path", reverseProxy("event-bus.platform.svc.cluster.local:80"))
-		api.Any("/analytics/*path", reverseProxy("analytics.platform.svc.cluster.local:80"))
+		// Auth endpoints (login/register) - must be public
+		publicAPI.Any("/users/login", reverseProxy("user-account.user-services.svc.cluster.local:80"))
+		publicAPI.Any("/users/register", reverseProxy("user-account.user-services.svc.cluster.local:80"))
+
+		// Product catalog - public for browsing
+		publicAPI.GET("/products", reverseProxy("product-catalog.core-services.svc.cluster.local:80"))
+		publicAPI.GET("/products/*path", reverseProxy("product-catalog.core-services.svc.cluster.local:80"))
+
+		// Search - public for product discovery
+		publicAPI.GET("/search/*path", reverseProxy("search.core-services.svc.cluster.local:80"))
+
+		// Reviews - public for reading (writing requires auth)
+		publicAPI.GET("/reviews", reverseProxy("review.user-services.svc.cluster.local:80"))
+		publicAPI.GET("/reviews/*path", reverseProxy("review.user-services.svc.cluster.local:80"))
+
+		// Recommendations - public for product suggestions
+		publicAPI.GET("/recommendations/*path", reverseProxy("recommendation.business-services.svc.cluster.local:80"))
+
+		// Prices - public for viewing prices
+		publicAPI.GET("/prices/*path", reverseProxy("pricing.business-services.svc.cluster.local:80"))
+	}
+
+	// Protected routes - authentication required
+	protectedAPI := r.Group("/api/v1")
+	protectedAPI.Use(auth.Middleware(authCfg))
+	{
+		// Product management (POST/PUT/DELETE)
+		protectedAPI.POST("/products/*path", reverseProxy("product-catalog.core-services.svc.cluster.local:80"))
+		protectedAPI.PUT("/products/*path", reverseProxy("product-catalog.core-services.svc.cluster.local:80"))
+		protectedAPI.DELETE("/products/*path", reverseProxy("product-catalog.core-services.svc.cluster.local:80"))
+
+		// Inventory management
+		protectedAPI.Any("/inventory/*path", reverseProxy("inventory.core-services.svc.cluster.local:80"))
+
+		// Cart management
+		protectedAPI.Any("/carts/*path", reverseProxy("cart.core-services.svc.cluster.local:80"))
+
+		// Order management
+		protectedAPI.Any("/orders/*path", reverseProxy("order.core-services.svc.cluster.local:80"))
+
+		// Payment processing
+		protectedAPI.Any("/payments/*path", reverseProxy("payment.core-services.svc.cluster.local:80"))
+
+		// User management (except login/register)
+		protectedAPI.GET("/users", reverseProxy("user-account.user-services.svc.cluster.local:80"))
+		protectedAPI.GET("/users/*path", reverseProxy("user-account.user-services.svc.cluster.local:80"))
+		protectedAPI.PUT("/users/*path", reverseProxy("user-account.user-services.svc.cluster.local:80"))
+		protectedAPI.DELETE("/users/*path", reverseProxy("user-account.user-services.svc.cluster.local:80"))
+
+		// User profiles
+		protectedAPI.Any("/profiles/*path", reverseProxy("user-profile.user-services.svc.cluster.local:80"))
+
+		// Wishlists
+		protectedAPI.Any("/wishlists/*path", reverseProxy("wishlist.user-services.svc.cluster.local:80"))
+
+		// Review creation/modification
+		protectedAPI.POST("/reviews/*path", reverseProxy("review.user-services.svc.cluster.local:80"))
+		protectedAPI.PUT("/reviews/*path", reverseProxy("review.user-services.svc.cluster.local:80"))
+		protectedAPI.DELETE("/reviews/*path", reverseProxy("review.user-services.svc.cluster.local:80"))
+
+		// Shipping and fulfillment
+		protectedAPI.Any("/shipments/*path", reverseProxy("shipping.fulfillment.svc.cluster.local:80"))
+		protectedAPI.Any("/returns/*path", reverseProxy("returns.fulfillment.svc.cluster.local:80"))
+		protectedAPI.Any("/warehouses/*path", reverseProxy("warehouse.fulfillment.svc.cluster.local:80"))
+
+		// Notifications
+		protectedAPI.Any("/notifications/*path", reverseProxy("notification.business-services.svc.cluster.local:80"))
+
+		// Seller management
+		protectedAPI.Any("/sellers/*path", reverseProxy("seller.business-services.svc.cluster.local:80"))
+
+		// Events and analytics
+		protectedAPI.Any("/events/*path", reverseProxy("event-bus.platform.svc.cluster.local:80"))
+		protectedAPI.Any("/analytics/*path", reverseProxy("analytics.platform.svc.cluster.local:80"))
 	}
 
 	hc.SetStarted(true)

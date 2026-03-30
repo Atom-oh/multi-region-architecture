@@ -18,7 +18,7 @@ flowchart TB
     end
 
     subgraph "CloudFront"
-        CF["CloudFront Distribution<br/>d1muyxliujbszf.cloudfront.net"]
+        CF["CloudFront Distribution<br/>dXXXXXXXXXXXXX.cloudfront.net"]
         WAF["WAF v2"]
     end
 
@@ -48,7 +48,7 @@ flowchart TB
 
 | Item | Value |
 |------|-------|
-| Distribution ID | `d1muyxliujbszf.cloudfront.net` |
+| Distribution ID | `dXXXXXXXXXXXXX.cloudfront.net` |
 | Alternate Domain (CNAME) | `www.atomai.click`, `mall.atomai.click` |
 | Price Class | PriceClass_100 (All Edge Locations) |
 | HTTP Version | HTTP/2 + HTTP/3 |

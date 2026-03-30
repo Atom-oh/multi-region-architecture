@@ -21,9 +21,15 @@ type Config struct {
 	CachePassword  string
 	KafkaBrokers   string
 	OpenSearchURL  string
-	DocumentDBHost string
-	DocumentDBPort int
-	LogLevel       string
+	DocumentDBHost   string
+	DocumentDBPort   int
+	LogLevel         string
+	DBWriteHost      string // Writer endpoint for writes
+	DBReadHostLocal  string // AZ-local reader endpoint for reads
+	KafkaBrokersLocal string // AZ-local Kafka brokers
+	ClientRack       string // Kafka client.rack for rack-aware consumption
+	PreferReplicaAZ  string // ElastiCache AZ-local replica preference
+	AvailabilityZone string // Current AZ
 }
 
 func Load(serviceName string) *Config {
@@ -45,7 +51,13 @@ func Load(serviceName string) *Config {
 		OpenSearchURL:  getEnv("OPENSEARCH_ENDPOINT", "http://localhost:9200"),
 		DocumentDBHost: getEnv("DOCUMENTDB_HOST", "localhost"),
 		DocumentDBPort: getEnvInt("DOCUMENTDB_PORT", 27017),
-		LogLevel:       getEnv("LOG_LEVEL", "info"),
+		LogLevel:         getEnv("LOG_LEVEL", "info"),
+		DBWriteHost:      getEnv("DB_WRITE_HOST", ""),
+		DBReadHostLocal:  getEnv("DB_READ_HOST_LOCAL", ""),
+		KafkaBrokersLocal: getEnv("KAFKA_BROKERS_LOCAL", ""),
+		ClientRack:       getEnv("CLIENT_RACK", ""),
+		PreferReplicaAZ:  getEnv("PREFER_REPLICA_AZ", ""),
+		AvailabilityZone: getEnv("AVAILABILITY_ZONE", ""),
 	}
 }
 

@@ -253,7 +253,7 @@
   <span class="hl-key">triggers:</span>
     - <span class="hl-key">type:</span> kafka
       <span class="hl-key">metadata:</span>
-        <span class="hl-key">bootstrapServers:</span> <span class="hl-str">"b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096"</span>
+        <span class="hl-key">bootstrapServers:</span> <span class="hl-str">"b-1.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096"</span>
         <span class="hl-key">consumerGroup:</span> ccdi-processor-group
         <span class="hl-key">topic:</span> vss-data
         <span class="hl-key">lagThreshold:</span> <span class="hl-str">"1000"</span>   <span class="hl-cm"># scale out when lag exceeds 1000</span>
@@ -467,9 +467,9 @@
       - REGION_ROLE=PRIMARY
       - DSQL_ENDPOINT=&lt;placeholder-until-apply&gt;.us-east-1.dsql.amazonaws.com
       - MONGODB_ATLAS_URI=mongodb+srv://production-atlas.xxxxx.mongodb.net
-      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com
-      - MSK_BROKERS=b-1.productionmskuseast1.qtmqnz.c17.kafka.us-east-1.amazonaws.com:9096,...
-      - OPENSEARCH_ENDPOINT=https://vpc-production-os-use1-kpvt3o2c36ru7kyikdx6qoluk4.us-east-1.es.amazonaws.com
+      - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-east-1.xxxxxx.use1.cache.amazonaws.com
+      - MSK_BROKERS=b-1.productionmskuseast1.xxxxxx.xxx.kafka.us-east-1.amazonaws.com:9096,...
+      - OPENSEARCH_ENDPOINT=https://vpc-production-os-use1-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.us-east-1.es.amazonaws.com
 
 <span class="hl-key">commonLabels:</span>
   <span class="hl-key">region:</span> us-east-1

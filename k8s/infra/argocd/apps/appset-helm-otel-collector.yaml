@@ -21,22 +21,6 @@ spec:
           awsRegion: us-west-2
           roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-us-west-2"
           clusterName: multi-region-mall
-    - clusters:
-        selector:
-          matchLabels:
-            cluster-name: mall-apne2-az-a
-        values:
-          awsRegion: ap-northeast-2
-          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-ap-northeast-2-az-a"
-          clusterName: mall-apne2-az-a
-    - clusters:
-        selector:
-          matchLabels:
-            cluster-name: mall-apne2-az-c
-        values:
-          awsRegion: ap-northeast-2
-          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-ap-northeast-2-az-c"
-          clusterName: mall-apne2-az-c
   template:
     metadata:
       name: 'otel-collector-{{name}}'

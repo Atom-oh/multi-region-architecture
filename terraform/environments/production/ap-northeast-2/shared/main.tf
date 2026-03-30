@@ -189,6 +189,29 @@ module "opensearch" {
   tags                       = var.tags
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Compute — NLB (Multi-AZ, weighted routing to AZ-A + AZ-C target groups)
+# ─────────────────────────────────────────────────────────────────────────────
+
+module "nlb" {
+  source = "../../../../modules/compute/nlb-weighted"
+
+  environment       = var.environment
+  region            = var.region
+  vpc_id            = module.vpc.vpc_id
+  public_subnet_ids = module.vpc.public_subnet_ids
+  security_group_id = module.security_groups.nlb_security_group_id
+  certificate_arn   = var.acm_certificate_arn
+  name_override     = "prod-api-nlb-apne2"
+
+  target_groups = {
+    az-a = { name = "prod-wtg-apne2-az-a", weight = 50 }
+    az-c = { name = "prod-wtg-apne2-az-c", weight = 50 }
+  }
+
+  tags = var.tags
+}
+
 # S3: secondary (no replication source)
 module "s3" {
   source = "../../../../modules/data/s3"

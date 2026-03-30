@@ -40,14 +40,6 @@ export default function HomePage() {
     fetchData();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-slate-500 text-lg">로딩 중...</p>
-      </div>
-    );
-  }
-
   return (
     <div>
       {/* Hero Banner */}
@@ -98,7 +90,20 @@ export default function HomePage() {
               전체보기 →
             </Link>
           </div>
-          {featuredProducts.length === 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-white rounded-xl shadow-sm overflow-hidden animate-pulse">
+                  <div className="bg-slate-200 h-48 w-full" />
+                  <div className="p-4 space-y-3">
+                    <div className="bg-slate-200 h-4 rounded w-3/4" />
+                    <div className="bg-slate-200 h-4 rounded w-1/2" />
+                    <div className="bg-slate-200 h-6 rounded w-1/3" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : featuredProducts.length === 0 ? (
             <p className="text-slate-500 text-center py-8">상품을 불러오는 중입니다.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

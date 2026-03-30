@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-ACCOUNT_ID="180294183052"
+ACCOUNT_ID="123456789012"
 REGION="us-east-1"
 ECR_PREFIX="shopping-mall"
 TAG="${1:-latest}"

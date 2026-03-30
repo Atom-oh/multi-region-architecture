@@ -12,7 +12,7 @@ from app.routers.reviews import router as reviews_router
 
 logger = logging.getLogger(__name__)
 config = ServiceConfig(service_name="review")
-app = FastAPI(title="Review Service", version="1.0.0")
+app = FastAPI(redirect_slashes=False, title="Review Service", version="1.0.0")
 
 # CORS middleware
 app.add_middleware(

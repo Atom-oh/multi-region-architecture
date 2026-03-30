@@ -81,13 +81,13 @@ flowchart TB
 
 | Endpoint Type | Value |
 |---------------|-------|
-| **Configuration** | `clustercfg.production-elasticache-us-east-1.hedavb.use1.cache.amazonaws.com:6379` |
+| **Configuration** | `clustercfg.production-elasticache-us-east-1.xxxxxx.use1.cache.amazonaws.com:6379` |
 
 ### us-west-2
 
 | Endpoint Type | Value |
 |---------------|-------|
-| **Configuration** | `clustercfg.production-elasticache-us-west-2.0udeym.usw2.cache.amazonaws.com:6379` |
+| **Configuration** | `clustercfg.production-elasticache-us-west-2.yyyyyy.usw2.cache.amazonaws.com:6379` |
 
 :::warning Important
 us-west-2 is **read-only**. Write operations are only possible on the primary cluster in us-east-1.

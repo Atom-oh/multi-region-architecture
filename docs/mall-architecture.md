@@ -178,7 +178,7 @@ All services are accessible via `<service-name>.<namespace>.svc.cluster.local:80
 
 ### Container Configuration
 
-- **Image Registry**: `180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/<service>:latest`
+- **Image Registry**: `123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/<service>:latest`
 - **Container Port**: 8080
 - **Service Port**: 80 → targetPort 8080
 - **Health Probes**: `/health/ready`, `/health/live`, `/health/startup` (port 8080)

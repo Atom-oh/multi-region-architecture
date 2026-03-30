@@ -18,7 +18,7 @@ flowchart TB
     end
 
     subgraph "CloudFront"
-        CF["CloudFront Distribution<br/>d1muyxliujbszf.cloudfront.net"]
+        CF["CloudFront Distribution<br/>dXXXXXXXXXXXXX.cloudfront.net"]
         WAF["WAF v2"]
     end
 
@@ -48,7 +48,7 @@ flowchart TB
 
 | 항목 | 값 |
 |------|-----|
-| Distribution ID | `d1muyxliujbszf.cloudfront.net` |
+| Distribution ID | `dXXXXXXXXXXXXX.cloudfront.net` |
 | 대체 도메인 (CNAME) | `www.atomai.click`, `mall.atomai.click` |
 | Price Class | PriceClass_100 (전체 엣지 로케이션) |
 | HTTP 버전 | HTTP/2 + HTTP/3 |

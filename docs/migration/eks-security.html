@@ -124,7 +124,7 @@
   <span class="hl-key">name:</span> s3-reader-sa
   <span class="hl-key">namespace:</span> production
   <span class="hl-key">annotations:</span>
-    <span class="hl-key">eks.amazonaws.com/role-arn:</span> arn:aws:iam::180294183052:role/eks-s3-reader-role
+    <span class="hl-key">eks.amazonaws.com/role-arn:</span> arn:aws:iam::123456789012:role/eks-s3-reader-role
 ---
 <span class="hl-key">apiVersion:</span> apps/v1
 <span class="hl-key">kind:</span> Deployment
@@ -150,7 +150,7 @@ aws eks create-pod-identity-association \
   --cluster-name multi-region-mall \
   --namespace production \
   --service-account s3-reader-sa \
-  --role-arn arn:aws:iam::180294183052:role/eks-s3-reader-role</code><span class="code-label">bash</span></pre>
+  --role-arn arn:aws:iam::123456789012:role/eks-s3-reader-role</code><span class="code-label">bash</span></pre>
 
                         <div class="callout tip" style="margin-top:12px;">
                             <strong><span class="lang-ko">IRSA에서 Pod Identity로 마이그레이션</span><span class="lang-en">Migration from IRSA to Pod Identity</span></strong>
@@ -315,7 +315,7 @@ aws eks create-pod-identity-association \
 <pre><code><span class="hl-cm"># Enable auto-rotation in AWS Secrets Manager</span>
 aws secretsmanager rotate-secret \
   --secret-id production/database \
-  --rotation-lambda-arn arn:aws:lambda:us-east-1:180294183052:function:SecretsRotation \
+  --rotation-lambda-arn arn:aws:lambda:us-east-1:123456789012:function:SecretsRotation \
   --rotation-rules '{"ScheduleExpression": "rate(30 days)"}'</code><span class="code-label">bash</span></pre>
 
                         <div class="callout info" style="margin-top:12px;">
@@ -401,7 +401,7 @@ aws ecr put-registry-scanning-configuration \
         <span class="hl-key">pattern:</span>
           <span class="hl-key">spec:</span>
             <span class="hl-key">containers:</span>
-              - <span class="hl-key">image:</span> <span class="hl-str">"180294183052.dkr.ecr.*.amazonaws.com/*"</span></code><span class="code-label">yaml</span></pre>
+              - <span class="hl-key">image:</span> <span class="hl-str">"123456789012.dkr.ecr.*.amazonaws.com/*"</span></code><span class="code-label">yaml</span></pre>
 
                         <div class="callout tip" style="margin-top:12px;">
                             <strong><span class="lang-ko">이미지 서명 및 검증 (Sigstore/Cosign)</span><span class="lang-en">Image Signing and Verification (Sigstore/Cosign)</span></strong>

@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -37,6 +40,13 @@ func New(ctx context.Context, cfg *config.Config) (*Client, error) {
 		return nil, fmt.Errorf("aurora parse config: %w", err)
 	}
 
+	// Connection pool tuning — defaults safe for DSQL (~500 conn limit)
+	pgxConfig.MaxConns = int32(envInt("DB_MAX_CONNS", 25))
+	pgxConfig.MinConns = int32(envInt("DB_MIN_CONNS", 5))
+	pgxConfig.MaxConnLifetime = 30 * time.Minute
+	pgxConfig.MaxConnIdleTime = 5 * time.Minute
+	pgxConfig.HealthCheckPeriod = 1 * time.Minute
+
 	// Add OTel tracing for automatic PostgreSQL span creation
 	pgxConfig.ConnConfig.Tracer = otelpgx.NewTracer()
 
@@ -63,10 +73,47 @@ func generateDSQLToken(ctx context.Context, hostname, region string) (string, er
 	return strings.TrimSpace(string(out)), nil
 }
 
+// GetWriteDSN returns a connection string targeting the writer endpoint.
+// Uses DB_WRITE_HOST if set, otherwise falls back to DB_HOST.
+func GetWriteDSN(cfg *config.Config) string {
+	host := cfg.DBWriteHost
+	if host == "" {
+		host = cfg.DBHost
+	}
+	if strings.Contains(host, ".dsql.") {
+		return "" // DSQL uses token auth, not static DSN
+	}
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=require",
+		url.PathEscape(cfg.DBUser), url.PathEscape(cfg.DBPassword), host, cfg.DBPort, cfg.DBName)
+}
+
+// GetReadDSN returns a connection string targeting the AZ-local reader endpoint.
+// Uses DB_READ_HOST_LOCAL if set, otherwise falls back to DB_HOST.
+func GetReadDSN(cfg *config.Config) string {
+	host := cfg.DBReadHostLocal
+	if host == "" {
+		host = cfg.DBHost
+	}
+	if strings.Contains(host, ".dsql.") {
+		return "" // DSQL uses token auth, not static DSN
+	}
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=require",
+		url.PathEscape(cfg.DBUser), url.PathEscape(cfg.DBPassword), host, cfg.DBPort, cfg.DBName)
+}
+
 func (c *Client) Close() {
 	c.Pool.Close()
 }
 
 func (c *Client) Ping(ctx context.Context) error {
 	return c.Pool.Ping(ctx)
+}
+
+func envInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return fallback
 }

@@ -8,7 +8,14 @@ _db: AsyncIOMotorDatabase | None = None
 
 async def connect(uri: str, db_name: str) -> AsyncIOMotorDatabase:
     global _client, _db
-    _client = AsyncIOMotorClient(uri)
+    _client = AsyncIOMotorClient(
+        uri,
+        maxPoolSize=50,
+        minPoolSize=5,
+        maxIdleTimeMS=300000,
+        waitQueueTimeoutMS=5000,
+        serverSelectionTimeoutMS=5000,
+    )
     _db = _client[db_name]
     return _db
 

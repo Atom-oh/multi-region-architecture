@@ -7,18 +7,25 @@ spec:
   generators:
     - clusters:
         selector:
-          matchExpressions:
-            - key: region
-              operator: Exists
+          matchLabels:
+            region: us-east-1
+        values:
+          overlayPath: us-east-1
+    - clusters:
+        selector:
+          matchLabels:
+            region: us-west-2
+        values:
+          overlayPath: us-west-2
   template:
     metadata:
-      name: 'platform-{{metadata.labels.region}}'
+      name: 'platform-{{name}}'
     spec:
       project: default
       source:
         repoURL: git@github.com:Atom-oh/multi-region-architecture.git
         targetRevision: main
-        path: 'k8s/overlays/{{metadata.labels.region}}/platform'
+        path: 'k8s/overlays/{{values.overlayPath}}/platform'
       destination:
         server: '{{server}}'
         namespace: platform

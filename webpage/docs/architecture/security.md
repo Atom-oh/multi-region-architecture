@@ -256,7 +256,7 @@ flowchart TB
       "Sid": "Enable IAM User Permissions",
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::180294183052:root"
+        "AWS": "arn:aws:iam::123456789012:root"
       },
       "Action": "kms:*",
       "Resource": "*"
@@ -277,7 +277,7 @@ flowchart TB
       "Resource": "*",
       "Condition": {
         "StringEquals": {
-          "aws:SourceAccount": "180294183052"
+          "aws:SourceAccount": "123456789012"
         }
       }
     },
@@ -285,7 +285,7 @@ flowchart TB
       "Sid": "Allow EKS Pods via IRSA",
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::180294183052:role/eks-*-irsa"
+        "AWS": "arn:aws:iam::123456789012:role/eks-*-irsa"
       },
       "Action": [
         "kms:Decrypt",
@@ -532,7 +532,7 @@ metadata:
   name: order-service
   namespace: production
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::180294183052:role/order-service-irsa
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/order-service-irsa
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -545,7 +545,7 @@ spec:
       serviceAccountName: order-service
       containers:
       - name: order-service
-        image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/order-service:latest
+        image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/order-service:latest
         env:
         - name: AWS_REGION
           value: us-east-1

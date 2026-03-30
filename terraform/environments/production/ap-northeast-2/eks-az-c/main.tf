@@ -69,23 +69,6 @@ module "alb" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Compute — NLB (AZ-C only: ap-northeast-2c)
-# ─────────────────────────────────────────────────────────────────────────────
-
-module "nlb" {
-  source = "../../../../modules/compute/nlb"
-
-  environment       = var.environment
-  region            = var.region
-  vpc_id            = data.terraform_remote_state.shared.outputs.vpc_id
-  public_subnet_ids = [data.terraform_remote_state.shared.outputs.public_subnet_ids[1]]
-  security_group_id = data.terraform_remote_state.shared.outputs.nlb_security_group_id
-  certificate_arn   = var.acm_certificate_arn
-  name_override     = "prod-api-nlb-apne2-az-c"
-  tags              = var.tags
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Observability — OTel Collector IRSA
 # ─────────────────────────────────────────────────────────────────────────────
 

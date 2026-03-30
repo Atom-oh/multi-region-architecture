@@ -1,16 +1,25 @@
-"""Valkey (Redis-compatible) client using redis-py."""
+"""Valkey (Redis-compatible) cluster client using redis-py."""
 
 import json
+import ssl
 from typing import Any
 
-import redis.asyncio as aioredis
+from redis.asyncio.cluster import RedisCluster
 
-_client: aioredis.Redis | None = None
+_client: RedisCluster | None = None
 
 
-async def connect(host: str, port: int = 6379) -> aioredis.Redis:
+async def connect(host: str, port: int = 6379, use_tls: bool = True) -> RedisCluster:
     global _client
-    _client = aioredis.Redis(host=host, port=port, decode_responses=True)
+    ssl_context = ssl.create_default_context() if use_tls else None
+    _client = RedisCluster(
+        host=host,
+        port=port,
+        decode_responses=True,
+        ssl=use_tls,
+        ssl_context=ssl_context,
+        read_from_replicas=True,  # Prefer same-AZ replicas for reads
+    )
     await _client.ping()
     return _client
 
@@ -22,7 +31,7 @@ async def disconnect() -> None:
         _client = None
 
 
-def get_client() -> aioredis.Redis:
+def get_client() -> RedisCluster:
     if _client is None:
         raise RuntimeError("Valkey not connected. Call connect() first.")
     return _client

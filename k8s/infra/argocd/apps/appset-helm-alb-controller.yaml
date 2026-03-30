@@ -23,24 +23,6 @@ spec:
           vpcId: vpc-0abcdef1234567890
           awsRegion: us-west-2
           clusterName: multi-region-mall
-    - clusters:
-        selector:
-          matchLabels:
-            cluster-name: mall-apne2-az-a
-        values:
-          roleArn: "arn:aws:iam::180294183052:role/mall-apne2-az-a-alb-controller-apne2-az-a"
-          vpcId: vpc-0e1b8458f46f9f81d
-          awsRegion: ap-northeast-2
-          clusterName: mall-apne2-az-a
-    - clusters:
-        selector:
-          matchLabels:
-            cluster-name: mall-apne2-az-c
-        values:
-          roleArn: "arn:aws:iam::180294183052:role/mall-apne2-az-c-alb-controller-apne2-az-c"
-          vpcId: vpc-0e1b8458f46f9f81d
-          awsRegion: ap-northeast-2
-          clusterName: mall-apne2-az-c
   template:
     metadata:
       name: 'alb-controller-{{name}}'

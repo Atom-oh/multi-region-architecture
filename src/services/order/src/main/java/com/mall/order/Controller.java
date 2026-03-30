@@ -2,7 +2,11 @@ package com.mall.order;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.springframework.http.*;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -10,12 +14,25 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 public class Controller {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
+    {
+        PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+        cm.setMaxTotal(100);
+        cm.setDefaultMaxPerRoute(20);
+        CloseableHttpClient httpClient = HttpClients.custom()
+            .setConnectionManager(cm)
+            .build();
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
+        factory.setConnectTimeout(3000);
+        factory.setConnectionRequestTimeout(5000);
+        restTemplate = new RestTemplate(factory);
+    }
 
     @Autowired(required = false)
     private JdbcTemplate jdbcTemplate;
@@ -56,27 +73,32 @@ public class Controller {
             if (pid != null) productId = pid.toString();
         }
 
-        // Step 1: Check inventory (distributed trace: order -> inventory)
-        Map<String, Object> inventoryCheck = callService(
-            "http://inventory.core-services.svc.cluster.local:80/api/v1/inventory/" + productId,
-            HttpMethod.GET, null, request);
-
-        // Step 2: Create payment (distributed trace: order -> payment)
+        // Parallel service calls: inventory, payment, shipping (distributed traces)
         Map<String, Object> paymentBody = new LinkedHashMap<>();
         paymentBody.put("order_id", "ORD-NEW-001");
         paymentBody.put("amount", order.getOrDefault("total_amount", 99000));
         paymentBody.put("method", "credit_card");
-        Map<String, Object> paymentResult = callService(
-            "http://payment.core-services.svc.cluster.local:80/api/v1/payments",
-            HttpMethod.POST, paymentBody, request);
 
-        // Step 3: Create shipment (distributed trace: order -> shipping)
         Map<String, Object> shippingBody = new LinkedHashMap<>();
         shippingBody.put("order_id", "ORD-NEW-001");
         shippingBody.put("address", Map.of("street", "서울시 강남구 테헤란로 123", "city", "Seoul"));
-        Map<String, Object> shippingResult = callService(
-            "http://shipping.fulfillment.svc.cluster.local:80/api/v1/shipments",
-            HttpMethod.POST, shippingBody, request);
+
+        String inventoryUrl = "http://inventory.core-services.svc.cluster.local:80/api/v1/inventory/" + productId;
+        String paymentUrl = "http://payment.core-services.svc.cluster.local:80/api/v1/payments";
+        String shippingUrl = "http://shipping.fulfillment.svc.cluster.local:80/api/v1/shipments";
+
+        CompletableFuture<Map<String, Object>> inventoryFuture = CompletableFuture.supplyAsync(
+            () -> callService(inventoryUrl, HttpMethod.GET, null, request));
+        CompletableFuture<Map<String, Object>> paymentFuture = CompletableFuture.supplyAsync(
+            () -> callService(paymentUrl, HttpMethod.POST, paymentBody, request));
+        CompletableFuture<Map<String, Object>> shippingFuture = CompletableFuture.supplyAsync(
+            () -> callService(shippingUrl, HttpMethod.POST, shippingBody, request));
+
+        CompletableFuture.allOf(inventoryFuture, paymentFuture, shippingFuture).join();
+
+        Map<String, Object> inventoryCheck = inventoryFuture.join();
+        Map<String, Object> paymentResult = paymentFuture.join();
+        Map<String, Object> shippingResult = shippingFuture.join();
 
         String orderId = "ORD-NEW-001";
         BigDecimal totalAmount = new BigDecimal(order.getOrDefault("total_amount", 0).toString());
@@ -109,6 +131,17 @@ public class Controller {
         response.put("shipping", shippingResult);
         response.put("created_at", "2026-03-20T10:00:00Z");
         response.put("message", "주문이 접수되었습니다");
+
+        // TODO: Publish to Kafka topic "orders.created"
+        // Requires spring-kafka dependency to be added to pom.xml
+        // Map<String, Object> orderEvent = new LinkedHashMap<>();
+        // orderEvent.put("event_type", "order.created");
+        // orderEvent.put("order_id", orderId);
+        // orderEvent.put("user_id", userId);
+        // orderEvent.put("items", items);
+        // orderEvent.put("total_amount", order.getOrDefault("total_amount", 0));
+        // orderEvent.put("timestamp", Instant.now().toString());
+        // kafkaTemplate.send("orders.created", orderId, orderEvent);
 
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")

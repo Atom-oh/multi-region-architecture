@@ -17,10 +17,10 @@
 
 | Item | Value |
 |------|-------|
-| AWS Account | 180294183052 |
+| AWS Account | 123456789012 |
 | IAM Role | mgmt-vpc-VSCode-Role (AdministratorAccess) |
 | Domain | atomai.click |
-| Route53 Zone ID | Z01703432E9KT1G1FIRFM |
+| Route53 Zone ID | Z0123456789ABCDEFGHIJ |
 | Primary Region | us-east-1 |
 | Secondary Region | us-west-2 |
 | Existing Infrastructure | None (clean environment) |
@@ -29,8 +29,8 @@
 
 | Region | ARN | Status |
 |--------|-----|--------|
-| us-east-1 | arn:aws:acm:us-east-1:180294183052:certificate/f6b6907a-5747-4039-967a-a8c7c73116a7 | Issued |
-| us-west-2 | arn:aws:acm:us-west-2:180294183052:certificate/18ed9116-1f33-4cfa-b922-9fde952ea169 | Issued |
+| us-east-1 | arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx | Issued |
+| us-west-2 | arn:aws:acm:us-west-2:123456789012:certificate/yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy | Issued |
 
 ### 1.3 Domain Configuration
 

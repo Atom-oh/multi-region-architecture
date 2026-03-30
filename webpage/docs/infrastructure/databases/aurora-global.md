@@ -63,16 +63,16 @@ flowchart TB
 
 | 엔드포인트 유형 | 값 |
 |---------------|-----|
-| **Writer** | `production-aurora-global-us-east-1.cluster-c4pe2u8kgt26.us-east-1.rds.amazonaws.com` |
-| **Reader** | `production-aurora-global-us-east-1.cluster-ro-c4pe2u8kgt26.us-east-1.rds.amazonaws.com` |
+| **Writer** | `production-aurora-global-us-east-1.cluster-xxxxxxxxxxxx.us-east-1.rds.amazonaws.com` |
+| **Reader** | `production-aurora-global-us-east-1.cluster-ro-xxxxxxxxxxxx.us-east-1.rds.amazonaws.com` |
 | 포트 | 5432 |
 
 ### us-west-2
 
 | 엔드포인트 유형 | 값 |
 |---------------|-----|
-| **Reader** | `production-aurora-global-us-west-2.cluster-cj00m0aai7ry.us-west-2.rds.amazonaws.com` |
-| **Reader (RO)** | `production-aurora-global-us-west-2.cluster-ro-cj00m0aai7ry.us-west-2.rds.amazonaws.com` |
+| **Reader** | `production-aurora-global-us-west-2.cluster-yyyyyyyyyyyy.us-west-2.rds.amazonaws.com` |
+| **Reader (RO)** | `production-aurora-global-us-west-2.cluster-ro-yyyyyyyyyyyy.us-west-2.rds.amazonaws.com` |
 | 포트 | 5432 |
 
 ## Terraform 구성

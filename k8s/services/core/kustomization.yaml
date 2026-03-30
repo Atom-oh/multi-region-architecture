@@ -3,11 +3,17 @@ kind: Kustomization
 
 resources:
   - product-catalog/deployment.yaml
+  - product-catalog/pdb.yaml
   - search/deployment.yaml
+  - search/pdb.yaml
   - cart/deployment.yaml
+  - cart/pdb.yaml
   - order/deployment.yaml
+  - order/pdb.yaml
   - payment/deployment.yaml
+  - payment/pdb.yaml
   - inventory/deployment.yaml
+  - inventory/pdb.yaml
 
 commonLabels:
   tier: core

@@ -5,7 +5,7 @@
 
 const { MongoClient } = require('mongodb');
 
-const MONGO_URI = process.env.DOCUMENTDB_URI || 'mongodb://docdb_admin:TempPassword123%21ChangeMe@localhost:27017/mall?tls=true&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false&authMechanism=SCRAM-SHA-1';
+const MONGO_URI = process.env.DOCUMENTDB_URI || 'mongodb://docdb_admin:<YOUR_PASSWORD>@localhost:27017/mall?tls=true&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false&authMechanism=SCRAM-SHA-1';
 const DB_NAME = 'mall';
 
 // ── 10 Categories ──────────────────────────────────────────────────────────

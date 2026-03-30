@@ -51,9 +51,10 @@ resource "aws_subnet" "private" {
   availability_zone = var.availability_zones[count.index]
 
   tags = merge(var.tags, {
-    Name        = "${var.environment}-private-${var.availability_zones[count.index]}"
-    Environment = var.environment
-    Tier        = "private"
+    Name                          = "${var.environment}-private-${var.availability_zones[count.index]}"
+    Environment                   = var.environment
+    Tier                          = "private"
+    "topology.kubernetes.io/zone" = var.availability_zones[count.index]
   })
 }
 

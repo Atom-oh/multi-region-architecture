@@ -128,7 +128,7 @@ aws elasticache describe-replication-groups \
 # 7. MSK Status
 echo "[7] MSK Cluster Status"
 aws kafka describe-cluster \
-  --cluster-arn arn:aws:kafka:us-east-1:180294183052:cluster/production-msk-us-east-1 \
+  --cluster-arn arn:aws:kafka:us-east-1:123456789012:cluster/production-msk-us-east-1 \
   --query 'ClusterInfo.State'
 
 echo "=== Assessment Complete ==="
@@ -201,7 +201,7 @@ aws cloudwatch get-metric-statistics \
 # 3. Execute failover
 aws rds failover-global-cluster \
   --global-cluster-identifier production-aurora-global \
-  --target-db-cluster-identifier arn:aws:rds:us-west-2:180294183052:cluster:production-aurora-global-us-west-2
+  --target-db-cluster-identifier arn:aws:rds:us-west-2:123456789012:cluster:production-aurora-global-us-west-2
 
 # 4. Monitor failover progress
 watch -n 5 "aws rds describe-global-clusters \
@@ -232,7 +232,7 @@ aws docdb remove-from-global-cluster \
 # 4. Application connection string update required
 # Update ConfigMap or Secret
 kubectl set env deployment/product-catalog -n core-services \
-  DOCUMENTDB_HOST=production-docdb-global-us-west-2.cluster-cj00m0aai7ry.us-west-2.docdb.amazonaws.com
+  DOCUMENTDB_HOST=production-docdb-global-us-west-2.cluster-yyyyyyyyyyyy.us-west-2.docdb.amazonaws.com
 ```
 
 ### 4.3 ElastiCache Global Datastore Failover
@@ -289,7 +289,7 @@ cat << 'EOF' > /tmp/dns-failover.json
         "SetIdentifier": "primary-us-east-1",
         "Weight": 0,
         "AliasTarget": {
-          "HostedZoneId": "Z35SXDOTRQ7X7K",
+          "HostedZoneId": "Z0EXAMPLE7654321",
           "DNSName": "dualstack.prod-alb-us-east-1-123456.us-east-1.elb.amazonaws.com",
           "EvaluateTargetHealth": true
         }
@@ -303,7 +303,7 @@ cat << 'EOF' > /tmp/dns-failover.json
         "SetIdentifier": "secondary-us-west-2",
         "Weight": 100,
         "AliasTarget": {
-          "HostedZoneId": "Z1H1FL5HABSF5",
+          "HostedZoneId": "Z0EXAMPLEABCDEFG",
           "DNSName": "dualstack.prod-alb-us-west-2-654321.us-west-2.elb.amazonaws.com",
           "EvaluateTargetHealth": true
         }

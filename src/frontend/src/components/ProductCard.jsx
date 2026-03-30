@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
 
 export default function ProductCard({ product }) {
   const { incrementCart } = useCart();
+  const { user } = useAuth();
 
   const formatPrice = (price) => {
-    return `₩${price.toLocaleString('ko-KR')}`;
+    if (price == null) return '';
+    return `₩${Number(price).toLocaleString('ko-KR')}`;
   };
 
   const renderStars = (rating) => {
@@ -21,10 +25,25 @@ export default function ProductCard({ product }) {
     );
   };
 
-  const handleAddToCart = (e) => {
+  const handleAddToCart = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    incrementCart();
+    try {
+      if (user?.id) {
+        await api(`/carts/${user.id}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            product_id: product.id,
+            name: product.name,
+            quantity: 1,
+            price: product.price,
+          }),
+        });
+      }
+      incrementCart();
+    } catch (err) {
+      console.error('Failed to add to cart:', err);
+    }
   };
 
   return (

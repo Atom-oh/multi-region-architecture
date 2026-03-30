@@ -7,11 +7,11 @@ private_subnet_cidrs             = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/2
 data_subnet_cidrs                = ["10.0.21.0/24", "10.0.22.0/24", "10.0.23.0/24"]
 eks_cluster_name                 = "multi-region-mall"
 domain_name                      = "atomai.click"
-route53_zone_id                  = "Z01703432E9KT1G1FIRFM"
-acm_certificate_arn              = "arn:aws:acm:us-east-1:180294183052:certificate/f6b6907a-5747-4039-967a-a8c7c73116a7"
+route53_zone_id                  = "Z0123456789ABCDEFGHIJ"
+acm_certificate_arn              = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 docdb_global_cluster_identifier  = "multi-region-mall-docdb"
-argocd_nlb_dns_name              = "k8s-argocd-argocdse-7d4059ca12-b57b4f4062f25aee.elb.us-east-1.amazonaws.com"
-argocd_nlb_zone_id               = "Z26RNL4JYFTOTI"
+argocd_nlb_dns_name              = "k8s-argocd-xxxxxxxxxx-xxxxxxxxxxxxxxxx.elb.us-east-1.amazonaws.com"
+argocd_nlb_zone_id               = "Z0EXAMPLE1234567"
 
 tags = {
   Project = "multi-region-mall"

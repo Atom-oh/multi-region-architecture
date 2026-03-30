@@ -42,7 +42,7 @@ fi
 # --- Deployment detected: run connectivity check ---
 
 MALL_URL="https://mall.atomai.click"
-CF_URL="https://d1muyxliujbszf.cloudfront.net"
+CF_URL="https://dXXXXXXXXXXXXX.cloudfront.net"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo ""
