@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tempo
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-mgmt
+        values:
+          tempoRoleArn: arn:aws:iam::180294183052:role/production-tempo-ap-northeast-2-mgmt
+          tempoS3Bucket: production-mall-tempo-traces-ap-northeast-2-mgmt
+          awsRegion: ap-northeast-2
+  template:
+    metadata:
+      name: 'tempo-{{name}}'
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:Atom-oh/multi-region-architecture.git
+        targetRevision: main
+        path: k8s/infra/tempo
+        kustomize:
+          patches:
+            - target:
+                kind: ServiceAccount
+                name: tempo
+              patch: |-
+                - op: replace
+                  path: /metadata/annotations/eks.amazonaws.com~1role-arn
+                  value: '{{values.tempoRoleArn}}'
+            - target:
+                kind: ConfigMap
+                name: tempo-config
+              patch: |-
+                - op: replace
+                  path: /data/TEMPO_S3_BUCKET
+                  value: '{{values.tempoS3Bucket}}'
+                - op: replace
+                  path: /data/AWS_REGION
+                  value: '{{values.awsRegion}}'
+      destination:
+        server: '{{server}}'
+        namespace: observability
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

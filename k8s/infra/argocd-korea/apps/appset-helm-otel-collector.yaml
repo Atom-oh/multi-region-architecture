@@ -1,0 +1,138 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-otel-collector
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+        values:
+          awsRegion: ap-northeast-2
+          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-ap-northeast-2-az-a"
+          clusterName: mall-apne2-az-a
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+        values:
+          awsRegion: ap-northeast-2
+          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-ap-northeast-2-az-c"
+          clusterName: mall-apne2-az-c
+  template:
+    metadata:
+      name: 'otel-collector-{{name}}'
+    spec:
+      project: default
+      source:
+        chart: opentelemetry-collector
+        repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+        targetRevision: 0.115.0
+        helm:
+          valuesObject:
+            image:
+              repository: otel/opentelemetry-collector-contrib
+            mode: daemonset
+            presets:
+              kubernetesAttributes:
+                enabled: true
+              logsCollection:
+                enabled: true
+            serviceAccount:
+              annotations:
+                eks.amazonaws.com/role-arn: '{{values.roleArn}}'
+            resources:
+              requests:
+                cpu: 200m
+                memory: 768Mi
+              limits:
+                cpu: "1"
+                memory: 2Gi
+            config:
+              receivers:
+                otlp:
+                  protocols:
+                    grpc:
+                      endpoint: 0.0.0.0:4317
+                    http:
+                      endpoint: 0.0.0.0:4318
+              processors:
+                batch:
+                  timeout: 5s
+                  send_batch_size: 1024
+                  send_batch_max_size: 2048
+                memory_limiter:
+                  check_interval: 5s
+                  limit_mib: 512
+                  spike_limit_mib: 128
+                resource:
+                  attributes:
+                    - key: k8s.cluster.name
+                      value: '{{values.clusterName}}'
+                      action: upsert
+              connectors:
+                spanmetrics:
+                  histogram:
+                    explicit:
+                      buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
+                  dimensions:
+                    - name: http.method
+                    - name: http.status_code
+                  exemplars:
+                    enabled: true
+                  metrics_flush_interval: 15s
+              exporters:
+                awsxray:
+                  region: '{{values.awsRegion}}'
+                  index_all_attributes: true
+                otlp/tempo:
+                  endpoint: tempo.mgmt.internal.atomai.click:4317
+                  tls:
+                    insecure: true
+                prometheus:
+                  endpoint: 0.0.0.0:8889
+                  namespace: otel
+                  resource_to_telemetry_conversion:
+                    enabled: true
+                clickhouse:
+                  endpoint: tcp://clickhouse.mgmt.internal.atomai.click:9000
+                  database: otel
+                  logs_table_name: otel_logs
+                  traces_table_name: otel_traces
+                  ttl: 720h
+                  create_schema: true
+                awscloudwatchlogs:
+                  log_group_name: /eks/multi-region-mall
+                  log_stream_name: otel-collector
+                  region: '{{values.awsRegion}}'
+              service:
+                pipelines:
+                  traces:
+                    receivers: [otlp]
+                    processors: [memory_limiter, batch, resource]
+                    exporters: [clickhouse, otlp/tempo, awsxray, spanmetrics]
+                  logs:
+                    receivers: [filelog]
+                    processors: [memory_limiter, batch, resource]
+                    exporters: [clickhouse, awscloudwatchlogs]
+                  metrics:
+                    receivers: [otlp, spanmetrics]
+                    processors: [memory_limiter, batch]
+                    exporters: [prometheus]
+      destination:
+        server: '{{server}}'
+        namespace: platform
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

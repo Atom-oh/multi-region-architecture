@@ -1,0 +1,53 @@
+global:
+  domain: argocd-kr.atomai.click
+  tolerations:
+    - key: node-role
+      value: system-critical
+      effect: NoSchedule
+  nodeSelector:
+    role: system
+
+server:
+  replicas: 2
+  extraArgs:
+    - --insecure
+  service:
+    type: ClusterIP
+
+controller:
+  replicas: 2
+
+repoServer:
+  replicas: 2
+
+applicationSet:
+  replicas: 2
+
+redis-ha:
+  enabled: true
+  tolerations:
+    - key: node-role
+      value: system-critical
+      effect: NoSchedule
+  nodeSelector:
+    role: system
+  haproxy:
+    tolerations:
+      - key: node-role
+        value: system-critical
+        effect: NoSchedule
+    nodeSelector:
+      role: system
+
+configs:
+  cm:
+    kustomize.buildOptions: "--enable-helm"
+    resource.exclusions: |
+      - apiGroups:
+          - cilium.io
+        kinds:
+          - CiliumIdentity
+        clusters:
+          - "*"
+  params:
+    server.insecure: true

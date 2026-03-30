@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - appset-core.yaml
+  - appset-user.yaml
+  - appset-fulfillment.yaml
+  - appset-business.yaml
+  - appset-platform.yaml
+  - appset-infra.yaml
+  - appset-tempo.yaml
+  - appset-storageclass.yaml
+  - appset-clickhouse.yaml
+  - appset-grafana-dashboards.yaml
+  - appset-helm-karpenter.yaml
+  - appset-helm-external-secrets.yaml
+  - appset-helm-alb-controller.yaml
+  - appset-helm-clickhouse-operator.yaml
+  - appset-helm-otel-collector.yaml
+  - appset-helm-prometheus-mgmt.yaml
+  - appset-helm-prometheus-workload.yaml

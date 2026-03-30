@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: returns-pdb
+  namespace: fulfillment
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: returns

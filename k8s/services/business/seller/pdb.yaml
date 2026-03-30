@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: seller-pdb
+  namespace: business-services
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: seller

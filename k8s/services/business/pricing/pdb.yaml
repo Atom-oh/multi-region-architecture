@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pricing-pdb
+  namespace: business-services
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: pricing
