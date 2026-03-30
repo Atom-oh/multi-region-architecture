@@ -18,33 +18,63 @@ terraform.rc
 .DS_Store
 Thumbs.db
 
-# Discussion files
-discussion/
-
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# OMC state
-.omc/
-
 # Environment
 .env
 .env.*
-terraform/environments/production/us-east-1/tfplan
-terraform/environments/production/us-west-2/tfplan
-*.tfplan
-webpage/node_modules/
+
+# Node.js / Docusaurus
+node_modules/
 build/
 .docusaurus/
+.cache/
+package-lock.json.bak
+
+# Python
 *.pyc
 __pycache__/
+*.egg-info/
+.venv/
+venv/
 
-# Go build binaries
+# Go binaries (same name as parent directory)
+src/services/api-gateway/api-gateway
 src/services/cart/cart
+src/services/event-bus/event-bus
 src/services/inventory/inventory
 
-# Playwright MCP
+# Java
+target/
+*.class
+*.jar
+!src/services/**/pom.xml
+
+# Discussion / temporary files
+discussion/
+
+# Temporary images (screenshots, diagrams not in docs/)
+block*.png
+failover-*.png
+homepage-skeleton.png
+toc-page.png
+image.png
+
+# Claude Code / AI tooling
+.claude/
+.omc/
+.mcp.json
 .playwright-mcp/
+
+# Duplicate Docusaurus project (real project is webpage/)
+docs/webpage/
+
+# Terraform plan outputs (no extension)
+terraform/environments/**/tfplan
+
+# Zip archives
+*.zip
