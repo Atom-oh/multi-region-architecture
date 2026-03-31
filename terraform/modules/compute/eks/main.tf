@@ -150,6 +150,19 @@ resource "aws_security_group_rule" "eks_cluster_sg_nlb_ingress" {
   description              = "All traffic from NLB to EKS nodes"
 }
 
+# Allow ArgoCD management cluster to access EKS API (cross-cluster management)
+resource "aws_security_group_rule" "eks_cluster_sg_argocd_ingress" {
+  count = var.argocd_security_group_id != "" ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  source_security_group_id = var.argocd_security_group_id
+  description              = "Allow HTTPS from ArgoCD mgmt cluster to EKS API"
+}
+
 # OIDC Provider for IRSA
 data "tls_certificate" "eks" {
   url = aws_eks_cluster.main.identity[0].oidc[0].issuer

@@ -63,6 +63,12 @@ variable "nlb_security_group_id" {
   default     = ""
 }
 
+variable "argocd_security_group_id" {
+  description = "Security group ID of the ArgoCD management cluster (for cross-cluster API access on port 443)"
+  type        = string
+  default     = ""
+}
+
 variable "bootstrap_node_instance_types" {
   description = "Instance types for bootstrap node group"
   type        = list(string)

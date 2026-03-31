@@ -34,6 +34,19 @@ data "terraform_remote_state" "shared" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Remote State — management cluster (for cross-cluster ArgoCD SG access)
+# ─────────────────────────────────────────────────────────────────────────────
+
+data "terraform_remote_state" "eks_mgmt" {
+  backend = "s3"
+  config = {
+    bucket = "multi-region-mall-terraform-state"
+    key    = "production/ap-northeast-2/eks-mgmt/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Compute — EKS (AZ-A only: ap-northeast-2a)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -47,6 +60,7 @@ module "eks" {
   private_subnet_ids           = data.terraform_remote_state.shared.outputs.private_subnet_ids
   alb_security_group_id        = data.terraform_remote_state.shared.outputs.alb_security_group_id
   nlb_security_group_id        = data.terraform_remote_state.shared.outputs.nlb_security_group_id
+  argocd_security_group_id     = data.terraform_remote_state.eks_mgmt.outputs.cluster_security_group_id
   bootstrap_node_instance_types = ["t3.medium", "t3a.medium"]
   role_name_suffix             = "-apne2-az-a"
   tags                         = var.tags

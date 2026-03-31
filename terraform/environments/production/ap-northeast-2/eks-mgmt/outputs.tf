@@ -42,6 +42,11 @@ output "node_group_role_arn" {
   value       = module.eks.node_group_role_arn
 }
 
+output "cluster_security_group_id" {
+  description = "The EKS-managed cluster security group ID (used for cross-cluster ArgoCD access)"
+  value       = module.eks.cluster_security_group_id
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ALB
 # ─────────────────────────────────────────────────────────────────────────────
