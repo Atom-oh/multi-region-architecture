@@ -22,6 +22,9 @@ spec:
           valuesObject:
             githubConfigUrl: https://github.com/Atom-oh/multi-region-architecture
             githubConfigSecret: github-app-secret
+            controllerServiceAccount:
+              name: arc-controller-mall-apne2-mgmt-gha-rs-controller
+              namespace: actions-runner-system
             runnerScaleSetName: self-hosted-arm
             minRunners: 0
             maxRunners: 10
