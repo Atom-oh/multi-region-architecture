@@ -66,6 +66,30 @@ variable "acm_certificate_arn" {
   type        = string
 }
 
+variable "argocd_nlb_dns_name" {
+  description = "DNS name of the ArgoCD NLB (created by K8s LB controller)"
+  type        = string
+  default     = ""
+}
+
+variable "argocd_nlb_zone_id" {
+  description = "Hosted zone ID of the ArgoCD NLB"
+  type        = string
+  default     = ""
+}
+
+variable "grafana_nlb_dns_name" {
+  description = "DNS name of the Grafana NLB (created by K8s LB controller)"
+  type        = string
+  default     = ""
+}
+
+variable "grafana_nlb_zone_id" {
+  description = "Hosted zone ID of the Grafana NLB"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Additional tags"
   type        = map(string)

@@ -213,6 +213,66 @@ module "nlb" {
   tags = var.tags
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Route53 — Korea-specific DNS records
+# ─────────────────────────────────────────────────────────────────────────────
+
+# mall-kr.atomai.click → Korea mall NLB
+resource "aws_route53_record" "mall_kr" {
+  zone_id = var.route53_zone_id
+  name    = "mall-kr.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = module.nlb.nlb_dns_name
+    zone_id                = module.nlb.nlb_zone_id
+    evaluate_target_health = true
+  }
+}
+
+# api-kr.atomai.click → Korea API NLB (same NLB, separate DNS for API calls)
+resource "aws_route53_record" "api_kr" {
+  zone_id = var.route53_zone_id
+  name    = "api-kr.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = module.nlb.nlb_dns_name
+    zone_id                = module.nlb.nlb_zone_id
+    evaluate_target_health = true
+  }
+}
+
+# argocd-kr.atomai.click → ArgoCD NLB (created by K8s LB controller on mgmt cluster)
+resource "aws_route53_record" "argocd_kr" {
+  count = var.argocd_nlb_dns_name != "" ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = "argocd-kr.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = var.argocd_nlb_dns_name
+    zone_id                = var.argocd_nlb_zone_id
+    evaluate_target_health = true
+  }
+}
+
+# grafana-kr.atomai.click → Grafana NLB (created by K8s LB controller on mgmt cluster)
+resource "aws_route53_record" "grafana_kr" {
+  count = var.grafana_nlb_dns_name != "" ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = "grafana-kr.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = var.grafana_nlb_dns_name
+    zone_id                = var.grafana_nlb_zone_id
+    evaluate_target_health = true
+  }
+}
+
 # S3: secondary (no replication source)
 module "s3" {
   source = "../../../../modules/data/s3"

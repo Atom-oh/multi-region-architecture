@@ -22,3 +22,4 @@ resources:
   - appset-helm-actions-runner-controller.yaml
   - appset-helm-runner-x86.yaml
   - appset-helm-runner-arm.yaml
+  - appset-grafana-nlb.yaml

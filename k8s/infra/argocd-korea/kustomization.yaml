@@ -5,6 +5,7 @@ namespace: argocd
 
 resources:
   - namespace.yaml
+  - argocd-server-nlb.yaml
   - apps/
 
 helmCharts:
