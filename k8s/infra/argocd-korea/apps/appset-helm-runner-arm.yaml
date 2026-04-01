@@ -30,6 +30,8 @@ spec:
             maxRunners: 10
             listenerTemplate:
               spec:
+                containers:
+                  - name: listener
                 tolerations:
                   - key: node-role
                     value: system-critical
