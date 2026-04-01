@@ -29,6 +29,14 @@ patches:
         path: /metadata/annotations
         value:
           grafana_folder: "ClickHouse"
+  - target:
+      kind: ConfigMap
+      name: grafana-dashboard-clickhouse-synthetic-monitor
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          grafana_folder: "ClickHouse"
 
 configMapGenerator:
   - name: grafana-dashboard-synthetic-monitor
@@ -83,6 +91,14 @@ configMapGenerator:
     namespace: monitoring
     files:
       - dashboards/clickhouse-log-explorer.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-clickhouse-synthetic-monitor
+    namespace: monitoring
+    files:
+      - dashboards/clickhouse-synthetic-monitor.json
     options:
       disableNameSuffixHash: true
       labels:

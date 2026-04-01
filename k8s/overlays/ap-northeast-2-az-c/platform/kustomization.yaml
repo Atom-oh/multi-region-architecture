@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - ../../../services/platform
+  - ../../../services/platform/synthetic-monitor
 
 patches:
   - target:
@@ -11,7 +12,21 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:ap-northeast-2:123456789012:targetgroup/prod-wtg-apne2-az-c/zzzzzzzzzzzzzzzz"
+        value: "arn:aws:elasticloadbalancing:ap-northeast-2:123456789012:targetgroup/prod-wtg-apne2-az-c/03a95765e5928b7b"
+  - target:
+      kind: CronJob
+      name: synthetic-monitor
+    patch: |-
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/env/2
+        value:
+          name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector.platform.svc.cluster.local:4317"
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/env/3
+        value:
+          name: ORIGIN_REGION
+          value: "ap-northeast-2"
   - target:
       kind: Deployment
     patch: |-
@@ -30,7 +45,6 @@ patches:
         value:
           name: AVAILABILITY_ZONE
           value: "ap-northeast-2c"
-
 commonLabels:
   region: ap-northeast-2
   region-role: secondary

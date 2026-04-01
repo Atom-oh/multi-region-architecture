@@ -88,7 +88,8 @@ spec:
                   region: '{{values.awsRegion}}'
                   index_all_attributes: true
                 otlp/tempo:
-                  endpoint: tempo.mgmt.internal.atomai.click:4317
+                  # kubectl get svc tempo-nlb -n observability → EXTERNAL-IP
+                  endpoint: TEMPO_NLB_DNS:4317
                   tls:
                     insecure: true
                 prometheus:
@@ -97,7 +98,8 @@ spec:
                   resource_to_telemetry_conversion:
                     enabled: true
                 clickhouse:
-                  endpoint: tcp://clickhouse.mgmt.internal.atomai.click:9000
+                  # kubectl get svc clickhouse-nlb -n observability → EXTERNAL-IP
+                  endpoint: tcp://CLICKHOUSE_NLB_DNS:9000
                   database: otel
                   logs_table_name: otel_logs
                   traces_table_name: otel_traces

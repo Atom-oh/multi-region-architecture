@@ -51,29 +51,54 @@ spec:
                   searchNamespace: ALL
                   label: grafana_dashboard
                   folderAnnotation: grafana_folder
-              additionalDataSources:
-                - name: ClickHouse
-                  type: grafana-clickhouse-datasource
-                  url: http://clickhouse-clickhouse.observability:8123
-                  access: proxy
-                  jsonData:
-                    defaultDatabase: otel
-                - name: Tempo
-                  type: tempo
-                  url: http://tempo.observability:3200
-                  access: proxy
-                  jsonData:
-                    tracesToLogsV2:
-                      datasourceUid: ClickHouse
-                      filterByTraceID: true
-                      filterBySpanID: true
-                    tracesToMetrics:
-                      datasourceUid: prometheus
-                      queries:
-                        - name: Request rate
-                          query: "sum(rate(traces_spanmetrics_calls_total{$$__tags}[5m]))"
-                    serviceMap:
-                      datasourceUid: prometheus
+                datasources:
+                  defaultDatasourceEnabled: false
+              datasources:
+                datasources.yaml:
+                  apiVersion: 1
+                  deleteDatasources:
+                    - name: Prometheus
+                      orgId: 1
+                  datasources:
+                    - name: Prometheus
+                      type: prometheus
+                      uid: prometheus
+                      url: http://prometheus-mall-apne2-mgmt-prometheus.monitoring:9090
+                      access: proxy
+                      isDefault: true
+                      jsonData:
+                        exemplarTraceIdDestinations:
+                          - name: traceID
+                            datasourceUid: clickhouse
+                    - name: ClickHouse
+                      type: grafana-clickhouse-datasource
+                      uid: clickhouse
+                      url: http://clickhouse-clickhouse.observability:8123
+                      access: proxy
+                      jsonData:
+                        defaultDatabase: otel
+                        protocol: http
+                    - name: Tempo
+                      type: tempo
+                      uid: tempo
+                      url: http://tempo.observability:3200
+                      access: proxy
+                      jsonData:
+                        tracesToLogsV2:
+                          datasourceUid: clickhouse
+                          filterByTraceID: true
+                          filterBySpanID: true
+                        tracesToMetrics:
+                          datasourceUid: prometheus
+                        serviceMap:
+                          datasourceUid: prometheus
+                        nodeGraph:
+                          enabled: true
+                    - name: CloudWatch (ap-northeast-2)
+                      type: cloudwatch
+                      uid: cloudwatch-korea
+                      jsonData:
+                        defaultRegion: ap-northeast-2
             prometheusOperator:
               tolerations:
                 - key: node-role

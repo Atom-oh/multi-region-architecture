@@ -41,6 +41,11 @@ output "nlb_security_group_id" {
   value       = module.security_groups.nlb_security_group_id
 }
 
+output "internal_observability_nlb_security_group_id" {
+  description = "The ID of the internal observability NLB security group (ClickHouse, Tempo, Prometheus)"
+  value       = module.security_groups.internal_observability_nlb_security_group_id
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Data Store Endpoints
 # ─────────────────────────────────────────────────────────────────────────────

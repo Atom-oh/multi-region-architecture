@@ -23,7 +23,6 @@ patches:
         value:
           name: AVAILABILITY_ZONE
           value: "ap-northeast-2c"
-
 commonLabels:
   region: ap-northeast-2
   region-role: secondary

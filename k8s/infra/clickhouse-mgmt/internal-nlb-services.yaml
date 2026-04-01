@@ -10,6 +10,8 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    # SG ID from: terraform output internal_observability_nlb_security_group_id
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-REPLACE-INTERNAL-OBS-NLB"
 spec:
   type: LoadBalancer
   ports:
@@ -36,6 +38,8 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    # SG ID from: terraform output internal_observability_nlb_security_group_id
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-REPLACE-INTERNAL-OBS-NLB"
 spec:
   type: LoadBalancer
   ports:
@@ -48,7 +52,7 @@ spec:
       targetPort: 3200
       protocol: TCP
   selector:
-    app.kubernetes.io/name: tempo
+    app: tempo
 ---
 # Internal NLB for Prometheus — workload Prometheus agents remote-write here
 apiVersion: v1
@@ -61,6 +65,8 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    # SG ID from: terraform output internal_observability_nlb_security_group_id
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-REPLACE-INTERNAL-OBS-NLB"
 spec:
   type: LoadBalancer
   ports:

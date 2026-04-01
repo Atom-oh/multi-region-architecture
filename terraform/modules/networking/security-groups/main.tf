@@ -92,6 +92,44 @@ resource "aws_security_group_rule" "nlb_egress" {
 }
 
 #------------------------------------------------------------------------------
+# Internal Observability NLB Security Group (ClickHouse, Tempo, Prometheus)
+#------------------------------------------------------------------------------
+resource "aws_security_group" "internal_observability_nlb" {
+  name_prefix = "${var.environment}-internal-obs-nlb-"
+  vpc_id      = var.vpc_id
+  description = "Security group for internal observability NLBs (ClickHouse, Tempo, Prometheus)"
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-internal-obs-nlb-sg"
+    Environment = var.environment
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_security_group_rule" "internal_obs_nlb_ingress_private" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 65535
+  protocol          = "tcp"
+  cidr_blocks       = ["10.0.0.0/8"]
+  security_group_id = aws_security_group.internal_observability_nlb.id
+  description       = "All TCP from private networks (cross-cluster observability)"
+}
+
+resource "aws_security_group_rule" "internal_obs_nlb_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = [var.vpc_cidr]
+  security_group_id = aws_security_group.internal_observability_nlb.id
+  description       = "All traffic to VPC"
+}
+
+#------------------------------------------------------------------------------
 # EKS Node Security Group
 #------------------------------------------------------------------------------
 resource "aws_security_group" "eks_node" {
@@ -127,6 +165,16 @@ resource "aws_security_group_rule" "eks_node_ingress_nlb" {
   source_security_group_id = aws_security_group.nlb.id
   security_group_id        = aws_security_group.eks_node.id
   description              = "All traffic from NLB"
+}
+
+resource "aws_security_group_rule" "eks_node_ingress_internal_obs_nlb" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.internal_observability_nlb.id
+  security_group_id        = aws_security_group.eks_node.id
+  description              = "All traffic from internal observability NLB"
 }
 
 resource "aws_security_group_rule" "eks_node_ingress_self" {

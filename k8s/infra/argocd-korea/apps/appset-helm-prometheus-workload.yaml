@@ -33,7 +33,8 @@ spec:
                 enableFeatures:
                   - exemplar-storage
                 remoteWrite:
-                  - url: "http://prometheus.mgmt.internal.atomai.click:9090/api/v1/write"
+                  # kubectl get svc prometheus-nlb -n monitoring → EXTERNAL-IP
+                  - url: "http://PROMETHEUS_NLB_DNS:9090/api/v1/write"
                     queueConfig:
                       maxSamplesPerSend: 5000
                       batchSendDeadline: 30s
