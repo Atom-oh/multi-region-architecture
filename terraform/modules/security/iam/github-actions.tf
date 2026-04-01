@@ -99,7 +99,7 @@ resource "aws_bedrock_inference_profile" "pr_review" {
   description = "PR review inference profile for GitHub Actions CI — token usage tracking"
 
   model_source {
-    copy_from = "arn:aws:bedrock:${var.region}::foundation-model/${var.bedrock_pr_review_model_id}"
+    copy_from = var.bedrock_source_profile_arn
   }
 
   tags = merge(var.tags, {

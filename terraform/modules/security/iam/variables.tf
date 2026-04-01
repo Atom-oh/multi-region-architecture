@@ -76,7 +76,13 @@ variable "terraform_lock_table" {
 }
 
 variable "bedrock_pr_review_model_id" {
-  description = "Bedrock foundation model ID for PR review inference profile"
+  description = "Bedrock foundation model ID for PR review IAM policy"
   type        = string
   default     = "anthropic.claude-sonnet-4-6"
+}
+
+variable "bedrock_source_profile_arn" {
+  description = "ARN of the system inference profile to copy from (cross-region)"
+  type        = string
+  default     = ""
 }

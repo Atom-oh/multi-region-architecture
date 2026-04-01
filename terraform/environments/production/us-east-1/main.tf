@@ -152,6 +152,7 @@ module "iam" {
   terraform_state_bucket     = "multi-region-mall-terraform-state"
   terraform_lock_table       = "multi-region-mall-terraform-lock"
   bedrock_pr_review_model_id = "anthropic.claude-sonnet-4-6"
+  bedrock_source_profile_arn = "arn:aws:bedrock:ap-northeast-2:013503698282:inference-profile/global.anthropic.claude-sonnet-4-6"
   tags                       = var.tags
 }
 
