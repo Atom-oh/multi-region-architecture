@@ -144,8 +144,15 @@ module "secrets_manager" {
 module "iam" {
   source = "../../../modules/security/iam"
 
-  environment = var.environment
-  tags        = var.tags
+  environment                = var.environment
+  region                     = "ap-northeast-2"
+  create_github_actions_role = true
+  github_org                 = "Atom-oh"
+  ecr_repository_prefix      = "shopping-mall"
+  terraform_state_bucket     = "multi-region-mall-terraform-state"
+  terraform_lock_table       = "multi-region-mall-terraform-lock"
+  bedrock_pr_review_model_id = "anthropic.claude-sonnet-4-6"
+  tags                       = var.tags
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -36,3 +36,47 @@ variable "create_s3_replication_role" {
   type        = bool
   default     = true
 }
+
+# ── GitHub Actions ──────────────────────────────────────────────────────────
+
+variable "create_github_actions_role" {
+  description = "Whether to create the GitHub Actions OIDC role"
+  type        = bool
+  default     = false
+}
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "ap-northeast-2"
+}
+
+variable "github_org" {
+  description = "GitHub organization name for OIDC trust (e.g., Atom-oh)"
+  type        = string
+  default     = "Atom-oh"
+}
+
+variable "ecr_repository_prefix" {
+  description = "ECR repository prefix (e.g., shopping-mall)"
+  type        = string
+  default     = "shopping-mall"
+}
+
+variable "terraform_state_bucket" {
+  description = "S3 bucket name for Terraform state"
+  type        = string
+  default     = "multi-region-mall-terraform-state"
+}
+
+variable "terraform_lock_table" {
+  description = "DynamoDB table name for Terraform lock"
+  type        = string
+  default     = "multi-region-mall-terraform-lock"
+}
+
+variable "bedrock_pr_review_model_id" {
+  description = "Bedrock foundation model ID for PR review inference profile"
+  type        = string
+  default     = "anthropic.claude-sonnet-4-6"
+}
