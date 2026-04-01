@@ -89,7 +89,7 @@ spec:
                   index_all_attributes: true
                 otlp/tempo:
                   # kubectl get svc tempo-nlb -n observability → EXTERNAL-IP
-                  endpoint: TEMPO_NLB_DNS:4317
+                  endpoint: k8s-observab-temponlb-1593edacf8-de391b17a5a4ebb3.elb.ap-northeast-2.amazonaws.com:4317
                   tls:
                     insecure: true
                 prometheus:
@@ -99,7 +99,7 @@ spec:
                     enabled: true
                 clickhouse:
                   # kubectl get svc clickhouse-nlb -n observability → EXTERNAL-IP
-                  endpoint: tcp://CLICKHOUSE_NLB_DNS:9000
+                  endpoint: tcp://k8s-observab-clickhou-400d5edcb9-d598c8ae0bfcd595.elb.ap-northeast-2.amazonaws.com:9000
                   database: otel
                   logs_table_name: otel_logs
                   traces_table_name: otel_traces
