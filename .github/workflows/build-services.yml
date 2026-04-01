@@ -11,10 +11,11 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   AWS_REGION: ap-northeast-2
-  ECR_REGISTRY: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
 
 jobs:
   detect-changes:
@@ -69,19 +70,21 @@ jobs:
       - name: Install AWS CLI
         run: |
           curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-          unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update 2>/dev/null || true
+          unzip -qo /tmp/awscliv2.zip -d /tmp
+          /tmp/aws/install --install-dir "$HOME/.local/aws-cli" --bin-dir "$HOME/.local/bin" --update
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Login to ECR
         run: |
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
-            docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+          aws ecr get-login-password --region "$AWS_REGION" | \
+            docker login --username AWS --password-stdin "$ECR_REGISTRY"
       - name: Build and push
         run: |
-          docker build -t ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
+          docker build -t "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}" \
             -f src/services/${{ matrix.service }}/Dockerfile src/
-          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }}
-          docker tag ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
-            ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
-          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
+          docker push "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}"
+          docker tag "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}" \
+            "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:latest"
+          docker push "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:latest"
 
   build-java:
     needs: detect-changes
@@ -96,19 +99,21 @@ jobs:
       - name: Install AWS CLI
         run: |
           curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-          unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update 2>/dev/null || true
+          unzip -qo /tmp/awscliv2.zip -d /tmp
+          /tmp/aws/install --install-dir "$HOME/.local/aws-cli" --bin-dir "$HOME/.local/bin" --update
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Login to ECR
         run: |
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
-            docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+          aws ecr get-login-password --region "$AWS_REGION" | \
+            docker login --username AWS --password-stdin "$ECR_REGISTRY"
       - name: Build and push
         run: |
-          docker build -t ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
+          docker build -t "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}" \
             -f src/services/${{ matrix.service }}/Dockerfile src/
-          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }}
-          docker tag ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
-            ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
-          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
+          docker push "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}"
+          docker tag "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}" \
+            "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:latest"
+          docker push "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:latest"
 
   build-python:
     needs: detect-changes
@@ -123,16 +128,18 @@ jobs:
       - name: Install AWS CLI
         run: |
           curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-          unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update 2>/dev/null || true
+          unzip -qo /tmp/awscliv2.zip -d /tmp
+          /tmp/aws/install --install-dir "$HOME/.local/aws-cli" --bin-dir "$HOME/.local/bin" --update
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Login to ECR
         run: |
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
-            docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+          aws ecr get-login-password --region "$AWS_REGION" | \
+            docker login --username AWS --password-stdin "$ECR_REGISTRY"
       - name: Build and push
         run: |
-          docker build -t ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
+          docker build -t "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}" \
             -f src/services/${{ matrix.service }}/Dockerfile src/
-          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }}
-          docker tag ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:${{ github.sha }} \
-            ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
-          docker push ${{ env.ECR_REGISTRY }}/shopping-mall/${{ matrix.service }}:latest
+          docker push "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}"
+          docker tag "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}" \
+            "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:latest"
+          docker push "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:latest"
