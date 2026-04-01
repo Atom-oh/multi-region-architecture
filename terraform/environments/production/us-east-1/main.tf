@@ -240,7 +240,7 @@ module "documentdb" {
   security_group_id           = module.security_groups.documentdb_security_group_id
   kms_key_arn                 = module.kms.key_arns["documentdb"]
   master_password             = random_password.documentdb.result
-  instance_class              = "db.t3.medium"
+  instance_class              = "db.r6g.large"
   instance_count              = 1
   tags                        = var.tags
 }
@@ -272,8 +272,8 @@ module "msk" {
   security_group_id      = module.security_groups.msk_security_group_id
   kms_key_arn            = module.kms.key_arns["msk"]
   broker_instance_type   = "kafka.t3.small"
-  number_of_broker_nodes = 3
-  ebs_volume_size        = 10
+  number_of_broker_nodes = 6   # t3 instances do not support broker removal
+  ebs_volume_size        = 100 # MSK does not support EBS shrinkage
   enable_replicator      = false # Replicator configured separately after both clusters exist
   tags                   = var.tags
 }

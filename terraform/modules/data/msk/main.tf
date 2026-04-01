@@ -96,6 +96,12 @@ resource "aws_msk_cluster" "this" {
     revision = aws_msk_configuration.this.latest_revision
   }
 
+  lifecycle {
+    ignore_changes = [
+      broker_node_group_info[0].storage_info, # MSK does not support EBS shrinkage
+    ]
+  }
+
   tags = merge(var.tags, {
     Name = "${var.environment}-msk-cluster"
   })

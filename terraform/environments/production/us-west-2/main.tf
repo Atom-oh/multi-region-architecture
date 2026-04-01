@@ -199,7 +199,7 @@ module "documentdb" {
   data_subnet_ids           = module.vpc.data_subnet_ids
   security_group_id         = module.security_groups.documentdb_security_group_id
   kms_key_arn               = module.kms.key_arns["documentdb"]
-  instance_class            = "db.t3.medium"
+  instance_class            = "db.r6g.large"
   instance_count            = 1
   tags                      = var.tags
 }
@@ -231,8 +231,8 @@ module "msk" {
   security_group_id      = module.security_groups.msk_security_group_id
   kms_key_arn            = module.kms.key_arns["msk"]
   broker_instance_type   = "kafka.t3.small"
-  number_of_broker_nodes = 3
-  ebs_volume_size        = 10
+  number_of_broker_nodes = 6   # t3 instances do not support broker removal
+  ebs_volume_size        = 100 # MSK does not support EBS shrinkage
   enable_replicator      = false # Disabled: MSK clusters need IAM Auth enabled first
   source_cluster_arn     = data.terraform_remote_state.primary.outputs.msk_cluster_arn
   target_cluster_arn     = ""

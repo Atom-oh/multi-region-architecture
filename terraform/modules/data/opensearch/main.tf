@@ -101,14 +101,24 @@ resource "aws_opensearch_domain" "this" {
     tls_security_policy = "Policy-Min-TLS-1-2-PFS-2023-10"
   }
 
+  auto_tune_options {
+    desired_state = "DISABLED"
+  }
+
   advanced_security_options {
     enabled                        = true
     internal_user_database_enabled = true
 
     master_user_options {
       master_user_name     = "admin"
-      master_user_password = "<YOUR_PASSWORD>" # Should be replaced with Secrets Manager
+      master_user_password = var.master_password
     }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      advanced_security_options[0].master_user_options[0].master_user_password,
+    ]
   }
 
   log_publishing_options {

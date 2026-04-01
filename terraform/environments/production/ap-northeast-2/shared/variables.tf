@@ -90,6 +90,12 @@ variable "grafana_nlb_zone_id" {
   default     = ""
 }
 
+variable "cloudfront_acm_certificate_arn" {
+  description = "ACM certificate ARN in us-east-1 (required for CloudFront)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Additional tags"
   type        = map(string)

@@ -88,7 +88,8 @@ resource "aws_docdb_cluster_instance" "this" {
   identifier         = "${local.cluster_identifier}-${count.index + 1}"
   cluster_identifier = aws_docdb_cluster.this.id
 
-  instance_class = var.instance_class
+  instance_class    = var.instance_class
+  apply_immediately = true
 
   tags = merge(var.tags, {
     Name = "${var.environment}-docdb-global-instance-${count.index + 1}"

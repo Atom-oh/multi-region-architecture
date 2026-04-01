@@ -144,11 +144,9 @@ module "msk" {
   data_subnet_ids            = module.vpc.data_subnet_ids
   security_group_id          = module.security_groups.msk_security_group_id
   kms_key_arn                = module.kms.key_arns["msk"]
-  broker_instance_type       = "kafka.t3.small"
-  number_of_broker_nodes     = 2
-  ebs_volume_size            = 10
-  default_replication_factor = 2
-  min_insync_replicas        = 1
+  broker_instance_type   = "kafka.t3.small"
+  number_of_broker_nodes = 4   # t3 instances do not support broker removal
+  ebs_volume_size        = 100 # MSK does not support EBS shrinkage
   enable_replicator          = false
   tags                       = var.tags
 }
@@ -166,7 +164,7 @@ module "documentdb" {
   data_subnet_ids           = module.vpc.data_subnet_ids
   security_group_id         = module.security_groups.documentdb_security_group_id
   kms_key_arn               = module.kms.key_arns["documentdb"]
-  instance_class            = "db.t3.medium"
+  instance_class            = "db.r6g.large"
   instance_count            = 1
   tags                      = var.tags
 }
@@ -255,6 +253,83 @@ resource "aws_route53_record" "argocd_kr" {
     name                   = var.argocd_nlb_dns_name
     zone_id                = var.argocd_nlb_zone_id
     evaluate_target_health = true
+  }
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CloudFront — ArgoCD Korea (argocd-korea.atomai.click → CF → NLB → ArgoCD)
+# ─────────────────────────────────────────────────────────────────────────────
+
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+data "aws_cloudfront_origin_request_policy" "all_viewer" {
+  name = "Managed-AllViewer"
+}
+
+resource "aws_cloudfront_distribution" "argocd_korea" {
+  count = var.argocd_nlb_dns_name != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
+
+  enabled         = true
+  is_ipv6_enabled = true
+  comment         = "ArgoCD Korea (argocd-korea.${var.domain_name})"
+  price_class     = "PriceClass_200"
+  http_version    = "http2and3"
+  aliases         = ["argocd-korea.${var.domain_name}"]
+
+  origin {
+    domain_name = var.argocd_nlb_dns_name
+    origin_id   = "argocd-nlb"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  default_cache_behavior {
+    target_origin_id         = "argocd-nlb"
+    viewer_protocol_policy   = "redirect-to-https"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+
+    allowed_methods = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods  = ["GET", "HEAD"]
+  }
+
+  viewer_certificate {
+    acm_certificate_arn      = var.cloudfront_acm_certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name    = "argocd-korea-cloudfront"
+    Service = "argocd"
+  })
+}
+
+# argocd-korea.atomai.click → CloudFront
+resource "aws_route53_record" "argocd_korea" {
+  count = var.argocd_nlb_dns_name != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = "argocd-korea.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.argocd_korea[0].domain_name
+    zone_id                = aws_cloudfront_distribution.argocd_korea[0].hosted_zone_id
+    evaluate_target_health = false
   }
 }
 

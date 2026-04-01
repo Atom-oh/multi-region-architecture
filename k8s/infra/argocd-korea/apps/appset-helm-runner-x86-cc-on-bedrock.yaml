@@ -25,7 +25,7 @@ spec:
             controllerServiceAccount:
               name: arc-controller-mall-apne2-mgmt-gha-rs-controller
               namespace: actions-runner-system
-            runnerScaleSetName: self-hosted-x86
+            runnerScaleSetName: cc-bedrock-x86
             minRunners: 0
             maxRunners: 10
             containerMode:
