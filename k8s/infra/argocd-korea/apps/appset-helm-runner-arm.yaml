@@ -28,6 +28,8 @@ spec:
             runnerScaleSetName: self-hosted-arm
             minRunners: 0
             maxRunners: 10
+            containerMode:
+              type: dind
             listenerTemplate:
               spec:
                 containers:
@@ -46,17 +48,6 @@ spec:
                   - key: node-role
                     value: system-critical
                     effect: NoSchedule
-                containers:
-                  - name: runner
-                    image: ghcr.io/actions/actions-runner:latest
-                    command: ["/home/runner/run.sh"]
-                    resources:
-                      requests:
-                        cpu: "1"
-                        memory: 2Gi
-                      limits:
-                        cpu: "4"
-                        memory: 8Gi
       destination:
         server: '{{server}}'
         namespace: actions-runner-system

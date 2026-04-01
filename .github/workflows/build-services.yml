@@ -62,7 +62,7 @@ jobs:
 
   build-go:
     needs: detect-changes
-    if: needs.detect-changes.outputs.go-services == 'true'
+    if: needs.detect-changes.outputs.go-services == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: self-hosted-x86
     strategy:
       matrix:
@@ -85,7 +85,7 @@ jobs:
 
   build-java:
     needs: detect-changes
-    if: needs.detect-changes.outputs.java-services == 'true'
+    if: needs.detect-changes.outputs.java-services == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: self-hosted-x86
     strategy:
       matrix:
@@ -108,7 +108,7 @@ jobs:
 
   build-python:
     needs: detect-changes
-    if: needs.detect-changes.outputs.python-services == 'true'
+    if: needs.detect-changes.outputs.python-services == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: self-hosted-x86
     strategy:
       matrix:
