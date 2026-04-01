@@ -62,7 +62,7 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
           "ecr:CompleteLayerUpload",
           "ecr:CreateRepository"
         ]
-        Resource = "arn:aws:ecr:${var.region}:${data.aws_caller_identity.current.account_id}:repository/${var.ecr_repository_prefix}/*"
+        Resource = "arn:aws:ecr:${var.region}:${data.aws_caller_identity.current.account_id}:repository/*"
       },
       {
         Effect = "Allow"

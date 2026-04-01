@@ -57,11 +57,6 @@ variable "github_org" {
   default     = "Atom-oh"
 }
 
-variable "ecr_repository_prefix" {
-  description = "ECR repository prefix (e.g., shopping-mall)"
-  type        = string
-  default     = "shopping-mall"
-}
 
 variable "terraform_state_bucket" {
   description = "S3 bucket name for Terraform state"
