@@ -107,6 +107,10 @@ resource "aws_eks_cluster" "main" {
     resources = ["secrets"]
   }
 
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP"
+  }
+
   tags = merge(var.tags, {
     Name = var.cluster_name
   })
@@ -383,6 +387,15 @@ resource "aws_eks_addon" "aws_efs_csi_driver" {
   })
 
   tags = var.tags
+
+  depends_on = [aws_eks_addon.vpc_cni]
+}
+
+resource "aws_eks_addon" "eks_pod_identity_agent" {
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "eks-pod-identity-agent"
+  addon_version               = var.addon_versions.eks_pod_identity_agent
+  resolve_conflicts_on_update = "OVERWRITE"
 
   depends_on = [aws_eks_addon.vpc_cni]
 }

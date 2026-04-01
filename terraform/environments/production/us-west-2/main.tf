@@ -143,11 +143,12 @@ module "eks" {
   tags                          = var.tags
 
   addon_versions = {
-    vpc_cni        = "v1.21.1-eksbuild.3"
-    coredns        = "v1.13.2-eksbuild.1"
-    kube_proxy     = "v1.35.0-eksbuild.2"
-    ebs_csi_driver = "v1.56.0-eksbuild.1"
-    efs_csi_driver = "v2.3.0-eksbuild.2"
+    vpc_cni                = "v1.21.1-eksbuild.3"
+    coredns                = "v1.13.2-eksbuild.1"
+    kube_proxy             = "v1.35.0-eksbuild.2"
+    ebs_csi_driver         = "v1.56.0-eksbuild.1"
+    efs_csi_driver         = "v2.3.0-eksbuild.2"
+    eks_pod_identity_agent = "v1.3.7-eksbuild.2"
   }
 }
 
