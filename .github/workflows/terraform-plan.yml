@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
   pull-requests: write
 
 env:
@@ -33,9 +34,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS Region
-        run: |
-          echo "AWS_DEFAULT_REGION=${{ env.AWS_REGION }}" >> $GITHUB_ENV
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
         with:

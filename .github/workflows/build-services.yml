@@ -67,16 +67,11 @@ jobs:
         service: [api-gateway, cart, event-bus, inventory, search]
     steps:
       - uses: actions/checkout@v4
-      - name: Install AWS CLI
-        run: |
-          curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-          unzip -qo /tmp/awscliv2.zip -d /tmp
-          /tmp/aws/install --install-dir "$HOME/.local/aws-cli" --bin-dir "$HOME/.local/bin" --update
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Login to ECR
-        run: |
-          aws ecr get-login-password --region "$AWS_REGION" | \
-            docker login --username AWS --password-stdin "$ECR_REGISTRY"
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
       - name: Build and push
         run: |
           docker build -t "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}" \
@@ -96,16 +91,11 @@ jobs:
         service: [order, payment, user-account, warehouse, returns, pricing, seller]
     steps:
       - uses: actions/checkout@v4
-      - name: Install AWS CLI
-        run: |
-          curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-          unzip -qo /tmp/awscliv2.zip -d /tmp
-          /tmp/aws/install --install-dir "$HOME/.local/aws-cli" --bin-dir "$HOME/.local/bin" --update
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Login to ECR
-        run: |
-          aws ecr get-login-password --region "$AWS_REGION" | \
-            docker login --username AWS --password-stdin "$ECR_REGISTRY"
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
       - name: Build and push
         run: |
           docker build -t "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}" \
@@ -125,16 +115,11 @@ jobs:
         service: [product-catalog, shipping, user-profile, recommendation, wishlist, analytics, notification, review]
     steps:
       - uses: actions/checkout@v4
-      - name: Install AWS CLI
-        run: |
-          curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-          unzip -qo /tmp/awscliv2.zip -d /tmp
-          /tmp/aws/install --install-dir "$HOME/.local/aws-cli" --bin-dir "$HOME/.local/bin" --update
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Login to ECR
-        run: |
-          aws ecr get-login-password --region "$AWS_REGION" | \
-            docker login --username AWS --password-stdin "$ECR_REGISTRY"
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
       - name: Build and push
         run: |
           docker build -t "$ECR_REGISTRY/shopping-mall/${{ matrix.service }}:${{ github.sha }}" \
