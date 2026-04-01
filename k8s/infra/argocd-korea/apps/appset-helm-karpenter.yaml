@@ -19,6 +19,13 @@ spec:
         values:
           roleArn: "arn:aws:iam::123456789012:role/mall-apne2-az-c-karpenter-controller-apne2-az-c"
           clusterName: mall-apne2-az-c
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-mgmt
+        values:
+          roleArn: "arn:aws:iam::180294183052:role/mall-apne2-mgmt-karpenter-controller-apne2-mgmt"
+          clusterName: mall-apne2-mgmt
   template:
     metadata:
       name: 'karpenter-{{name}}'

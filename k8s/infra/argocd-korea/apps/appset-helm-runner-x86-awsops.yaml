@@ -45,8 +45,8 @@ spec:
                 nodeSelector:
                   kubernetes.io/arch: amd64
                 tolerations:
-                  - key: node-role
-                    value: system-critical
+                  - key: workload-type
+                    value: ci-runner
                     effect: NoSchedule
       destination:
         server: '{{server}}'
