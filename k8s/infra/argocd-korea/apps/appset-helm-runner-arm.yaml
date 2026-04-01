@@ -42,10 +42,9 @@ spec:
               spec:
                 nodeSelector:
                   kubernetes.io/arch: arm64
-                  node-pool: runner-arm
                 tolerations:
-                  - key: workload-type
-                    value: ci-runner
+                  - key: node-role
+                    value: system-critical
                     effect: NoSchedule
                 containers:
                   - name: runner
