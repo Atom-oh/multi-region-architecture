@@ -82,6 +82,12 @@ variable "warm_count" {
   default     = 2
 }
 
+variable "dedicated_master_enabled" {
+  description = "Whether to enable dedicated master nodes (disable for small/dev clusters)"
+  type        = bool
+  default     = true
+}
+
 variable "master_password" {
   description = "Master password for OpenSearch admin user"
   type        = string

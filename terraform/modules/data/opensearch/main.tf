@@ -57,9 +57,9 @@ resource "aws_opensearch_domain" "this" {
   engine_version = "OpenSearch_2.17"
 
   cluster_config {
-    dedicated_master_enabled = true
-    dedicated_master_type    = var.master_instance_type
-    dedicated_master_count   = var.master_instance_count
+    dedicated_master_enabled = var.dedicated_master_enabled
+    dedicated_master_type    = var.dedicated_master_enabled ? var.master_instance_type : null
+    dedicated_master_count   = var.dedicated_master_enabled ? var.master_instance_count : null
 
     instance_type  = var.data_instance_type
     instance_count = var.data_instance_count

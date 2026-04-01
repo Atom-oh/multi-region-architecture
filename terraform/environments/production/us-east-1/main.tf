@@ -155,13 +155,13 @@ module "iam" {
 module "eks" {
   source = "../../../modules/compute/eks"
 
-  environment           = var.environment
-  region                = var.region
-  cluster_name          = var.eks_cluster_name
-  vpc_id                = module.vpc.vpc_id
-  private_subnet_ids    = module.vpc.private_subnet_ids
-  alb_security_group_id = module.security_groups.alb_security_group_id
-  nlb_security_group_id = module.security_groups.nlb_security_group_id
+  environment                   = var.environment
+  region                        = var.region
+  cluster_name                  = var.eks_cluster_name
+  vpc_id                        = module.vpc.vpc_id
+  private_subnet_ids            = module.vpc.private_subnet_ids
+  alb_security_group_id         = module.security_groups.alb_security_group_id
+  nlb_security_group_id         = module.security_groups.nlb_security_group_id
   bootstrap_node_instance_types = ["t3.medium", "t3a.medium"]
   role_name_suffix              = ""
   tags                          = var.tags
@@ -240,8 +240,8 @@ module "documentdb" {
   security_group_id           = module.security_groups.documentdb_security_group_id
   kms_key_arn                 = module.kms.key_arns["documentdb"]
   master_password             = random_password.documentdb.result
-  instance_class              = "db.r6g.large"
-  instance_count              = 2
+  instance_class              = "db.t3.medium"
+  instance_count              = 1
   tags                        = var.tags
 }
 
@@ -271,9 +271,9 @@ module "msk" {
   data_subnet_ids        = module.vpc.data_subnet_ids
   security_group_id      = module.security_groups.msk_security_group_id
   kms_key_arn            = module.kms.key_arns["msk"]
-  broker_instance_type   = "kafka.m5.large"
+  broker_instance_type   = "kafka.t3.small"
   number_of_broker_nodes = 3
-  ebs_volume_size        = 100
+  ebs_volume_size        = 10
   enable_replicator      = false # Replicator configured separately after both clusters exist
   tags                   = var.tags
 }
@@ -281,18 +281,17 @@ module "msk" {
 module "opensearch" {
   source = "../../../modules/data/opensearch"
 
-  environment           = var.environment
-  region                = var.region
-  vpc_id                = module.vpc.vpc_id
-  data_subnet_ids       = module.vpc.data_subnet_ids
-  security_group_id     = module.security_groups.opensearch_security_group_id
-  master_instance_type  = "r6g.medium.search"
-  master_instance_count = 3
-  data_instance_type    = "r6g.medium.search"
-  data_instance_count   = 3
-  ebs_volume_size       = 100
-  enable_ultrawarm      = false
-  tags                  = var.tags
+  environment              = var.environment
+  region                   = var.region
+  vpc_id                   = module.vpc.vpc_id
+  data_subnet_ids          = module.vpc.data_subnet_ids
+  security_group_id        = module.security_groups.opensearch_security_group_id
+  dedicated_master_enabled = false
+  data_instance_type       = "t3.small.search"
+  data_instance_count      = 3
+  ebs_volume_size          = 10
+  enable_ultrawarm         = false
+  tags                     = var.tags
 }
 
 module "s3" {
@@ -346,11 +345,11 @@ module "cloudfront" {
 module "cloudfront_argocd" {
   source = "../../../modules/edge/cloudfront-argocd"
 
-  environment     = var.environment
-  domain_name     = var.domain_name
+  environment         = var.environment
+  domain_name         = var.domain_name
   acm_certificate_arn = var.acm_certificate_arn
-  waf_web_acl_arn = "" # WAF disabled — bot control rules block ArgoCD API/gRPC; ArgoCD has its own auth
-  tags            = var.tags
+  waf_web_acl_arn     = "" # WAF disabled — bot control rules block ArgoCD API/gRPC; ArgoCD has its own auth
+  tags                = var.tags
 }
 
 # ArgoCD Route53 records
@@ -369,11 +368,11 @@ resource "aws_route53_record" "argocd" {
 module "cloudfront_grafana" {
   source = "../../../modules/edge/cloudfront-grafana"
 
-  environment     = var.environment
-  domain_name     = var.domain_name
+  environment         = var.environment
+  domain_name         = var.domain_name
   acm_certificate_arn = var.acm_certificate_arn
-  waf_web_acl_arn = "" # WAF disabled — Grafana has its own auth
-  tags            = var.tags
+  waf_web_acl_arn     = "" # WAF disabled — Grafana has its own auth
+  tags                = var.tags
 }
 
 # Grafana Route53 records (primary region only)

@@ -28,8 +28,8 @@ resource "aws_msk_configuration" "this" {
 
   server_properties = <<PROPERTIES
 auto.create.topics.enable=false
-default.replication.factor=3
-min.insync.replicas=2
+default.replication.factor=${var.default_replication_factor}
+min.insync.replicas=${var.min_insync_replicas}
 num.partitions=6
 log.retention.hours=168
 PROPERTIES
@@ -198,8 +198,8 @@ resource "aws_msk_replicator" "this" {
     }
 
     consumer_group_replication {
-      consumer_groups_to_replicate = [".*"]
-      synchronise_consumer_group_offsets = true
+      consumer_groups_to_replicate        = [".*"]
+      synchronise_consumer_group_offsets  = true
       detect_and_copy_new_consumer_groups = true
     }
   }

@@ -132,13 +132,13 @@ module "iam" {
 module "eks" {
   source = "../../../modules/compute/eks"
 
-  environment           = var.environment
-  region                = var.region
-  cluster_name          = var.eks_cluster_name
-  vpc_id                = module.vpc.vpc_id
-  private_subnet_ids    = module.vpc.private_subnet_ids
-  alb_security_group_id = module.security_groups.alb_security_group_id
-  nlb_security_group_id = module.security_groups.nlb_security_group_id
+  environment                   = var.environment
+  region                        = var.region
+  cluster_name                  = var.eks_cluster_name
+  vpc_id                        = module.vpc.vpc_id
+  private_subnet_ids            = module.vpc.private_subnet_ids
+  alb_security_group_id         = module.security_groups.alb_security_group_id
+  nlb_security_group_id         = module.security_groups.nlb_security_group_id
   bootstrap_node_instance_types = ["t3.medium", "t3a.medium"]
   tags                          = var.tags
 
@@ -199,8 +199,8 @@ module "documentdb" {
   data_subnet_ids           = module.vpc.data_subnet_ids
   security_group_id         = module.security_groups.documentdb_security_group_id
   kms_key_arn               = module.kms.key_arns["documentdb"]
-  instance_class            = "db.r6g.large"
-  instance_count            = 2
+  instance_class            = "db.t3.medium"
+  instance_count            = 1
   tags                      = var.tags
 }
 
@@ -230,9 +230,9 @@ module "msk" {
   data_subnet_ids        = module.vpc.data_subnet_ids
   security_group_id      = module.security_groups.msk_security_group_id
   kms_key_arn            = module.kms.key_arns["msk"]
-  broker_instance_type   = "kafka.m5.large"
+  broker_instance_type   = "kafka.t3.small"
   number_of_broker_nodes = 3
-  ebs_volume_size        = 100
+  ebs_volume_size        = 10
   enable_replicator      = false # Disabled: MSK clusters need IAM Auth enabled first
   source_cluster_arn     = data.terraform_remote_state.primary.outputs.msk_cluster_arn
   target_cluster_arn     = ""
@@ -247,11 +247,10 @@ module "opensearch" {
   vpc_id                     = module.vpc.vpc_id
   data_subnet_ids            = module.vpc.data_subnet_ids
   security_group_id          = module.security_groups.opensearch_security_group_id
-  master_instance_type       = "r6g.medium.search"
-  master_instance_count      = 3
-  data_instance_type         = "r6g.medium.search"
+  dedicated_master_enabled   = false
+  data_instance_type         = "t3.small.search"
   data_instance_count        = 3
-  ebs_volume_size            = 100
+  ebs_volume_size            = 10
   enable_ultrawarm           = false
   create_service_linked_role = false # Already created in us-east-1
   tags                       = var.tags

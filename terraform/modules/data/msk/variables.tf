@@ -91,3 +91,15 @@ variable "replicator_topics" {
   type        = list(string)
   default     = ["orders.*", "payments.*", "catalog.*", "user.*"]
 }
+
+variable "default_replication_factor" {
+  description = "Default replication factor for topics (must be <= number_of_broker_nodes)"
+  type        = number
+  default     = 3
+}
+
+variable "min_insync_replicas" {
+  description = "Minimum in-sync replicas for producer acks (must be < default_replication_factor)"
+  type        = number
+  default     = 2
+}

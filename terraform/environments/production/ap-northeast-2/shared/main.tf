@@ -138,17 +138,19 @@ module "elasticache" {
 module "msk" {
   source = "../../../../modules/data/msk"
 
-  environment            = var.environment
-  region                 = var.region
-  vpc_id                 = module.vpc.vpc_id
-  data_subnet_ids        = module.vpc.data_subnet_ids
-  security_group_id      = module.security_groups.msk_security_group_id
-  kms_key_arn            = module.kms.key_arns["msk"]
-  broker_instance_type   = "kafka.m5.large"
-  number_of_broker_nodes = 4
-  ebs_volume_size        = 100
-  enable_replicator      = false
-  tags                   = var.tags
+  environment                = var.environment
+  region                     = var.region
+  vpc_id                     = module.vpc.vpc_id
+  data_subnet_ids            = module.vpc.data_subnet_ids
+  security_group_id          = module.security_groups.msk_security_group_id
+  kms_key_arn                = module.kms.key_arns["msk"]
+  broker_instance_type       = "kafka.t3.small"
+  number_of_broker_nodes     = 2
+  ebs_volume_size            = 10
+  default_replication_factor = 2
+  min_insync_replicas        = 1
+  enable_replicator          = false
+  tags                       = var.tags
 }
 
 # DocumentDB: secondary, joining global cluster from primary
@@ -164,8 +166,8 @@ module "documentdb" {
   data_subnet_ids           = module.vpc.data_subnet_ids
   security_group_id         = module.security_groups.documentdb_security_group_id
   kms_key_arn               = module.kms.key_arns["documentdb"]
-  instance_class            = "db.r6g.large"
-  instance_count            = 2
+  instance_class            = "db.t3.medium"
+  instance_count            = 1
   tags                      = var.tags
 }
 
@@ -178,12 +180,11 @@ module "opensearch" {
   vpc_id                     = module.vpc.vpc_id
   data_subnet_ids            = module.vpc.data_subnet_ids
   security_group_id          = module.security_groups.opensearch_security_group_id
-  master_instance_type       = "r6g.large.search"
-  master_instance_count      = 3
-  data_instance_type         = "r6g.large.search"
+  dedicated_master_enabled   = false
+  data_instance_type         = "t3.small.search"
   data_instance_count        = 2
   availability_zone_count    = 2
-  ebs_volume_size            = 100
+  ebs_volume_size            = 10
   enable_ultrawarm           = false
   create_service_linked_role = false # Already created in us-east-1
   tags                       = var.tags
@@ -216,13 +217,13 @@ module "nlb" {
 module "s3" {
   source = "../../../../modules/data/s3"
 
-  environment                       = var.environment
-  region                            = var.region
-  is_primary                        = false
-  static_assets_bucket_name         = "${var.environment}-mall-static-assets-${var.region}"
-  analytics_bucket_name             = "${var.environment}-mall-analytics-${var.region}"
+  environment                        = var.environment
+  region                             = var.region
+  is_primary                         = false
+  static_assets_bucket_name          = "${var.environment}-mall-static-assets-${var.region}"
+  analytics_bucket_name              = "${var.environment}-mall-analytics-${var.region}"
   replication_destination_bucket_arn = ""
-  replication_role_arn              = ""
-  kms_key_arn                       = module.kms.key_arns["s3"]
-  tags                              = var.tags
+  replication_role_arn               = ""
+  kms_key_arn                        = module.kms.key_arns["s3"]
+  tags                               = var.tags
 }
