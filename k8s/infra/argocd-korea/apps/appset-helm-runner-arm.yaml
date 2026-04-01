@@ -28,6 +28,14 @@ spec:
             runnerScaleSetName: self-hosted-arm
             minRunners: 0
             maxRunners: 10
+            listenerTemplate:
+              spec:
+                tolerations:
+                  - key: node-role
+                    value: system-critical
+                    effect: NoSchedule
+                nodeSelector:
+                  role: system
             template:
               spec:
                 nodeSelector:
