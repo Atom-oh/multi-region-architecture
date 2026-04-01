@@ -61,10 +61,15 @@ jobs:
     if: needs.detect-changes.outputs.go-services == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: self-hosted-x86
     strategy:
+      fail-fast: false
       matrix:
         service: [api-gateway, cart, event-bus, inventory, search]
     steps:
       - uses: actions/checkout@v4
+      - name: Install AWS CLI
+        run: |
+          curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update 2>/dev/null || true
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
@@ -83,10 +88,15 @@ jobs:
     if: needs.detect-changes.outputs.java-services == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: self-hosted-x86
     strategy:
+      fail-fast: false
       matrix:
         service: [order, payment, user-account, warehouse, returns, pricing, seller]
     steps:
       - uses: actions/checkout@v4
+      - name: Install AWS CLI
+        run: |
+          curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update 2>/dev/null || true
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
@@ -105,10 +115,15 @@ jobs:
     if: needs.detect-changes.outputs.python-services == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: self-hosted-x86
     strategy:
+      fail-fast: false
       matrix:
         service: [product-catalog, shipping, user-profile, recommendation, wishlist, analytics, notification, review]
     steps:
       - uses: actions/checkout@v4
+      - name: Install AWS CLI
+        run: |
+          curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update 2>/dev/null || true
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
