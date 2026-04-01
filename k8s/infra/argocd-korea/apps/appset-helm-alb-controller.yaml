@@ -11,7 +11,7 @@ spec:
             cluster-name: mall-apne2-az-a
         values:
           roleArn: "arn:aws:iam::123456789012:role/production-alb-controller-apne2-az-a"
-          vpcId: vpc-0zzzzzzzzzzzzzzzz
+          vpcId: vpc-0e1b8458f46f9f81d
           awsRegion: ap-northeast-2
           clusterName: mall-apne2-az-a
     - clusters:
@@ -20,7 +20,7 @@ spec:
             cluster-name: mall-apne2-az-c
         values:
           roleArn: "arn:aws:iam::123456789012:role/production-alb-controller-apne2-az-c"
-          vpcId: vpc-0zzzzzzzzzzzzzzzz
+          vpcId: vpc-0e1b8458f46f9f81d
           awsRegion: ap-northeast-2
           clusterName: mall-apne2-az-c
     - clusters:
@@ -29,7 +29,7 @@ spec:
             cluster-name: mall-apne2-mgmt
         values:
           roleArn: "arn:aws:iam::123456789012:role/mall-apne2-mgmt-alb-controller-apne2-mgmt"
-          vpcId: vpc-0zzzzzzzzzzzzzzzz
+          vpcId: vpc-0e1b8458f46f9f81d
           awsRegion: ap-northeast-2
           clusterName: mall-apne2-mgmt
   template:
