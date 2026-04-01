@@ -90,6 +90,70 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ECS — Deploy tasks and update services
+# ─────────────────────────────────────────────────────────────────────────────
+
+resource "aws_iam_role_policy" "github_actions_ecs_deploy" {
+  count = var.create_github_actions_role ? 1 : 0
+  name  = "github-actions-ecs-deploy"
+  role  = aws_iam_role.github_actions[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ECSTaskDefinition"
+        Effect = "Allow"
+        Action = [
+          "ecs:RegisterTaskDefinition",
+          "ecs:DeregisterTaskDefinition",
+          "ecs:DescribeTaskDefinition",
+          "ecs:ListTaskDefinitions"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "ECSServiceAndTask"
+        Effect = "Allow"
+        Action = [
+          "ecs:UpdateService",
+          "ecs:DescribeServices",
+          "ecs:DescribeTasks",
+          "ecs:ListTasks",
+          "ecs:RunTask",
+          "ecs:StopTask"
+        ]
+        Resource = [
+          "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:service/*/*",
+          "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:task/*/*",
+          "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:cluster/*"
+        ]
+      },
+      {
+        Sid    = "ECSDescribeClusters"
+        Effect = "Allow"
+        Action = [
+          "ecs:DescribeClusters",
+          "ecs:ListServices"
+        ]
+        Resource = "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:cluster/*"
+      },
+      {
+        Sid    = "PassRoleToECS"
+        Effect = "Allow"
+        Action = "iam:PassRole"
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*"
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "ecs-tasks.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Bedrock — Application Inference Profile for PR review token tracking
 # ─────────────────────────────────────────────────────────────────────────────
 
