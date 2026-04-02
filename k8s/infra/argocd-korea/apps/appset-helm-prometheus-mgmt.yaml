@@ -118,9 +118,9 @@ spec:
               prometheusSpec:
                 replicas: 2
                 retention: 15d
+                enableRemoteWriteReceiver: true
                 enableFeatures:
                   - exemplar-storage
-                  - remote-write-receiver
                 tolerations:
                   - key: node-role
                     value: system-critical
