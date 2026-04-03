@@ -115,6 +115,12 @@ resource "aws_eks_cluster" "main" {
     Name = var.cluster_name
   })
 
+  lifecycle {
+    ignore_changes = [
+      access_config[0].bootstrap_cluster_creator_admin_permissions
+    ]
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.eks_cluster_policy,
     aws_iam_role_policy_attachment.eks_vpc_resource_controller
@@ -444,6 +450,28 @@ resource "aws_iam_role_policy_attachment" "node_group_ebs_csi" {
 }
 
 # Bootstrap managed node group
+resource "aws_launch_template" "bootstrap" {
+  name_prefix = "${var.cluster_name}-bootstrap-"
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+
+    ebs {
+      volume_size = 20
+      volume_type = "gp3"
+      encrypted   = true
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-bootstrap-lt"
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 resource "aws_eks_node_group" "bootstrap" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${var.cluster_name}-bootstrap"
@@ -451,6 +479,11 @@ resource "aws_eks_node_group" "bootstrap" {
   subnet_ids      = var.private_subnet_ids
 
   instance_types = var.bootstrap_node_instance_types
+
+  launch_template {
+    id      = aws_launch_template.bootstrap.id
+    version = aws_launch_template.bootstrap.latest_version
+  }
 
   scaling_config {
     desired_size = var.bootstrap_node_desired_size
