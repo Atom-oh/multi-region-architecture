@@ -11,7 +11,7 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
     # SG ID from: terraform output internal_observability_nlb_security_group_id
-    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-REPLACE-INTERNAL-OBS-NLB"
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-0613a5ecf8009daff"
 spec:
   type: LoadBalancer
   ports:
@@ -39,7 +39,7 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
     # SG ID from: terraform output internal_observability_nlb_security_group_id
-    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-REPLACE-INTERNAL-OBS-NLB"
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-0613a5ecf8009daff"
 spec:
   type: LoadBalancer
   ports:
@@ -66,7 +66,7 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
     # SG ID from: terraform output internal_observability_nlb_security_group_id
-    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-REPLACE-INTERNAL-OBS-NLB"
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-0613a5ecf8009daff"
 spec:
   type: LoadBalancer
   ports:
