@@ -28,12 +28,12 @@ spec:
         path: 'k8s/overlays/{{values.overlayPath}}/core'
         kustomize:
           images:
-            - '123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/product-catalog={{metadata.annotations.ecr-registry}}/shopping-mall/product-catalog'
-            - '123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/inventory={{metadata.annotations.ecr-registry}}/shopping-mall/inventory'
-            - '123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/cart={{metadata.annotations.ecr-registry}}/shopping-mall/cart'
-            - '123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/search={{metadata.annotations.ecr-registry}}/shopping-mall/search'
-            - '123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/order={{metadata.annotations.ecr-registry}}/shopping-mall/order'
-            - '123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/payment={{metadata.annotations.ecr-registry}}/shopping-mall/payment'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/product-catalog={{metadata.annotations.ecr-registry}}/shopping-mall/product-catalog'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/inventory={{metadata.annotations.ecr-registry}}/shopping-mall/inventory'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/cart={{metadata.annotations.ecr-registry}}/shopping-mall/cart'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/search={{metadata.annotations.ecr-registry}}/shopping-mall/search'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/order={{metadata.annotations.ecr-registry}}/shopping-mall/order'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/payment={{metadata.annotations.ecr-registry}}/shopping-mall/payment'
       destination:
         server: '{{server}}'
         namespace: core-services

@@ -4,7 +4,7 @@ metadata:
   name: shipping
   namespace: fulfillment
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/production-dsql-access-us-east-1
+    eks.amazonaws.com/role-arn: arn:aws:iam::180294183052:role/production-dsql-access-us-east-1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -28,7 +28,7 @@ spec:
       serviceAccountName: shipping
       containers:
         - name: shipping
-          image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/shipping:latest
+          image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/shipping:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

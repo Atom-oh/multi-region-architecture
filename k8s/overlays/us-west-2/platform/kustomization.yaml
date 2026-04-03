@@ -12,14 +12,14 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/production-api-tg-us-west-2/yyyyyyyyyyyyyyyy"
+        value: "arn:aws:elasticloadbalancing:us-west-2:180294183052:targetgroup/production-api-tg-us-west-2/yyyyyyyyyyyyyyyy"
   - target:
       kind: CronJob
       name: synthetic-monitor
     patch: |-
       - op: replace
         path: /spec/jobTemplate/spec/template/spec/containers/0/image
-        value: "123456789012.dkr.ecr.us-west-2.amazonaws.com/shopping-mall/synthetic-monitor:latest"
+        value: "180294183052.dkr.ecr.us-west-2.amazonaws.com/shopping-mall/synthetic-monitor:latest"
       - op: replace
         path: /spec/jobTemplate/spec/template/spec/containers/0/env/3
         value:

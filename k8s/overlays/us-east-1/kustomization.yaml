@@ -24,7 +24,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/production-api-tg-us-east-1/xxxxxxxxxxxxxxxx"
+        value: "arn:aws:elasticloadbalancing:us-east-1:180294183052:targetgroup/production-api-tg-us-east-1/xxxxxxxxxxxxxxxx"
   - target:
       kind: Service
       name: argocd-server-nlb
@@ -35,7 +35,7 @@ patches:
         value: "sg-0aaaa11111bbbbb22"
       - op: add
         path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-ssl-cert
-        value: "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        value: "arn:aws:acm:us-east-1:180294183052:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   - target:
       kind: Deployment
     patch: |-
@@ -89,7 +89,7 @@ configMapGenerator:
     namespace: observability
     literals:
       - TEMPO_S3_BUCKET=production-mall-tempo-traces-us-east-1
-      - TEMPO_ROLE_ARN=arn:aws:iam::123456789012:role/production-tempo-us-east-1
+      - TEMPO_ROLE_ARN=arn:aws:iam::180294183052:role/production-tempo-us-east-1
 
 commonLabels:
   region: us-east-1

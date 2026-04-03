@@ -23,7 +23,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: synthetic-monitor
-              image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/synthetic-monitor:latest
+              image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/synthetic-monitor:latest
               imagePullPolicy: Always
               env:
                 - name: BASE_URL
