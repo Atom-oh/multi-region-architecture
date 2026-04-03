@@ -7,15 +7,14 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-type: "external"
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
-    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:ap-northeast-2:180294183052:certificate/zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"
-    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-REPLACE-ADMIN-NLB"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-053d1ebe1e70a4ead, subnet-0e6a6bcf943572f7b"
 spec:
   type: LoadBalancer
   selector:
     app.kubernetes.io/name: grafana
   ports:
-    - name: https
-      port: 443
+    - name: http
+      port: 80
       targetPort: 3000
       protocol: TCP

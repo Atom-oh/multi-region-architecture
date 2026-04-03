@@ -333,18 +333,69 @@ resource "aws_route53_record" "argocd_korea" {
   }
 }
 
-# grafana-kr.atomai.click → Grafana NLB (created by K8s LB controller on mgmt cluster)
+# CloudFront — Grafana Korea (grafana-kr.atomai.click → CF → NLB → Grafana)
+resource "aws_cloudfront_distribution" "grafana_korea" {
+  count = var.grafana_nlb_dns_name != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
+
+  enabled         = true
+  is_ipv6_enabled = true
+  comment         = "Grafana Korea (grafana-kr.${var.domain_name})"
+  price_class     = "PriceClass_200"
+  http_version    = "http2and3"
+  aliases         = ["grafana-kr.${var.domain_name}"]
+
+  origin {
+    domain_name = var.grafana_nlb_dns_name
+    origin_id   = "grafana-nlb"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  default_cache_behavior {
+    target_origin_id         = "grafana-nlb"
+    viewer_protocol_policy   = "redirect-to-https"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+
+    allowed_methods = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods  = ["GET", "HEAD"]
+  }
+
+  viewer_certificate {
+    acm_certificate_arn      = var.cloudfront_acm_certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name    = "grafana-korea-cloudfront"
+    Service = "grafana"
+  })
+}
+
+# grafana-kr.atomai.click → CloudFront
 resource "aws_route53_record" "grafana_kr" {
-  count = var.grafana_nlb_dns_name != "" ? 1 : 0
+  count = var.grafana_nlb_dns_name != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
 
   zone_id = var.route53_zone_id
   name    = "grafana-kr.${var.domain_name}"
   type    = "A"
 
   alias {
-    name                   = var.grafana_nlb_dns_name
-    zone_id                = var.grafana_nlb_zone_id
-    evaluate_target_health = true
+    name                   = aws_cloudfront_distribution.grafana_korea[0].domain_name
+    zone_id                = aws_cloudfront_distribution.grafana_korea[0].hosted_zone_id
+    evaluate_target_health = false
   }
 }
 
