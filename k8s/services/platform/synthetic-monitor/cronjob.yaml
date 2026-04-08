@@ -13,7 +13,7 @@ spec:
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 90
+      activeDeadlineSeconds: 180
       template:
         metadata:
           labels:

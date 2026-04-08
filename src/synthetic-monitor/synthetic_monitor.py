@@ -20,7 +20,7 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 BASE_URL = os.getenv("BASE_URL", "https://mall.atomai.click")
 OTEL_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector.platform.svc.cluster.local:4317")
 ORIGIN_REGION = os.getenv("ORIGIN_REGION", "unknown")
-ORIGIN_LABEL = "test-east" if "east" in ORIGIN_REGION else "test-west" if "west" in ORIGIN_REGION else f"test-{ORIGIN_REGION}"
+ORIGIN_LABEL = "test-east" if ORIGIN_REGION == "us-east-1" else "test-west" if ORIGIN_REGION == "us-west-2" else f"test-{ORIGIN_REGION}"
 STEP_DELAY_MIN = float(os.getenv("STEP_DELAY_MIN", "0.5"))
 STEP_DELAY_MAX = float(os.getenv("STEP_DELAY_MAX", "1.0"))
 

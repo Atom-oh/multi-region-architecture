@@ -20,6 +20,9 @@ cloudfront_acm_certificate_arn  = "arn:aws:acm:us-east-1:180294183052:certificat
 grafana_nlb_dns_name = "k8s-monitori-grafanan-e4bd2ff4ba-389a84ff5b796d58.elb.ap-northeast-2.amazonaws.com"
 grafana_nlb_zone_id  = "ZIBE1TIR4HY56"
 
+argocd_nlb_dns_name = "k8s-argocd-argocdse-fe9eaff2f7-171f383396f46d49.elb.ap-northeast-2.amazonaws.com"
+argocd_nlb_zone_id  = "ZIBE1TIR4HY56"
+
 docdb_global_cluster_identifier = "multi-region-mall-docdb"
 
 tags = {

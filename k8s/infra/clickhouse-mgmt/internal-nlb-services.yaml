@@ -76,4 +76,4 @@ spec:
       protocol: TCP
   selector:
     app.kubernetes.io/name: prometheus
-    operator.prometheus.io/name: prometheus-helm-prometheus-stack-mgmt-kube-prometheus
+    operator.prometheus.io/name: prometheus-mall-apne2-mgmt-prometheus

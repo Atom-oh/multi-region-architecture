@@ -41,6 +41,7 @@ spec:
               logsCollection:
                 enabled: true
             serviceAccount:
+              name: otel-collector
               annotations:
                 eks.amazonaws.com/role-arn: '{{values.roleArn}}'
             resources:

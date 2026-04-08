@@ -47,6 +47,7 @@ module "eks" {
   private_subnet_ids           = data.terraform_remote_state.shared.outputs.private_subnet_ids
   alb_security_group_id        = data.terraform_remote_state.shared.outputs.alb_security_group_id
   nlb_security_group_id        = data.terraform_remote_state.shared.outputs.nlb_security_group_id
+  internal_observability_nlb_security_group_id = data.terraform_remote_state.shared.outputs.internal_observability_nlb_security_group_id
   bootstrap_node_instance_types = ["m5.xlarge", "m5a.xlarge"]
   role_name_suffix             = "-apne2-mgmt"
   tags                         = var.tags

@@ -173,6 +173,19 @@ resource "aws_security_group_rule" "eks_cluster_sg_argocd_ingress" {
   description              = "Allow HTTPS from ArgoCD mgmt cluster to EKS API"
 }
 
+# Allow internal observability NLBs to reach pods (ClickHouse 9000/8123, Tempo 4317/3200, Prometheus 9090)
+resource "aws_security_group_rule" "eks_cluster_sg_internal_obs_nlb_ingress" {
+  count = var.internal_observability_nlb_security_group_id != "" ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 65535
+  protocol                 = "tcp"
+  security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  source_security_group_id = var.internal_observability_nlb_security_group_id
+  description              = "All TCP from internal observability NLBs (ClickHouse, Tempo, Prometheus)"
+}
+
 # OIDC Provider for IRSA
 data "tls_certificate" "eks" {
   url = aws_eks_cluster.main.identity[0].oidc[0].issuer

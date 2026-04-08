@@ -124,9 +124,9 @@ resource "aws_security_group_rule" "internal_obs_nlb_egress" {
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
-  cidr_blocks       = [var.vpc_cidr]
+  cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.internal_observability_nlb.id
-  description       = "All traffic to VPC"
+  description       = "Allow all outbound"
 }
 
 #------------------------------------------------------------------------------
