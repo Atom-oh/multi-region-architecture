@@ -69,6 +69,12 @@ variable "argocd_security_group_id" {
   default     = ""
 }
 
+variable "internal_observability_nlb_security_group_id" {
+  description = "Security group ID of the internal observability NLB (ClickHouse, Tempo, Prometheus)"
+  type        = string
+  default     = ""
+}
+
 variable "bootstrap_node_instance_types" {
   description = "Instance types for bootstrap node group"
   type        = list(string)

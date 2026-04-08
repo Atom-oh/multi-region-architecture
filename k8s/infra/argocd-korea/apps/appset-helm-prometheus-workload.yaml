@@ -34,7 +34,7 @@ spec:
                   - exemplar-storage
                 remoteWrite:
                   # kubectl get svc prometheus-nlb -n monitoring → EXTERNAL-IP
-                  - url: "http://PROMETHEUS_NLB_DNS:9090/api/v1/write"
+                  - url: "http://k8s-monitori-promethe-0fad301b35-bd8824e1caa3e556.elb.ap-northeast-2.amazonaws.com:9090/api/v1/write"
                     queueConfig:
                       maxSamplesPerSend: 5000
                       batchSendDeadline: 30s
