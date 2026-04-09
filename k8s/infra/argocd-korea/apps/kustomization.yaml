@@ -22,4 +22,10 @@ resources:
   - appset-helm-actions-runner-controller.yaml
   - appset-helm-runner-x86.yaml
   - appset-helm-runner-arm.yaml
+  - appset-helm-runner-x86-aws-fsi-demo.yaml
+  - appset-helm-runner-arm-aws-fsi-demo.yaml
+  - appset-helm-runner-x86-awsops.yaml
+  - appset-helm-runner-arm-awsops.yaml
+  - appset-helm-runner-x86-cc-on-bedrock.yaml
+  - appset-helm-runner-arm-cc-on-bedrock.yaml
   - appset-grafana-nlb.yaml
