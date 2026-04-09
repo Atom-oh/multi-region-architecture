@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - karpenter
   - keda
+  - fluent-bit
   - external-secrets
   - prometheus-stack
   - otel-collector

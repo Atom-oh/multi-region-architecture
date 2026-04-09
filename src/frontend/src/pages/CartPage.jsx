@@ -76,7 +76,7 @@ export default function CartPage() {
 
   const formatPrice = (price) => {
     if (price == null) return '';
-    return `$${(Number(price) / 100).toFixed(2)}`;
+    return `₩${Number(price).toLocaleString('ko-KR')}`;
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);

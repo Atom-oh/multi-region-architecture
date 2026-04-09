@@ -168,23 +168,17 @@ export default function ProfilePage() {
 
       {/* Additional Settings */}
       <div className="bg-white rounded-lg shadow-sm mt-6 divide-y">
-        <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-          <span className="text-slate-800">비밀번호 변경</span>
-          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+        <button disabled className="w-full flex items-center justify-between p-4 opacity-50 cursor-not-allowed">
+          <span className="text-slate-800">Change Password</span>
+          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Coming Soon</span>
         </button>
-        <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-          <span className="text-slate-800">알림 설정</span>
-          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+        <button disabled className="w-full flex items-center justify-between p-4 opacity-50 cursor-not-allowed">
+          <span className="text-slate-800">Notification Settings</span>
+          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Coming Soon</span>
         </button>
-        <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-          <span className="text-red-500">회원 탈퇴</span>
-          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+        <button disabled className="w-full flex items-center justify-between p-4 opacity-50 cursor-not-allowed">
+          <span className="text-red-400">Delete Account</span>
+          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Coming Soon</span>
         </button>
       </div>
     </div>

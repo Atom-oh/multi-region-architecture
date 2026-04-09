@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { api } from '../api';
+import { validatePhone, validateCardNumber, validateExpiry, validateCVC } from '../utils';
 
 export default function CheckoutPage() {
   const { user } = useAuth();
@@ -54,10 +55,36 @@ export default function CheckoutPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const [error, setError] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsProcessing(true);
+    setError('');
 
+    if (!formData.name || !formData.phone || !formData.address) {
+      setError('Please fill in all required shipping fields.');
+      return;
+    }
+    if (!validatePhone(formData.phone)) {
+      setError('Please enter a valid phone number (e.g. 010-1234-5678).');
+      return;
+    }
+    if (formData.paymentMethod === 'card') {
+      if (!validateCardNumber(formData.cardNumber)) {
+        setError('Please enter a valid card number (13-19 digits).');
+        return;
+      }
+      if (!validateExpiry(formData.cardExpiry)) {
+        setError('Please enter a valid expiry date (MM/YY) that has not expired.');
+        return;
+      }
+      if (!validateCVC(formData.cardCvc)) {
+        setError('Please enter a valid CVC (3-4 digits).');
+        return;
+      }
+    }
+
+    setIsProcessing(true);
     try {
       const data = await api('/orders', {
         method: 'POST',
@@ -80,11 +107,14 @@ export default function CheckoutPage() {
         }),
       });
 
+      // Clear cart on backend after successful order
+      for (const item of cartItems) {
+        try { await api(`/carts/${user.id}/items/${item.productId}`, { method: 'DELETE' }); } catch {}
+      }
       updateCartCount(0);
       navigate(`/orders/${data.id || data.order_id}`);
     } catch (error) {
-      console.error('주문 처리 중 오류가 발생했습니다:', error);
-      alert('주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+      setError(error.message || 'Order processing failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -98,6 +128,9 @@ export default function CheckoutPage() {
         <p className="text-slate-500 text-center py-12">장바구니가 비어있습니다.</p>
       ) : (
         <form onSubmit={handleSubmit}>
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
               {/* Shipping Info */}

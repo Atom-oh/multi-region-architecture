@@ -4,7 +4,7 @@ metadata:
   name: search
   namespace: core-services
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/production-dsql-access-us-east-1
+    eks.amazonaws.com/role-arn: arn:aws:iam::180294183052:role/production-dsql-access-us-east-1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -28,7 +28,7 @@ spec:
       serviceAccountName: search
       containers:
         - name: search
-          image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/search:latest
+          image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/search:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

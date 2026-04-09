@@ -1,7 +1,7 @@
 export default function CartItem({ item, onUpdateQuantity, onRemove }) {
   const formatPrice = (price) => {
     if (price == null) return '';
-    return `$${(Number(price) / 100).toFixed(2)}`;
+    return `₩${Number(price).toLocaleString('ko-KR')}`;
   };
 
   return (

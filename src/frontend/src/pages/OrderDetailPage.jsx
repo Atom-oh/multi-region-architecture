@@ -65,6 +65,26 @@ export default function OrderDetailPage() {
     fetchOrder();
   }, [id]);
 
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancelOrder = async () => {
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+    setCancelling(true);
+    try {
+      await api(`/orders/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+      setOrder(prev => ({ ...prev, status: 'cancelled' }));
+    } catch (err) {
+      alert(err.message || 'Failed to cancel order.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const canCancel = order && (order.status === 'pending' || order.status === 'processing');
+
   const formatPrice = (price) => {
     if (price == null) return '';
     return `₩${Number(price).toLocaleString('ko-KR')}`;
@@ -109,7 +129,18 @@ export default function OrderDetailPage() {
 
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-slate-800">주문 상세</h1>
-        <OrderStatusBadge status={order.status} />
+        <div className="flex items-center gap-3">
+          <OrderStatusBadge status={order.status} />
+          {canCancel && (
+            <button
+              onClick={handleCancelOrder}
+              disabled={cancelling}
+              className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors disabled:opacity-50"
+            >
+              {cancelling ? 'Cancelling...' : 'Cancel Order'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

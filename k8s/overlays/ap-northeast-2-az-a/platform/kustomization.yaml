@@ -12,7 +12,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:ap-northeast-2:<AWS_ACCOUNT_ID>:targetgroup/prod-wtg-apne2-az-a/<TG_HASH_AZ_A>"
+        value: "arn:aws:elasticloadbalancing:ap-northeast-2:180294183052:targetgroup/prod-wtg-apne2-az-a/56b6d65d7ffe61ba"
   - target:
       kind: CronJob
       name: synthetic-monitor

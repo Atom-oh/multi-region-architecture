@@ -10,7 +10,7 @@ spec:
           matchLabels:
             cluster-name: mall-apne2-mgmt
         values:
-          tempoRoleArn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/production-tempo-ap-northeast-2-mgmt
+          tempoRoleArn: arn:aws:iam::180294183052:role/production-tempo-ap-northeast-2-mgmt
           tempoS3Bucket: production-mall-tempo-traces-ap-northeast-2-mgmt
           awsRegion: ap-northeast-2
   template:

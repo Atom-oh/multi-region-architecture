@@ -52,9 +52,9 @@ variable "region" {
 }
 
 variable "github_org" {
-  description = "GitHub organization name for OIDC trust (e.g., <GITHUB_ORG>)"
+  description = "GitHub organization name for OIDC trust (e.g., Atom-oh)"
   type        = string
-  default     = "<GITHUB_ORG>"
+  default     = "Atom-oh"
 }
 
 

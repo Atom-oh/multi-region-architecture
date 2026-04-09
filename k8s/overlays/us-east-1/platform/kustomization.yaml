@@ -12,7 +12,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:us-east-1:<AWS_ACCOUNT_ID>:targetgroup/production-api-tg-us-east-1/xxxxxxxxxxxxxxxx"
+        value: "arn:aws:elasticloadbalancing:us-east-1:180294183052:targetgroup/production-api-tg-us-east-1/xxxxxxxxxxxxxxxx"
   - target:
       kind: Deployment
     patch: |-

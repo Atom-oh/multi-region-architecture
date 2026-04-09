@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 
 import HomePage from './pages/HomePage';
 import ProductsPage from './pages/ProductsPage';
@@ -34,15 +35,15 @@ function App() {
                     <Route path="/" element={<HomePage />} />
                     <Route path="/products" element={<ProductsPage />} />
                     <Route path="/products/:id" element={<ProductDetailPage />} />
-                    <Route path="/cart" element={<CartPage />} />
-                    <Route path="/checkout" element={<CheckoutPage />} />
-                    <Route path="/orders" element={<OrdersPage />} />
-                    <Route path="/orders/:id" element={<OrderDetailPage />} />
-                    <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/wishlist" element={<WishlistPage />} />
-                    <Route path="/notifications" element={<NotificationsPage />} />
-                    <Route path="/seller" element={<SellerDashboardPage />} />
-                    <Route path="/returns" element={<ReturnsPage />} />
+                    <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
+                    <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
+                    <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
+                    <Route path="/orders/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
+                    <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                    <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
+                    <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+                    <Route path="/seller" element={<ProtectedRoute><SellerDashboardPage /></ProtectedRoute>} />
+                    <Route path="/returns" element={<ProtectedRoute><ReturnsPage /></ProtectedRoute>} />
                   </Routes>
                 </Layout>
               }

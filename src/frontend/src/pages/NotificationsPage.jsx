@@ -107,12 +107,15 @@ export default function NotificationsPage() {
         n.id === notificationId ? { ...n, isRead: true } : n
       )
     );
+    // TODO: Persist read status to backend when endpoint is available
+    // api(`/notifications/${notificationId}/read`, { method: 'PUT' }).catch(() => {});
   };
 
   const markAllAsRead = () => {
     setNotifications(prev =>
       prev.map(n => ({ ...n, isRead: true }))
     );
+    // TODO: Persist read-all status to backend when endpoint is available
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;

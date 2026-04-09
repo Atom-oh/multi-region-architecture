@@ -12,6 +12,7 @@ graph TB
 
     R53_LBR --> ALB_E[ALB<br/>us-east-1]
     R53_LBR --> ALB_W[ALB<br/>us-west-2]
+    R53_LBR --> ALB_K[NLB<br/>ap-northeast-2]
 
     subgraph east [us-east-1 — Primary]
         ALB_E --> EKS_E[EKS Cluster<br/>20 Services · Karpenter]
@@ -31,9 +32,21 @@ graph TB
         EKS_W --> OS_W[(OpenSearch)]
     end
 
+    subgraph korea [ap-northeast-2 — Korea Multi-AZ]
+        ALB_K --> EKS_K_A[EKS AZ-A<br/>20 Services]
+        ALB_K --> EKS_K_C[EKS AZ-C<br/>20 Services]
+        EKS_K_MGMT[EKS Mgmt<br/>Observability · ArgoCD · Runners]
+        EKS_K_A --> AURORA_K[(Aurora PostgreSQL<br/>Reader)]
+        EKS_K_A --> DOCDB_K[(DocumentDB<br/>Reader)]
+        EKS_K_A --> CACHE_K[(ElastiCache Valkey)]
+    end
+
     AURORA_E -. "Global DB<br/>Replication" .-> AURORA_W
+    AURORA_E -. "Global DB<br/>Replication" .-> AURORA_K
     DOCDB_E -. "Global Cluster<br/>Replication" .-> DOCDB_W
+    DOCDB_E -. "Global Cluster<br/>Replication" .-> DOCDB_K
     CACHE_E -. "Global Datastore" .-> CACHE_W
+    CACHE_E -. "Global Datastore" .-> CACHE_K
     MSK_E -. "MSK Replicator" .-> MSK_W
     EKS_E <-. "Transit Gateway<br/>Peering" .-> EKS_W
 
@@ -41,6 +54,7 @@ graph TB
     classDef default fill:#232F3E,stroke:#545B64,color:#fff
     style east fill:#147EBA15,stroke:#147EBA,color:#000
     style west fill:#D05C1715,stroke:#D05C17,color:#000
+    style korea fill:#27711615,stroke:#277116,color:#000
 ```
 
 ### Design Pattern: Write-Primary / Read-Local
@@ -118,16 +132,15 @@ graph TB
     style Platform fill:#BC135615,stroke:#BC1356
 ```
 
-### Core Services (7)
-| Service | DB | Description |
-|---------|-----|-------------|
-| `api-gateway` | - | API 라우팅, 인증, Rate Limiting |
-| `product-catalog` | DocumentDB | 상품 정보, 카테고리, 브랜드 관리 |
-| `search` | OpenSearch | 상품 검색 (nori 한국어 분석기) |
-| `cart` | ElastiCache | 장바구니 관리 (TTL 7일) |
-| `order` | Aurora PostgreSQL | 주문 생성, 상태 관리 |
-| `payment` | Aurora PostgreSQL | 결제 처리 (카카오페이, 네이버페이, 토스) |
-| `inventory` | Aurora PostgreSQL | 재고 관리, 예약, 입고 |
+### Core Services (6)
+| Service | Language | DB | Description |
+|---------|----------|-----|-------------|
+| `product-catalog` | Python | DocumentDB | 상품 정보, 카테고리, 브랜드 관리 |
+| `search` | Go | OpenSearch | 상품 검색 (nori 한국어 분석기) |
+| `cart` | Go | ElastiCache | 장바구니 관리 (TTL 7일) |
+| `order` | Java | Aurora PostgreSQL | 주문 생성, 상태 관리 |
+| `payment` | Java | Aurora PostgreSQL | 결제 처리 (카카오페이, 네이버페이, 토스) |
+| `inventory` | Go | Aurora PostgreSQL | 재고 관리, 예약, 입고 |
 
 ### User Services (4)
 | Service | DB | Description |
@@ -152,11 +165,13 @@ graph TB
 | `recommendation` | DocumentDB | 추천 엔진 |
 | `seller` | Aurora PostgreSQL | 셀러 관리 |
 
-### Platform Services (2)
-| Service | DB | Description |
-|---------|-----|-------------|
-| `analytics` | OpenSearch + S3 | 분석, 이벤트 집계 |
-| `event-bus` | MSK | 이벤트 라우팅, Saga 오케스트레이션 |
+### Platform Services (4)
+| Service | Language | DB | Description |
+|---------|----------|-----|-------------|
+| `api-gateway` | Go | - | API 라우팅, 인증, Rate Limiting |
+| `event-bus` | Go | MSK | 이벤트 라우팅, Saga 오케스트레이션 |
+| `analytics` | Python | OpenSearch + S3 | 분석, 이벤트 집계 |
+| `synthetic-monitor` | Python | - | 합성 모니터링 (CronJob, 2분 주기) |
 
 ## Project Structure
 

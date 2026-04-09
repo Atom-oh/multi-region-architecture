@@ -4,7 +4,7 @@ metadata:
   name: analytics
   namespace: platform
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/placeholder
+    eks.amazonaws.com/role-arn: arn:aws:iam::180294183052:role/placeholder
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -28,7 +28,7 @@ spec:
       serviceAccountName: analytics
       containers:
         - name: analytics
-          image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/analytics:latest
+          image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/analytics:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

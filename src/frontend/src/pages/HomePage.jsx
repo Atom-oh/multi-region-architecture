@@ -211,5 +211,5 @@ export default function HomePage() {
 
 function formatPrice(price) {
   if (price == null) return '';
-  return `$${(Number(price) / 100).toFixed(2)}`;
+  return `₩${Number(price).toLocaleString('ko-KR')}`;
 }

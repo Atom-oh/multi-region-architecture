@@ -28,9 +28,9 @@ spec:
         path: 'k8s/overlays/{{values.overlayPath}}/fulfillment'
         kustomize:
           images:
-            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/shipping={{metadata.annotations.ecr-registry}}/shopping-mall/shipping'
-            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/warehouse={{metadata.annotations.ecr-registry}}/shopping-mall/warehouse'
-            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/returns={{metadata.annotations.ecr-registry}}/shopping-mall/returns'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/shipping={{metadata.annotations.ecr-registry}}/shopping-mall/shipping'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/warehouse={{metadata.annotations.ecr-registry}}/shopping-mall/warehouse'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/returns={{metadata.annotations.ecr-registry}}/shopping-mall/returns'
       destination:
         server: '{{server}}'
         namespace: fulfillment

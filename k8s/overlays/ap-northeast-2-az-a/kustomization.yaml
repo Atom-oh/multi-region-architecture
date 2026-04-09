@@ -20,7 +20,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:ap-northeast-2:<AWS_ACCOUNT_ID>:targetgroup/prod-wtg-apne2-az-a/zzzzzzzzzzzzzzzz"
+        value: "arn:aws:elasticloadbalancing:ap-northeast-2:180294183052:targetgroup/prod-wtg-apne2-az-a/zzzzzzzzzzzzzzzz"
   - target:
       kind: Deployment
     patch: |-
@@ -91,7 +91,7 @@ configMapGenerator:
     namespace: observability
     literals:
       - TEMPO_S3_BUCKET=production-mall-tempo-traces-ap-northeast-2-az-a
-      - TEMPO_ROLE_ARN=arn:aws:iam::<AWS_ACCOUNT_ID>:role/production-tempo-ap-northeast-2-az-a
+      - TEMPO_ROLE_ARN=arn:aws:iam::180294183052:role/production-tempo-ap-northeast-2-az-a
 
 commonLabels:
   region: ap-northeast-2

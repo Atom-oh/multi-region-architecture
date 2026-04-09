@@ -78,7 +78,6 @@ export default function ReturnsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    let newReturn;
     try {
       const data = await api('/returns', {
         method: 'POST',
@@ -90,8 +89,8 @@ export default function ReturnsPage() {
         }),
       });
       const selectedOrder = eligibleOrders.find(o => o.id === formData.orderId);
-      newReturn = {
-        id: data.id || `RET-${Date.now()}`,
+      const newReturn = {
+        id: data.id || data.return_id,
         orderId: data.order_id || formData.orderId,
         productName: data.product_name || selectedOrder?.product,
         reason: data.reason || formData.reason,
@@ -99,24 +98,13 @@ export default function ReturnsPage() {
         createdAt: data.created_at || new Date().toISOString().split('T')[0],
         refundAmount: data.refund_amount || selectedOrder?.price,
       };
+      setReturns(prev => [newReturn, ...prev]);
+      setShowForm(false);
+      setFormData({ orderId: '', reason: '', reasonDetail: '' });
+      alert('Return request submitted successfully.');
     } catch (err) {
-      console.error('반품 신청 API 오류:', err);
-      const selectedOrder = eligibleOrders.find(o => o.id === formData.orderId);
-      newReturn = {
-        id: `RET-${Date.now()}`,
-        orderId: formData.orderId,
-        productName: selectedOrder?.product,
-        reason: formData.reason,
-        status: 'pending',
-        createdAt: new Date().toISOString().split('T')[0],
-        refundAmount: selectedOrder?.price,
-      };
+      alert(err.message || 'Failed to submit return request. Please try again.');
     }
-
-    setReturns(prev => [newReturn, ...prev]);
-    setShowForm(false);
-    setFormData({ orderId: '', reason: '', reasonDetail: '' });
-    alert('반품/교환 신청이 접수되었습니다.');
   };
 
   if (loading) {

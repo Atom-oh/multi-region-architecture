@@ -11,7 +11,7 @@ spec:
             cluster-name: mall-apne2-az-a
         values:
           awsRegion: ap-northeast-2
-          roleArn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/production-otel-collector-ap-northeast-2-az-a"
+          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-ap-northeast-2-az-a"
           clusterName: mall-apne2-az-a
     - clusters:
         selector:
@@ -19,7 +19,7 @@ spec:
             cluster-name: mall-apne2-az-c
         values:
           awsRegion: ap-northeast-2
-          roleArn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/production-otel-collector-ap-northeast-2-az-c"
+          roleArn: "arn:aws:iam::180294183052:role/production-otel-collector-ap-northeast-2-az-c"
           clusterName: mall-apne2-az-c
   template:
     metadata:
@@ -90,7 +90,7 @@ spec:
                   index_all_attributes: true
                 otlp/tempo:
                   # kubectl get svc tempo-nlb -n observability → EXTERNAL-IP
-                  endpoint: <TEMPO_NLB_DNS>:4317
+                  endpoint: k8s-observab-temponlb-1593edacf8-de391b17a5a4ebb3.elb.ap-northeast-2.amazonaws.com:4317
                   tls:
                     insecure: true
                 prometheus:
@@ -100,12 +100,16 @@ spec:
                     enabled: true
                 clickhouse:
                   # kubectl get svc clickhouse-nlb -n observability → EXTERNAL-IP
-                  endpoint: tcp://<CLICKHOUSE_NLB_DNS>:9000
+                  endpoint: tcp://k8s-observab-clickhou-400d5edcb9-d598c8ae0bfcd595.elb.ap-northeast-2.amazonaws.com:9000
                   database: otel
                   logs_table_name: otel_logs
                   traces_table_name: otel_traces
                   ttl: 720h
                   create_schema: true
+                awscloudwatchlogs:
+                  log_group_name: /eks/multi-region-mall
+                  log_stream_name: otel-collector
+                  region: '{{values.awsRegion}}'
               service:
                 pipelines:
                   traces:
@@ -115,7 +119,7 @@ spec:
                   logs:
                     receivers: [filelog]
                     processors: [memory_limiter, batch, resource]
-                    exporters: [clickhouse]
+                    exporters: [clickhouse, awscloudwatchlogs]
                   metrics:
                     receivers: [otlp, spanmetrics]
                     processors: [memory_limiter, batch]

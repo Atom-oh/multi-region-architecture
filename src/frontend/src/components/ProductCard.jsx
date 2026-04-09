@@ -9,7 +9,7 @@ export default function ProductCard({ product }) {
 
   const formatPrice = (price) => {
     if (price == null) return '';
-    return `$${(Number(price) / 100).toFixed(2)}`;
+    return `₩${Number(price).toLocaleString('ko-KR')}`;
   };
 
   const renderStars = (rating) => {
