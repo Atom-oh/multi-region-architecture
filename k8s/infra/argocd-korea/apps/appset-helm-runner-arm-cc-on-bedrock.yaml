@@ -20,7 +20,7 @@ spec:
         targetRevision: 0.10.1
         helm:
           valuesObject:
-            githubConfigUrl: https://github.com/<GITHUB_ORG>/cc-on-bedrock
+            githubConfigUrl: https://github.com/Atom-oh/cc-on-bedrock
             githubConfigSecret: github-app-secret
             controllerServiceAccount:
               name: arc-controller-mall-apne2-mgmt-gha-rs-controller
