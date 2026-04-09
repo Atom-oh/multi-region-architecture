@@ -106,10 +106,6 @@ spec:
                   traces_table_name: otel_traces
                   ttl: 720h
                   create_schema: true
-                awscloudwatchlogs:
-                  log_group_name: /eks/multi-region-mall
-                  log_stream_name: otel-collector
-                  region: '{{values.awsRegion}}'
               service:
                 pipelines:
                   traces:
@@ -119,7 +115,7 @@ spec:
                   logs:
                     receivers: [filelog]
                     processors: [memory_limiter, batch, resource]
-                    exporters: [clickhouse, awscloudwatchlogs]
+                    exporters: [clickhouse]
                   metrics:
                     receivers: [otlp, spanmetrics]
                     processors: [memory_limiter, batch]

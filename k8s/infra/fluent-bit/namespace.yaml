@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: amazon-cloudwatch
-  labels:
-    app.kubernetes.io/name: fluent-bit
-    app.kubernetes.io/part-of: logging
