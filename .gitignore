@@ -27,6 +27,7 @@ Thumbs.db
 # Environment
 .env
 .env.*
+!.env.example
 
 # Node.js / Docusaurus
 node_modules/
