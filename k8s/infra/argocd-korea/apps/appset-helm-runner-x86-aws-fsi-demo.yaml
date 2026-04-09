@@ -1,0 +1,65 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-runner-x86-aws-fsi-demo
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-mgmt
+  template:
+    metadata:
+      name: 'runner-x86-aws-fsi-demo-{{name}}'
+    spec:
+      project: default
+      source:
+        chart: gha-runner-scale-set
+        repoURL: ghcr.io/actions/actions-runner-controller-charts
+        targetRevision: 0.10.1
+        helm:
+          valuesObject:
+            githubConfigUrl: https://github.com/Atom-oh/aws-fsi-demo
+            githubConfigSecret: github-app-secret
+            controllerServiceAccount:
+              name: arc-controller-mall-apne2-mgmt-gha-rs-controller
+              namespace: actions-runner-system
+            runnerScaleSetName: aws-fsi-demo-x86
+            minRunners: 0
+            maxRunners: 10
+            containerMode:
+              type: dind
+            listenerTemplate:
+              spec:
+                containers:
+                  - name: listener
+                tolerations:
+                  - key: node-role
+                    value: system-critical
+                    effect: NoSchedule
+                nodeSelector:
+                  role: system
+            template:
+              spec:
+                nodeSelector:
+                  kubernetes.io/arch: amd64
+                tolerations:
+                  - key: workload-type
+                    value: ci-runner
+                    effect: NoSchedule
+      destination:
+        server: '{{server}}'
+        namespace: actions-runner-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
