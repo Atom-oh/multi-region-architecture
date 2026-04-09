@@ -260,7 +260,7 @@ ArgoCD가 ApplicationSet을 통해 모든 인프라 컴포넌트와 서비스를
 ```bash
 cd scripts/seed-data
 export AURORA_ENDPOINT="production-aurora-global-us-east-1.cluster-xxx.us-east-1.rds.amazonaws.com"
-export DOCUMENTDB_URI="mongodb://docdb_admin:password@production-docdb-global-us-east-1.cluster-xxx.us-east-1.docdb.amazonaws.com:27017"
+export DOCUMENTDB_URI="mongodb://docdb_admin:<YOUR_PASSWORD>@production-docdb-global-us-east-1.cluster-xxx.us-east-1.docdb.amazonaws.com:27017"
 export OPENSEARCH_ENDPOINT="https://vpc-production-os-use1-xxx.us-east-1.es.amazonaws.com"
 export MSK_BOOTSTRAP="b-1.productionmskuseast1.xxx.kafka.us-east-1.amazonaws.com:9096"
 export ELASTICACHE_ENDPOINT="clustercfg.production-elasticache-us-east-1.xxx.use1.cache.amazonaws.com"

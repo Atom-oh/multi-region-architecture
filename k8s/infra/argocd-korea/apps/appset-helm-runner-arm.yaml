@@ -20,7 +20,7 @@ spec:
         targetRevision: 0.10.1
         helm:
           valuesObject:
-            githubConfigUrl: https://github.com/Atom-oh/multi-region-architecture
+            githubConfigUrl: https://github.com/<GITHUB_ORG>/multi-region-architecture
             githubConfigSecret: github-app-secret
             controllerServiceAccount:
               name: arc-controller-mall-apne2-mgmt-gha-rs-controller

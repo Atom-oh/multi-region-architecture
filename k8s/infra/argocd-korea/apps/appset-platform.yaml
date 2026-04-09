@@ -23,15 +23,15 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:Atom-oh/multi-region-architecture.git
+        repoURL: git@github.com:<GITHUB_ORG>/multi-region-architecture.git
         targetRevision: main
         path: 'k8s/overlays/{{values.overlayPath}}/platform'
         kustomize:
           images:
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/api-gateway={{metadata.annotations.ecr-registry}}/shopping-mall/api-gateway'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/event-bus={{metadata.annotations.ecr-registry}}/shopping-mall/event-bus'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/analytics={{metadata.annotations.ecr-registry}}/shopping-mall/analytics'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/synthetic-monitor={{metadata.annotations.ecr-registry}}/shopping-mall/synthetic-monitor'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/api-gateway={{metadata.annotations.ecr-registry}}/shopping-mall/api-gateway'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/event-bus={{metadata.annotations.ecr-registry}}/shopping-mall/event-bus'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/analytics={{metadata.annotations.ecr-registry}}/shopping-mall/analytics'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/synthetic-monitor={{metadata.annotations.ecr-registry}}/shopping-mall/synthetic-monitor'
       destination:
         server: '{{server}}'
         namespace: platform

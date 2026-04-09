@@ -23,15 +23,15 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:Atom-oh/multi-region-architecture.git
+        repoURL: git@github.com:<GITHUB_ORG>/multi-region-architecture.git
         targetRevision: main
         path: 'k8s/overlays/{{values.overlayPath}}/user'
         kustomize:
           images:
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/user-account={{metadata.annotations.ecr-registry}}/shopping-mall/user-account'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/user-profile={{metadata.annotations.ecr-registry}}/shopping-mall/user-profile'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/review={{metadata.annotations.ecr-registry}}/shopping-mall/review'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/wishlist={{metadata.annotations.ecr-registry}}/shopping-mall/wishlist'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/user-account={{metadata.annotations.ecr-registry}}/shopping-mall/user-account'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/user-profile={{metadata.annotations.ecr-registry}}/shopping-mall/user-profile'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/review={{metadata.annotations.ecr-registry}}/shopping-mall/review'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/wishlist={{metadata.annotations.ecr-registry}}/shopping-mall/wishlist'
       destination:
         server: '{{server}}'
         namespace: user-services

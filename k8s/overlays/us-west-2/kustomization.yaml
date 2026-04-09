@@ -24,7 +24,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/targetGroupARN
-        value: "arn:aws:elasticloadbalancing:us-west-2:180294183052:targetgroup/production-api-tg-us-west-2/yyyyyyyyyyyyyyyy"
+        value: "arn:aws:elasticloadbalancing:us-west-2:<AWS_ACCOUNT_ID>:targetgroup/production-api-tg-us-west-2/yyyyyyyyyyyyyyyy"
   - target:
       kind: Service
       name: argocd-server-nlb
@@ -35,14 +35,14 @@ patches:
         value: "sg-0cccc33333ddddd44"
       - op: add
         path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-ssl-cert
-        value: "arn:aws:acm:us-west-2:180294183052:certificate/yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+        value: "arn:aws:acm:us-west-2:<AWS_ACCOUNT_ID>:certificate/yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
   - target:
       kind: CronJob
       name: synthetic-monitor
     patch: |-
       - op: replace
         path: /spec/jobTemplate/spec/template/spec/containers/0/image
-        value: "180294183052.dkr.ecr.us-west-2.amazonaws.com/shopping-mall/synthetic-monitor:latest"
+        value: "<AWS_ACCOUNT_ID>.dkr.ecr.us-west-2.amazonaws.com/shopping-mall/synthetic-monitor:latest"
   - target:
       kind: Deployment
     patch: |-
@@ -96,7 +96,7 @@ configMapGenerator:
     namespace: observability
     literals:
       - TEMPO_S3_BUCKET=production-mall-tempo-traces-us-west-2
-      - TEMPO_ROLE_ARN=arn:aws:iam::180294183052:role/production-tempo-us-west-2
+      - TEMPO_ROLE_ARN=arn:aws:iam::<AWS_ACCOUNT_ID>:role/production-tempo-us-west-2
 
 commonLabels:
   region: us-west-2

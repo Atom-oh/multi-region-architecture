@@ -23,15 +23,15 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:Atom-oh/multi-region-architecture.git
+        repoURL: git@github.com:<GITHUB_ORG>/multi-region-architecture.git
         targetRevision: main
         path: 'k8s/overlays/{{values.overlayPath}}/business'
         kustomize:
           images:
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/seller={{metadata.annotations.ecr-registry}}/shopping-mall/seller'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/notification={{metadata.annotations.ecr-registry}}/shopping-mall/notification'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/recommendation={{metadata.annotations.ecr-registry}}/shopping-mall/recommendation'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/pricing={{metadata.annotations.ecr-registry}}/shopping-mall/pricing'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/seller={{metadata.annotations.ecr-registry}}/shopping-mall/seller'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/notification={{metadata.annotations.ecr-registry}}/shopping-mall/notification'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/recommendation={{metadata.annotations.ecr-registry}}/shopping-mall/recommendation'
+            - '<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/pricing={{metadata.annotations.ecr-registry}}/shopping-mall/pricing'
       destination:
         server: '{{server}}'
         namespace: business-services

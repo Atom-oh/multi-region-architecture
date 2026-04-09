@@ -36,7 +36,7 @@ data:
       storage:
         path: /var/tempo/generator/wal
         remote_write:
-          - url: http://k8s-monitori-promethe-0fad301b35-bd8824e1caa3e556.elb.ap-northeast-2.amazonaws.com:9090/api/v1/write
+          - url: http://<PROMETHEUS_NLB_DNS>:9090/api/v1/write
             send_exemplars: true
 
     storage:
@@ -65,7 +65,7 @@ metadata:
   name: tempo
   namespace: observability
   annotations:
-    eks.amazonaws.com/role-arn: "arn:aws:iam::180294183052:role/production-tempo-ap-northeast-2-mgmt"
+    eks.amazonaws.com/role-arn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/production-tempo-ap-northeast-2-mgmt"
 ---
 apiVersion: apps/v1
 kind: Deployment

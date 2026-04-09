@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-ACCOUNT_ID="123456789012"
-REGION="us-east-1"
+ACCOUNT_ID="${AWS_ACCOUNT_ID:?Set AWS_ACCOUNT_ID env var}"
+REGION="${AWS_REGION:-us-east-1}"
 ECR_PREFIX="shopping-mall"
 TAG="${1:-latest}"
 SRC_DIR="/home/ec2-user/multi-region-architecture/src"
