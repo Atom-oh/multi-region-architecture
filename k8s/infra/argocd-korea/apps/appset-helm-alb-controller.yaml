@@ -10,7 +10,7 @@ spec:
           matchLabels:
             cluster-name: mall-apne2-az-a
         values:
-          roleArn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/production-alb-controller-apne2-az-a"
+          roleArn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/mall-apne2-az-a-alb-controller-apne2-az-a"
           vpcId: <VPC_ID_AP_NORTHEAST_2>
           awsRegion: ap-northeast-2
           clusterName: mall-apne2-az-a
@@ -19,7 +19,7 @@ spec:
           matchLabels:
             cluster-name: mall-apne2-az-c
         values:
-          roleArn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/production-alb-controller-apne2-az-c"
+          roleArn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/mall-apne2-az-c-alb-controller-apne2-az-c"
           vpcId: <VPC_ID_AP_NORTHEAST_2>
           awsRegion: ap-northeast-2
           clusterName: mall-apne2-az-c
