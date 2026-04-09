@@ -4,12 +4,12 @@ import ProductCard from '../components/ProductCard';
 import { api, mapProduct } from '../api';
 
 const CATEGORIES = [
-  { id: 'electronics', name: '전자제품', icon: '📱', color: 'bg-blue-100' },
-  { id: 'fashion', name: '패션', icon: '👗', color: 'bg-pink-100' },
-  { id: 'home', name: '홈/리빙', icon: '🏠', color: 'bg-green-100' },
-  { id: 'beauty', name: '뷰티', icon: '💄', color: 'bg-purple-100' },
-  { id: 'sports', name: '스포츠', icon: '⚽', color: 'bg-orange-100' },
-  { id: 'food', name: '식품', icon: '🍎', color: 'bg-red-100' },
+  { id: 'electronics', name: 'Electronics', icon: 'devices', color: 'bg-blue-50 text-blue-700' },
+  { id: 'fashion', name: 'Fashion', icon: 'checkroom', color: 'bg-pink-50 text-pink-700' },
+  { id: 'home', name: 'Home & Living', icon: 'chair', color: 'bg-green-50 text-green-700' },
+  { id: 'beauty', name: 'Beauty', icon: 'spa', color: 'bg-purple-50 text-purple-700' },
+  { id: 'sports', name: 'Sports', icon: 'fitness_center', color: 'bg-orange-50 text-orange-700' },
+  { id: 'food', name: 'Food & Drink', icon: 'restaurant', color: 'bg-red-50 text-red-700' },
 ];
 
 export default function HomePage() {
@@ -31,50 +31,87 @@ export default function HomePage() {
         });
         setTrendingProducts(trending);
       } catch (error) {
-        console.error('데이터를 불러올 수 없습니다:', error);
+        console.error('Failed to load data:', error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
+  const topPick = featuredProducts[0];
+  const dealPick = featuredProducts[1];
+
   return (
     <div>
-      {/* Hero Banner */}
-      <section className="bg-gradient-to-r from-slate-800 to-slate-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-16 md:py-24">
-          <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              글로벌 쇼핑의<br />새로운 기준
-            </h1>
-            <p className="text-slate-300 text-lg mb-8">
-              전 세계 어디서나 빠르고 안정적인 쇼핑 경험.<br />
-              Multi-Region Mall에서 특별한 상품을 만나보세요.
-            </p>
-            <Link
-              to="/products"
-              className="inline-block bg-blue-500 text-white px-8 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
-            >
-              쇼핑 시작하기
-            </Link>
-          </div>
+      {/* Hero / Bento Grid */}
+      <section className="max-w-7xl mx-auto px-4 md:px-6 py-10 md:py-14">
+        <header className="mb-10">
+          <p className="text-brand-500 font-[family-name:var(--font-headline)] font-bold text-sm tracking-widest uppercase mb-2">Curated for you</p>
+          <h1 className="text-4xl md:text-5xl font-extrabold text-brand-900 leading-tight max-w-2xl font-[family-name:var(--font-headline)]">
+            Welcome back. Your daily briefing.
+          </h1>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Main Feature Card */}
+          {topPick && (
+            <div className="lg:col-span-8 group">
+              <Link to={`/products/${topPick.id}`} className="bg-white rounded-xl overflow-hidden shadow-[0_12px_32px_rgba(24,28,29,0.06)] flex flex-col md:flex-row h-full">
+                <div className="md:w-1/2 overflow-hidden bg-surface-container">
+                  <img
+                    src={topPick.imageUrl || `https://picsum.photos/seed/${topPick.id}/600/600`}
+                    alt={topPick.name}
+                    className="w-full h-64 md:h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                </div>
+                <div className="md:w-1/2 p-8 md:p-10 flex flex-col justify-center">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="bg-brand-300 text-brand-900 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight">Your Top Pick</span>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-brand-900 mb-3 leading-tight font-[family-name:var(--font-headline)]">{topPick.name}</h3>
+                  <p className="text-on-surface-variant text-sm leading-relaxed mb-6">{topPick.description || 'Discover this curated selection, handpicked for your refined taste.'}</p>
+                  <div className="mt-auto flex items-center justify-between">
+                    <span className="text-2xl font-bold text-brand-900">{formatPrice(topPick.price)}</span>
+                    <span className="bg-brand-500 hover:bg-brand-700 text-white px-5 py-2.5 rounded-md font-bold text-sm transition-all shadow-md flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[16px]">shopping_cart</span>
+                      View Details
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            </div>
+          )}
+
+          {/* Deal of the Day */}
+          {dealPick && (
+            <div className="lg:col-span-4 h-full">
+              <Link to={`/products/${dealPick.id}`} className="bg-brand-900 text-white rounded-xl p-8 flex flex-col h-full shadow-lg relative overflow-hidden block">
+                <div className="relative z-10">
+                  <div className="bg-brand-500 text-white text-[10px] font-bold px-2 py-1 rounded-sm uppercase inline-block mb-6">Deal of the Day</div>
+                  <h3 className="text-2xl font-bold mb-3 font-[family-name:var(--font-headline)]">{dealPick.name}</h3>
+                  <p className="text-stone-300 text-sm mb-6 leading-relaxed">{dealPick.description || 'Special pricing on this exceptional find.'}</p>
+                  <span className="text-3xl font-bold text-brand-400">{formatPrice(dealPick.price)}</span>
+                </div>
+                <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
       {/* Category Navigation */}
-      <section className="bg-slate-50 py-8">
-        <div className="max-w-7xl mx-auto px-4">
+      <section className="bg-surface-low py-10">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
           <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
             {CATEGORIES.map((category) => (
               <Link
                 key={category.id}
                 to={`/products?category=${category.id}`}
-                className={`${category.color} rounded-xl p-4 text-center hover:shadow-md transition-shadow`}
+                className={`${category.color} rounded-xl p-5 text-center hover:shadow-md transition-all group`}
               >
-                <span className="text-3xl mb-2 block">{category.icon}</span>
-                <span className="text-sm font-medium text-slate-700">{category.name}</span>
+                <span className="material-symbols-outlined text-3xl mb-2 block group-hover:scale-110 transition-transform">{category.icon}</span>
+                <span className="text-sm font-medium">{category.name}</span>
               </Link>
             ))}
           </div>
@@ -83,28 +120,28 @@ export default function HomePage() {
 
       {/* Featured Products */}
       <section className="py-12">
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold text-slate-800">추천 상품</h2>
-            <Link to="/products" className="text-blue-500 hover:text-blue-600 font-medium">
-              전체보기 →
+            <h2 className="text-2xl font-extrabold text-brand-900 font-[family-name:var(--font-headline)]">Curated Collection</h2>
+            <Link to="/products" className="text-brand-500 hover:text-brand-700 font-semibold text-sm flex items-center gap-1 transition-colors">
+              View All <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
           </div>
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-white rounded-xl shadow-sm overflow-hidden animate-pulse">
-                  <div className="bg-slate-200 h-48 w-full" />
+                <div key={i} className="bg-white rounded-xl overflow-hidden animate-pulse shadow-sm">
+                  <div className="bg-surface-high h-48 w-full" />
                   <div className="p-4 space-y-3">
-                    <div className="bg-slate-200 h-4 rounded w-3/4" />
-                    <div className="bg-slate-200 h-4 rounded w-1/2" />
-                    <div className="bg-slate-200 h-6 rounded w-1/3" />
+                    <div className="bg-surface-high h-4 rounded w-3/4" />
+                    <div className="bg-surface-high h-4 rounded w-1/2" />
+                    <div className="bg-surface-high h-6 rounded w-1/3" />
                   </div>
                 </div>
               ))}
             </div>
           ) : featuredProducts.length === 0 ? (
-            <p className="text-slate-500 text-center py-8">상품을 불러오는 중입니다.</p>
+            <p className="text-secondary text-center py-8">Loading products...</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {featuredProducts.map((product) => (
@@ -116,29 +153,29 @@ export default function HomePage() {
       </section>
 
       {/* Promotion Banner */}
-      <section className="bg-blue-500 py-12">
-        <div className="max-w-7xl mx-auto px-4 text-center text-white">
-          <h2 className="text-3xl font-bold mb-4">신규 가입 혜택</h2>
-          <p className="text-blue-100 text-lg mb-6">
-            지금 가입하면 첫 구매 20% 할인 쿠폰을 드립니다!
+      <section className="bg-brand-900 py-14">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 text-center text-white">
+          <h2 className="text-3xl font-extrabold mb-4 font-[family-name:var(--font-headline)]">New Member Benefits</h2>
+          <p className="text-brand-300 text-lg mb-6">
+            Sign up now and get 20% off your first purchase!
           </p>
           <Link
             to="/register"
-            className="inline-block bg-white text-blue-500 px-8 py-3 rounded-lg font-medium hover:bg-blue-50 transition-colors"
+            className="inline-block bg-brand-500 hover:bg-brand-400 text-brand-900 px-8 py-3 rounded-md font-bold transition-all shadow-lg"
           >
-            회원가입
+            Create Account
           </Link>
         </div>
       </section>
 
       {/* Trending Products */}
       {trendingProducts.length > 0 && (
-        <section className="py-12 bg-slate-50">
-          <div className="max-w-7xl mx-auto px-4">
+        <section className="py-12 bg-surface-low">
+          <div className="max-w-7xl mx-auto px-4 md:px-6">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-slate-800">지금 인기있는 상품</h2>
-              <Link to="/products" className="text-blue-500 hover:text-blue-600 font-medium">
-                전체보기 →
+              <h2 className="text-2xl font-extrabold text-brand-900 font-[family-name:var(--font-headline)]">Trending Now</h2>
+              <Link to="/products" className="text-brand-500 hover:text-brand-700 font-semibold text-sm flex items-center gap-1 transition-colors">
+                View All <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -151,39 +188,28 @@ export default function HomePage() {
       )}
 
       {/* Trust Badges */}
-      <section className="py-12">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            <div className="p-6">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+      <section className="py-14">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              { icon: 'verified', title: 'Authenticated Luxury', desc: 'Every item is verified by our team of expert curators for quality.' },
+              { icon: 'rocket_launch', title: 'Priority Shipping', desc: 'Enjoy complimentary priority shipping on all daily picks.' },
+              { icon: 'shield', title: 'Secure Payments', desc: 'Industry-leading encryption protects every transaction.' },
+            ].map(({ icon, title, desc }) => (
+              <div key={icon} className="bg-surface-low rounded-xl p-6 text-center">
+                <span className="material-symbols-outlined material-filled text-brand-500 text-4xl mb-4 block">{icon}</span>
+                <h4 className="font-bold text-brand-900 mb-2 font-[family-name:var(--font-headline)]">{title}</h4>
+                <p className="text-sm text-secondary leading-relaxed">{desc}</p>
               </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">100% 정품 보장</h3>
-              <p className="text-slate-500">모든 상품은 정품만 취급합니다</p>
-            </div>
-            <div className="p-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">빠른 배송</h3>
-              <p className="text-slate-500">주문 후 1-2일 내 배송</p>
-            </div>
-            <div className="p-6">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">안전한 결제</h3>
-              <p className="text-slate-500">안전한 결제 시스템 제공</p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
     </div>
   );
+}
+
+function formatPrice(price) {
+  if (price == null) return '';
+  return `$${(Number(price) / 100).toFixed(2)}`;
 }

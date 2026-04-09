@@ -25,12 +25,11 @@ export default function CartPage() {
         setCartItems(items);
         updateCartCount(items.reduce((sum, item) => sum + item.quantity, 0));
       } catch (error) {
-        console.error('데이터를 불러올 수 없습니다:', error);
+        console.error('Failed to load cart:', error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchCart();
   }, [user?.id]);
 
@@ -60,7 +59,7 @@ export default function CartPage() {
         });
       }
     } catch (error) {
-      console.error('수량 변경 실패:', error);
+      console.error('Failed to update quantity:', error);
     }
   };
 
@@ -71,99 +70,104 @@ export default function CartPage() {
     try {
       await api(`/carts/${user.id}/items/${productId}`, { method: 'DELETE' });
     } catch (error) {
-      console.error('장바구니 삭제 실패:', error);
+      console.error('Failed to remove item:', error);
     }
   };
 
   const formatPrice = (price) => {
     if (price == null) return '';
-    return `₩${Number(price).toLocaleString('ko-KR')}`;
+    return `$${(Number(price) / 100).toFixed(2)}`;
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shippingFee = subtotal >= 50000 ? 0 : 3000;
-  const total = subtotal + shippingFee;
+  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-slate-500 text-lg">로딩 중...</p>
+        <p className="text-secondary text-lg">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-slate-800 mb-8">장바구니</h1>
-
+    <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
       {cartItems.length === 0 ? (
-        <div className="text-center py-16">
-          <svg className="w-24 h-24 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          <p className="text-slate-500 text-lg mb-4">장바구니가 비어있습니다.</p>
+        <div className="text-center py-20">
+          <span className="material-symbols-outlined text-outline-variant text-7xl mb-4 block">shopping_cart</span>
+          <p className="text-secondary text-lg mb-6">Your cart is empty.</p>
           <Link
             to="/products"
-            className="inline-block bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+            className="inline-block bg-brand-500 hover:bg-brand-700 text-white px-8 py-3 rounded-md font-bold transition-all shadow-md"
           >
-            쇼핑 계속하기
+            Start Shopping
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
-            {cartItems.map((item) => (
-              <CartItem
-                key={item.productId}
-                item={item}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemove={handleRemove}
-              />
-            ))}
-          </div>
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Cart Items */}
+          <section className="lg:w-[70%]">
+            <div className="bg-white p-6 md:p-8 rounded-xl shadow-sm">
+              <h1 className="text-3xl font-extrabold text-brand-900 mb-2 font-[family-name:var(--font-headline)]">Shopping Cart</h1>
+              <p className="text-secondary text-sm border-b border-outline-variant/20 pb-4">
+                {itemCount} item{itemCount !== 1 ? 's' : ''} in your cart
+              </p>
+              {cartItems.map((item) => (
+                <CartItem
+                  key={item.productId}
+                  item={item}
+                  onUpdateQuantity={handleUpdateQuantity}
+                  onRemove={handleRemove}
+                />
+              ))}
+            </div>
+          </section>
 
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
-              <h2 className="text-lg font-bold text-slate-800 mb-4">주문 요약</h2>
+          {/* Checkout Sidebar */}
+          <aside className="lg:w-[30%]">
+            <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-brand-500 sticky top-20">
+              <p className="text-lg font-medium text-on-surface">
+                Subtotal ({itemCount} item{itemCount !== 1 ? 's' : ''}):
+              </p>
+              <p className="text-3xl font-extrabold text-brand-900 font-[family-name:var(--font-headline)] mt-1 mb-6">
+                {formatPrice(subtotal)}
+              </p>
 
-              <div className="space-y-3 mb-4">
-                <div className="flex justify-between text-slate-600">
-                  <span>상품 금액</span>
-                  <span>{formatPrice(subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>배송비</span>
-                  <span>{shippingFee === 0 ? '무료' : formatPrice(shippingFee)}</span>
-                </div>
-                {subtotal < 50000 && (
-                  <p className="text-sm text-blue-500">
-                    {formatPrice(50000 - subtotal)} 더 구매하시면 무료 배송!
-                  </p>
-                )}
-              </div>
-
-              <div className="border-t border-slate-200 pt-4 mb-6">
-                <div className="flex justify-between text-lg font-bold text-slate-800">
-                  <span>총 결제 금액</span>
-                  <span className="text-blue-600">{formatPrice(total)}</span>
-                </div>
+              <div className="flex items-start gap-3 mb-6 bg-surface-low p-3 rounded-md">
+                <input
+                  type="checkbox"
+                  id="gift"
+                  className="mt-1 rounded border-outline focus:ring-brand-500 text-brand-500"
+                />
+                <label htmlFor="gift" className="text-sm text-secondary leading-tight">
+                  This order contains a gift
+                </label>
               </div>
 
               <Link
                 to="/checkout"
-                className="block w-full bg-blue-500 text-white py-4 rounded-lg font-medium text-center hover:bg-blue-600 transition-colors"
+                className="block w-full py-4 bg-brand-500 hover:bg-brand-700 text-white font-bold rounded-md shadow-md text-center transition-all uppercase tracking-wider text-sm font-[family-name:var(--font-headline)]"
               >
-                주문하기
+                Proceed to Checkout
               </Link>
 
               <Link
                 to="/products"
-                className="block w-full text-center text-slate-500 hover:text-slate-700 mt-4"
+                className="block w-full text-center text-secondary hover:text-brand-500 mt-4 text-sm transition-colors"
               >
-                쇼핑 계속하기
+                Continue Shopping
               </Link>
             </div>
-          </div>
+
+            {/* Rewards Card */}
+            <div className="bg-brand-900 p-6 rounded-xl text-white mt-6">
+              <h3 className="font-bold text-lg mb-2 font-[family-name:var(--font-headline)]">Curator Rewards</h3>
+              <p className="text-sm text-white/70 mb-4">
+                Earn 5% back on architectural gems with the Curator Card.
+              </p>
+              <a href="#" className="text-brand-300 text-sm font-bold hover:underline">Learn more</a>
+            </div>
+          </aside>
         </div>
       )}
     </div>

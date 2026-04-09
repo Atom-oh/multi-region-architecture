@@ -1,1 +1,51 @@
 @import "tailwindcss";
+
+@theme {
+  --color-brand-900: #291400;
+  --color-brand-800: #462700;
+  --color-brand-700: #693c00;
+  --color-brand-600: #8a5100;
+  --color-brand-500: #d88100;
+  --color-brand-400: #ffb86f;
+  --color-brand-300: #ffdcbd;
+  --color-brand-200: #ffeedd;
+  --color-brand-100: #fff8f4;
+
+  --color-surface: #f7fafa;
+  --color-surface-dim: #d7dbdb;
+  --color-surface-container: #ebeeee;
+  --color-surface-low: #f1f4f4;
+  --color-surface-high: #e6e9e9;
+  --color-surface-highest: #e0e3e3;
+  --color-surface-bright: #ffffff;
+
+  --color-on-surface: #181c1d;
+  --color-on-surface-variant: #44474c;
+  --color-outline: #75777c;
+  --color-outline-variant: #c5c6cc;
+
+  --color-secondary: #535f70;
+  --color-secondary-container: #d4e1f5;
+
+  --font-headline: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-headline);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+
+.material-filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}

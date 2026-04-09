@@ -9,19 +9,22 @@ export default function ProductCard({ product }) {
 
   const formatPrice = (price) => {
     if (price == null) return '';
-    return `₩${Number(price).toLocaleString('ko-KR')}`;
+    return `$${(Number(price) / 100).toFixed(2)}`;
   };
 
   const renderStars = (rating) => {
-    const fullStars = Math.floor(rating);
+    const full = Math.floor(rating);
     const hasHalf = rating % 1 >= 0.5;
-    const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
     return (
-      <span className="text-yellow-400">
-        {'★'.repeat(fullStars)}
-        {hasHalf && '★'}
-        <span className="text-slate-300">{'☆'.repeat(emptyStars)}</span>
-      </span>
+      <div className="flex items-center text-brand-500">
+        {[...Array(full)].map((_, i) => (
+          <span key={i} className="material-symbols-outlined material-filled text-[14px]">star</span>
+        ))}
+        {hasHalf && <span className="material-symbols-outlined text-[14px]">star_half</span>}
+        {[...Array(5 - full - (hasHalf ? 1 : 0))].map((_, i) => (
+          <span key={i} className="material-symbols-outlined text-[14px] text-outline-variant">star</span>
+        ))}
+      </div>
     );
   };
 
@@ -49,28 +52,30 @@ export default function ProductCard({ product }) {
   return (
     <Link
       to={`/products/${product.id}`}
-      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 group"
+      className="bg-white rounded-xl overflow-hidden hover:shadow-xl transition-all border border-transparent hover:border-outline-variant/10 group block"
     >
-      <div className="aspect-square bg-slate-100 overflow-hidden">
+      <div className="aspect-square bg-surface-container overflow-hidden">
         <img
           src={product.imageUrl || `https://picsum.photos/seed/${product.id}/400/400`}
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
       </div>
       <div className="p-4">
-        <h3 className="font-medium text-slate-800 truncate mb-1">{product.name}</h3>
+        <h3 className="font-bold text-on-surface group-hover:text-brand-500 transition-colors truncate mb-1 font-[family-name:var(--font-headline)]">
+          {product.name}
+        </h3>
         <div className="flex items-center gap-1 mb-2">
           {renderStars(product.rating || 4.5)}
-          <span className="text-sm text-slate-500">({product.reviewCount || 0})</span>
+          <span className="text-xs text-secondary ml-1">({product.reviewCount || 0})</span>
         </div>
-        <div className="flex items-center justify-between">
-          <p className="text-lg font-bold text-blue-600">{formatPrice(product.price)}</p>
+        <div className="flex items-center justify-between mt-3">
+          <p className="text-lg font-bold text-brand-900 font-[family-name:var(--font-headline)]">{formatPrice(product.price)}</p>
           <button
             onClick={handleAddToCart}
-            className="bg-blue-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-600 transition-colors"
+            className="bg-surface-high hover:bg-brand-500 hover:text-white text-on-surface px-3 py-1.5 rounded-md text-xs font-bold transition-colors uppercase tracking-tight"
           >
-            담기
+            Add to Cart
           </button>
         </div>
       </div>
