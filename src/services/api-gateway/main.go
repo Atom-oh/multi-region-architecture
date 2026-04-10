@@ -2,18 +2,31 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/multi-region-mall/shared/pkg/auth"
 	"github.com/multi-region-mall/shared/pkg/config"
 	"github.com/multi-region-mall/shared/pkg/health"
 	"github.com/multi-region-mall/shared/pkg/tracing"
+	"github.com/multi-region-mall/shared/pkg/valkey"
 )
 
 var tracedClient = tracing.HTTPClient()
+
+// Global Valkey client for rate limiting - nil if unavailable
+var cacheClient *valkey.Client
+
+const (
+	rateLimitWindow   = 60 * time.Second // 1-minute sliding window
+	rateLimitMaxReqs  = 100              // Max 100 requests per minute per IP
+	rateLimitCacheTTL = 70 * time.Second // Slightly longer than window for cleanup
+)
 
 func main() {
 	cfg := config.Load("api-gateway")
@@ -25,6 +38,20 @@ func main() {
 		defer func() { _ = tp.Shutdown(ctx) }()
 	}
 
+	// Initialize Valkey connection for rate limiting (graceful fallback)
+	if cfg.CacheHost != "" && cfg.CacheHost != "localhost" {
+		client, err := valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
+		if err != nil {
+			log.Printf("WARNING: Valkey unavailable, rate limiting disabled: %v", err)
+		} else {
+			cacheClient = client
+			defer cacheClient.Close()
+			log.Printf("INFO: Connected to Valkey at %s:%d (rate limiting enabled)", cfg.CacheHost, cfg.CachePort)
+		}
+	} else {
+		log.Printf("INFO: No CACHE_HOST configured, rate limiting disabled")
+	}
+
 	// Load auth configuration from environment variables
 	// If COGNITO_USER_POOL_ID is not set, auth is skipped (graceful degradation)
 	authCfg := auth.LoadConfigFromEnv()
@@ -32,6 +59,7 @@ func main() {
 	r := gin.Default()
 	r.Use(tracing.GinMiddleware(cfg.ServiceName))
 	r.Use(corsMiddleware())
+	r.Use(rateLimitMiddleware())
 
 	hc := health.New()
 	hc.RegisterRoutes(r)
@@ -145,6 +173,43 @@ func corsMiddleware() gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
+		c.Next()
+	}
+}
+
+func rateLimitMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if cacheClient == nil {
+			c.Next()
+			return
+		}
+
+		clientIP := c.ClientIP()
+		key := fmt.Sprintf("ratelimit:%s", clientIP)
+
+		// Simple counter-based rate limiting using Valkey
+		countStr, err := cacheClient.Get(c.Request.Context(), key)
+		if err != nil {
+			// Key doesn't exist — first request in this window
+			_ = cacheClient.Set(c.Request.Context(), key, "1", rateLimitCacheTTL)
+			c.Next()
+			return
+		}
+
+		count := 0
+		fmt.Sscanf(countStr, "%d", &count)
+
+		if count >= rateLimitMaxReqs {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error":   "요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.",
+				"message": "Rate limit exceeded",
+			})
+			c.Abort()
+			return
+		}
+
+		// Increment counter
+		_ = cacheClient.Set(c.Request.Context(), key, fmt.Sprintf("%d", count+1), rateLimitCacheTTL)
 		c.Next()
 	}
 }

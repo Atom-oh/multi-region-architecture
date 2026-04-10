@@ -13,6 +13,8 @@ from app.repositories.product_repo import product_repo
 logger = logging.getLogger(__name__)
 
 CACHE_TTL = 900  # 15 minutes
+LIST_CACHE_TTL = 300  # 5 minutes for list queries
+CATEGORY_CACHE_TTL = 1800  # 30 minutes for categories (rarely change)
 
 _producer: Optional[Producer] = None
 
@@ -30,13 +32,25 @@ def _cache_key_sku(sku: str) -> str:
     return f"product:sku:{sku}"
 
 
+def _list_cache_key(skip: int, limit: int, category_id: Optional[str], query: Optional[str]) -> str:
+    return f"product:list:{skip}:{limit}:{category_id or ''}:{query or ''}"
+
+
 async def list_products(
     skip: int = 0,
     limit: int = 20,
     category_id: Optional[str] = None,
     query: Optional[str] = None,
 ) -> tuple[list[dict], int]:
-    return await product_repo.list_products(skip=skip, limit=limit, category_slug=category_id, query=query)
+    cache_key = _list_cache_key(skip, limit, category_id, query)
+    cached = await valkey.get_json(cache_key)
+    if cached:
+        logger.debug("Cache hit for product list %s", cache_key)
+        return cached["products"], cached["total"]
+
+    products, total = await product_repo.list_products(skip=skip, limit=limit, category_slug=category_id, query=query)
+    await valkey.set_json(cache_key, {"products": products, "total": total}, LIST_CACHE_TTL)
+    return products, total
 
 
 async def get_product(product_id: str) -> Optional[dict]:
@@ -104,4 +118,12 @@ async def delete_product(product_id: str) -> bool:
 
 
 async def list_categories() -> list[dict]:
-    return await product_repo.list_categories()
+    cache_key = "product:categories"
+    cached = await valkey.get_json(cache_key)
+    if cached:
+        logger.debug("Cache hit for categories")
+        return cached
+
+    categories = await product_repo.list_categories()
+    await valkey.set_json(cache_key, categories, CATEGORY_CACHE_TTL)
+    return categories
