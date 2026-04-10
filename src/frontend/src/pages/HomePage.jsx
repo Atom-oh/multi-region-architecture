@@ -36,7 +36,7 @@ export default function HomePage() {
 
   const formatPrice = (price) => {
     if (price == null) return '';
-    return `$${Number(price).toFixed(2)}`;
+    return `₩${Number(price).toLocaleString('ko-KR')}`;
   };
 
   const scrollTrending = (dir) => {

@@ -113,7 +113,7 @@ export default function OrderDetailPage() {
 
   const formatPrice = (price) => {
     if (price == null) return '';
-    return `$${Number(price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₩${Number(price).toLocaleString('ko-KR')}`;
   };
 
   const formatDate = (dateString) => {
