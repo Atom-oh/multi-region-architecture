@@ -27,7 +27,7 @@ spec:
               namespace: actions-runner-system
             runnerScaleSetName: aws-fsi-demo-x86
             minRunners: 0
-            maxRunners: 10
+            maxRunners: 50
             containerMode:
               type: dind
             listenerTemplate:

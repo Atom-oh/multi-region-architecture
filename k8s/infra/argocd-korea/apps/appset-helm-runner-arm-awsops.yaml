@@ -27,7 +27,7 @@ spec:
               namespace: actions-runner-system
             runnerScaleSetName: awsops-arm
             minRunners: 0
-            maxRunners: 10
+            maxRunners: 50
             containerMode:
               type: dind
             listenerTemplate:

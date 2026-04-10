@@ -27,7 +27,7 @@ spec:
               namespace: actions-runner-system
             runnerScaleSetName: self-hosted-x86
             minRunners: 0
-            maxRunners: 20
+            maxRunners: 50
             containerMode:
               type: dind
             listenerTemplate:
