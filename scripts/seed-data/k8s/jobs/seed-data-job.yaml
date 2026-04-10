@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: seed-data
-  namespace: platform
+  namespace: core-services
   labels:
     app: seed-data
     component: data-initialization
@@ -18,36 +18,60 @@ spec:
       serviceAccountName: default
       containers:
         - name: seed-data
-          image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/seed-data:latest
+          image: <AWS_ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/shopping-mall/seed-data:latest
           command: ["bash", "run-seed.sh"]
           env:
-            # Aurora PostgreSQL
+            # Aurora PostgreSQL (secret keys: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT)
             - name: AURORA_ENDPOINT
               valueFrom:
                 secretKeyRef:
                   name: aurora-credentials
-                  key: endpoint
+                  key: DB_HOST
                   optional: true
             - name: AURORA_USER
               valueFrom:
                 secretKeyRef:
                   name: aurora-credentials
-                  key: username
+                  key: DB_USER
                   optional: true
             - name: AURORA_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: aurora-credentials
-                  key: password
+                  key: DB_PASSWORD
                   optional: true
             - name: AURORA_DB
-              value: "mall"
-            # DocumentDB
+              valueFrom:
+                secretKeyRef:
+                  name: aurora-credentials
+                  key: DB_NAME
+                  optional: true
+            # DocumentDB (secret keys: DOCUMENTDB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DOCUMENTDB_PORT)
             - name: DOCUMENTDB_URI
+              value: ""
+            - name: DOCUMENTDB_HOST
               valueFrom:
                 secretKeyRef:
                   name: documentdb-credentials
-                  key: uri
+                  key: DOCUMENTDB_HOST
+                  optional: true
+            - name: DOCUMENTDB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: documentdb-credentials
+                  key: DB_USER
+                  optional: true
+            - name: DOCUMENTDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: documentdb-credentials
+                  key: DB_PASSWORD
+                  optional: true
+            - name: DOCUMENTDB_DB
+              valueFrom:
+                secretKeyRef:
+                  name: documentdb-credentials
+                  key: DB_NAME
                   optional: true
             - name: TLS_CA_FILE
               value: "/tmp/global-bundle.pem"
@@ -90,9 +114,7 @@ spec:
               value: "6379"
             # Region
             - name: AWS_REGION
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.labels['topology.kubernetes.io/region']
+              value: "ap-northeast-2"
           resources:
             requests:
               cpu: 500m

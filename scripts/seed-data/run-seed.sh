@@ -45,6 +45,12 @@ else
 fi
 
 # ── Step 2: DocumentDB (MongoDB) ───────────────────────────────────────────
+# Build URI from individual env vars if DOCUMENTDB_URI is not set
+if [ -z "${DOCUMENTDB_URI:-}" ] && [ -n "${DOCUMENTDB_HOST:-}" ]; then
+  DOCUMENTDB_URI="mongodb://${DOCUMENTDB_USER:-docdb_admin}:${DOCUMENTDB_PASSWORD}@${DOCUMENTDB_HOST}:${DOCUMENTDB_PORT:-27017}/${DOCUMENTDB_DB:-mall}?tls=true&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false&authMechanism=SCRAM-SHA-1"
+  export DOCUMENTDB_URI
+fi
+
 if [ -n "${DOCUMENTDB_URI:-}" ]; then
   run_step "DocumentDB" \
     "node ${SCRIPT_DIR}/seed-documentdb.js"
