@@ -3,7 +3,7 @@ name: Build & Run Seed Data
 on:
   push:
     branches: [main]
-    paths: ['scripts/seed-data/**']
+    paths: ['scripts/seed-data/**', '.github/workflows/seed-data.yml']
   workflow_dispatch:
 
 permissions:
