@@ -1,52 +1,58 @@
+import { useI18n } from '../context/I18nContext';
+
 export default function CartItem({ item, onUpdateQuantity, onRemove }) {
+  const { t } = useI18n();
+
   const formatPrice = (price) => {
     if (price == null) return '';
     return `₩${Number(price).toLocaleString('ko-KR')}`;
   };
 
   return (
-    <div className="flex gap-4 p-4 bg-white rounded-lg shadow-sm">
-      <div className="w-24 h-24 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
+    <div className="py-6 flex flex-col md:flex-row gap-6 border-b border-outline-variant/10 last:border-0">
+      <div className="w-full md:w-40 h-40 bg-surface-low rounded-lg overflow-hidden flex-shrink-0">
         <img
-          src={item.image || `https://picsum.photos/seed/${item.productId}/200/200`}
+          src={item.image || `https://picsum.photos/seed/${item.productId}/300/300`}
           alt={item.name}
           className="w-full h-full object-cover"
         />
       </div>
 
-      <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-slate-800 truncate">{item.name}</h3>
-        <p className="text-lg font-bold text-blue-600 mt-1">{formatPrice(item.price)}</p>
+      <div className="flex-grow flex flex-col justify-between">
+        <div>
+          <div className="flex justify-between items-start">
+            <h3 className="text-lg font-bold text-on-surface font-[family-name:var(--font-headline)] leading-tight">{item.name}</h3>
+            <span className="text-lg font-bold text-brand-900 font-[family-name:var(--font-headline)] ml-4 whitespace-nowrap">
+              {formatPrice(item.price * item.quantity)}
+            </span>
+          </div>
+          <p className="text-sm text-secondary mt-1">{formatPrice(item.price)} {t('cart.each')}</p>
+        </div>
 
-        <div className="flex items-center gap-2 mt-2">
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm font-medium">
+          <div className="flex items-center bg-surface-container rounded-md px-2 py-1 border border-outline-variant/30">
+            <label className="text-xs text-secondary mr-2">{t('common.qty')}</label>
+            <select
+              value={item.quantity}
+              onChange={(e) => onUpdateQuantity(item.productId, Number(e.target.value))}
+              className="bg-transparent border-none focus:ring-0 text-sm py-0 pl-0 pr-6 cursor-pointer"
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+          <div className="h-4 w-px bg-outline-variant/30 hidden md:block" />
           <button
-            onClick={() => onUpdateQuantity(item.productId, Math.max(1, item.quantity - 1))}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+            onClick={() => onRemove(item.productId)}
+            className="text-brand-500 hover:underline decoration-2 underline-offset-4"
           >
-            -
+            {t('cart.delete')}
           </button>
-          <span className="w-8 text-center font-medium">{item.quantity}</span>
-          <button
-            onClick={() => onUpdateQuantity(item.productId, item.quantity + 1)}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
-          >
-            +
+          <button className="text-brand-500 hover:underline decoration-2 underline-offset-4">
+            {t('cart.saveLater')}
           </button>
         </div>
-      </div>
-
-      <div className="flex flex-col items-end justify-between">
-        <button
-          onClick={() => onRemove(item.productId)}
-          className="text-slate-400 hover:text-red-500 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-        <p className="text-lg font-bold text-slate-800">
-          {formatPrice(item.price * item.quantity)}
-        </p>
       </div>
     </div>
   );

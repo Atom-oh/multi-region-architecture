@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { api } from '../api';
+import { validatePhone, validateCardNumber, validateExpiry, validateCVC } from '../utils';
+import { useI18n } from '../context/I18nContext';
 
 export default function CheckoutPage() {
+  const { t } = useI18n();
   const { user } = useAuth();
   const { updateCartCount } = useCart();
   const navigate = useNavigate();
@@ -35,7 +38,7 @@ export default function CheckoutPage() {
         }));
         if (items.length > 0) setCartItems(items);
       } catch (error) {
-        console.error('장바구니 로드 실패:', error);
+        console.error('Failed to load cart:', error);
       }
     };
     fetchCart();
@@ -54,10 +57,36 @@ export default function CheckoutPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const [error, setError] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsProcessing(true);
+    setError('');
 
+    if (!formData.name || !formData.phone || !formData.address) {
+      setError(t('checkout.fillFields'));
+      return;
+    }
+    if (!validatePhone(formData.phone)) {
+      setError(t('checkout.invalidPhone'));
+      return;
+    }
+    if (formData.paymentMethod === 'card') {
+      if (!validateCardNumber(formData.cardNumber)) {
+        setError(t('checkout.invalidCard'));
+        return;
+      }
+      if (!validateExpiry(formData.cardExpiry)) {
+        setError(t('checkout.invalidExpiry'));
+        return;
+      }
+      if (!validateCVC(formData.cardCvc)) {
+        setError(t('checkout.invalidCvc'));
+        return;
+      }
+    }
+
+    setIsProcessing(true);
     try {
       const data = await api('/orders', {
         method: 'POST',
@@ -80,11 +109,14 @@ export default function CheckoutPage() {
         }),
       });
 
+      // Clear cart on backend after successful order
+      for (const item of cartItems) {
+        try { await api(`/carts/${user.id}/items/${item.productId}`, { method: 'DELETE' }); } catch {}
+      }
       updateCartCount(0);
       navigate(`/orders/${data.id || data.order_id}`);
     } catch (error) {
-      console.error('주문 처리 중 오류가 발생했습니다:', error);
-      alert('주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+      setError(error.message || t('checkout.orderFailed'));
     } finally {
       setIsProcessing(false);
     }
@@ -92,22 +124,25 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-slate-800 mb-8">주문/결제</h1>
+      <h1 className="text-3xl font-bold text-slate-800 mb-8">{t('checkout.title')}</h1>
 
       {cartItems.length === 0 ? (
-        <p className="text-slate-500 text-center py-12">장바구니가 비어있습니다.</p>
+        <p className="text-slate-500 text-center py-12">{t('checkout.emptyCart')}</p>
       ) : (
         <form onSubmit={handleSubmit}>
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
               {/* Shipping Info */}
               <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-bold text-slate-800 mb-4">배송 정보</h2>
+                <h2 className="text-lg font-bold text-slate-800 mb-4">{t('checkout.shipping')}</h2>
 
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      받는 분
+                      {t('checkout.recipient')}
                     </label>
                     <input
                       type="text"
@@ -121,7 +156,7 @@ export default function CheckoutPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      연락처
+                      {t('checkout.phone')}
                     </label>
                     <input
                       type="tel"
@@ -136,7 +171,7 @@ export default function CheckoutPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      주소
+                      {t('checkout.address')}
                     </label>
                     <input
                       type="text"
@@ -150,14 +185,13 @@ export default function CheckoutPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      상세 주소
+                      {t('checkout.addressDetail')}
                     </label>
                     <input
                       type="text"
                       name="addressDetail"
                       value={formData.addressDetail}
                       onChange={handleChange}
-                      placeholder="동/호수"
                       className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -166,7 +200,7 @@ export default function CheckoutPage() {
 
               {/* Payment Method */}
               <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-bold text-slate-800 mb-4">결제 수단</h2>
+                <h2 className="text-lg font-bold text-slate-800 mb-4">{t('checkout.payment')}</h2>
 
                 <div className="space-y-3 mb-6">
                   <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
@@ -178,7 +212,7 @@ export default function CheckoutPage() {
                       onChange={handleChange}
                       className="w-4 h-4 text-blue-500"
                     />
-                    <span className="font-medium">신용/체크카드</span>
+                    <span className="font-medium">{t('checkout.card')}</span>
                   </label>
 
                   <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
@@ -190,7 +224,7 @@ export default function CheckoutPage() {
                       onChange={handleChange}
                       className="w-4 h-4 text-blue-500"
                     />
-                    <span className="font-medium">무통장 입금</span>
+                    <span className="font-medium">{t('checkout.bank')}</span>
                   </label>
 
                   <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
@@ -202,7 +236,7 @@ export default function CheckoutPage() {
                       onChange={handleChange}
                       className="w-4 h-4 text-blue-500"
                     />
-                    <span className="font-medium">카카오페이</span>
+                    <span className="font-medium">{t('checkout.kakao')}</span>
                   </label>
 
                   <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
@@ -214,7 +248,7 @@ export default function CheckoutPage() {
                       onChange={handleChange}
                       className="w-4 h-4 text-blue-500"
                     />
-                    <span className="font-medium">네이버페이</span>
+                    <span className="font-medium">{t('checkout.naver')}</span>
                   </label>
                 </div>
 
@@ -222,7 +256,7 @@ export default function CheckoutPage() {
                   <div className="space-y-4 pt-4 border-t">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">
-                        카드 번호
+                        {t('checkout.cardNumber')}
                       </label>
                       <input
                         type="text"
@@ -237,7 +271,7 @@ export default function CheckoutPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
-                          유효기간
+                          {t('checkout.expiry')}
                         </label>
                         <input
                           type="text"
@@ -250,7 +284,7 @@ export default function CheckoutPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
-                          CVC
+                          {t('checkout.cvc')}
                         </label>
                         <input
                           type="text"
@@ -270,7 +304,7 @@ export default function CheckoutPage() {
             {/* Order Summary */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
-                <h2 className="text-lg font-bold text-slate-800 mb-4">주문 상품</h2>
+                <h2 className="text-lg font-bold text-slate-800 mb-4">{t('checkout.orderItems')}</h2>
 
                 <div className="space-y-3 mb-4">
                   {cartItems.map((item) => (
@@ -287,18 +321,18 @@ export default function CheckoutPage() {
 
                 <div className="border-t border-slate-200 pt-4 space-y-2 mb-4">
                   <div className="flex justify-between text-slate-600">
-                    <span>상품 금액</span>
+                    <span>{t('checkout.subtotal')}</span>
                     <span>{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-slate-600">
-                    <span>배송비</span>
-                    <span>{shippingFee === 0 ? '무료' : formatPrice(shippingFee)}</span>
+                    <span>{t('checkout.shippingFee')}</span>
+                    <span>{shippingFee === 0 ? t('checkout.free') : formatPrice(shippingFee)}</span>
                   </div>
                 </div>
 
                 <div className="border-t border-slate-200 pt-4 mb-6">
                   <div className="flex justify-between text-lg font-bold text-slate-800">
-                    <span>총 결제 금액</span>
+                    <span>{t('checkout.total')}</span>
                     <span className="text-blue-600">{formatPrice(total)}</span>
                   </div>
                 </div>
@@ -308,11 +342,11 @@ export default function CheckoutPage() {
                   disabled={isProcessing}
                   className="w-full bg-blue-500 text-white py-4 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
                 >
-                  {isProcessing ? '처리 중...' : `${formatPrice(total)} 결제하기`}
+                  {isProcessing ? t('checkout.processing') : t('checkout.pay', { amount: formatPrice(total) })}
                 </button>
 
                 <p className="text-xs text-slate-500 text-center mt-4">
-                  주문 내용을 확인하였으며, 결제에 동의합니다.
+                  {t('checkout.agreement')}
                 </p>
               </div>
             </div>

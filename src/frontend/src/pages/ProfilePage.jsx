@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
+import { useI18n } from '../context/I18nContext';
 
 export default function ProfilePage() {
+  const { t } = useI18n();
   const { user, login } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -30,9 +32,8 @@ export default function ProfilePage() {
       });
       login({ ...user, ...formData });
       setIsEditing(false);
-      alert('프로필이 업데이트되었습니다.');
     } catch (error) {
-      alert('프로필 업데이트에 실패했습니다.');
+      console.error('Profile update failed:', error);
     } finally {
       setIsSaving(false);
     }
@@ -40,7 +41,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-slate-800 mb-8">내 정보</h1>
+      <h1 className="text-3xl font-bold text-slate-800 mb-8">{t('profile.title')}</h1>
 
       <div className="bg-white rounded-lg shadow-sm">
         {/* Profile Header */}
@@ -53,7 +54,7 @@ export default function ProfilePage() {
           <div>
             <h2 className="text-xl font-bold text-slate-800">{user?.name}</h2>
             <p className="text-slate-500">{user?.email}</p>
-            <p className="text-sm text-slate-400 mt-1">회원 ID: {user?.id}</p>
+            <p className="text-sm text-slate-400 mt-1">ID: {user?.id}</p>
           </div>
         </div>
 
@@ -62,7 +63,7 @@ export default function ProfilePage() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                이름
+                {t('register.name')}
               </label>
               {isEditing ? (
                 <input
@@ -79,7 +80,7 @@ export default function ProfilePage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                이메일
+                {t('register.email')}
               </label>
               {isEditing ? (
                 <input
@@ -96,7 +97,7 @@ export default function ProfilePage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                휴대폰 번호
+                {t('register.phone')}
               </label>
               {isEditing ? (
                 <input
@@ -116,7 +117,7 @@ export default function ProfilePage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                기본 배송지
+                {t('checkout.address')}
               </label>
               {isEditing ? (
                 <input
@@ -124,7 +125,6 @@ export default function ProfilePage() {
                   name="address"
                   value={formData.address}
                   onChange={handleChange}
-                  placeholder="주소를 입력하세요"
                   className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
@@ -143,14 +143,14 @@ export default function ProfilePage() {
                   onClick={() => setIsEditing(false)}
                   className="flex-1 px-4 py-3 border border-slate-300 rounded-lg font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  취소
+                  {t('profile.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
                   className="flex-1 bg-blue-500 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:bg-slate-300"
                 >
-                  {isSaving ? '저장 중...' : '저장'}
+                  {isSaving ? t('common.loading') : t('profile.save')}
                 </button>
               </>
             ) : (
@@ -159,7 +159,7 @@ export default function ProfilePage() {
                 onClick={() => setIsEditing(true)}
                 className="flex-1 bg-blue-500 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
               >
-                정보 수정
+                {t('profile.edit')}
               </button>
             )}
           </div>
@@ -168,23 +168,17 @@ export default function ProfilePage() {
 
       {/* Additional Settings */}
       <div className="bg-white rounded-lg shadow-sm mt-6 divide-y">
-        <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-          <span className="text-slate-800">비밀번호 변경</span>
-          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+        <button disabled className="w-full flex items-center justify-between p-4 opacity-50 cursor-not-allowed">
+          <span className="text-slate-800">{t('profile.changePw')}</span>
+          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{t('profile.comingSoon')}</span>
         </button>
-        <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-          <span className="text-slate-800">알림 설정</span>
-          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+        <button disabled className="w-full flex items-center justify-between p-4 opacity-50 cursor-not-allowed">
+          <span className="text-slate-800">{t('profile.notifications')}</span>
+          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{t('profile.comingSoon')}</span>
         </button>
-        <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-          <span className="text-red-500">회원 탈퇴</span>
-          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+        <button disabled className="w-full flex items-center justify-between p-4 opacity-50 cursor-not-allowed">
+          <span className="text-red-400">{t('profile.deleteAccount')}</span>
+          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{t('profile.comingSoon')}</span>
         </button>
       </div>
     </div>

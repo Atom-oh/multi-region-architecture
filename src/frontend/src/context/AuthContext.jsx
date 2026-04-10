@@ -2,18 +2,10 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
-const DEFAULT_USER = {
-  id: 'a0000001-0000-0000-0000-000000000001',
-  name: '김민준',
-  email: 'kim.minjun@gmail.com',
-  phone: '010-1234-5678',
-  address: '서울특별시 강남구 테헤란로 123',
-};
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : DEFAULT_USER;
+    return saved ? JSON.parse(saved) : null;
   });
 
   useEffect(() => {
@@ -21,11 +13,15 @@ export function AuthProvider({ children }) {
       localStorage.setItem('user', JSON.stringify(user));
     } else {
       localStorage.removeItem('user');
+      localStorage.removeItem('access_token');
     }
   }, [user]);
 
-  const login = (userData) => {
+  const login = (userData, token) => {
     setUser(userData);
+    if (token) {
+      localStorage.setItem('access_token', token);
+    }
   };
 
   const logout = () => {
@@ -37,6 +33,10 @@ export function AuthProvider({ children }) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+export function getToken() {
+  return localStorage.getItem('access_token');
 }
 
 export function useAuth() {
