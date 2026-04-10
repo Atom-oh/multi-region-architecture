@@ -104,6 +104,13 @@ export const translations = {
     'cart.rewards': 'VELLURE Rewards',
     'cart.rewardsDesc': 'Earn 5% back on every purchase with the VELLURE Card.',
     'cart.learnMore': 'Learn more',
+    'cart.inStock': 'In Stock',
+    'cart.limitedStock': 'Limited Stock: {count} left',
+    'cart.freeShipping': 'Eligible for FREE Shipping',
+    'cart.compare': 'Compare with similar items',
+    'cart.promotions': 'Promotions Applied',
+    'cart.alsoRecommended': 'Customers who bought items in your cart also bought',
+    'cart.subtitle': 'Check out our latest picks below.',
 
     // Checkout
     'checkout.title': 'Checkout',
@@ -340,6 +347,13 @@ export const translations = {
     'cart.rewards': 'VELLURE 리워드',
     'cart.rewardsDesc': 'VELLURE 카드로 모든 구매에서 5%를 적립하세요.',
     'cart.learnMore': '자세히 보기',
+    'cart.inStock': '재고 있음',
+    'cart.limitedStock': '재고 {count}개 남음',
+    'cart.freeShipping': '무료 배송 대상',
+    'cart.compare': '비슷한 상품 비교',
+    'cart.promotions': '적용된 프로모션',
+    'cart.alsoRecommended': '장바구니 상품을 구매한 고객이 함께 구매한 상품',
+    'cart.subtitle': '엄선된 상품을 확인하세요.',
 
     // Checkout
     'checkout.title': '주문/결제',

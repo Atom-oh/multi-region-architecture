@@ -13,15 +13,19 @@ const DEFAULT_CATEGORY_KEYS = [
   { id: 'sports', key: 'cat.sports' },
 ];
 
+const PAGE_SIZE = 20;
+
 export default function ProductsPage() {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
+  const [total, setTotal] = useState(0);
   const [apiCategories, setApiCategories] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
 
   const selectedCategory = searchParams.get('category') || 'all';
+  const currentPage = parseInt(searchParams.get('page') || '1', 10);
 
   const defaultCategories = useMemo(
     () => DEFAULT_CATEGORY_KEYS.map(c => ({ id: c.id, name: t(c.key) })),
@@ -29,6 +33,7 @@ export default function ProductsPage() {
   );
 
   const categories = apiCategories || defaultCategories;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   useEffect(() => {
     api('/products/categories').then(data => {
@@ -46,12 +51,15 @@ export default function ProductsPage() {
     const fetchProducts = async () => {
       setLoading(true);
       try {
+        const skip = (currentPage - 1) * PAGE_SIZE;
         const params = new URLSearchParams();
         if (selectedCategory !== 'all') params.set('category', selectedCategory);
         if (searchQuery) params.set('q', searchQuery);
-        params.set('limit', '20');
+        params.set('skip', String(skip));
+        params.set('limit', String(PAGE_SIZE));
         const data = await api(`/products?${params}`);
         setProducts((data.products || data || []).map(mapProduct));
+        setTotal(data.total ?? (data.products || data || []).length);
       } catch (error) {
         console.error('Failed to load products:', error);
       } finally {
@@ -60,7 +68,7 @@ export default function ProductsPage() {
     };
 
     fetchProducts();
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, currentPage]);
 
   const handleCategoryChange = (category) => {
     const params = new URLSearchParams(searchParams);
@@ -69,6 +77,7 @@ export default function ProductsPage() {
     } else {
       params.set('category', category);
     }
+    params.delete('page');
     setSearchParams(params);
   };
 
@@ -80,7 +89,31 @@ export default function ProductsPage() {
     } else {
       params.delete('q');
     }
+    params.delete('page');
     setSearchParams(params);
+  };
+
+  const goToPage = (page) => {
+    const params = new URLSearchParams(searchParams);
+    if (page <= 1) {
+      params.delete('page');
+    } else {
+      params.set('page', String(page));
+    }
+    setSearchParams(params);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
   };
 
   return (
@@ -124,10 +157,13 @@ export default function ProductsPage() {
       </div>
 
       {/* Results Info */}
-      <p className="text-slate-500 mb-4">
-        {searchQuery && `"${searchQuery}" `}
-        {t('products.count', { count: products.length })}
-      </p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-slate-500">
+          {searchQuery && `"${searchQuery}" `}
+          {t('products.count', { count: total })}
+          {totalPages > 1 && ` · ${currentPage} / ${totalPages} ${t('products.page') || '페이지'}`}
+        </p>
+      </div>
 
       {/* Product Grid */}
       {loading ? (
@@ -139,11 +175,62 @@ export default function ProductsPage() {
           <p className="text-slate-500 text-lg">{t('products.noResults')}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <nav className="flex items-center justify-center gap-1 mt-10">
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage <= 1}
+                className="px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-100"
+              >
+                ← {t('products.prev') || '이전'}
+              </button>
+
+              {getPageNumbers()[0] > 1 && (
+                <>
+                  <button onClick={() => goToPage(1)} className="w-10 h-10 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">1</button>
+                  {getPageNumbers()[0] > 2 && <span className="px-1 text-slate-400">…</span>}
+                </>
+              )}
+
+              {getPageNumbers().map((page) => (
+                <button
+                  key={page}
+                  onClick={() => goToPage(page)}
+                  className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                    page === currentPage
+                      ? 'bg-blue-500 text-white'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              {getPageNumbers().at(-1) < totalPages && (
+                <>
+                  {getPageNumbers().at(-1) < totalPages - 1 && <span className="px-1 text-slate-400">…</span>}
+                  <button onClick={() => goToPage(totalPages)} className="w-10 h-10 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">{totalPages}</button>
+                </>
+              )}
+
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+                className="px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-100"
+              >
+                {t('products.next') || '다음'} →
+              </button>
+            </nav>
+          )}
+        </>
       )}
     </div>
   );
