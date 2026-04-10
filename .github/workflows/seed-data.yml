@@ -1,4 +1,4 @@
-name: Build & Run Seed Data
+name: Build Seed Data Image
 
 on:
   push:
@@ -37,43 +37,9 @@ jobs:
           docker push "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
           docker tag "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG" "$ECR_REGISTRY/$IMAGE_NAME:latest"
           docker push "$ECR_REGISTRY/$IMAGE_NAME:latest"
-
-  run-seed-job:
-    needs: build-and-push
-    runs-on: self-hosted-x86
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        cluster:
-          - context: mall-apne2-az-a
-            name: az-a
-          - context: mall-apne2-az-c
-            name: az-c
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Run seed job
-        env:
-          CLUSTER_CTX: ${{ matrix.cluster.context }}
-          CLUSTER_NAME: ${{ matrix.cluster.name }}
-          ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-        run: |
-          kubectl delete job seed-data -n platform \
-            --context "$CLUSTER_CTX" --ignore-not-found
-
-          sed "s|<AWS_ACCOUNT_ID>|$ACCOUNT_ID|g" \
-            scripts/seed-data/k8s/jobs/seed-data-job.yaml | \
-            kubectl apply -f - --context "$CLUSTER_CTX"
-
-          kubectl wait --for=condition=complete job/seed-data \
-            -n platform --context "$CLUSTER_CTX" --timeout=600s
-
-          echo "=== Seed job logs ($CLUSTER_NAME) ==="
-          kubectl logs job/seed-data -n platform \
-            --context "$CLUSTER_CTX" --tail=50
+          echo "✅ Image pushed: $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+          echo ""
+          echo "To run seed job on a cluster:"
+          echo "  kubectl delete job seed-data -n platform --ignore-not-found"
+          echo "  kubectl apply -f scripts/seed-data/k8s/jobs/seed-data-job.yaml"
+          echo "  kubectl logs -f job/seed-data -n platform"
