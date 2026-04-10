@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { I18nProvider } from './context/I18nContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -21,6 +22,7 @@ import ReturnsPage from './pages/ReturnsPage';
 
 function App() {
   return (
+    <I18nProvider>
     <AuthProvider>
       <CartProvider>
         <Router>
@@ -52,6 +54,7 @@ function App() {
         </Router>
       </CartProvider>
     </AuthProvider>
+    </I18nProvider>
   );
 }
 

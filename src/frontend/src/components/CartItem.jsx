@@ -1,4 +1,8 @@
+import { useI18n } from '../context/I18nContext';
+
 export default function CartItem({ item, onUpdateQuantity, onRemove }) {
+  const { t } = useI18n();
+
   const formatPrice = (price) => {
     if (price == null) return '';
     return `₩${Number(price).toLocaleString('ko-KR')}`;
@@ -22,12 +26,12 @@ export default function CartItem({ item, onUpdateQuantity, onRemove }) {
               {formatPrice(item.price * item.quantity)}
             </span>
           </div>
-          <p className="text-sm text-secondary mt-1">{formatPrice(item.price)} each</p>
+          <p className="text-sm text-secondary mt-1">{formatPrice(item.price)} {t('cart.each')}</p>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-4 text-sm font-medium">
           <div className="flex items-center bg-surface-container rounded-md px-2 py-1 border border-outline-variant/30">
-            <label className="text-xs text-secondary mr-2">Qty:</label>
+            <label className="text-xs text-secondary mr-2">{t('common.qty')}</label>
             <select
               value={item.quantity}
               onChange={(e) => onUpdateQuantity(item.productId, Number(e.target.value))}
@@ -43,10 +47,10 @@ export default function CartItem({ item, onUpdateQuantity, onRemove }) {
             onClick={() => onRemove(item.productId)}
             className="text-brand-500 hover:underline decoration-2 underline-offset-4"
           >
-            Delete
+            {t('cart.delete')}
           </button>
           <button className="text-brand-500 hover:underline decoration-2 underline-offset-4">
-            Save for later
+            {t('cart.saveLater')}
           </button>
         </div>
       </div>

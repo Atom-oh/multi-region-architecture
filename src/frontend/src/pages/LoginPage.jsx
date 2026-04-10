@@ -3,8 +3,10 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { validateEmail } from '../utils';
+import { useI18n } from '../context/I18nContext';
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,11 +27,11 @@ export default function LoginPage() {
     setError('');
 
     if (!validateEmail(formData.email)) {
-      setError('Please enter a valid email address.');
+      setError(t('login.invalidEmail'));
       return;
     }
     if (!formData.password) {
-      setError('Please enter your password.');
+      setError(t('login.noPassword'));
       return;
     }
 
@@ -53,7 +55,7 @@ export default function LoginPage() {
       );
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err.message || 'Login failed. Please check your email and password.');
+      setError(err.message || t('login.failed'));
     } finally {
       setIsLoading(false);
     }
@@ -64,9 +66,9 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <Link to="/" className="text-3xl font-extrabold text-brand-900 font-[family-name:var(--font-headline)]">
-            Architectural Curator
+            VELLURE
           </Link>
-          <p className="text-secondary mt-2">Sign in to your account</p>
+          <p className="text-secondary mt-2">{t('login.title')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-8">
@@ -78,7 +80,7 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">Email</label>
+              <label className="block text-sm font-medium text-on-surface mb-1">{t('login.email')}</label>
               <input
                 type="email"
                 name="email"
@@ -91,7 +93,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">Password</label>
+              <label className="block text-sm font-medium text-on-surface mb-1">{t('login.password')}</label>
               <input
                 type="password"
                 name="password"
@@ -108,15 +110,15 @@ export default function LoginPage() {
               disabled={isLoading}
               className="w-full bg-brand-500 text-white py-3 rounded-lg font-bold hover:bg-brand-700 transition-colors disabled:bg-outline-variant"
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? t('login.signing') : t('login.submit')}
             </button>
           </form>
         </div>
 
         <p className="text-center text-secondary mt-6">
-          Don't have an account?{' '}
+          {t('login.noAccount')}{' '}
           <Link to="/register" className="text-brand-500 hover:text-brand-700 font-semibold">
-            Create Account
+            {t('login.create')}
           </Link>
         </p>
       </div>

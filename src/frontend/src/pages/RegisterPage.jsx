@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { validateEmail, validatePassword, validatePhone } from '../utils';
+import { useI18n } from '../context/I18nContext';
 
 export default function RegisterPage() {
+  const { t } = useI18n();
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -26,21 +28,21 @@ export default function RegisterPage() {
     setError('');
 
     if (!validateEmail(formData.email)) {
-      setError('Please enter a valid email address.');
+      setError(t('login.invalidEmail'));
       return;
     }
     const pwError = validatePassword(formData.password);
     if (pwError) { setError(pwError); return; }
     if (formData.password !== formData.passwordConfirm) {
-      setError('Passwords do not match.');
+      setError(t('register.pwMismatch'));
       return;
     }
     if (formData.phone && !validatePhone(formData.phone)) {
-      setError('Please enter a valid phone number (e.g. 010-1234-5678).');
+      setError(t('register.invalidPhone'));
       return;
     }
     if (!formData.agreeTerms || !formData.agreePrivacy) {
-      setError('Please agree to the required terms.');
+      setError(t('register.agreeTerms'));
       return;
     }
 
@@ -68,7 +70,7 @@ export default function RegisterPage() {
       );
       navigate('/');
     } catch (err) {
-      setError(err.message || 'Registration failed. Please try again.');
+      setError(err.message || t('register.failed'));
     } finally {
       setIsLoading(false);
     }
@@ -79,9 +81,9 @@ export default function RegisterPage() {
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <Link to="/" className="text-3xl font-extrabold text-brand-900 font-[family-name:var(--font-headline)]">
-            Architectural Curator
+            VELLURE
           </Link>
-          <p className="text-secondary mt-2">Create a new account</p>
+          <p className="text-secondary mt-2">{t('register.title')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-8">
@@ -91,31 +93,31 @@ export default function RegisterPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">Name <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-on-surface mb-1">{t('register.name')} <span className="text-red-500">*</span></label>
               <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Your name"
                 className="w-full px-4 py-3 rounded-lg border border-outline-variant focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">Email <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-on-surface mb-1">{t('register.email')} <span className="text-red-500">*</span></label>
               <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="you@example.com"
                 className="w-full px-4 py-3 rounded-lg border border-outline-variant focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">Password <span className="text-red-500">*</span></label>
-              <input type="password" name="password" value={formData.password} onChange={handleChange} required placeholder="Min 8 chars, upper+lower+digit"
+              <label className="block text-sm font-medium text-on-surface mb-1">{t('register.password')} <span className="text-red-500">*</span></label>
+              <input type="password" name="password" value={formData.password} onChange={handleChange} required placeholder={t('register.pwPlaceholder')}
                 className="w-full px-4 py-3 rounded-lg border border-outline-variant focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">Confirm Password <span className="text-red-500">*</span></label>
-              <input type="password" name="passwordConfirm" value={formData.passwordConfirm} onChange={handleChange} required placeholder="Re-enter password"
+              <label className="block text-sm font-medium text-on-surface mb-1">{t('register.confirmPw')} <span className="text-red-500">*</span></label>
+              <input type="password" name="passwordConfirm" value={formData.passwordConfirm} onChange={handleChange} required placeholder={t('register.rePw')}
                 className="w-full px-4 py-3 rounded-lg border border-outline-variant focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">Phone</label>
+              <label className="block text-sm font-medium text-on-surface mb-1">{t('register.phone')}</label>
               <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="010-1234-5678"
                 className="w-full px-4 py-3 rounded-lg border border-outline-variant focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </div>
@@ -124,25 +126,25 @@ export default function RegisterPage() {
               <label className="flex items-start gap-2">
                 <input type="checkbox" name="agreeTerms" checked={formData.agreeTerms} onChange={handleChange}
                   className="w-4 h-4 text-brand-500 rounded mt-0.5" />
-                <span className="text-sm text-secondary"><span className="text-red-500">[Required]</span> I agree to the Terms of Service</span>
+                <span className="text-sm text-secondary"><span className="text-red-500">{t('register.required')}</span> {t('register.terms')}</span>
               </label>
               <label className="flex items-start gap-2">
                 <input type="checkbox" name="agreePrivacy" checked={formData.agreePrivacy} onChange={handleChange}
                   className="w-4 h-4 text-brand-500 rounded mt-0.5" />
-                <span className="text-sm text-secondary"><span className="text-red-500">[Required]</span> I agree to the Privacy Policy</span>
+                <span className="text-sm text-secondary"><span className="text-red-500">{t('register.required')}</span> {t('register.privacy')}</span>
               </label>
             </div>
 
             <button type="submit" disabled={isLoading}
               className="w-full bg-brand-500 text-white py-3 rounded-lg font-bold hover:bg-brand-700 transition-colors disabled:bg-outline-variant">
-              {isLoading ? 'Creating...' : 'Create Account'}
+              {isLoading ? t('register.creating') : t('register.submit')}
             </button>
           </form>
         </div>
 
         <p className="text-center text-secondary mt-6">
-          Already have an account?{' '}
-          <Link to="/login" className="text-brand-500 hover:text-brand-700 font-semibold">Sign In</Link>
+          {t('register.hasAccount')}{' '}
+          <Link to="/login" className="text-brand-500 hover:text-brand-700 font-semibold">{t('register.signIn')}</Link>
         </p>
       </div>
     </div>

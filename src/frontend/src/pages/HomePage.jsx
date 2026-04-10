@@ -2,17 +2,19 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import { api, mapProduct } from '../api';
+import { useI18n } from '../context/I18nContext';
 
-const CATEGORIES = [
-  { id: 'electronics', name: 'Electronics', icon: 'devices', color: 'bg-blue-50 text-blue-700' },
-  { id: 'fashion', name: 'Fashion', icon: 'checkroom', color: 'bg-pink-50 text-pink-700' },
-  { id: 'home', name: 'Home & Living', icon: 'chair', color: 'bg-green-50 text-green-700' },
-  { id: 'beauty', name: 'Beauty', icon: 'spa', color: 'bg-purple-50 text-purple-700' },
-  { id: 'sports', name: 'Sports', icon: 'fitness_center', color: 'bg-orange-50 text-orange-700' },
-  { id: 'food', name: 'Food & Drink', icon: 'restaurant', color: 'bg-red-50 text-red-700' },
+const CATEGORY_DEFS = [
+  { id: 'electronics', key: 'cat.electronics', icon: 'devices', color: 'bg-blue-50 text-blue-700' },
+  { id: 'fashion', key: 'cat.fashion', icon: 'checkroom', color: 'bg-pink-50 text-pink-700' },
+  { id: 'home', key: 'cat.home', icon: 'chair', color: 'bg-green-50 text-green-700' },
+  { id: 'beauty', key: 'cat.beauty', icon: 'spa', color: 'bg-purple-50 text-purple-700' },
+  { id: 'sports', key: 'cat.sports', icon: 'fitness_center', color: 'bg-orange-50 text-orange-700' },
+  { id: 'food', key: 'cat.food', icon: 'restaurant', color: 'bg-red-50 text-red-700' },
 ];
 
 export default function HomePage() {
+  const { t } = useI18n();
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [trendingProducts, setTrendingProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,14 +44,16 @@ export default function HomePage() {
   const topPick = featuredProducts[0];
   const dealPick = featuredProducts[1];
 
+  const categories = CATEGORY_DEFS.map(c => ({ ...c, name: t(c.key) }));
+
   return (
     <div>
       {/* Hero / Bento Grid */}
       <section className="max-w-7xl mx-auto px-4 md:px-6 py-10 md:py-14">
         <header className="mb-10">
-          <p className="text-brand-500 font-[family-name:var(--font-headline)] font-bold text-sm tracking-widest uppercase mb-2">Curated for you</p>
+          <p className="text-brand-500 font-[family-name:var(--font-headline)] font-bold text-sm tracking-widest uppercase mb-2">{t('home.subtitle')}</p>
           <h1 className="text-4xl md:text-5xl font-extrabold text-brand-900 leading-tight max-w-2xl font-[family-name:var(--font-headline)]">
-            Welcome back. Your daily briefing.
+            {t('home.title')}
           </h1>
         </header>
 
@@ -67,15 +71,15 @@ export default function HomePage() {
                 </div>
                 <div className="md:w-1/2 p-8 md:p-10 flex flex-col justify-center">
                   <div className="flex items-center gap-2 mb-4">
-                    <span className="bg-brand-300 text-brand-900 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight">Your Top Pick</span>
+                    <span className="bg-brand-300 text-brand-900 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight">{t('home.topPick')}</span>
                   </div>
                   <h3 className="text-2xl md:text-3xl font-bold text-brand-900 mb-3 leading-tight font-[family-name:var(--font-headline)]">{topPick.name}</h3>
-                  <p className="text-on-surface-variant text-sm leading-relaxed mb-6">{topPick.description || 'Discover this curated selection, handpicked for your refined taste.'}</p>
+                  <p className="text-on-surface-variant text-sm leading-relaxed mb-6">{topPick.description || t('home.topPickDesc')}</p>
                   <div className="mt-auto flex items-center justify-between">
                     <span className="text-2xl font-bold text-brand-900">{formatPrice(topPick.price)}</span>
                     <span className="bg-brand-500 hover:bg-brand-700 text-white px-5 py-2.5 rounded-md font-bold text-sm transition-all shadow-md flex items-center gap-2">
                       <span className="material-symbols-outlined text-[16px]">shopping_cart</span>
-                      View Details
+                      {t('home.viewDetails')}
                     </span>
                   </div>
                 </div>
@@ -88,9 +92,9 @@ export default function HomePage() {
             <div className="lg:col-span-4 h-full">
               <Link to={`/products/${dealPick.id}`} className="bg-brand-900 text-white rounded-xl p-8 flex flex-col h-full shadow-lg relative overflow-hidden block">
                 <div className="relative z-10">
-                  <div className="bg-brand-500 text-white text-[10px] font-bold px-2 py-1 rounded-sm uppercase inline-block mb-6">Deal of the Day</div>
+                  <div className="bg-brand-500 text-white text-[10px] font-bold px-2 py-1 rounded-sm uppercase inline-block mb-6">{t('home.dealOfDay')}</div>
                   <h3 className="text-2xl font-bold mb-3 font-[family-name:var(--font-headline)]">{dealPick.name}</h3>
-                  <p className="text-stone-300 text-sm mb-6 leading-relaxed">{dealPick.description || 'Special pricing on this exceptional find.'}</p>
+                  <p className="text-stone-300 text-sm mb-6 leading-relaxed">{dealPick.description || t('home.dealDesc')}</p>
                   <span className="text-3xl font-bold text-brand-400">{formatPrice(dealPick.price)}</span>
                 </div>
                 <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
@@ -104,7 +108,7 @@ export default function HomePage() {
       <section className="bg-surface-low py-10">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
           <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
-            {CATEGORIES.map((category) => (
+            {categories.map((category) => (
               <Link
                 key={category.id}
                 to={`/products?category=${category.id}`}
@@ -122,9 +126,9 @@ export default function HomePage() {
       <section className="py-12">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-extrabold text-brand-900 font-[family-name:var(--font-headline)]">Curated Collection</h2>
+            <h2 className="text-2xl font-extrabold text-brand-900 font-[family-name:var(--font-headline)]">{t('home.curatedCollection')}</h2>
             <Link to="/products" className="text-brand-500 hover:text-brand-700 font-semibold text-sm flex items-center gap-1 transition-colors">
-              View All <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+              {t('home.viewAll')} <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
           </div>
           {loading ? (
@@ -141,7 +145,7 @@ export default function HomePage() {
               ))}
             </div>
           ) : featuredProducts.length === 0 ? (
-            <p className="text-secondary text-center py-8">Loading products...</p>
+            <p className="text-secondary text-center py-8">{t('home.loading')}</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {featuredProducts.map((product) => (
@@ -155,15 +159,15 @@ export default function HomePage() {
       {/* Promotion Banner */}
       <section className="bg-brand-900 py-14">
         <div className="max-w-7xl mx-auto px-4 md:px-6 text-center text-white">
-          <h2 className="text-3xl font-extrabold mb-4 font-[family-name:var(--font-headline)]">New Member Benefits</h2>
+          <h2 className="text-3xl font-extrabold mb-4 font-[family-name:var(--font-headline)]">{t('home.newMember')}</h2>
           <p className="text-brand-300 text-lg mb-6">
-            Sign up now and get 20% off your first purchase!
+            {t('home.newMemberDesc')}
           </p>
           <Link
             to="/register"
             className="inline-block bg-brand-500 hover:bg-brand-400 text-brand-900 px-8 py-3 rounded-md font-bold transition-all shadow-lg"
           >
-            Create Account
+            {t('home.createAccount')}
           </Link>
         </div>
       </section>
@@ -173,9 +177,9 @@ export default function HomePage() {
         <section className="py-12 bg-surface-low">
           <div className="max-w-7xl mx-auto px-4 md:px-6">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-extrabold text-brand-900 font-[family-name:var(--font-headline)]">Trending Now</h2>
+              <h2 className="text-2xl font-extrabold text-brand-900 font-[family-name:var(--font-headline)]">{t('home.trending')}</h2>
               <Link to="/products" className="text-brand-500 hover:text-brand-700 font-semibold text-sm flex items-center gap-1 transition-colors">
-                View All <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                {t('home.viewAll')} <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -192,9 +196,9 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 md:px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { icon: 'verified', title: 'Authenticated Luxury', desc: 'Every item is verified by our team of expert curators for quality.' },
-              { icon: 'rocket_launch', title: 'Priority Shipping', desc: 'Enjoy complimentary priority shipping on all daily picks.' },
-              { icon: 'shield', title: 'Secure Payments', desc: 'Industry-leading encryption protects every transaction.' },
+              { icon: 'verified', title: t('home.badge.auth'), desc: t('home.badge.authDesc') },
+              { icon: 'rocket_launch', title: t('home.badge.ship'), desc: t('home.badge.shipDesc') },
+              { icon: 'shield', title: t('home.badge.secure'), desc: t('home.badge.secureDesc') },
             ].map(({ icon, title, desc }) => (
               <div key={icon} className="bg-surface-low rounded-xl p-6 text-center">
                 <span className="material-symbols-outlined material-filled text-brand-500 text-4xl mb-4 block">{icon}</span>

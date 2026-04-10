@@ -1,25 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import { api, mapProduct } from '../api';
+import { useI18n } from '../context/I18nContext';
 
-const DEFAULT_CATEGORIES = [
-  { id: 'all', name: '전체' },
-  { id: 'electronics', name: '전자제품' },
-  { id: 'fashion', name: '패션' },
-  { id: 'home', name: '홈/리빙' },
-  { id: 'beauty', name: '뷰티' },
-  { id: 'sports', name: '스포츠' },
+const DEFAULT_CATEGORY_KEYS = [
+  { id: 'all', key: 'products.all' },
+  { id: 'electronics', key: 'cat.electronics' },
+  { id: 'fashion', key: 'cat.fashion' },
+  { id: 'home', key: 'cat.home' },
+  { id: 'beauty', key: 'cat.beauty' },
+  { id: 'sports', key: 'cat.sports' },
 ];
 
 export default function ProductsPage() {
+  const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [apiCategories, setApiCategories] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
 
   const selectedCategory = searchParams.get('category') || 'all';
+
+  const defaultCategories = useMemo(
+    () => DEFAULT_CATEGORY_KEYS.map(c => ({ id: c.id, name: t(c.key) })),
+    [t]
+  );
+
+  const categories = apiCategories || defaultCategories;
 
   useEffect(() => {
     api('/products/categories').then(data => {
@@ -28,10 +37,10 @@ export default function ProductsPage() {
         name: typeof c === 'object' ? c.name : c,
       }));
       if (cats.length > 0) {
-        setCategories([{ id: 'all', name: '전체' }, ...cats]);
+        setApiCategories([{ id: 'all', name: t('products.all') }, ...cats]);
       }
     }).catch(() => {});
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -44,7 +53,7 @@ export default function ProductsPage() {
         const data = await api(`/products?${params}`);
         setProducts((data.products || data || []).map(mapProduct));
       } catch (error) {
-        console.error('데이터를 불러올 수 없습니다:', error);
+        console.error('Failed to load products:', error);
       } finally {
         setLoading(false);
       }
@@ -76,7 +85,7 @@ export default function ProductsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-slate-800 mb-8">상품 목록</h1>
+      <h1 className="text-3xl font-bold text-slate-800 mb-8">{t('products.title')}</h1>
 
       {/* Search Bar */}
       <form onSubmit={handleSearch} className="mb-6">
@@ -85,14 +94,14 @@ export default function ProductsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="상품명으로 검색..."
+            placeholder={t('products.search')}
             className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <button
             type="submit"
             className="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
           >
-            검색
+            {t('products.searchBtn')}
           </button>
         </div>
       </form>
@@ -116,18 +125,18 @@ export default function ProductsPage() {
 
       {/* Results Info */}
       <p className="text-slate-500 mb-4">
-        {searchQuery && `"${searchQuery}" 검색 결과: `}
-        총 {products.length}개의 상품
+        {searchQuery && `"${searchQuery}" `}
+        {t('products.count', { count: products.length })}
       </p>
 
       {/* Product Grid */}
       {loading ? (
         <div className="text-center py-12">
-          <p className="text-slate-500 text-lg">로딩 중...</p>
+          <p className="text-slate-500 text-lg">{t('common.loading')}</p>
         </div>
       ) : products.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-slate-500 text-lg">검색 결과가 없습니다.</p>
+          <p className="text-slate-500 text-lg">{t('products.noResults')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -2,8 +2,10 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
+import { useI18n } from '../context/I18nContext';
 
 export default function ProductCard({ product }) {
+  const { t } = useI18n();
   const { incrementCart } = useCart();
   const { user } = useAuth();
 
@@ -75,7 +77,7 @@ export default function ProductCard({ product }) {
             onClick={handleAddToCart}
             className="bg-surface-high hover:bg-brand-500 hover:text-white text-on-surface px-3 py-1.5 rounded-md text-xs font-bold transition-colors uppercase tracking-tight"
           >
-            Add to Cart
+            {t('products.addToCart')}
           </button>
         </div>
       </div>
