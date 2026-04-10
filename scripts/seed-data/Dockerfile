@@ -6,7 +6,7 @@ RUN yum install -y \
     nodejs npm \
     redis6 \
     python3 python3-pip \
-    openssl curl jq bc \
+    openssl jq bc \
     --quiet && \
     yum clean all
 
