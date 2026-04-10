@@ -27,18 +27,16 @@ jobs:
 
       - uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Create ECR repo if needed
-        env:
-          REPO_NAME: ${{ env.IMAGE_NAME }}
-        run: |
-          aws ecr describe-repositories --repository-names "$REPO_NAME" --region "$AWS_REGION" 2>/dev/null || \
-            aws ecr create-repository --repository-name "$REPO_NAME" --region "$AWS_REGION"
-
-      - name: Build and push
+      - name: Create ECR repo and build
         env:
           ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
           IMAGE_TAG: ${{ github.sha }}
         run: |
+          # Create ECR repo if it doesn't exist (using docker-credential-ecr-login check)
+          pip3 install -q awscli 2>/dev/null || true
+          aws ecr describe-repositories --repository-names "$IMAGE_NAME" --region "$AWS_REGION" 2>/dev/null || \
+            aws ecr create-repository --repository-name "$IMAGE_NAME" --region "$AWS_REGION" || true
+
           docker build -t "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG" scripts/seed-data/
           docker push "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
           docker tag "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG" "$ECR_REGISTRY/$IMAGE_NAME:latest"
