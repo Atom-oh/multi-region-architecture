@@ -46,11 +46,11 @@ spec:
                 eks.amazonaws.com/role-arn: '{{values.roleArn}}'
             resources:
               requests:
-                cpu: 200m
-                memory: 768Mi
+                cpu: 500m
+                memory: 1Gi
               limits:
-                cpu: "1"
-                memory: 2Gi
+                cpu: "2"
+                memory: 4Gi
             config:
               receivers:
                 otlp:
@@ -66,8 +66,8 @@ spec:
                   send_batch_max_size: 2048
                 memory_limiter:
                   check_interval: 5s
-                  limit_mib: 512
-                  spike_limit_mib: 128
+                  limit_mib: 1536
+                  spike_limit_mib: 512
                 resource:
                   attributes:
                     - key: k8s.cluster.name

@@ -52,6 +52,10 @@ spec:
               value: "none"
             - name: OTEL_LOGS_EXPORTER
               value: "none"
+            - name: OTEL_BSP_EXPORT_TIMEOUT
+              value: "5000"
+            - name: OTEL_BSP_MAX_QUEUE_SIZE
+              value: "512"
             # DB_HOST: Aurora PostgreSQL endpoint via ExternalSecret
             # CACHE_HOST: Valkey endpoint via ExternalSecret (session storage)
             # KAFKA_BROKERS: MSK bootstrap via ExternalSecret
@@ -91,6 +95,12 @@ spec:
         - maxSkew: 1
           topologyKey: topology.kubernetes.io/zone
           whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: user-account
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
               app: user-account
