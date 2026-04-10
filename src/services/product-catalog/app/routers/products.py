@@ -17,13 +17,13 @@ async def list_products(
     category: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
 ):
-    products = await product_service.list_products(
+    products, total = await product_service.list_products(
         skip=skip,
         limit=limit,
         category_id=category,
         query=q,
     )
-    return {"products": products, "skip": skip, "limit": limit}
+    return {"products": products, "total": total, "skip": skip, "limit": limit}
 
 
 @router.get("/products/categories")

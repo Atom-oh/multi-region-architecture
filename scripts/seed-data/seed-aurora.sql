@@ -135,25 +135,25 @@ BEGIN
     );
 
     FOR j IN 1..item_count LOOP
-      prod_id := (random() * 149 + 1)::int;
+      prod_id := (random() * 999 + 1)::int;
       prod_price := (random() * 1990000 + 10000)::decimal(12,2);
       prod_qty := (random() * 3 + 1)::int;
 
       INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, total_price)
       VALUES (
         order_id,
-        'PROD-' || LPAD(prod_id::text, 3, '0'),
+        'PROD-' || LPAD(prod_id::text, 4, '0'),
         CASE
-          WHEN prod_id <= 15 THEN '전자제품 #' || prod_id
-          WHEN prod_id <= 30 THEN '패션 아이템 #' || (prod_id - 15)
-          WHEN prod_id <= 45 THEN '식품 #' || (prod_id - 30)
-          WHEN prod_id <= 60 THEN '뷰티 제품 #' || (prod_id - 45)
-          WHEN prod_id <= 75 THEN '가전 제품 #' || (prod_id - 60)
-          WHEN prod_id <= 90 THEN '스포츠 용품 #' || (prod_id - 75)
-          WHEN prod_id <= 105 THEN '도서 #' || (prod_id - 90)
-          WHEN prod_id <= 120 THEN '반려동물 용품 #' || (prod_id - 105)
-          WHEN prod_id <= 135 THEN '가구 #' || (prod_id - 120)
-          ELSE '유아용품 #' || (prod_id - 135)
+          WHEN prod_id <= 100 THEN '전자제품 #' || prod_id
+          WHEN prod_id <= 200 THEN '패션 아이템 #' || (prod_id - 100)
+          WHEN prod_id <= 300 THEN '식품 #' || (prod_id - 200)
+          WHEN prod_id <= 400 THEN '뷰티 제품 #' || (prod_id - 300)
+          WHEN prod_id <= 500 THEN '가전 제품 #' || (prod_id - 400)
+          WHEN prod_id <= 600 THEN '스포츠 용품 #' || (prod_id - 500)
+          WHEN prod_id <= 700 THEN '도서 #' || (prod_id - 600)
+          WHEN prod_id <= 800 THEN '반려동물 용품 #' || (prod_id - 700)
+          WHEN prod_id <= 900 THEN '가구 #' || (prod_id - 800)
+          ELSE '유아용품 #' || (prod_id - 900)
         END,
         prod_qty,
         prod_price,
@@ -195,7 +195,7 @@ SELECT
   o.created_at
 FROM orders o;
 
--- Inventory (150 products)
+-- Inventory (1000 products)
 CREATE TABLE IF NOT EXISTS inventory (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id VARCHAR(50) UNIQUE NOT NULL,
@@ -210,14 +210,14 @@ CREATE TABLE IF NOT EXISTS inventory (
 
 INSERT INTO inventory (product_id, sku, quantity_available, quantity_reserved, warehouse_id, reorder_point, last_restocked_at)
 SELECT
-  'PROD-' || LPAD(i::text, 3, '0'),
+  'PROD-' || LPAD(i::text, 4, '0'),
   'SKU-' || LPAD(i::text, 6, '0'),
   (random() * 500 + 5)::int,
   (random() * 20)::int,
   CASE WHEN random() > 0.5 THEN 'WH-EAST-1' ELSE 'WH-WEST-2' END,
   (random() * 20 + 5)::int,
   NOW() - (random() * 30 || ' days')::interval
-FROM generate_series(1, 150) AS i
+FROM generate_series(1, 1000) AS i
 ON CONFLICT (product_id) DO NOTHING;
 
 -- Shipping table for fulfillment service

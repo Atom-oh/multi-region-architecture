@@ -40,12 +40,13 @@ class ProductRepository:
         if query:
             filter_dict["name"] = {"$regex": query, "$options": "i"}
 
+        total = await self.products.count_documents(filter_dict)
         cursor = self.products.find(filter_dict).skip(skip).limit(limit)
         products = []
         async for doc in cursor:
             doc["_id"] = str(doc["_id"])
             products.append(doc)
-        return products
+        return products, total
 
     async def get_product(self, product_id: str) -> Optional[dict]:
         doc = await self.products.find_one({"productId": product_id})

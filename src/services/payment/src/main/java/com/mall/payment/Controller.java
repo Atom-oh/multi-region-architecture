@@ -111,52 +111,14 @@ public class Controller {
                         .body(result);
                 }
             } catch (Exception e) {
-                // Fall back to mock data
+                // Fall back to empty result
             }
         }
 
-        // Mock data fallback
-        List<Map<String, Object>> payments = List.of(
-            Map.ofEntries(
-                Map.entry("id", "PAY-001"),
-                Map.entry("order_id", "ORD-001"),
-                Map.entry("user_id", "USR-001"),
-                Map.entry("amount", 2319000),
-                Map.entry("currency", "KRW"),
-                Map.entry("method", "CREDIT_CARD"),
-                Map.entry("method_display", "신용카드 (삼성)"),
-                Map.entry("status", "completed"),
-                Map.entry("status_display", "결제완료"),
-                Map.entry("created_at", "2026-03-15T14:32:00Z")
-            ),
-            Map.ofEntries(
-                Map.entry("id", "PAY-002"),
-                Map.entry("order_id", "ORD-002"),
-                Map.entry("user_id", "USR-002"),
-                Map.entry("amount", 699000),
-                Map.entry("currency", "KRW"),
-                Map.entry("method", "KAKAO_PAY"),
-                Map.entry("method_display", "카카오페이"),
-                Map.entry("status", "completed"),
-                Map.entry("status_display", "결제완료"),
-                Map.entry("created_at", "2026-03-18T11:22:00Z")
-            ),
-            Map.ofEntries(
-                Map.entry("id", "PAY-003"),
-                Map.entry("order_id", "ORD-003"),
-                Map.entry("user_id", "USR-003"),
-                Map.entry("amount", 218000),
-                Map.entry("currency", "KRW"),
-                Map.entry("method", "NAVER_PAY"),
-                Map.entry("method_display", "네이버페이"),
-                Map.entry("status", "completed"),
-                Map.entry("status_display", "결제완료"),
-                Map.entry("created_at", "2026-03-20T09:47:00Z")
-            )
-        );
+        // Empty fallback - no mock data
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-            .body(payments);
+            .body(List.of());
     }
 
     @GetMapping("/api/v1/payments/{id}")
@@ -185,79 +147,16 @@ public class Controller {
                         .body(payment);
                 }
             } catch (Exception e) {
-                // Fall back to mock data
+                // Fall back to empty result
             }
         }
 
-        // Mock data fallback
-        Map<String, Object> payment;
-        switch (id) {
-            case "PAY-001":
-                payment = Map.ofEntries(
-                    Map.entry("id", "PAY-001"),
-                    Map.entry("order_id", "ORD-001"),
-                    Map.entry("user_id", "USR-001"),
-                    Map.entry("user_name", "김민수"),
-                    Map.entry("amount", 2319000),
-                    Map.entry("currency", "KRW"),
-                    Map.entry("method", "CREDIT_CARD"),
-                    Map.entry("method_display", "신용카드"),
-                    Map.entry("card_info", Map.of(
-                        "issuer", "삼성카드",
-                        "number", "****-****-****-1234",
-                        "installment", "일시불"
-                    )),
-                    Map.entry("status", "completed"),
-                    Map.entry("status_display", "결제완료"),
-                    Map.entry("transaction_id", "TXN-20260315143200001"),
-                    Map.entry("pg_provider", "토스페이먼츠"),
-                    Map.entry("created_at", "2026-03-15T14:32:00Z"),
-                    Map.entry("receipt_url", "https://receipt.example.com/PAY-001")
-                );
-                break;
-            case "PAY-002":
-                payment = Map.ofEntries(
-                    Map.entry("id", "PAY-002"),
-                    Map.entry("order_id", "ORD-002"),
-                    Map.entry("user_id", "USR-002"),
-                    Map.entry("user_name", "이서연"),
-                    Map.entry("amount", 699000),
-                    Map.entry("currency", "KRW"),
-                    Map.entry("method", "KAKAO_PAY"),
-                    Map.entry("method_display", "카카오페이"),
-                    Map.entry("status", "completed"),
-                    Map.entry("status_display", "결제완료"),
-                    Map.entry("transaction_id", "TXN-20260318112200002"),
-                    Map.entry("pg_provider", "카카오페이"),
-                    Map.entry("created_at", "2026-03-18T11:22:00Z"),
-                    Map.entry("receipt_url", "https://receipt.example.com/PAY-002")
-                );
-                break;
-            case "PAY-003":
-                payment = Map.ofEntries(
-                    Map.entry("id", "PAY-003"),
-                    Map.entry("order_id", "ORD-003"),
-                    Map.entry("user_id", "USR-003"),
-                    Map.entry("user_name", "박지훈"),
-                    Map.entry("amount", 218000),
-                    Map.entry("currency", "KRW"),
-                    Map.entry("method", "NAVER_PAY"),
-                    Map.entry("method_display", "네이버페이"),
-                    Map.entry("status", "completed"),
-                    Map.entry("status_display", "결제완료"),
-                    Map.entry("transaction_id", "TXN-20260320094700003"),
-                    Map.entry("pg_provider", "네이버페이"),
-                    Map.entry("created_at", "2026-03-20T09:47:00Z"),
-                    Map.entry("receipt_url", "https://receipt.example.com/PAY-003")
-                );
-                break;
-            default:
-                payment = Map.of(
-                    "id", id,
-                    "error", "결제 정보를 찾을 수 없습니다",
-                    "status", "not_found"
-                );
-        }
+        // Empty fallback - no mock data
+        Map<String, Object> payment = Map.of(
+            "id", id,
+            "error", "결제 정보를 찾을 수 없습니다",
+            "status", "not_found"
+        );
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .body(payment);
@@ -266,13 +165,6 @@ public class Controller {
     @PostMapping("/api/v1/payments/{id}/refund")
     public ResponseEntity<Map<String, Object>> refundPayment(@PathVariable String id, @RequestBody(required = false) Map<String, Object> refundRequest) {
         int refundAmount = 0;
-        switch (id) {
-            case "PAY-001": refundAmount = 2319000; break;
-            case "PAY-002": refundAmount = 699000; break;
-            case "PAY-003": refundAmount = 218000; break;
-            default: refundAmount = 0;
-        }
-
         if (refundRequest != null && refundRequest.containsKey("amount")) {
             refundAmount = ((Number) refundRequest.get("amount")).intValue();
         }

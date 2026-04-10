@@ -43,26 +43,9 @@ type UpdateStockRequest struct {
 	Reason    string `json:"reason"`
 }
 
-// Mock inventory data - consistent with shared product IDs
-var mockInventory = map[string]InventoryItem{
-	"PRD-001": {ProductID: "PRD-001", ProductName: "삼성 갤럭시 S25 울트라", SKU: "SAM-GS25U-256-BLK", Quantity: 150, Reserved: 23, Available: 127, Warehouse: "WH-SEOUL-001", Location: "서울 강남구"},
-	"PRD-002": {ProductID: "PRD-002", ProductName: "나이키 에어맥스 97", SKU: "NIK-AM97-270-WHT", Quantity: 89, Reserved: 12, Available: 77, Warehouse: "WH-SEOUL-001", Location: "서울 강남구"},
-	"PRD-003": {ProductID: "PRD-003", ProductName: "다이슨 에어랩", SKU: "DYS-AWC-COMP", Quantity: 45, Reserved: 8, Available: 37, Warehouse: "WH-BUSAN-001", Location: "부산 해운대구"},
-	"PRD-004": {ProductID: "PRD-004", ProductName: "애플 맥북 프로 M4", SKU: "APL-MBP-M4-512", Quantity: 72, Reserved: 15, Available: 57, Warehouse: "WH-SEOUL-001", Location: "서울 강남구"},
-	"PRD-005": {ProductID: "PRD-005", ProductName: "르크루제 냄비 세트", SKU: "LEC-POT-3SET-RED", Quantity: 120, Reserved: 5, Available: 115, Warehouse: "WH-BUSAN-001", Location: "부산 해운대구"},
-	"PRD-006": {ProductID: "PRD-006", ProductName: "아디다스 울트라부스트", SKU: "ADI-UB23-280-BLK", Quantity: 200, Reserved: 30, Available: 170, Warehouse: "WH-SEOUL-001", Location: "서울 강남구"},
-	"PRD-007": {ProductID: "PRD-007", ProductName: "LG 올레드 TV 65\"", SKU: "LG-OLED65-C4", Quantity: 35, Reserved: 7, Available: 28, Warehouse: "WH-SEOUL-002", Location: "서울 송파구"},
-	"PRD-008": {ProductID: "PRD-008", ProductName: "무지 캔버스 토트백", SKU: "MUJ-CVS-TOTE-NAT", Quantity: 500, Reserved: 45, Available: 455, Warehouse: "WH-BUSAN-001", Location: "부산 해운대구"},
-	"PRD-009": {ProductID: "PRD-009", ProductName: "스타벅스 텀블러 세트", SKU: "SBX-TMB-2SET-SS", Quantity: 300, Reserved: 22, Available: 278, Warehouse: "WH-SEOUL-001", Location: "서울 강남구"},
-	"PRD-010": {ProductID: "PRD-010", ProductName: "소니 WH-1000XM5", SKU: "SNY-WH1000XM5-BLK", Quantity: 85, Reserved: 18, Available: 67, Warehouse: "WH-SEOUL-002", Location: "서울 송파구"},
-}
-
-// Low stock items
-var lowStockItems = []InventoryItem{
-	{ProductID: "PRD-007", ProductName: "LG 올레드 TV 65\"", SKU: "LG-OLED65-C4", Quantity: 8, Reserved: 5, Available: 3, Warehouse: "WH-BUSAN-001", Location: "부산 해운대구"},
-	{ProductID: "PRD-003", ProductName: "다이슨 에어랩", SKU: "DYS-AWC-COMP", Quantity: 12, Reserved: 9, Available: 3, Warehouse: "WH-SEOUL-002", Location: "서울 송파구"},
-	{ProductID: "PRD-004", ProductName: "애플 맥북 프로 M4", SKU: "APL-MBP-M4-1TB", Quantity: 15, Reserved: 10, Available: 5, Warehouse: "WH-BUSAN-001", Location: "부산 해운대구"},
-}
+// Inventory data comes from Aurora DB at runtime
+var mockInventory = map[string]InventoryItem{}
+var lowStockItems []InventoryItem
 
 func main() {
 	cfg := config.Load("inventory")

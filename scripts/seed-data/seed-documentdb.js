@@ -4,6 +4,8 @@
 // ============================================================================
 
 const { MongoClient } = require('mongodb');
+const fs = require('fs');
+const path = require('path');
 
 const MONGO_URI = process.env.DOCUMENTDB_URI || 'mongodb://docdb_admin:<YOUR_PASSWORD>@localhost:27017/mall?tls=true&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false&authMechanism=SCRAM-SHA-1';
 const DB_NAME = 'mall';
@@ -22,27 +24,23 @@ const categories = [
   { id: 'CAT-10', name: '유아용품', slug: 'baby', icon: 'baby', sortOrder: 10 },
 ];
 
-// ── 150 Products ───────────────────────────────────────────────────────────
+// ── 1000 Products (loaded from generated JSON) ────────────────────────────
 function generateProducts() {
-  const products = [];
-  const productData = {
-    'CAT-01': [
-      { name: '삼성 갤럭시 S25 울트라', price: 1799000, brand: '삼성전자' },
-      { name: '아이폰 16 프로 맥스', price: 1990000, brand: 'Apple' },
-      { name: 'LG 그램 17인치 노트북', price: 2190000, brand: 'LG전자' },
-      { name: '삼성 갤럭시 탭 S10', price: 1290000, brand: '삼성전자' },
-      { name: '소니 WH-1000XM6 헤드폰', price: 459000, brand: 'Sony' },
-      { name: '에어팟 프로 3세대', price: 359000, brand: 'Apple' },
-      { name: '삼성 갤럭시 워치7', price: 399000, brand: '삼성전자' },
-      { name: '아이패드 에어 M3', price: 999000, brand: 'Apple' },
-      { name: '로지텍 MX Keys S 키보드', price: 169000, brand: 'Logitech' },
-      { name: '삼성 포터블 SSD T9 2TB', price: 279000, brand: '삼성전자' },
-      { name: 'JBL 차지5 블루투스 스피커', price: 229000, brand: 'JBL' },
-      { name: '닌텐도 스위치 2', price: 449000, brand: 'Nintendo' },
-      { name: 'PS5 프로 디지털 에디션', price: 799000, brand: 'Sony' },
-      { name: '캐논 EOS R50 미러리스', price: 1190000, brand: 'Canon' },
-      { name: '삼성 갤럭시 버즈3 프로', price: 299000, brand: '삼성전자' },
-    ],
+  const jsonPath = path.join(__dirname, 'products-1000.json');
+  const rawProducts = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+
+  // Convert date strings to Date objects for DocumentDB
+  return rawProducts.map(p => ({
+    ...p,
+    createdAt: new Date(p.createdAt),
+    updatedAt: new Date(p.updatedAt),
+  }));
+}
+
+// Legacy product data removed — now loaded from products-1000.json
+// Previously had 150 hardcoded products (15 per category × 10 categories)
+const _LEGACY_REMOVED = {
+  'CAT-01': [
     'CAT-02': [
       { name: '나이키 에어맥스 DN', price: 199000, brand: 'Nike' },
       { name: '아디다스 울트라부스트 24', price: 229000, brand: 'Adidas' },
@@ -198,49 +196,6 @@ function generateProducts() {
     ],
   };
 
-  let productIdx = 1;
-  for (const [catId, items] of Object.entries(productData)) {
-    const category = categories.find(c => c.id === catId);
-    for (const item of items) {
-      const pid = `PROD-${String(productIdx).padStart(3, '0')}`;
-      const rating = +(3.5 + Math.random() * 1.5).toFixed(1);
-      const reviewCount = Math.floor(Math.random() * 500 + 10);
-      const discount = [0, 0, 0, 5, 10, 15, 20, 25, 30][Math.floor(Math.random() * 9)];
-      const salePrice = discount > 0 ? Math.round(item.price * (1 - discount / 100)) : null;
-
-      products.push({
-        productId: pid,
-        name: item.name,
-        brand: item.brand,
-        category: { id: catId, name: category.name, slug: category.slug },
-        price: item.price,
-        salePrice,
-        discount,
-        currency: 'KRW',
-        rating,
-        reviewCount,
-        description: `${item.brand}의 ${item.name}입니다. 최고의 품질과 디자인을 자랑합니다.`,
-        images: [
-          `https://cdn.mall.example.com/products/${pid}/main.webp`,
-          `https://cdn.mall.example.com/products/${pid}/detail-1.webp`,
-          `https://cdn.mall.example.com/products/${pid}/detail-2.webp`,
-        ],
-        tags: [category.slug, item.brand.toLowerCase().replace(/\s/g, '-'), '인기상품'],
-        attributes: {
-          weight: `${(Math.random() * 5 + 0.1).toFixed(1)}kg`,
-          origin: ['한국', '미국', '일본', '독일', '중국', '프랑스'][Math.floor(Math.random() * 6)],
-        },
-        stock: { available: Math.floor(Math.random() * 500 + 5), warehouse: 'WH-EAST-1' },
-        status: 'active',
-        createdAt: new Date(Date.now() - Math.random() * 365 * 86400000),
-        updatedAt: new Date(),
-      });
-      productIdx++;
-    }
-  }
-  return products;
-}
-
 // ── 50 User Profiles ───────────────────────────────────────────────────────
 function generateUserProfiles() {
   const names = [
@@ -279,7 +234,7 @@ function generateUserProfiles() {
 // ── 30 Wishlists ───────────────────────────────────────────────────────────
 function generateWishlists(products) {
   const wishlists = [];
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 50; i++) {
     const user_id = `a0000001-0000-0000-0000-${String((i % 50) + 1).padStart(12, '0')}`;
     const itemCount = Math.floor(Math.random() * 8 + 2);
     const items = [];
@@ -327,7 +282,7 @@ function generateReviews(products) {
   ];
 
   const reviews = [];
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 2000; i++) {
     const product = products[i % products.length];
     const user_id = `a0000001-0000-0000-0000-${String((i % 50) + 1).padStart(12, '0')}`;
     const rating = Math.floor(Math.random() * 3 + 3); // 3-5
@@ -387,7 +342,7 @@ function generateUserActivities(products) {
   const actionWeights = [50, 25, 15, 10]; // % distribution
   const activities = [];
 
-  for (let i = 0; i < 500; i++) {
+  for (let i = 0; i < 3000; i++) {
     const user_id = `a0000001-0000-0000-0000-${String((i % 50) + 1).padStart(12, '0')}`;
     const product = products[Math.floor(Math.random() * products.length)];
 
@@ -488,10 +443,10 @@ async function main() {
     console.log(`  ${categories.length} categories`);
     console.log(`  ${products.length} products`);
     console.log(`  ${profiles.length} user profiles`);
-    console.log(`  ${wishlists.length} wishlists`);
-    console.log(`  ${reviews.length} reviews`);
+    console.log(`  ${wishlists.length} wishlists (scaled for 1000 products)`);
+    console.log(`  ${reviews.length} reviews (scaled for 1000 products)`);
     console.log(`  ${notifications.length} notifications`);
-    console.log(`  ${activities.length} user activities`);
+    console.log(`  ${activities.length} user activities (scaled for 1000 products)`);
   } finally {
     await client.close();
   }

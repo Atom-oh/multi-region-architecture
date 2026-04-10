@@ -64,19 +64,14 @@ public class Controller {
                         .body(result);
                 }
             } catch (Exception e) {
-                // Fall back to mock data
+                // Fall back to empty result
             }
         }
 
-        // Mock data fallback
-        List<Map<String, Object>> users = List.of(
-            Map.of("id", "USR-001", "email", "minsu@example.com", "name", "김민수", "status", "ACTIVE"),
-            Map.of("id", "USR-002", "email", "seoyeon@example.com", "name", "이서연", "status", "ACTIVE"),
-            Map.of("id", "USR-003", "email", "jihoon@example.com", "name", "박지훈", "status", "ACTIVE")
-        );
+        // Empty fallback - no mock data
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-            .body(users);
+            .body(List.of());
     }
 
     @PostMapping("/api/v1/users/register")
@@ -204,83 +199,16 @@ public class Controller {
                         .body(user);
                 }
             } catch (Exception e) {
-                // Fall back to mock data
+                // Fall back to empty result
             }
         }
 
-        // Mock data fallback
-        Map<String, Object> user;
-        switch (id) {
-            case "USR-001":
-                user = Map.ofEntries(
-                    Map.entry("id", "USR-001"),
-                    Map.entry("email", "minsu@example.com"),
-                    Map.entry("name", "김민수"),
-                    Map.entry("phone", "010-1234-5678"),
-                    Map.entry("birth_date", "1990-05-15"),
-                    Map.entry("gender", "male"),
-                    Map.entry("status", "ACTIVE"),
-                    Map.entry("membership", Map.of(
-                        "tier", "GOLD",
-                        "tier_display", "골드",
-                        "points", 125000,
-                        "total_spent", 8523000,
-                        "next_tier", "PLATINUM",
-                        "points_to_next", 175000
-                    )),
-                    Map.entry("created_at", "2025-01-15T08:30:00Z"),
-                    Map.entry("last_login", "2026-03-20T09:00:00Z")
-                );
-                break;
-            case "USR-002":
-                user = Map.ofEntries(
-                    Map.entry("id", "USR-002"),
-                    Map.entry("email", "seoyeon@example.com"),
-                    Map.entry("name", "이서연"),
-                    Map.entry("phone", "010-9876-5432"),
-                    Map.entry("birth_date", "1995-11-23"),
-                    Map.entry("gender", "female"),
-                    Map.entry("status", "ACTIVE"),
-                    Map.entry("membership", Map.of(
-                        "tier", "PLATINUM",
-                        "tier_display", "플래티넘",
-                        "points", 342000,
-                        "total_spent", 15892000,
-                        "next_tier", "DIAMOND",
-                        "points_to_next", 158000
-                    )),
-                    Map.entry("created_at", "2025-02-20T14:45:00Z"),
-                    Map.entry("last_login", "2026-03-20T11:30:00Z")
-                );
-                break;
-            case "USR-003":
-                user = Map.ofEntries(
-                    Map.entry("id", "USR-003"),
-                    Map.entry("email", "jihoon@example.com"),
-                    Map.entry("name", "박지훈"),
-                    Map.entry("phone", "010-5555-7777"),
-                    Map.entry("birth_date", "1988-03-08"),
-                    Map.entry("gender", "male"),
-                    Map.entry("status", "ACTIVE"),
-                    Map.entry("membership", Map.of(
-                        "tier", "SILVER",
-                        "tier_display", "실버",
-                        "points", 45000,
-                        "total_spent", 2150000,
-                        "next_tier", "GOLD",
-                        "points_to_next", 55000
-                    )),
-                    Map.entry("created_at", "2025-03-10T09:15:00Z"),
-                    Map.entry("last_login", "2026-03-20T10:15:00Z")
-                );
-                break;
-            default:
-                user = Map.of(
-                    "id", id,
-                    "error", "사용자를 찾을 수 없습니다",
-                    "status", "not_found"
-                );
-        }
+        // Empty fallback - no mock data
+        Map<String, Object> user = Map.of(
+            "id", id,
+            "error", "사용자를 찾을 수 없습니다",
+            "status", "not_found"
+        );
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .body(user);

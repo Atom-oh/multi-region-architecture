@@ -5,7 +5,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,20 +18,12 @@ public class Controller {
     @Autowired(required = false)
     private JdbcTemplate jdbcTemplate;
 
-    // Mock pricing data - consistent with shared product IDs
-    // Note: No pricing table in seed data, keeping mock pricing rules
-    private static final Map<String, Map<String, Object>> PRODUCT_PRICES = Map.ofEntries(
-        Map.entry("PRD-001", Map.of("name", "삼성 갤럭시 S25 울트라", "base_price", 1990000, "current_price", 1890000, "discount_percent", 5, "discount_amount", 100000)),
-        Map.entry("PRD-002", Map.of("name", "나이키 에어맥스 97", "base_price", 219000, "current_price", 189000, "discount_percent", 14, "discount_amount", 30000)),
-        Map.entry("PRD-003", Map.of("name", "다이슨 에어랩", "base_price", 699000, "current_price", 699000, "discount_percent", 0, "discount_amount", 0)),
-        Map.entry("PRD-004", Map.of("name", "애플 맥북 프로 M4", "base_price", 2990000, "current_price", 2990000, "discount_percent", 0, "discount_amount", 0)),
-        Map.entry("PRD-005", Map.of("name", "르크루제 냄비 세트", "base_price", 550000, "current_price", 459000, "discount_percent", 17, "discount_amount", 91000)),
-        Map.entry("PRD-006", Map.of("name", "아디다스 울트라부스트", "base_price", 239000, "current_price", 219000, "discount_percent", 8, "discount_amount", 20000)),
-        Map.entry("PRD-007", Map.of("name", "LG 올레드 TV 65\"", "base_price", 3590000, "current_price", 3290000, "discount_percent", 8, "discount_amount", 300000)),
-        Map.entry("PRD-008", Map.of("name", "무지 캔버스 토트백", "base_price", 35000, "current_price", 29000, "discount_percent", 17, "discount_amount", 6000)),
-        Map.entry("PRD-009", Map.of("name", "스타벅스 텀블러 세트", "base_price", 52000, "current_price", 45000, "discount_percent", 13, "discount_amount", 7000)),
-        Map.entry("PRD-010", Map.of("name", "소니 WH-1000XM5", "base_price", 459000, "current_price", 429000, "discount_percent", 7, "discount_amount", 30000))
-    );
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    private static final String PRODUCT_CATALOG_URL = "http://product-catalog.core-services.svc.cluster.local:80/api/v1/products";
+
+    // Empty map - no more mock pricing data. Prices come from product-catalog MSA.
+    private static final Map<String, Map<String, Object>> PRODUCT_PRICES = new HashMap<>();
 
     @GetMapping("/")
     public Map<String, Object> root() {
@@ -57,6 +51,42 @@ public class Controller {
 
     @GetMapping("/api/v1/prices/{productId}")
     public ResponseEntity<Map<String, Object>> getPrice(@PathVariable String productId) {
+        // Try fetching price from product-catalog MSA
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> product = restTemplate.getForObject(
+                PRODUCT_CATALOG_URL + "/" + productId, Map.class);
+            if (product != null && product.containsKey("price")) {
+                Number price = (Number) product.get("price");
+                int basePrice = price.intValue();
+                int currentPrice = basePrice;
+                // Check if product has a discount price
+                if (product.containsKey("discount_price") && product.get("discount_price") != null) {
+                    currentPrice = ((Number) product.get("discount_price")).intValue();
+                }
+                int discountAmount = basePrice - currentPrice;
+                int discountPercent = basePrice > 0 ? (discountAmount * 100) / basePrice : 0;
+
+                Map<String, Object> response = Map.ofEntries(
+                    Map.entry("product_id", productId),
+                    Map.entry("name", product.getOrDefault("name", "")),
+                    Map.entry("base_price", basePrice),
+                    Map.entry("current_price", currentPrice),
+                    Map.entry("discount_percent", discountPercent),
+                    Map.entry("discount_amount", discountAmount),
+                    Map.entry("currency", "KRW"),
+                    Map.entry("valid_until", "2026-12-31T23:59:59Z"),
+                    Map.entry("promotions", List.of())
+                );
+                return ResponseEntity.ok()
+                    .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                    .body(response);
+            }
+        } catch (Exception e) {
+            // Product catalog unavailable, fall through to not found
+        }
+
+        // Check local cache (empty by default, could be populated by future DB integration)
         Map<String, Object> priceData = PRODUCT_PRICES.get(productId);
 
         Map<String, Object> response;
@@ -69,7 +99,7 @@ public class Controller {
                 Map.entry("discount_percent", priceData.get("discount_percent")),
                 Map.entry("discount_amount", priceData.get("discount_amount")),
                 Map.entry("currency", "KRW"),
-                Map.entry("valid_until", "2026-03-31T23:59:59Z"),
+                Map.entry("valid_until", "2026-12-31T23:59:59Z"),
                 Map.entry("promotions", List.of())
             );
         } else {
@@ -139,7 +169,31 @@ public class Controller {
             String productId = (String) item.get("product_id");
             int quantity = ((Number) item.getOrDefault("quantity", 1)).intValue();
 
+            // Try product-catalog MSA first, then local cache
             Map<String, Object> priceData = PRODUCT_PRICES.get(productId);
+            if (priceData == null) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> product = restTemplate.getForObject(
+                        PRODUCT_CATALOG_URL + "/" + productId, Map.class);
+                    if (product != null && product.containsKey("price")) {
+                        Number price = (Number) product.get("price");
+                        int basePrice = price.intValue();
+                        int currentPrice = basePrice;
+                        if (product.containsKey("discount_price") && product.get("discount_price") != null) {
+                            currentPrice = ((Number) product.get("discount_price")).intValue();
+                        }
+                        priceData = Map.of(
+                            "name", product.getOrDefault("name", ""),
+                            "base_price", basePrice,
+                            "current_price", currentPrice
+                        );
+                    }
+                } catch (Exception e) {
+                    // Product catalog unavailable, skip this item
+                }
+            }
+
             if (priceData != null) {
                 int basePrice = ((Number) priceData.get("base_price")).intValue();
                 int currentPrice = ((Number) priceData.get("current_price")).intValue();

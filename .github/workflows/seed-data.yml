@@ -1,0 +1,87 @@
+name: Build & Run Seed Data
+
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/seed-data/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-northeast-2
+  IMAGE_NAME: shopping-mall/seed-data
+
+jobs:
+  build-and-push:
+    runs-on: self-hosted-x86
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Create ECR repo if needed
+        env:
+          REPO_NAME: ${{ env.IMAGE_NAME }}
+        run: |
+          aws ecr describe-repositories --repository-names "$REPO_NAME" --region "$AWS_REGION" 2>/dev/null || \
+            aws ecr create-repository --repository-name "$REPO_NAME" --region "$AWS_REGION"
+
+      - name: Build and push
+        env:
+          ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG" scripts/seed-data/
+          docker push "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+          docker tag "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG" "$ECR_REGISTRY/$IMAGE_NAME:latest"
+          docker push "$ECR_REGISTRY/$IMAGE_NAME:latest"
+
+  run-seed-job:
+    needs: build-and-push
+    runs-on: self-hosted-x86
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster:
+          - context: mall-apne2-az-a
+            name: az-a
+          - context: mall-apne2-az-c
+            name: az-c
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run seed job
+        env:
+          CLUSTER_CTX: ${{ matrix.cluster.context }}
+          CLUSTER_NAME: ${{ matrix.cluster.name }}
+          ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          # Delete previous job if exists
+          kubectl delete job seed-data -n platform \
+            --context "$CLUSTER_CTX" --ignore-not-found
+
+          # Update image tag in job manifest and apply
+          sed "s|<AWS_ACCOUNT_ID>|$ACCOUNT_ID|g" \
+            scripts/seed-data/k8s/jobs/seed-data-job.yaml | \
+            kubectl apply -f - --context "$CLUSTER_CTX"
+
+          # Wait for completion (timeout 10 min)
+          kubectl wait --for=condition=complete job/seed-data \
+            -n platform --context "$CLUSTER_CTX" --timeout=600s
+
+          echo "=== Seed job logs ($CLUSTER_NAME) ==="
+          kubectl logs job/seed-data -n platform \
+            --context "$CLUSTER_CTX" --tail=50
