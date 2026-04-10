@@ -18,21 +18,8 @@ spec:
       serviceAccountName: default
       containers:
         - name: seed-data
-          image: amazonlinux:2023
-          command: ["/bin/bash", "-c"]
-          args:
-            - |
-              set -e
-              echo "Installing dependencies..."
-              yum install -y postgresql16 nodejs npm redis6 python3 openssl --quiet
-
-              # Download DocumentDB CA bundle
-              curl -sS -o /tmp/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
-
-              echo "Running seed scripts..."
-              cd /seed-data
-              chmod +x *.sh
-              bash run-seed.sh
+          image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/seed-data:latest
+          command: ["bash", "run-seed.sh"]
           env:
             # Aurora PostgreSQL
             - name: AURORA_ENDPOINT
@@ -106,30 +93,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.labels['topology.kubernetes.io/region']
-          volumeMounts:
-            - name: seed-scripts
-              mountPath: /seed-data
           resources:
             requests:
               cpu: 500m
-              memory: 512Mi
-            limits:
-              cpu: "1"
               memory: 1Gi
-      volumes:
-        - name: seed-scripts
-          configMap:
-            name: seed-data-scripts
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: seed-data-scripts
-  namespace: platform
-data:
-  run-seed.sh: |
-    # This ConfigMap is a placeholder.
-    # In practice, use a container image with scripts baked in,
-    # or mount from a Git sync sidecar.
-    echo "Seed scripts should be baked into a custom container image."
-    echo "See: scripts/seed-data/Dockerfile for building the seed image."
+            limits:
+              cpu: "2"
+              memory: 2Gi

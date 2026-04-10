@@ -16,13 +16,13 @@ echo "Endpoint: ${REDIS_HOST}:${REDIS_PORT}"
 # ── Product Cache (top 30 products) ─────────────────────────────────────────
 echo ""
 echo "Seeding product cache..."
-for i in $(seq 1 30); do
-  pid="PROD-$(printf '%03d' $i)"
+for i in $(seq 1 100); do
+  pid="PROD-$(printf '%04d' $i)"
   price=$(( RANDOM % 1990000 + 10000 ))
   stock=$(( RANDOM % 500 + 5 ))
   $REDIS_CLI SET "product:${pid}" "{\"productId\":\"${pid}\",\"price\":${price},\"stock\":${stock},\"cached_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" EX 3600 > /dev/null 2>&1
 done
-echo "  Cached 30 products (TTL: 1h)"
+echo "  Cached 100 products (TTL: 1h)"
 
 # ── Category Cache ──────────────────────────────────────────────────────────
 echo "Seeding category cache..."
@@ -37,7 +37,7 @@ for i in $(seq 1 20); do
   item_count=$(( RANDOM % 5 + 1 ))
   cart_items=""
   for j in $(seq 1 $item_count); do
-    pid="PROD-$(printf '%03d' $(( RANDOM % 150 + 1 )))"
+    pid="PROD-$(printf '%04d' $(( RANDOM % 1000 + 1 )))"
     qty=$(( RANDOM % 3 + 1 ))
     price=$(( RANDOM % 500000 + 10000 ))
     if [ -n "$cart_items" ]; then cart_items="${cart_items},"; fi
@@ -70,21 +70,21 @@ echo "  Set 20 rate limit counters (TTL: 60s)"
 
 # ── Popular Products Sorted Set (leaderboard) ──────────────────────────────
 echo "Seeding popularity leaderboard..."
-for i in $(seq 1 50); do
-  pid="PROD-$(printf '%03d' $i)"
+for i in $(seq 1 200); do
+  pid="PROD-$(printf '%04d' $i)"
   score=$(( RANDOM % 10000 + 100 ))
   $REDIS_CLI ZADD "leaderboard:popular" "$score" "$pid" > /dev/null 2>&1
 done
-echo "  Added 50 products to popularity leaderboard"
+echo "  Added 200 products to popularity leaderboard"
 
 # ── Real-time Inventory Counts ──────────────────────────────────────────────
 echo "Seeding inventory counters..."
-for i in $(seq 1 150); do
-  pid="PROD-$(printf '%03d' $i)"
+for i in $(seq 1 1000); do
+  pid="PROD-$(printf '%04d' $i)"
   stock=$(( RANDOM % 500 + 5 ))
   $REDIS_CLI SET "stock:${pid}" "$stock" > /dev/null 2>&1
 done
-echo "  Set 150 inventory counters"
+echo "  Set 1000 inventory counters"
 
 # ── Recent Search Queries (per user) ────────────────────────────────────────
 echo "Seeding recent search history..."
@@ -102,7 +102,7 @@ echo "  Added search history for 20 users (TTL: 30d)"
 
 # ── Flash Sale / Promotion Cache ────────────────────────────────────────────
 echo "Seeding promotion cache..."
-$REDIS_CLI SET "promo:flash-sale" "{\"id\":\"FLASH-001\",\"title\":\"오늘만 특가! 전자제품 최대 50% 할인\",\"startAt\":\"$(date -u +%Y-%m-%dT00:00:00Z)\",\"endAt\":\"$(date -u +%Y-%m-%dT23:59:59Z)\",\"products\":[\"PROD-001\",\"PROD-005\",\"PROD-010\",\"PROD-015\"],\"discountRate\":50}" EX 86400 > /dev/null 2>&1
+$REDIS_CLI SET "promo:flash-sale" "{\"id\":\"FLASH-001\",\"title\":\"오늘만 특가! 전자제품 최대 50% 할인\",\"startAt\":\"$(date -u +%Y-%m-%dT00:00:00Z)\",\"endAt\":\"$(date -u +%Y-%m-%dT23:59:59Z)\",\"products\":[\"PROD-0001\",\"PROD-0050\",\"PROD-0100\",\"PROD-0150\"],\"discountRate\":50}" EX 86400 > /dev/null 2>&1
 $REDIS_CLI SET "promo:weekend-coupon" "{\"id\":\"COUPON-001\",\"title\":\"주말 쿠폰 10% 할인\",\"code\":\"WEEKEND10\",\"discountRate\":10,\"minOrderAmount\":30000,\"maxDiscount\":50000}" EX 172800 > /dev/null 2>&1
 echo "  Cached 2 promotions"
 

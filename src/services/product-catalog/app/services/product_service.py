@@ -35,7 +35,7 @@ async def list_products(
     limit: int = 20,
     category_id: Optional[str] = None,
     query: Optional[str] = None,
-) -> list[dict]:
+) -> tuple[list[dict], int]:
     return await product_repo.list_products(skip=skip, limit=limit, category_slug=category_id, query=query)
 
 

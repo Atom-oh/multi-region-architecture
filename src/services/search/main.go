@@ -42,19 +42,8 @@ type IndexRequest struct {
 	Tags        []string `json:"tags"`
 }
 
-// Mock product data - consistent with shared IDs
-var mockProducts = []Product{
-	{ID: "PRD-001", Name: "삼성 갤럭시 S25 울트라", Description: "최신 플래그십 스마트폰, AI 카메라 탑재", Price: 1890000, Category: "electronics", SellerID: "SEL-001", SellerName: "삼성전자 Official", ImageURL: "https://placehold.co/400x400/EEE/333?text=Galaxy+S25", Rating: 4.8, Score: 0.98},
-	{ID: "PRD-002", Name: "나이키 에어맥스 97", Description: "클래식한 디자인의 러닝화", Price: 189000, Category: "shoes", SellerID: "SEL-002", SellerName: "Nike Korea", ImageURL: "https://placehold.co/400x400/EEE/333?text=AirMax+97", Rating: 4.6, Score: 0.95},
-	{ID: "PRD-003", Name: "다이슨 에어랩", Description: "멀티 스타일러 헤어 드라이기", Price: 699000, Category: "beauty", SellerID: "SEL-003", SellerName: "Dyson Korea", ImageURL: "https://placehold.co/400x400/EEE/333?text=Dyson+Airwrap", Rating: 4.9, Score: 0.97},
-	{ID: "PRD-004", Name: "애플 맥북 프로 M4", Description: "M4 칩 탑재 프로페셔널 노트북", Price: 2990000, Category: "electronics", SellerID: "SEL-004", SellerName: "Apple Korea", ImageURL: "https://placehold.co/400x400/EEE/333?text=MacBook+M4", Rating: 4.9, Score: 0.96},
-	{ID: "PRD-005", Name: "르크루제 냄비 세트", Description: "프리미엄 주철 냄비 3종 세트", Price: 459000, Category: "kitchen", SellerID: "SEL-005", SellerName: "Le Creuset Korea", ImageURL: "https://placehold.co/400x400/EEE/333?text=Le+Creuset", Rating: 4.7, Score: 0.92},
-	{ID: "PRD-006", Name: "아디다스 울트라부스트", Description: "편안한 쿠셔닝의 러닝화", Price: 219000, Category: "shoes", SellerID: "SEL-006", SellerName: "Adidas Korea", ImageURL: "https://placehold.co/400x400/EEE/333?text=Ultraboost", Rating: 4.5, Score: 0.91},
-	{ID: "PRD-007", Name: "LG 올레드 TV 65\"", Description: "65인치 4K OLED 스마트 TV", Price: 3290000, Category: "electronics", SellerID: "SEL-007", SellerName: "LG전자 Official", ImageURL: "https://placehold.co/400x400/EEE/333?text=LG+OLED+65", Rating: 4.8, Score: 0.94},
-	{ID: "PRD-008", Name: "무지 캔버스 토트백", Description: "심플한 디자인의 캔버스 가방", Price: 29000, Category: "fashion", SellerID: "SEL-008", SellerName: "MUJI Korea", ImageURL: "https://placehold.co/400x400/EEE/333?text=MUJI+Tote", Rating: 4.3, Score: 0.88},
-	{ID: "PRD-009", Name: "스타벅스 텀블러 세트", Description: "스테인리스 텀블러 2종 세트", Price: 45000, Category: "kitchen", SellerID: "SEL-009", SellerName: "Starbucks Korea", ImageURL: "https://placehold.co/400x400/EEE/333?text=Starbucks", Rating: 4.4, Score: 0.87},
-	{ID: "PRD-010", Name: "소니 WH-1000XM5", Description: "프리미엄 노이즈캔슬링 헤드폰", Price: 429000, Category: "electronics", SellerID: "SEL-010", SellerName: "Sony Korea", ImageURL: "https://placehold.co/400x400/EEE/333?text=Sony+XM5", Rating: 4.8, Score: 0.96},
-}
+// Products are fetched from product-catalog service at runtime
+var emptyProducts []Product
 
 // OTel-instrumented HTTP client for inter-service calls
 var serviceClient = tracing.HTTPClient()
@@ -117,7 +106,7 @@ func searchProducts(cfg *config.Config) gin.HandlerFunc {
 		queryLower := strings.ToLower(query)
 
 		// Inter-service call: fetch latest products from product-catalog (distributed trace)
-		searchSource := mockProducts
+		searchSource := emptyProducts
 		catalogURL := "http://product-catalog.core-services.svc.cluster.local:80/api/v1/products"
 		httpReq, err := http.NewRequestWithContext(c.Request.Context(), "GET", catalogURL, nil)
 		if err == nil {

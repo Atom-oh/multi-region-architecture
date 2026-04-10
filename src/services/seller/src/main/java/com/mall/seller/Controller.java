@@ -5,7 +5,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,72 +18,13 @@ public class Controller {
     @Autowired(required = false)
     private JdbcTemplate jdbcTemplate;
 
-    // Mock seller data - consistent with shared seller IDs
-    // Note: No sellers table in seed data, keeping mock seller data
-    private static final Map<String, Map<String, Object>> SELLERS = Map.ofEntries(
-        Map.entry("SEL-001", Map.ofEntries(
-            Map.entry("id", "SEL-001"),
-            Map.entry("business_name", "삼성전자 Official"),
-            Map.entry("business_number", "124-81-00998"),
-            Map.entry("email", "official@samsung.com"),
-            Map.entry("phone", "1588-3366"),
-            Map.entry("address", "경기도 수원시 영통구 삼성로 129"),
-            Map.entry("status", "VERIFIED"),
-            Map.entry("status_display", "인증완료"),
-            Map.entry("rating", 4.9),
-            Map.entry("review_count", 15234),
-            Map.entry("total_products", 1523),
-            Map.entry("total_sales", 89234000000L),
-            Map.entry("joined_at", "2020-01-15T00:00:00Z"),
-            Map.entry("badge", List.of("공식판매자", "프리미엄", "빠른배송"))
-        )),
-        Map.entry("SEL-002", Map.ofEntries(
-            Map.entry("id", "SEL-002"),
-            Map.entry("business_name", "Nike Korea"),
-            Map.entry("business_number", "211-86-15432"),
-            Map.entry("email", "official@nike.co.kr"),
-            Map.entry("phone", "080-022-0182"),
-            Map.entry("address", "서울특별시 강남구 테헤란로 152"),
-            Map.entry("status", "VERIFIED"),
-            Map.entry("status_display", "인증완료"),
-            Map.entry("rating", 4.7),
-            Map.entry("review_count", 8921),
-            Map.entry("total_products", 892),
-            Map.entry("total_sales", 23456000000L),
-            Map.entry("joined_at", "2019-06-20T00:00:00Z"),
-            Map.entry("badge", List.of("공식판매자", "빠른배송"))
-        )),
-        Map.entry("SEL-003", Map.ofEntries(
-            Map.entry("id", "SEL-003"),
-            Map.entry("business_name", "Dyson Korea"),
-            Map.entry("business_number", "120-81-54321"),
-            Map.entry("email", "official@dyson.co.kr"),
-            Map.entry("phone", "1588-4253"),
-            Map.entry("address", "서울특별시 강남구 영동대로 517"),
-            Map.entry("status", "VERIFIED"),
-            Map.entry("status_display", "인증완료"),
-            Map.entry("rating", 4.8),
-            Map.entry("review_count", 12543),
-            Map.entry("total_products", 156),
-            Map.entry("total_sales", 45678000000L),
-            Map.entry("joined_at", "2018-03-10T00:00:00Z"),
-            Map.entry("badge", List.of("공식판매자", "프리미엄", "무료배송"))
-        ))
-    );
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    // Product mapping to sellers
-    private static final Map<String, List<Map<String, Object>>> SELLER_PRODUCTS = Map.of(
-        "SEL-001", List.of(
-            Map.of("product_id", "PRD-001", "name", "삼성 갤럭시 S25 울트라", "price", 1890000, "stock", 150, "sales", 4521, "rating", 4.8),
-            Map.of("product_id", "PRD-007", "name", "LG 올레드 TV 65\"", "price", 3290000, "stock", 35, "sales", 2150, "rating", 4.8)
-        ),
-        "SEL-002", List.of(
-            Map.of("product_id", "PRD-002", "name", "나이키 에어맥스 97", "price", 189000, "stock", 89, "sales", 1892, "rating", 4.6)
-        ),
-        "SEL-003", List.of(
-            Map.of("product_id", "PRD-003", "name", "다이슨 에어랩", "price", 699000, "stock", 45, "sales", 3210, "rating", 4.9)
-        )
-    );
+    private static final String PRODUCT_CATALOG_URL = "http://product-catalog.core-services.svc.cluster.local:80/api/v1/products";
+
+    // Empty maps - no more mock seller data
+    private static final Map<String, Map<String, Object>> SELLERS = new HashMap<>();
+    private static final Map<String, List<Map<String, Object>>> SELLER_PRODUCTS = new HashMap<>();
 
     @GetMapping("/")
     public Map<String, Object> root() {
@@ -146,9 +89,35 @@ public class Controller {
 
     @GetMapping("/api/v1/sellers/{id}/products")
     public ResponseEntity<Map<String, Object>> getSellerProducts(@PathVariable String id) {
+        // Try fetching products from product-catalog MSA
         List<Map<String, Object>> products = SELLER_PRODUCTS.getOrDefault(id, List.of());
-        Map<String, Object> seller = SELLERS.get(id);
+        if (products.isEmpty()) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> catalogResponse = restTemplate.getForObject(
+                    PRODUCT_CATALOG_URL + "?limit=20", Map.class);
+                if (catalogResponse != null && catalogResponse.containsKey("products")) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> catalogProducts = (List<Map<String, Object>>) catalogResponse.get("products");
+                    if (catalogProducts != null && !catalogProducts.isEmpty()) {
+                        Map<String, Object> seller = SELLERS.get(id);
+                        Map<String, Object> response = Map.of(
+                            "seller_id", id,
+                            "seller_name", seller != null ? seller.get("business_name") : "Unknown",
+                            "products", catalogProducts,
+                            "total", catalogProducts.size()
+                        );
+                        return ResponseEntity.ok()
+                            .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                            .body(response);
+                    }
+                }
+            } catch (Exception e) {
+                // Product catalog unavailable, return empty
+            }
+        }
 
+        Map<String, Object> seller = SELLERS.get(id);
         Map<String, Object> response = Map.of(
             "seller_id", id,
             "seller_name", seller != null ? seller.get("business_name") : "Unknown",

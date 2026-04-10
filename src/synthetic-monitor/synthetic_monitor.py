@@ -24,8 +24,8 @@ ORIGIN_LABEL = "test-east" if ORIGIN_REGION == "us-east-1" else "test-west" if O
 STEP_DELAY_MIN = float(os.getenv("STEP_DELAY_MIN", "0.5"))
 STEP_DELAY_MAX = float(os.getenv("STEP_DELAY_MAX", "1.0"))
 
-# Real seed-data IDs (match DB seed scripts)
-PRODUCT_IDS = [f"PRD-{i:03d}" for i in range(1, 26)]
+# Real seed-data IDs (match DB seed scripts — PROD-XXXX 4-digit format)
+PRODUCT_IDS = [f"PROD-{i:04d}" for i in range(1, 101)]
 USER_IDS = [f"a0000001-0000-0000-0000-{i:012d}" for i in range(1, 21)]
 ORDER_IDS = [f"b0000001-0000-0000-0000-{i:012d}" for i in range(1, 11)]
 PAYMENT_IDS = [f"c0000001-0000-0000-0000-{i:012d}" for i in range(1, 4)]

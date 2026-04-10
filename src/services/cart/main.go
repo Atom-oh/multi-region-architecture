@@ -42,39 +42,9 @@ type AddItemRequest struct {
 	Price     int    `json:"price" binding:"required,min=0"`
 }
 
-// Mock cart data - consistent with shared IDs
+// Cart data stored in Valkey (Redis) at runtime
 var mockCartsMu sync.RWMutex
-var mockCarts = map[string]Cart{
-	"USR-001": {
-		UserID: "USR-001",
-		Items: []CartItem{
-			{ProductID: "PRD-001", Name: "삼성 갤럭시 S25 울트라", Quantity: 1, Price: 1890000, ImageURL: "https://placehold.co/400x400/EEE/333?text=Galaxy+S25"},
-			{ProductID: "PRD-010", Name: "소니 WH-1000XM5", Quantity: 1, Price: 429000, ImageURL: "https://placehold.co/400x400/EEE/333?text=Sony+XM5"},
-		},
-		Total:     2319000,
-		ItemCount: 2,
-		UpdatedAt: time.Now(),
-	},
-	"USR-002": {
-		UserID: "USR-002",
-		Items: []CartItem{
-			{ProductID: "PRD-003", Name: "다이슨 에어랩", Quantity: 1, Price: 699000, ImageURL: "https://placehold.co/400x400/EEE/333?text=Dyson+Airwrap"},
-		},
-		Total:     699000,
-		ItemCount: 1,
-		UpdatedAt: time.Now(),
-	},
-	"USR-003": {
-		UserID: "USR-003",
-		Items: []CartItem{
-			{ProductID: "PRD-002", Name: "나이키 에어맥스 97", Quantity: 1, Price: 189000, ImageURL: "https://placehold.co/400x400/EEE/333?text=Nike+AirMax"},
-			{ProductID: "PRD-008", Name: "무지 캔버스 토트백", Quantity: 1, Price: 29000, ImageURL: "https://placehold.co/400x400/EEE/333?text=MUJI+Tote"},
-		},
-		Total:     218000,
-		ItemCount: 2,
-		UpdatedAt: time.Now(),
-	},
-}
+var mockCarts = map[string]Cart{}
 
 // OTel-instrumented HTTP client for inter-service calls
 var serviceClient = tracing.HTTPClient()

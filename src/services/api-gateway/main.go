@@ -155,7 +155,7 @@ func reverseProxy(target string) gin.HandlerFunc {
 		if path == "/" {
 			path = ""
 		}
-		// Build upstream URL: /api/v1/products/PRD-001 -> product-catalog:80/api/v1/products/PRD-001
+		// Build upstream URL: /api/v1/products/PROD-0001 -> product-catalog:80/api/v1/products/PROD-0001
 		reqPath := strings.TrimSuffix(c.Request.URL.Path, "/")
 		upstreamURL := "http://" + target + reqPath
 		if c.Request.URL.RawQuery != "" {

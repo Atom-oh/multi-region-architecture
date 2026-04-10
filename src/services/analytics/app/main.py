@@ -1,4 +1,4 @@
-"""Analytics Service - FastAPI Application with stub responses."""
+"""Analytics Service - FastAPI Application with DB-driven responses."""
 
 import logging
 from datetime import datetime
@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.documentdb import connect, disconnect, get_db
 from mall_common.health import router as health_router, set_ready, set_started
+from mall_common.service_client import get_products_by_ids
 from mall_common.tracing import init_tracing
 
 from app.config import settings as config
@@ -31,116 +32,24 @@ app.add_middleware(
 init_tracing(config.service_name, app)
 app.include_router(health_router)
 
-# Mock analytics data - consistent with Korean mall theme
-MOCK_DASHBOARD = {
-    "total_users": 125420,
-    "active_users_today": 8251,
-    "new_users_today": 342,
-    "total_orders": 89340,
-    "orders_today": 1523,
-    "revenue_today": 245231500,  # 245,231,500원
-    "revenue_month": 7834567890,  # 7,834,567,890원
-    "conversion_rate": 3.8,
-    "avg_order_value": 156500,  # 156,500원
-    "cart_abandonment_rate": 68.5,
-    "top_products": [
-        {
-            "product_id": "PRD-001",
-            "name": "삼성 갤럭시 S25 울트라",
-            "sales": 4521,
-            "revenue": 8544690000,
-        },
-        {
-            "product_id": "PRD-003",
-            "name": "다이슨 에어랩",
-            "sales": 3210,
-            "revenue": 2243790000,
-        },
-        {
-            "product_id": "PRD-007",
-            "name": "LG 올레드 TV 65\"",
-            "sales": 2150,
-            "revenue": 7073500000,
-        },
-        {
-            "product_id": "PRD-004",
-            "name": "애플 맥북 프로 M4",
-            "sales": 1892,
-            "revenue": 5657080000,
-        },
-        {
-            "product_id": "PRD-010",
-            "name": "소니 WH-1000XM5",
-            "sales": 1567,
-            "revenue": 672243000,
-        },
-    ],
-    "top_categories": [
-        {"name": "electronics", "display_name": "전자제품", "sales": 12521, "revenue": 22547933000},
-        {"name": "shoes", "display_name": "신발", "sales": 5210, "revenue": 1062420000},
-        {"name": "kitchen", "display_name": "주방용품", "sales": 3150, "revenue": 1584750000},
-        {"name": "beauty", "display_name": "뷰티", "sales": 3210, "revenue": 2243790000},
-        {"name": "fashion", "display_name": "패션", "sales": 8920, "revenue": 258680000},
-    ],
-    "traffic_sources": [
-        {"source": "organic", "display_name": "자연검색", "visitors": 45000, "percentage": 35.2},
-        {"source": "direct", "display_name": "직접방문", "visitors": 32000, "percentage": 25.0},
-        {"source": "social", "display_name": "소셜미디어", "visitors": 28000, "percentage": 21.9},
-        {"source": "paid", "display_name": "유료광고", "visitors": 15000, "percentage": 11.7},
-        {"source": "referral", "display_name": "추천", "visitors": 7920, "percentage": 6.2},
-    ],
-}
 
-MOCK_REPORTS = [
-    {
-        "id": "rpt-001",
-        "name": "일간 매출 리포트",
-        "type": "sales",
-        "period": "daily",
-        "created_at": "2026-03-20T00:00:00Z",
-        "summary": {
-            "total_revenue": 245231500,
-            "total_orders": 1523,
-            "avg_order_value": 161019,
-        },
-    },
-    {
-        "id": "rpt-002",
-        "name": "주간 사용자 분석 리포트",
-        "type": "engagement",
-        "period": "weekly",
-        "created_at": "2026-03-19T00:00:00Z",
-        "summary": {
-            "active_users": 52341,
-            "session_duration_avg": "8분 32초",
-            "pages_per_session": 5.7,
-        },
-    },
-    {
-        "id": "rpt-003",
-        "name": "월간 재고 분석 리포트",
-        "type": "inventory",
-        "period": "monthly",
-        "created_at": "2026-03-18T00:00:00Z",
-        "summary": {
-            "total_sku": 10523,
-            "low_stock_items": 156,
-            "out_of_stock": 23,
-        },
-    },
-    {
-        "id": "rpt-004",
-        "name": "카테고리별 실적 리포트",
-        "type": "category",
-        "period": "monthly",
-        "created_at": "2026-03-17T00:00:00Z",
-        "summary": {
-            "top_category": "electronics",
-            "growth_rate": 15.3,
-            "new_products": 234,
-        },
-    },
-]
+def _empty_dashboard() -> dict:
+    """Return an empty dashboard structure with zeroed metrics."""
+    return {
+        "total_users": 0,
+        "active_users_today": 0,
+        "new_users_today": 0,
+        "total_orders": 0,
+        "orders_today": 0,
+        "revenue_today": 0,
+        "revenue_month": 0,
+        "conversion_rate": 0.0,
+        "avg_order_value": 0,
+        "cart_abandonment_rate": 0.0,
+        "top_products": [],
+        "top_categories": [],
+        "traffic_sources": [],
+    }
 
 
 @app.get("/")
@@ -162,7 +71,7 @@ async def track_event(event: dict):
 
 @app.get("/api/v1/analytics/dashboard")
 async def get_dashboard(period: str = "today"):
-    """Get analytics dashboard data."""
+    """Get analytics dashboard data from DocumentDB. Returns empty metrics when DB is unavailable."""
     if _db_connected:
         try:
             db = get_db()
@@ -180,62 +89,138 @@ async def get_dashboard(period: str = "today"):
                 })
             # Get total product count
             total_products = await db["products"].count_documents({})
+            # Get order stats
+            total_orders = await db["orders"].count_documents({}) if "orders" in await db.list_collection_names() else 0
+            # Get user activity stats
+            total_activities = await db["user_activities"].count_documents({}) if "user_activities" in await db.list_collection_names() else 0
             return {
                 "period": period,
                 "generated_at": datetime.utcnow().isoformat(),
                 "metrics": {
-                    **MOCK_DASHBOARD,
+                    **_empty_dashboard(),
                     "total_products": total_products,
-                    "categories_from_db": categories,
+                    "total_orders": total_orders,
+                    "total_activities": total_activities,
+                    "top_categories": categories,
                 },
                 "currency": "KRW",
             }
         except Exception as e:
-            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
-    # Fallback to mock data
+            logger.warning(f"DocumentDB query failed: {e}, returning empty dashboard")
+    # Fallback to empty dashboard when DB is unavailable
     return {
         "period": period,
         "generated_at": datetime.utcnow().isoformat(),
-        "metrics": MOCK_DASHBOARD,
+        "metrics": _empty_dashboard(),
         "currency": "KRW",
     }
 
 
 @app.get("/api/v1/analytics/top-products")
 async def get_top_products(limit: int = 10):
-    """Get top products by rating."""
+    """Get top products from user_activities aggregation, enriched via product-catalog service."""
     if _db_connected:
         try:
             db = get_db()
-            cursor = db["products"].find().sort("rating", DESCENDING).limit(limit)
-            products = []
-            async for doc in cursor:
-                doc["_id"] = str(doc["_id"])
-                products.append(doc)
-            return {
-                "top_products": products,
-                "total": len(products),
-                "generated_at": datetime.utcnow().isoformat(),
-            }
+            collections = await db.list_collection_names()
+
+            # Try user_activities aggregation first for real engagement-based ranking
+            if "user_activities" in collections:
+                pipeline = [
+                    {"$match": {"action": {"$in": ["purchase", "add_to_cart", "view", "click"]}}},
+                    {"$group": {
+                        "_id": "$product_id",
+                        "score": {"$sum": {
+                            "$switch": {
+                                "branches": [
+                                    {"case": {"$eq": ["$action", "purchase"]}, "then": 10},
+                                    {"case": {"$eq": ["$action", "add_to_cart"]}, "then": 5},
+                                    {"case": {"$eq": ["$action", "click"]}, "then": 2},
+                                ],
+                                "default": 1,
+                            }
+                        }},
+                        "interaction_count": {"$sum": 1},
+                    }},
+                    {"$sort": {"score": DESCENDING}},
+                    {"$limit": limit},
+                ]
+                cursor = db["user_activities"].aggregate(pipeline)
+                top_items = []
+                async for doc in cursor:
+                    top_items.append(doc)
+
+                if top_items:
+                    # Enrich with product details from product-catalog service
+                    product_ids = [item["_id"] for item in top_items if item["_id"]]
+                    product_map = await get_products_by_ids(product_ids)
+
+                    products = []
+                    for item in top_items:
+                        pid = item["_id"]
+                        catalog_data = product_map.get(pid, {})
+                        products.append({
+                            "product_id": pid,
+                            "name": catalog_data.get("name", f"Product {pid}"),
+                            "score": item.get("score", 0),
+                            "interaction_count": item.get("interaction_count", 0),
+                            "price": catalog_data.get("price"),
+                            "image_url": catalog_data.get("image_url"),
+                            "category": catalog_data.get("category"),
+                        })
+                    return {
+                        "top_products": products,
+                        "total": len(products),
+                        "generated_at": datetime.utcnow().isoformat(),
+                    }
+
+            # Fallback: sort products by rating from products collection
+            if "products" in collections:
+                cursor = db["products"].find().sort("rating", DESCENDING).limit(limit)
+                products = []
+                async for doc in cursor:
+                    doc["_id"] = str(doc["_id"])
+                    products.append(doc)
+                return {
+                    "top_products": products,
+                    "total": len(products),
+                    "generated_at": datetime.utcnow().isoformat(),
+                }
         except Exception as e:
-            logger.warning(f"DocumentDB query failed: {e}, using fallback mock data")
-    # Fallback to mock data
+            logger.warning(f"DocumentDB query failed: {e}, returning empty top products")
+    # Return empty list when DB is unavailable
     return {
-        "top_products": MOCK_DASHBOARD.get("top_products", [])[:limit],
-        "total": len(MOCK_DASHBOARD.get("top_products", [])),
+        "top_products": [],
+        "total": 0,
         "generated_at": datetime.utcnow().isoformat(),
     }
 
 
 @app.get("/api/v1/analytics/reports")
 async def list_reports(report_type: str = None, limit: int = 10):
-    """List available analytics reports."""
-    reports = MOCK_REPORTS
-    if report_type:
-        reports = [r for r in reports if r["type"] == report_type]
+    """List available analytics reports from DocumentDB. Returns empty list when DB is unavailable."""
+    if _db_connected:
+        try:
+            db = get_db()
+            collections = await db.list_collection_names()
+            if "reports" in collections:
+                query = {}
+                if report_type:
+                    query["type"] = report_type
+                cursor = db["reports"].find(query).sort("created_at", DESCENDING).limit(limit)
+                reports = []
+                async for doc in cursor:
+                    doc["_id"] = str(doc["_id"])
+                    reports.append(doc)
+                return {
+                    "reports": reports,
+                    "total": len(reports),
+                }
+        except Exception as e:
+            logger.warning(f"DocumentDB query failed: {e}, returning empty reports")
     return {
-        "reports": reports[:limit],
-        "total": len(reports),
+        "reports": [],
+        "total": 0,
     }
 
 
@@ -249,7 +234,7 @@ async def startup():
             _db_connected = True
             logger.info("Connected to DocumentDB")
         except Exception as e:
-            logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
+            logger.warning(f"DocumentDB unavailable: {e}, endpoints will return empty data")
 
     # Initialize Kafka consumer for all events (graceful degradation)
     if config.kafka_brokers and config.kafka_brokers != "localhost:9092":

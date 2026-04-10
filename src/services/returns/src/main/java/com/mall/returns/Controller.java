@@ -124,41 +124,11 @@ public class Controller {
                 }
             }
         } catch (Exception e) {
-            logger.warn("Order service call failed, falling back to mock data: {}", e.getMessage());
+            logger.warn("Order service call failed, falling back to empty result: {}", e.getMessage());
         }
 
-        // Mock data fallback
-        List<Map<String, Object>> allReturns = List.of(
-            Map.ofEntries(
-                Map.entry("id", "RET-001"),
-                Map.entry("order_id", "ORD-OLD-001"),
-                Map.entry("user_id", "USR-001"),
-                Map.entry("user_name", "김민수"),
-                Map.entry("product_name", "나이키 에어맥스 97"),
-                Map.entry("status", "completed"),
-                Map.entry("status_display", "반품완료"),
-                Map.entry("reason", "상품불량"),
-                Map.entry("refund_amount", 189000),
-                Map.entry("created_at", "2026-03-10T14:00:00Z"),
-                Map.entry("completed_at", "2026-03-15T10:00:00Z")
-            ),
-            Map.ofEntries(
-                Map.entry("id", "RET-002"),
-                Map.entry("order_id", "ORD-OLD-002"),
-                Map.entry("user_id", "USR-002"),
-                Map.entry("user_name", "이서연"),
-                Map.entry("product_name", "스타벅스 텀블러 세트"),
-                Map.entry("status", "approved"),
-                Map.entry("status_display", "반품승인"),
-                Map.entry("reason", "오배송"),
-                Map.entry("refund_amount", 45000),
-                Map.entry("created_at", "2026-03-18T09:00:00Z")
-            )
-        );
-
-        List<Map<String, Object>> returns = user_id != null
-            ? allReturns.stream().filter(r -> user_id.equals(r.get("user_id"))).toList()
-            : allReturns;
+        // Empty fallback - no mock data
+        List<Map<String, Object>> returns = List.of();
 
         Map<String, Object> response = Map.of(
             "returns", returns,
@@ -171,65 +141,12 @@ public class Controller {
 
     @GetMapping("/api/v1/returns/{id}")
     public ResponseEntity<Map<String, Object>> getReturn(@PathVariable String id) {
-        Map<String, Object> returnInfo;
-        switch (id) {
-            case "RET-001":
-                returnInfo = Map.ofEntries(
-                    Map.entry("id", "RET-001"),
-                    Map.entry("order_id", "ORD-OLD-001"),
-                    Map.entry("user_id", "USR-001"),
-                    Map.entry("user_name", "김민수"),
-                    Map.entry("items", List.of(
-                        Map.of("product_id", "PRD-002", "name", "나이키 에어맥스 97", "quantity", 1, "price", 189000, "reason", "상품불량 - 박음질 불량")
-                    )),
-                    Map.entry("status", "completed"),
-                    Map.entry("status_display", "반품완료"),
-                    Map.entry("reason", "상품불량"),
-                    Map.entry("reason_detail", "신발 박음질이 뜯어져 있었습니다"),
-                    Map.entry("refund_amount", 189000),
-                    Map.entry("refund_method", "원결제수단"),
-                    Map.entry("pickup_address", Map.of(
-                        "name", "김민수",
-                        "phone", "010-1234-5678",
-                        "address", "서울특별시 강남구 테헤란로 123 멀티리전타워 15층"
-                    )),
-                    Map.entry("created_at", "2026-03-10T14:00:00Z"),
-                    Map.entry("pickup_completed_at", "2026-03-12T11:30:00Z"),
-                    Map.entry("completed_at", "2026-03-15T10:00:00Z")
-                );
-                break;
-            case "RET-002":
-                returnInfo = Map.ofEntries(
-                    Map.entry("id", "RET-002"),
-                    Map.entry("order_id", "ORD-OLD-002"),
-                    Map.entry("user_id", "USR-002"),
-                    Map.entry("user_name", "이서연"),
-                    Map.entry("items", List.of(
-                        Map.of("product_id", "PRD-009", "name", "스타벅스 텀블러 세트", "quantity", 1, "price", 45000, "reason", "오배송 - 다른 상품 배송됨")
-                    )),
-                    Map.entry("status", "approved"),
-                    Map.entry("status_display", "반품승인"),
-                    Map.entry("reason", "오배송"),
-                    Map.entry("reason_detail", "주문한 것과 다른 색상의 상품이 배송되었습니다"),
-                    Map.entry("refund_amount", 45000),
-                    Map.entry("refund_method", "원결제수단"),
-                    Map.entry("pickup_address", Map.of(
-                        "name", "이서연",
-                        "phone", "010-9876-5432",
-                        "address", "서울특별시 서초구 강남대로 456 힐스테이트 1203호"
-                    )),
-                    Map.entry("created_at", "2026-03-18T09:00:00Z"),
-                    Map.entry("approved_at", "2026-03-18T14:00:00Z"),
-                    Map.entry("pickup_scheduled", "2026-03-21T10:00:00Z")
-                );
-                break;
-            default:
-                returnInfo = Map.of(
-                    "id", id,
-                    "error", "반품 정보를 찾을 수 없습니다",
-                    "status", "not_found"
-                );
-        }
+        // No mock data - return not found for unknown IDs
+        Map<String, Object> returnInfo = Map.of(
+            "id", id,
+            "error", "반품 정보를 찾을 수 없습니다",
+            "status", "not_found"
+        );
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .body(returnInfo);
