@@ -34,12 +34,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG" scripts/seed-data/
-          docker push "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG" || {
-            # ECR repo might not exist yet — create and retry
-            pip3 install -q awscli 2>/dev/null || yum install -y awscli 2>/dev/null || true
-            aws ecr create-repository --repository-name "$IMAGE_NAME" --region "$AWS_REGION" 2>/dev/null || true
-            docker push "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
-          }
+          docker push "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
           docker tag "$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG" "$ECR_REGISTRY/$IMAGE_NAME:latest"
           docker push "$ECR_REGISTRY/$IMAGE_NAME:latest"
 
