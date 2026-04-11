@@ -8,17 +8,25 @@ import (
 	"strconv"
 	"time"
 
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 	"github.com/multi-region-mall/shared/pkg/aurora"
 	"github.com/multi-region-mall/shared/pkg/config"
 	"github.com/multi-region-mall/shared/pkg/health"
 	"github.com/multi-region-mall/shared/pkg/kafka"
 	"github.com/multi-region-mall/shared/pkg/tracing"
+	"github.com/multi-region-mall/shared/pkg/valkey"
 	"go.uber.org/zap"
 )
 
 // Global DB client - nil if DB unavailable (graceful degradation)
 var dbClient *aurora.Client
+
+// Global Valkey client - nil if unavailable (graceful degradation)
+var cacheClient *valkey.Client
+
+const inventoryCacheTTL = 30 * time.Second // Short TTL for inventory (frequently updated)
 
 // Kafka producers for inventory events - nil if Kafka unavailable
 var reservedProducer *kafka.Producer
@@ -64,6 +72,20 @@ func main() {
 	tp, err := tracing.InitTracer(ctx, cfg.ServiceName)
 	if err == nil {
 		defer func() { _ = tp.Shutdown(ctx) }()
+	}
+
+	// Initialize Valkey connection (graceful fallback if unavailable)
+	if cfg.CacheHost != "" && cfg.CacheHost != "localhost" {
+		client, err := valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
+		if err != nil {
+			log.Printf("WARNING: Valkey unavailable, inventory lookups will not be cached: %v", err)
+		} else {
+			cacheClient = client
+			defer cacheClient.Close()
+			log.Printf("INFO: Connected to Valkey at %s:%d", cfg.CacheHost, cfg.CachePort)
+		}
+	} else {
+		log.Printf("INFO: No CACHE_HOST configured, inventory caching disabled")
 	}
 
 	// Initialize Aurora DB connection (graceful fallback to mock if unavailable)
@@ -126,9 +148,25 @@ func corsMiddleware() gin.HandlerFunc {
 	}
 }
 
+func inventoryCacheKey(productID string) string {
+	return "inventory:" + productID
+}
+
 func getInventory(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		productID := c.Param("productId")
+
+		// Try Valkey cache first
+		if cacheClient != nil {
+			cached, err := cacheClient.Get(c.Request.Context(), inventoryCacheKey(productID))
+			if err == nil {
+				var item InventoryItem
+				if json.Unmarshal([]byte(cached), &item) == nil {
+					c.JSON(http.StatusOK, item)
+					return
+				}
+			}
+		}
 
 		// Try DB query first if available
 		if dbClient != nil {
@@ -140,6 +178,11 @@ func getInventory(cfg *config.Config) gin.HandlerFunc {
 				&item.Warehouse, &item.Available, &item.Location, &item.LastUpdated)
 			if err == nil {
 				item.Available = item.Quantity - item.Reserved
+				// Cache the DB result in Valkey
+				if cacheClient != nil {
+					data, _ := json.Marshal(item)
+					_ = cacheClient.Set(c.Request.Context(), inventoryCacheKey(productID), data, inventoryCacheTTL)
+				}
 				c.JSON(http.StatusOK, item)
 				return
 			}
@@ -198,6 +241,10 @@ func updateStock(cfg *config.Config) gin.HandlerFunc {
 				&item.ProductID, &item.SKU, &item.Quantity, &item.Reserved, &item.Warehouse, &item.LastUpdated)
 			if err == nil {
 				item.Available = item.Quantity - item.Reserved
+				// Invalidate cache after update
+				if cacheClient != nil {
+					_ = cacheClient.Del(c.Request.Context(), inventoryCacheKey(productID))
+				}
 				c.JSON(http.StatusOK, gin.H{
 					"message":   "재고가 업데이트되었습니다",
 					"operation": req.Operation,

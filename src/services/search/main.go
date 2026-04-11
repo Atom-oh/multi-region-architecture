@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/multi-region-mall/shared/pkg/config"
 	"github.com/multi-region-mall/shared/pkg/health"
 	"github.com/multi-region-mall/shared/pkg/tracing"
+	"github.com/multi-region-mall/shared/pkg/valkey"
 )
 
 type Product struct {
@@ -42,11 +44,20 @@ type IndexRequest struct {
 	Tags        []string `json:"tags"`
 }
 
+// Global Valkey client - nil if unavailable (graceful degradation)
+var cacheClient *valkey.Client
+
 // Products are fetched from product-catalog service at runtime
 var emptyProducts []Product
 
 // OTel-instrumented HTTP client for inter-service calls
 var serviceClient = tracing.HTTPClient()
+
+const (
+	catalogCacheKey = "search:catalog:all"
+	catalogCacheTTL = 5 * time.Minute // Cache product catalog for 5 minutes
+	searchCacheTTL  = 2 * time.Minute // Cache search results for 2 minutes
+)
 
 func main() {
 	cfg := config.Load("search")
@@ -56,6 +67,20 @@ func main() {
 	tp, err := tracing.InitTracer(ctx, cfg.ServiceName)
 	if err == nil {
 		defer tp.Shutdown(ctx)
+	}
+
+	// Initialize Valkey connection (graceful fallback if unavailable)
+	if cfg.CacheHost != "" && cfg.CacheHost != "localhost" {
+		client, err := valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
+		if err != nil {
+			log.Printf("WARNING: Valkey unavailable, search results will not be cached: %v", err)
+		} else {
+			cacheClient = client
+			defer cacheClient.Close()
+			log.Printf("INFO: Connected to Valkey at %s:%d", cfg.CacheHost, cfg.CachePort)
+		}
+	} else {
+		log.Printf("INFO: No CACHE_HOST configured, search caching disabled")
 	}
 
 	r := gin.Default()
@@ -94,6 +119,55 @@ func corsMiddleware() gin.HandlerFunc {
 	}
 }
 
+// fetchCatalogProducts fetches product catalog with Valkey cache-aside pattern.
+func fetchCatalogProducts(ctx context.Context) []Product {
+	// Try Valkey cache first
+	if cacheClient != nil {
+		cached, err := cacheClient.Get(ctx, catalogCacheKey)
+		if err == nil {
+			var products []Product
+			if json.Unmarshal([]byte(cached), &products) == nil && len(products) > 0 {
+				return products
+			}
+		}
+	}
+
+	// Cache miss or unavailable — fetch from product-catalog service
+	catalogURL := "http://product-catalog.core-services.svc.cluster.local:80/api/v1/products"
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", catalogURL, nil)
+	if err != nil {
+		return emptyProducts
+	}
+	resp, err := serviceClient.Do(httpReq)
+	if err != nil {
+		return emptyProducts
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return emptyProducts
+	}
+
+	var catalog struct {
+		Products []Product `json:"products"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&catalog) != nil || len(catalog.Products) == 0 {
+		return emptyProducts
+	}
+
+	// Store in Valkey cache
+	if cacheClient != nil {
+		data, err := json.Marshal(catalog.Products)
+		if err == nil {
+			if err := cacheClient.Set(ctx, catalogCacheKey, data, catalogCacheTTL); err != nil {
+				log.Printf("WARNING: Failed to cache catalog products: %v", err)
+			}
+		}
+	}
+
+	return catalog.Products
+}
+
 func searchProducts(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		query := c.Query("q")
@@ -105,24 +179,22 @@ func searchProducts(cfg *config.Config) gin.HandlerFunc {
 		start := time.Now()
 		queryLower := strings.ToLower(query)
 
-		// Inter-service call: fetch latest products from product-catalog (distributed trace)
-		searchSource := emptyProducts
-		catalogURL := "http://product-catalog.core-services.svc.cluster.local:80/api/v1/products"
-		httpReq, err := http.NewRequestWithContext(c.Request.Context(), "GET", catalogURL, nil)
-		if err == nil {
-			resp, err := serviceClient.Do(httpReq)
+		// Try search result cache first
+		searchResultCacheKey := "search:result:" + queryLower
+		if cacheClient != nil {
+			cached, err := cacheClient.Get(c.Request.Context(), searchResultCacheKey)
 			if err == nil {
-				defer resp.Body.Close()
-				if resp.StatusCode == http.StatusOK {
-					var catalog struct {
-						Products []Product `json:"products"`
-					}
-					if json.NewDecoder(resp.Body).Decode(&catalog) == nil && len(catalog.Products) > 0 {
-						searchSource = catalog.Products
-					}
+				var response SearchResponse
+				if json.Unmarshal([]byte(cached), &response) == nil {
+					response.Took = time.Since(start).String()
+					c.JSON(http.StatusOK, response)
+					return
 				}
 			}
 		}
+
+		// Cache miss — fetch catalog (also cached) and filter
+		searchSource := fetchCatalogProducts(c.Request.Context())
 
 		// Filter products that match the query
 		var results []Product
@@ -148,6 +220,14 @@ func searchProducts(cfg *config.Config) gin.HandlerFunc {
 			Total:   len(results),
 			Results: results,
 			Took:    time.Since(start).String(),
+		}
+
+		// Cache search results
+		if cacheClient != nil {
+			data, _ := json.Marshal(response)
+			if err := cacheClient.Set(c.Request.Context(), searchResultCacheKey, data, searchCacheTTL); err != nil {
+				log.Printf("WARNING: Failed to cache search results: %v", err)
+			}
 		}
 
 		c.JSON(http.StatusOK, response)

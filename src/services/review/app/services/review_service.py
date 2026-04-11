@@ -1,8 +1,9 @@
-"""Review service - business logic with Kafka event publishing and product enrichment."""
+"""Review service - business logic with Kafka event publishing, product enrichment, and caching."""
 
 import logging
 from typing import Optional
 
+from mall_common import valkey
 from mall_common.kafka import Producer
 from mall_common.service_client import get_product, get_products_by_ids
 
@@ -11,6 +12,9 @@ from app.models.review import Review, ReviewCreate, ReviewListResponse, ReviewUp
 from app.repositories import review_repo
 
 logger = logging.getLogger(__name__)
+
+CACHE_TTL = 600  # 10 minutes for individual reviews
+LIST_CACHE_TTL = 300  # 5 minutes for review lists (more dynamic)
 
 _producer: Optional[Producer] = None
 
@@ -61,9 +65,16 @@ async def _enrich_reviews(reviews: list[Review]) -> list[Review]:
 
 
 async def get_review(review_id: str) -> Optional[Review]:
+    cache_key = f"review:{review_id}"
+    cached = await valkey.get_json(cache_key)
+    if cached:
+        logger.debug("Cache hit for review %s", review_id)
+        return Review(**cached)
+
     review = await review_repo.get_review(review_id)
     if review:
         review = await _enrich_review(review)
+        await valkey.set_json(cache_key, review.model_dump(mode="json"), CACHE_TTL)
     return review
 
 
@@ -72,20 +83,39 @@ async def get_reviews_by_product(
     page: int = 1,
     page_size: int = 10,
 ) -> ReviewListResponse:
+    cache_key = f"review:product:{product_id}:{page}:{page_size}"
+    cached = await valkey.get_json(cache_key)
+    if cached:
+        logger.debug("Cache hit for reviews of product %s", product_id)
+        return ReviewListResponse(**cached)
+
     reviews, total = await review_repo.get_reviews_by_product(product_id, page, page_size)
     reviews = await _enrich_reviews(reviews)
     has_more = (page * page_size) < total
-    return ReviewListResponse(
+    response = ReviewListResponse(
         reviews=reviews,
         total=total,
         page=page,
         page_size=page_size,
         has_more=has_more,
     )
+    await valkey.set_json(cache_key, response.model_dump(mode="json"), LIST_CACHE_TTL)
+    return response
+
+
+async def _invalidate_review_cache(review_id: str, product_id: str) -> None:
+    """Invalidate caches related to a review."""
+    await valkey.delete(f"review:{review_id}")
+    # Invalidate product review list cache (all pages)
+    # Using a simple approach: delete the first few pages which are most commonly accessed
+    for page in range(1, 6):
+        await valkey.delete(f"review:product:{product_id}:{page}:10")
 
 
 async def create_review(data: ReviewCreate) -> Review:
     review = await review_repo.create_review(data)
+
+    await _invalidate_review_cache(review.id, review.product_id)
 
     await _publish_event(
         "reviews.created",
@@ -106,6 +136,8 @@ async def create_review(data: ReviewCreate) -> Review:
 async def update_review(review_id: str, update: ReviewUpdate) -> Optional[Review]:
     review = await review_repo.update_review(review_id, update)
     if review:
+        await _invalidate_review_cache(review.id, review.product_id)
+
         await _publish_event(
             "reviews.updated",
             review.id,
@@ -124,6 +156,8 @@ async def delete_review(review_id: str) -> bool:
     review = await review_repo.get_review(review_id)
     deleted = await review_repo.delete_review(review_id)
     if deleted and review:
+        await _invalidate_review_cache(review_id, review.product_id)
+
         await _publish_event(
             "reviews.deleted",
             review_id,

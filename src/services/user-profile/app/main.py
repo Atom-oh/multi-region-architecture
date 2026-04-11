@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
 from mall_common.documentdb import connect, disconnect, get_db
+from mall_common import valkey
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
 
@@ -189,6 +190,12 @@ async def startup():
             logger.info("Connected to DocumentDB")
         except Exception as e:
             logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
+    if config.cache_host != "localhost":
+        try:
+            await valkey.connect(config.cache_host, config.cache_port)
+            logger.info("Connected to Valkey")
+        except Exception as e:
+            logger.warning(f"Valkey unavailable: {e}, profile caching disabled")
     set_started(True)
     set_ready(True)
 
@@ -196,6 +203,7 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await disconnect()
+    await valkey.disconnect()
 
 
 if __name__ == "__main__":
