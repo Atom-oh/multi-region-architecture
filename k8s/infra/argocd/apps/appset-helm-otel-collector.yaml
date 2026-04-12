@@ -38,6 +38,24 @@ spec:
             mode: daemonset
             service:
               enabled: true
+            ports:
+              metrics:
+                enabled: true
+                containerPort: 8888
+                servicePort: 8888
+                protocol: TCP
+              prometheus:
+                enabled: true
+                containerPort: 8889
+                servicePort: 8889
+                protocol: TCP
+            serviceMonitor:
+              enabled: true
+              metricsEndpoints:
+                - port: metrics
+                  interval: 30s
+                - port: prometheus
+                  interval: 30s
             tolerations:
               - operator: Exists
             resources:

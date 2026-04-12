@@ -43,6 +43,8 @@ spec:
               name: karpenter
               annotations:
                 eks.amazonaws.com/role-arn: '{{values.roleArn}}'
+            serviceMonitor:
+              enabled: true
             replicas: 2
             tolerations:
               - key: node-role
