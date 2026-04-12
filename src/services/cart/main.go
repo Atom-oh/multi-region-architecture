@@ -49,6 +49,69 @@ var mockCarts = map[string]Cart{}
 // OTel-instrumented HTTP client for inter-service calls
 var serviceClient = tracing.HTTPClient()
 
+// Lua script for atomic cart add — runs GET+modify+SET inside Redis without race conditions.
+// KEYS[1] = cart key, ARGV[1] = item JSON, ARGV[2] = TTL seconds
+const addItemScript = `
+local cartJSON = redis.call('GET', KEYS[1])
+local cart
+if cartJSON then
+  cart = cjson.decode(cartJSON)
+else
+  cart = {user_id=ARGV[3], items={}, total=0, item_count=0}
+end
+local newItem = cjson.decode(ARGV[1])
+local found = false
+for i, item in ipairs(cart.items) do
+  if item.product_id == newItem.product_id then
+    cart.items[i].quantity = item.quantity + newItem.quantity
+    found = true
+    break
+  end
+end
+if not found then
+  table.insert(cart.items, newItem)
+end
+local total = 0
+local itemCount = 0
+for _, item in ipairs(cart.items) do
+  total = total + item.price * item.quantity
+  itemCount = itemCount + item.quantity
+end
+cart.total = total
+cart.item_count = itemCount
+local updated = cjson.encode(cart)
+redis.call('SET', KEYS[1], updated, 'EX', tonumber(ARGV[2]))
+return updated
+`
+
+// Lua script for atomic cart remove — runs GET+modify+SET inside Redis without race conditions.
+// KEYS[1] = cart key, ARGV[1] = product ID to remove, ARGV[2] = TTL seconds
+const removeItemScript = `
+local cartJSON = redis.call('GET', KEYS[1])
+if not cartJSON then
+  return nil
+end
+local cart = cjson.decode(cartJSON)
+local newItems = {}
+for _, item in ipairs(cart.items) do
+  if item.product_id ~= ARGV[1] then
+    table.insert(newItems, item)
+  end
+end
+cart.items = newItems
+local total = 0
+local itemCount = 0
+for _, item in ipairs(cart.items) do
+  total = total + item.price * item.quantity
+  itemCount = itemCount + item.quantity
+end
+cart.total = total
+cart.item_count = itemCount
+local updated = cjson.encode(cart)
+redis.call('SET', KEYS[1], updated, 'EX', tonumber(ARGV[2]))
+return updated
+`
+
 func main() {
 	cfg := config.Load("cart")
 
@@ -198,44 +261,21 @@ func addItem(cfg *config.Config) gin.HandlerFunc {
 			ImageURL:  productImage,
 		}
 
-		// Get current cart, add item, and save to Valkey (fallback to in-memory)
+		// Atomic add via Lua script — prevents race conditions on concurrent cart updates
 		saved := false
 		if cacheClient != nil {
-			var cart Cart
-			cartJSON, err := cacheClient.Get(c.Request.Context(), "cart:"+userID)
-			if err == nil {
-				_ = json.Unmarshal([]byte(cartJSON), &cart)
-			}
-			if cart.UserID == "" {
-				cart = Cart{UserID: userID, Items: []CartItem{}}
-			}
-
-			// Check if item already exists, update quantity if so
-			found := false
-			for i, item := range cart.Items {
-				if item.ProductID == req.ProductID {
-					cart.Items[i].Quantity += req.Quantity
-					found = true
-					break
-				}
-			}
-			if !found {
-				cart.Items = append(cart.Items, newItem)
-			}
-
-			// Recalculate totals
-			cart.Total = 0
-			cart.ItemCount = 0
-			for _, item := range cart.Items {
-				cart.Total += item.Price * item.Quantity
-				cart.ItemCount += item.Quantity
-			}
-			cart.UpdatedAt = time.Now()
-
-			// Save to Valkey with 24h TTL
-			updatedCartJSON, _ := json.Marshal(cart)
-			if err := cacheClient.Set(c.Request.Context(), "cart:"+userID, updatedCartJSON, 24*time.Hour); err != nil {
-				log.Printf("Valkey set failed for user %s (falling back to in-memory): %v", userID, err)
+			itemJSON, _ := json.Marshal(newItem)
+			ttlSeconds := int(24 * time.Hour / time.Second)
+			_, err := cacheClient.Eval(
+				c.Request.Context(),
+				addItemScript,
+				[]string{"cart:" + userID},
+				string(itemJSON),
+				ttlSeconds,
+				userID,
+			)
+			if err != nil {
+				log.Printf("Valkey Lua addItem failed for user %s (falling back to in-memory): %v", userID, err)
 			} else {
 				saved = true
 			}
@@ -285,36 +325,21 @@ func removeItem(cfg *config.Config) gin.HandlerFunc {
 		userID := c.Param("userId")
 		itemID := c.Param("itemId") // itemID is the productID to remove
 
-		// Remove from Valkey if available, fallback to in-memory
+		// Atomic remove via Lua script — prevents race conditions on concurrent cart updates
 		removed := false
 		if cacheClient != nil {
-			cartJSON, err := cacheClient.Get(c.Request.Context(), "cart:"+userID)
-			if err == nil {
-				var cart Cart
-				if json.Unmarshal([]byte(cartJSON), &cart) == nil {
-					newItems := []CartItem{}
-					for _, item := range cart.Items {
-						if item.ProductID != itemID {
-							newItems = append(newItems, item)
-						}
-					}
-					cart.Items = newItems
-
-					cart.Total = 0
-					cart.ItemCount = 0
-					for _, item := range cart.Items {
-						cart.Total += item.Price * item.Quantity
-						cart.ItemCount += item.Quantity
-					}
-					cart.UpdatedAt = time.Now()
-
-					updatedCartJSON, _ := json.Marshal(cart)
-					if err := cacheClient.Set(c.Request.Context(), "cart:"+userID, updatedCartJSON, 24*time.Hour); err != nil {
-						log.Printf("Valkey set failed for user %s (falling back to in-memory): %v", userID, err)
-					} else {
-						removed = true
-					}
-				}
+			ttlSeconds := int(24 * time.Hour / time.Second)
+			_, err := cacheClient.Eval(
+				c.Request.Context(),
+				removeItemScript,
+				[]string{"cart:" + userID},
+				itemID,
+				ttlSeconds,
+			)
+			if err != nil && err.Error() != "redis: nil" {
+				log.Printf("Valkey Lua removeItem failed for user %s (falling back to in-memory): %v", userID, err)
+			} else {
+				removed = true
 			}
 		}
 

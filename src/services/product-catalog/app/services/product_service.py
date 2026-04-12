@@ -69,6 +69,9 @@ async def get_product(product_id: str) -> Optional[dict]:
 async def create_product(product_data: dict) -> dict:
     product = await product_repo.create_product(product_data)
 
+    # Invalidate list caches so the new product appears in queries immediately
+    await valkey.delete_pattern("product:list:*")
+
     if _producer:
         await _producer.publish(
             "catalog.product.created",
@@ -87,6 +90,7 @@ async def update_product(product_id: str, update_data: dict) -> Optional[dict]:
         await valkey.delete(_cache_key(product_id))
         if product.get("sku"):
             await valkey.delete(_cache_key_sku(product["sku"]))
+        await valkey.delete_pattern("product:list:*")
 
         if _producer:
             await _producer.publish(
@@ -106,6 +110,7 @@ async def delete_product(product_id: str) -> bool:
         await valkey.delete(_cache_key(product_id))
         if product and product.get("sku"):
             await valkey.delete(_cache_key_sku(product["sku"]))
+        await valkey.delete_pattern("product:list:*")
 
         if _producer:
             await _producer.publish(

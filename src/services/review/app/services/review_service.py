@@ -106,10 +106,8 @@ async def get_reviews_by_product(
 async def _invalidate_review_cache(review_id: str, product_id: str) -> None:
     """Invalidate caches related to a review."""
     await valkey.delete(f"review:{review_id}")
-    # Invalidate product review list cache (all pages)
-    # Using a simple approach: delete the first few pages which are most commonly accessed
-    for page in range(1, 6):
-        await valkey.delete(f"review:product:{product_id}:{page}:10")
+    # Invalidate all pages and page sizes for this product's reviews
+    await valkey.delete_pattern(f"review:product:{product_id}:*")
 
 
 async def create_review(data: ReviewCreate) -> Review:

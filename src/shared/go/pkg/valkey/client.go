@@ -56,6 +56,46 @@ func (c *Client) Del(ctx context.Context, keys ...string) error {
 	return c.cluster.Del(ctx, keys...).Err()
 }
 
+// Incr atomically increments a key and returns the new value.
+func (c *Client) Incr(ctx context.Context, key string) (int64, error) {
+	return c.cluster.Incr(ctx, key).Result()
+}
+
+// Expire sets a TTL on an existing key.
+func (c *Client) Expire(ctx context.Context, key string, ttl time.Duration) error {
+	return c.cluster.Expire(ctx, key, ttl).Err()
+}
+
+// SetNX sets the key only if it does not exist. Returns true if the key was set.
+func (c *Client) SetNX(ctx context.Context, key string, value interface{}, ttl time.Duration) (bool, error) {
+	return c.cluster.SetNX(ctx, key, value, ttl).Result()
+}
+
+// Eval executes a Lua script atomically.
+func (c *Client) Eval(ctx context.Context, script string, keys []string, args ...interface{}) (interface{}, error) {
+	return c.cluster.Eval(ctx, script, keys, args...).Result()
+}
+
+// DelPattern deletes all keys matching a pattern using SCAN + DEL.
+// Use sparingly — SCAN can be slow on large keyspaces.
+func (c *Client) DelPattern(ctx context.Context, pattern string) error {
+	var cursor uint64
+	for {
+		keys, next, err := c.cluster.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return err
+		}
+		if len(keys) > 0 {
+			c.cluster.Del(ctx, keys...)
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	return nil
+}
+
 func (c *Client) Ping(ctx context.Context) error {
 	return c.cluster.Ping(ctx).Err()
 }

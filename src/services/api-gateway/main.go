@@ -186,30 +186,30 @@ func rateLimitMiddleware() gin.HandlerFunc {
 
 		clientIP := c.ClientIP()
 		key := fmt.Sprintf("ratelimit:%s", clientIP)
+		ctx := c.Request.Context()
 
-		// Simple counter-based rate limiting using Valkey
-		countStr, err := cacheClient.Get(c.Request.Context(), key)
+		// Atomic increment — avoids race condition with GET+SET
+		count, err := cacheClient.Incr(ctx, key)
 		if err != nil {
-			// Key doesn't exist — first request in this window
-			_ = cacheClient.Set(c.Request.Context(), key, "1", rateLimitCacheTTL)
+			// Valkey unavailable — allow request through
 			c.Next()
 			return
 		}
 
-		count := 0
-		fmt.Sscanf(countStr, "%d", &count)
+		// Set TTL on first request in window
+		if count == 1 {
+			_ = cacheClient.Expire(ctx, key, rateLimitCacheTTL)
+		}
 
-		if count >= rateLimitMaxReqs {
+		if count > int64(rateLimitMaxReqs) {
 			c.JSON(http.StatusTooManyRequests, gin.H{
-				"error":   "요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.",
-				"message": "Rate limit exceeded",
+				"error":   "Rate limit exceeded",
+				"message": "Too many requests. Please try again later.",
 			})
 			c.Abort()
 			return
 		}
 
-		// Increment counter
-		_ = cacheClient.Set(c.Request.Context(), key, fmt.Sprintf("%d", count+1), rateLimitCacheTTL)
 		c.Next()
 	}
 }

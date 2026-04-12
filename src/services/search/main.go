@@ -242,6 +242,17 @@ func indexProduct(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		// Invalidate catalog and search result caches so new/updated products appear immediately
+		if cacheClient != nil {
+			ctx := c.Request.Context()
+			if err := cacheClient.Del(ctx, catalogCacheKey); err != nil {
+				log.Printf("WARN: failed to invalidate catalog cache: %v", err)
+			}
+			if err := cacheClient.DelPattern(ctx, "search:result:*"); err != nil {
+				log.Printf("WARN: failed to invalidate search result cache: %v", err)
+			}
+		}
+
 		c.JSON(http.StatusCreated, gin.H{
 			"message":    "상품이 검색 인덱스에 추가되었습니다",
 			"product_id": req.ID,

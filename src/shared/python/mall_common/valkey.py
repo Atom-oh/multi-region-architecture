@@ -62,6 +62,14 @@ async def delete(key: str) -> None:
     await _client.delete(key)
 
 
+async def delete_pattern(pattern: str) -> None:
+    """Delete all keys matching a glob pattern. Use sparingly."""
+    if _client is None:
+        return
+    async for key in _client.scan_iter(match=pattern, count=100):
+        await _client.delete(key)
+
+
 async def ping() -> bool:
     if _client is None:
         return False
