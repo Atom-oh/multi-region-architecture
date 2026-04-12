@@ -1,6 +1,6 @@
 {
   "annotations": { "list": [] },
-  "description": "Distributed tracing analysis — trace search, latency heatmap, error analysis, and span breakdown via Tempo and ClickHouse",
+  "description": "Distributed tracing analysis — trace search, latency heatmap, error analysis, and span breakdown via ClickHouse and Tempo",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -17,8 +17,11 @@
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "blue", "value": null }] } } },
       "options": { "colorMode": "background_solid", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [{
-        "rawSql": "SELECT count(DISTINCT TraceId) as total FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service'",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT count(DISTINCT TraceId) as total FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}'",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -28,8 +31,11 @@
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }] } } },
       "options": { "colorMode": "background_solid", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [{
-        "rawSql": "SELECT count() as total FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service'",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT count() as total FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}'",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -39,8 +45,11 @@
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } } },
       "options": { "colorMode": "background_solid", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [{
-        "rawSql": "SELECT count() as errors FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' AND StatusCode = 'STATUS_CODE_ERROR'",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT count() as errors FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' AND StatusCode = 'Error'",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -50,8 +59,11 @@
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "percentunit", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.01 }, { "color": "red", "value": 0.05 }] } } },
       "options": { "colorMode": "background_solid", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [{
-        "rawSql": "SELECT countIf(StatusCode = 'STATUS_CODE_ERROR') / count() as error_rate FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service'",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT countIf(StatusCode = 'Error') / count() as error_rate FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}'",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -61,8 +73,11 @@
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "ms", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 500 }, { "color": "red", "value": 2000 }] } } },
       "options": { "colorMode": "background_solid", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [{
-        "rawSql": "SELECT quantile(0.5)(Duration / 1000000) as p50_ms FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' AND SpanKind = 'SPAN_KIND_SERVER'",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT quantile(0.5)(Duration / 1000000) as p50_ms FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' AND SpanKind = 'Server'",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -72,8 +87,11 @@
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "ms", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 2000 }, { "color": "red", "value": 10000 }] } } },
       "options": { "colorMode": "background_solid", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [{
-        "rawSql": "SELECT quantile(0.99)(Duration / 1000000) as p99_ms FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' AND SpanKind = 'SPAN_KIND_SERVER'",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT quantile(0.99)(Duration / 1000000) as p99_ms FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' AND SpanKind = 'Server'",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -91,21 +109,25 @@
         ]
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
-      "targets": [
-        {
-          "rawSql": "SELECT toStartOfInterval(Timestamp, INTERVAL 1 minute) as time, count(DISTINCT TraceId) as traces, countIf(StatusCode = 'STATUS_CODE_ERROR') as errors FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' GROUP BY time ORDER BY time",
-          "format": 0
-        }
-      ]
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT $__timeInterval(Timestamp) as time, count(DISTINCT TraceId) as traces, countIf(StatusCode = 'Error') as errors FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' GROUP BY time ORDER BY time",
+        "format": 0,
+        "queryType": "sql",
+        "refId": "A"
+      }]
     },
     {
       "type": "heatmap", "title": "Duration Heatmap",
       "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-      "options": { "calculate": false, "color": { "scheme": "Turbo", "fill": "dark-minimal" }, "yAxis": { "unit": "ms" } },
+      "options": { "calculate": true, "color": { "scheme": "Turbo" }, "yAxis": { "unit": "ms" } },
       "targets": [{
-        "rawSql": "SELECT toStartOfInterval(Timestamp, INTERVAL 1 minute) as time, Duration / 1000000 as duration_ms FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' AND SpanKind = 'SPAN_KIND_SERVER'",
-        "format": 0
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT $__timeInterval(Timestamp) as time, Duration / 1000000 as duration_ms FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' AND SpanKind = 'Server'",
+        "format": 0,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -122,8 +144,11 @@
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
       "targets": [{
-        "rawSql": "SELECT toStartOfInterval(Timestamp, INTERVAL 1 minute) as time, quantile(0.5)(Duration / 1000000) as p50, quantile(0.95)(Duration / 1000000) as p95, quantile(0.99)(Duration / 1000000) as p99 FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' AND SpanKind = 'SPAN_KIND_SERVER' GROUP BY time ORDER BY time",
-        "format": 0
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT $__timeInterval(Timestamp) as time, quantile(0.5)(Duration / 1000000) as p50, quantile(0.95)(Duration / 1000000) as p95, quantile(0.99)(Duration / 1000000) as p99 FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' AND SpanKind = 'Server' GROUP BY time ORDER BY time",
+        "format": 0,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -133,8 +158,11 @@
       "fieldConfig": { "defaults": { "color": { "mode": "continuous-BlYlRd" }, "unit": "ms" } },
       "options": { "orientation": "horizontal", "xTickLabelRotation": 0 },
       "targets": [{
-        "rawSql": "SELECT SpanName as endpoint, quantile(0.95)(Duration / 1000000) as p95_ms, count() as span_count FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' AND SpanKind = 'SPAN_KIND_SERVER' GROUP BY endpoint ORDER BY p95_ms DESC LIMIT 15",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT SpanName as endpoint, quantile(0.95)(Duration / 1000000) as p95_ms, count() as span_count FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' AND SpanKind = 'Server' GROUP BY endpoint ORDER BY p95_ms DESC LIMIT 15",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -154,8 +182,11 @@
       },
       "options": { "sortBy": [{ "displayName": "duration_ms", "desc": true }] },
       "targets": [{
-        "rawSql": "SELECT Timestamp, TraceId, SpanName as endpoint, Duration / 1000000 as duration_ms, StatusCode, SpanAttributes['http.method'] as method, SpanAttributes['http.status_code'] as http_status FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' AND SpanKind = 'SPAN_KIND_SERVER' AND Duration > 1000000000 ORDER BY Duration DESC LIMIT 50",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT Timestamp, TraceId, SpanName as endpoint, Duration / 1000000 as duration_ms, StatusCode, SpanAttributes['http.method'] as method, SpanAttributes['http.status_code'] as http_status FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' AND SpanKind = 'Server' AND Duration > 1000000000 ORDER BY Duration DESC LIMIT 50",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -170,8 +201,11 @@
       },
       "options": { "sortBy": [{ "displayName": "Timestamp", "desc": true }] },
       "targets": [{
-        "rawSql": "SELECT Timestamp, TraceId, SpanName as endpoint, Duration / 1000000 as duration_ms, StatusMessage, SpanAttributes['http.method'] as method, SpanAttributes['http.status_code'] as http_status FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' AND StatusCode = 'STATUS_CODE_ERROR' ORDER BY Timestamp DESC LIMIT 50",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT Timestamp, TraceId, SpanName as endpoint, Duration / 1000000 as duration_ms, StatusMessage, SpanAttributes['http.method'] as method, SpanAttributes['http.status_code'] as http_status FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' AND StatusCode = 'Error' ORDER BY Timestamp DESC LIMIT 50",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -185,8 +219,11 @@
       "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } } },
       "options": { "legend": { "displayMode": "table", "placement": "right", "values": ["percent", "value"] }, "pieType": "donut", "reduceOptions": { "calcs": ["sum"] } },
       "targets": [{
-        "rawSql": "SELECT SpanName as endpoint, count() as span_count FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' AND SpanKind = 'SPAN_KIND_SERVER' GROUP BY endpoint ORDER BY span_count DESC LIMIT 10",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT SpanName as endpoint, count() as span_count FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' AND SpanKind = 'Server' GROUP BY endpoint ORDER BY span_count DESC LIMIT 10",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -196,14 +233,18 @@
       "fieldConfig": {
         "defaults": { "color": { "mode": "palette-classic" } },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "STATUS_CODE_ERROR" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
-          { "matcher": { "id": "byName", "options": "STATUS_CODE_OK" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+          { "matcher": { "id": "byName", "options": "Error" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Unset" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Ok" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }
         ]
       },
       "options": { "legend": { "displayMode": "table", "placement": "right", "values": ["percent", "value"] }, "pieType": "donut", "reduceOptions": { "calcs": ["sum"] } },
       "targets": [{
-        "rawSql": "SELECT StatusCode, count() as cnt FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' GROUP BY StatusCode",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT StatusCode, count() as cnt FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' GROUP BY StatusCode",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }]
     },
     {
@@ -211,8 +252,11 @@
       "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 40 },
       "targets": [{
-        "rawSql": "SELECT SpanAttributes['rpc.service'] as target_service, SpanName as operation, count() as calls, avg(Duration / 1000000) as avg_ms, quantile(0.95)(Duration / 1000000) as p95_ms FROM otel.otel_traces WHERE Timestamp >= toDateTime(${__from:date:seconds}) AND Timestamp <= toDateTime(${__to:date:seconds}) AND ServiceName = '$service' AND SpanKind = 'SPAN_KIND_CLIENT' GROUP BY target_service, operation ORDER BY calls DESC LIMIT 20",
-        "format": 1
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "rawSql": "SELECT SpanAttributes['rpc.service'] as target_service, SpanName as operation, count() as calls, avg(Duration / 1000000) as avg_ms, quantile(0.95)(Duration / 1000000) as p95_ms FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '${service}' AND SpanKind = 'Client' GROUP BY target_service, operation ORDER BY calls DESC LIMIT 20",
+        "format": 1,
+        "queryType": "sql",
+        "refId": "A"
       }],
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "text", "value": null }] } } }
     }
@@ -236,10 +280,13 @@
         "type": "datasource"
       },
       {
-        "current": {},
+        "current": { "selected": true, "text": "All", "value": "$__all" },
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "$clickhouse" },
+        "includeAll": true,
+        "allValue": "%",
+        "multi": false,
         "name": "service",
-        "query": "SELECT DISTINCT ServiceName FROM otel.otel_traces WHERE Timestamp >= now() - INTERVAL 1 HOUR ORDER BY ServiceName",
+        "query": "SELECT DISTINCT ServiceName FROM otel.otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime ORDER BY ServiceName",
         "refresh": 2,
         "sort": 1,
         "type": "query"
