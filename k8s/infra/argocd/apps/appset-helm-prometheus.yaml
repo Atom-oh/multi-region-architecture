@@ -172,11 +172,12 @@ spec:
                     - name: ClickHouse
                       type: grafana-clickhouse-datasource
                       uid: clickhouse
-                      url: http://clickhouse-clickhouse.observability:8123
                       access: proxy
                       jsonData:
-                        defaultDatabase: otel
+                        host: clickhouse-clickhouse.observability
+                        port: 8123
                         protocol: http
+                        defaultDatabase: otel
             prometheus:
               prometheusSpec:
                 replicas: 2
