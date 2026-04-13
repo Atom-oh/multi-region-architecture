@@ -89,8 +89,9 @@ create_topic "product.viewed"       12
 # ── Review Events ───────────────────────────────────────────────────────────
 echo ""
 echo "Review Domain:"
-create_topic "review.submitted"    6
-create_topic "review.approved"     6
+create_topic "reviews.created"     6
+create_topic "reviews.updated"     6
+create_topic "reviews.deleted"     6
 
 # ── Search Events (analytics) ──────────────────────────────────────────────
 echo ""

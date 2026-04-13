@@ -23,15 +23,26 @@ async def get_review(review_id: str) -> Optional[Review]:
     return None
 
 
+SORT_MAP = {
+    "newest": ("created_at", -1),
+    "oldest": ("created_at", 1),
+    "highest": ("rating", -1),
+    "lowest": ("rating", 1),
+    "helpful": ("helpful_count", -1),
+}
+
+
 async def get_reviews_by_product(
     product_id: str,
     page: int = 1,
     page_size: int = 10,
+    sort: str = "newest",
 ) -> tuple[list[Review], int]:
     db = get_db()
     skip = (page - 1) * page_size
+    sort_field, sort_dir = SORT_MAP.get(sort, ("created_at", -1))
 
-    cursor = db[COLLECTION].find({"product_id": product_id}).sort("created_at", -1).skip(skip).limit(page_size)
+    cursor = db[COLLECTION].find({"product_id": product_id}).sort(sort_field, sort_dir).skip(skip).limit(page_size)
 
     reviews = []
     async for doc in cursor:
@@ -75,6 +86,24 @@ async def update_review(review_id: str, update: ReviewUpdate) -> Optional[Review
     if result:
         result.pop("_id", None)
         logger.info("Updated review %s", review_id)
+        return Review(**result)
+    return None
+
+
+async def update_user_name(review_id: str, user_name: str) -> None:
+    db = get_db()
+    await db[COLLECTION].update_one({"id": review_id}, {"$set": {"user_name": user_name}})
+
+
+async def increment_helpful(review_id: str) -> Optional[Review]:
+    db = get_db()
+    result = await db[COLLECTION].find_one_and_update(
+        {"id": review_id},
+        {"$inc": {"helpful_count": 1}},
+        return_document=True,
+    )
+    if result:
+        result.pop("_id", None)
         return Review(**result)
     return None
 

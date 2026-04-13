@@ -5,7 +5,7 @@ from typing import Optional
 
 from mall_common import valkey
 from mall_common.kafka import Producer
-from mall_common.service_client import get_product, get_products_by_ids
+from mall_common.service_client import get_product, get_products_by_ids, get_user_profile
 
 from app.config import config
 from app.models.review import Review, ReviewCreate, ReviewListResponse, ReviewUpdate
@@ -82,14 +82,15 @@ async def get_reviews_by_product(
     product_id: str,
     page: int = 1,
     page_size: int = 10,
+    sort: str = "newest",
 ) -> ReviewListResponse:
-    cache_key = f"review:product:{product_id}:{page}:{page_size}"
+    cache_key = f"review:product:{product_id}:{page}:{page_size}:{sort}"
     cached = await valkey.get_json(cache_key)
     if cached:
         logger.debug("Cache hit for reviews of product %s", product_id)
         return ReviewListResponse(**cached)
 
-    reviews, total = await review_repo.get_reviews_by_product(product_id, page, page_size)
+    reviews, total = await review_repo.get_reviews_by_product(product_id, page, page_size, sort)
     reviews = await _enrich_reviews(reviews)
     has_more = (page * page_size) < total
     response = ReviewListResponse(
@@ -112,6 +113,12 @@ async def _invalidate_review_cache(review_id: str, product_id: str) -> None:
 
 async def create_review(data: ReviewCreate) -> Review:
     review = await review_repo.create_review(data)
+
+    # Enrich with user name from user-profile service
+    profile = await get_user_profile(data.user_id)
+    if profile:
+        review.user_name = profile.get("name", "")
+        await review_repo.update_user_name(review.id, review.user_name)
 
     await _invalidate_review_cache(review.id, review.product_id)
 
@@ -168,3 +175,11 @@ async def delete_review(review_id: str) -> bool:
             },
         )
     return deleted
+
+
+async def increment_helpful(review_id: str) -> Optional[Review]:
+    """Increment the helpful count for a review."""
+    review = await review_repo.increment_helpful(review_id)
+    if review:
+        await valkey.delete(f"review:{review_id}")
+    return review
