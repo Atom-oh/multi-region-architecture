@@ -23,6 +23,9 @@ patches:
         value:
           name: AVAILABILITY_ZONE
           value: "ap-northeast-2c"
+      - op: replace
+        path: /spec/template/spec/topologySpreadConstraints/0/whenUnsatisfiable
+        value: "ScheduleAnyway"
 commonLabels:
   region: ap-northeast-2
   region-role: secondary

@@ -18,6 +18,9 @@ patches:
       name: synthetic-monitor
     patch: |-
       - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/image
+        value: "180294183052.dkr.ecr.ap-northeast-2.amazonaws.com/shopping-mall/synthetic-monitor:latest"
+      - op: replace
         path: /spec/jobTemplate/spec/template/spec/containers/0/env/2
         value:
           name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -45,6 +48,9 @@ patches:
         value:
           name: AVAILABILITY_ZONE
           value: "ap-northeast-2a"
+      - op: replace
+        path: /spec/template/spec/topologySpreadConstraints/0/whenUnsatisfiable
+        value: "ScheduleAnyway"
 
 commonLabels:
   region: ap-northeast-2
