@@ -28,10 +28,10 @@ spec:
         path: 'k8s/overlays/{{values.overlayPath}}/business'
         kustomize:
           images:
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/seller={{metadata.annotations.ecr-registry}}/shopping-mall/seller'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/notification={{metadata.annotations.ecr-registry}}/shopping-mall/notification'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/recommendation={{metadata.annotations.ecr-registry}}/shopping-mall/recommendation'
-            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/pricing={{metadata.annotations.ecr-registry}}/shopping-mall/pricing'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/seller=180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/seller'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/notification=180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/notification'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/recommendation=180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/recommendation'
+            - '180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/pricing=180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/pricing'
       destination:
         server: '{{server}}'
         namespace: business-services
