@@ -16,7 +16,7 @@
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [{
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-        "rawSql": "SELECT count() FROM otel.otel_logs WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime",
+        "rawSql": "SELECT count() FROM otel.otel_logs WHERE TimestampTime >= $__fromTime AND TimestampTime <= $__toTime",
         "format": 1,
         "queryType": "sql",
         "refId": "A"
@@ -37,7 +37,7 @@
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [{
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-        "rawSql": "SELECT count() FROM otel.otel_logs WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND SeverityText IN ('ERROR', 'FATAL', 'CRITICAL')",
+        "rawSql": "SELECT count() FROM otel.otel_logs WHERE TimestampTime >= $__fromTime AND TimestampTime <= $__toTime AND SeverityText IN ('ERROR', 'FATAL', 'CRITICAL')",
         "format": 1,
         "queryType": "sql",
         "refId": "A"
@@ -55,7 +55,7 @@
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [{
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-        "rawSql": "SELECT count() FROM otel.otel_logs WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND SeverityText = 'WARN'",
+        "rawSql": "SELECT count() FROM otel.otel_logs WHERE TimestampTime >= $__fromTime AND TimestampTime <= $__toTime AND SeverityText = 'WARN'",
         "format": 1,
         "queryType": "sql",
         "refId": "A"
@@ -73,7 +73,7 @@
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [{
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-        "rawSql": "SELECT count(DISTINCT ServiceName) FROM otel.otel_logs WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime",
+        "rawSql": "SELECT count(DISTINCT ServiceName) FROM otel.otel_logs WHERE TimestampTime >= $__fromTime AND TimestampTime <= $__toTime",
         "format": 1,
         "queryType": "sql",
         "refId": "A"
@@ -103,7 +103,7 @@
       "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum", "mean"] }, "tooltip": { "mode": "multi" } },
       "targets": [{
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-        "rawSql": "SELECT $__timeInterval(Timestamp) as time, SeverityText, count() as logs FROM otel.otel_logs WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '%${service:raw}%' GROUP BY time, SeverityText ORDER BY time",
+        "rawSql": "SELECT $__timeInterval(TimestampTime) as time, SeverityText, count() as logs FROM otel.otel_logs WHERE TimestampTime >= $__fromTime AND TimestampTime <= $__toTime AND ServiceName LIKE '%${service:raw}%' GROUP BY time, SeverityText ORDER BY time",
         "format": 0,
         "queryType": "sql",
         "refId": "A"
@@ -124,7 +124,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
       "targets": [{
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-        "rawSql": "SELECT ServiceName, count() as logs FROM otel.otel_logs WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime GROUP BY ServiceName ORDER BY logs DESC LIMIT 15",
+        "rawSql": "SELECT ServiceName, count() as logs FROM otel.otel_logs WHERE TimestampTime >= $__fromTime AND TimestampTime <= $__toTime GROUP BY ServiceName ORDER BY logs DESC LIMIT 15",
         "format": 1,
         "queryType": "sql",
         "refId": "A"
@@ -145,7 +145,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
       "targets": [{
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-        "rawSql": "SELECT ServiceName, countIf(SeverityText IN ('ERROR','FATAL','CRITICAL')) as errors, count() as total FROM otel.otel_logs WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime GROUP BY ServiceName HAVING errors > 0 ORDER BY errors DESC LIMIT 15",
+        "rawSql": "SELECT ServiceName, countIf(SeverityText IN ('ERROR','FATAL','CRITICAL')) as errors, count() as total FROM otel.otel_logs WHERE TimestampTime >= $__fromTime AND TimestampTime <= $__toTime GROUP BY ServiceName HAVING errors > 0 ORDER BY errors DESC LIMIT 15",
         "format": 1,
         "queryType": "sql",
         "refId": "A"
@@ -178,7 +178,7 @@
       "options": { "showHeader": true, "sortBy": [{ "desc": true, "displayName": "Timestamp" }] },
       "targets": [{
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-        "rawSql": "SELECT Timestamp, ServiceName, SeverityText, Body, TraceId, SpanId FROM otel.otel_logs WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND ServiceName LIKE '%${service:raw}%' AND (SeverityText LIKE '%${severity:raw}%' OR '${severity:raw}' = '') AND (Body LIKE '%${search:raw}%' OR '${search:raw}' = '') ORDER BY Timestamp DESC LIMIT 100",
+        "rawSql": "SELECT Timestamp, ServiceName, SeverityText, Body, TraceId, SpanId FROM otel.otel_logs WHERE TimestampTime >= $__fromTime AND TimestampTime <= $__toTime AND ServiceName LIKE '%${service:raw}%' AND (SeverityText LIKE '%${severity:raw}%' OR '${severity:raw}' = '') AND (Body LIKE '%${search:raw}%' OR '${search:raw}' = '') ORDER BY TimestampTime DESC, Timestamp DESC LIMIT 100",
         "format": 1,
         "queryType": "sql",
         "refId": "A"
@@ -194,14 +194,14 @@
       {
         "current": { "selected": true, "text": "All", "value": "$__all" },
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-        "definition": "SELECT DISTINCT ServiceName FROM otel.otel_logs WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime ORDER BY ServiceName",
+        "definition": "SELECT DISTINCT ServiceName FROM otel.otel_logs WHERE TimestampTime >= $__fromTime AND TimestampTime <= $__toTime ORDER BY ServiceName",
         "description": "Filter by service name",
         "hide": 0,
         "includeAll": true,
         "label": "Service",
         "multi": true,
         "name": "service",
-        "query": "SELECT DISTINCT ServiceName FROM otel.otel_logs WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime ORDER BY ServiceName",
+        "query": "SELECT DISTINCT ServiceName FROM otel.otel_logs WHERE TimestampTime >= $__fromTime AND TimestampTime <= $__toTime ORDER BY ServiceName",
         "refresh": 2,
         "type": "query"
       },
