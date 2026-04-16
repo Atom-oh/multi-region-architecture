@@ -28,4 +28,6 @@ resources:
   - appset-helm-runner-arm-awsops.yaml
   - appset-helm-runner-x86-cc-on-bedrock.yaml
   - appset-helm-runner-arm-cc-on-bedrock.yaml
+  - appset-helm-runner-x86-ttobak.yaml
+  - appset-helm-runner-arm-ttobak.yaml
   - appset-grafana-nlb.yaml

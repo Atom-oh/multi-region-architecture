@@ -4,7 +4,7 @@
 # Infrastructure Components
 
 ## Purpose
-Platform infrastructure deployed alongside application services: GitOps (ArgoCD), observability (OTEL, Prometheus, Tempo, Fluent Bit), autoscaling (Karpenter), and secrets management.
+Platform infrastructure deployed alongside application services: GitOps (ArgoCD), observability (OTel Collector, ClickHouse, Prometheus, Tempo, Grafana), autoscaling (Karpenter, KEDA), secrets management, and CI/CD runners.
 
 ## Key Files
 | File | Description |
@@ -14,13 +14,24 @@ Platform infrastructure deployed alongside application services: GitOps (ArgoCD)
 ## Subdirectories
 | Directory | Purpose |
 |-----------|---------|
-| `argocd/` | ArgoCD HA install + ApplicationSets for GitOps |
-| `otel-collector/` | OpenTelemetry Collector for trace/metric collection |
+| `argocd/` | ArgoCD HA install + ApplicationSets for US clusters |
+| `argocd-korea/` | ArgoCD ApplicationSets for Korea clusters (managed from mgmt) |
+| `otel-collector/` | OpenTelemetry Collector for trace/log/metric collection |
+| `clickhouse/` | ClickHouse for trace/log analytics storage |
+| `clickhouse-mgmt/` | ClickHouse config for Korea mgmt cluster |
 | `prometheus-stack/` | Prometheus + Grafana via kube-prometheus-stack |
-| `tempo/` | Grafana Tempo for distributed tracing storage |
-| `fluent-bit/` | Log forwarding to CloudWatch/S3 |
-| `karpenter/` | Node autoscaling with NodePools and EC2NodeClass |
+| `grafana/` | Grafana dashboards and datasource configs |
+| `grafana-korea-nlb/` | Korea Grafana NLB (internal, CloudFront-only access) |
+| `tempo/` | Grafana Tempo for distributed tracing (US primary) |
+| `tempo-west/` | Grafana Tempo for US-West region |
+| `karpenter/` | Node autoscaling (US clusters) |
+| `karpenter-apne2-mgmt/` | Karpenter for Korea mgmt cluster |
+| `karpenter-apne2-az-a/` | Karpenter for Korea AZ-A cluster |
+| `karpenter-apne2-az-c/` | Karpenter for Korea AZ-C cluster |
 | `external-secrets/` | External Secrets Operator for AWS Secrets Manager |
+| `keda/` | KEDA event-driven autoscaling |
+| `actions-runner/` | GitHub Actions self-hosted runners (ARC v2, x86 + arm64) |
+| `storageclass/` | Storage class definitions (gp3) |
 
 ## ArgoCD ApplicationSets
 | File | Target |
@@ -39,6 +50,6 @@ Platform infrastructure deployed alongside application services: GitOps (ArgoCD)
 - Karpenter NodePools: `general` (spot instances), `critical` (on-demand)
 - External Secrets syncs from AWS Secrets Manager via ClusterSecretStore
 - Prometheus installed via Helm values in `prometheus-stack/values.yaml`
-- Each component has its own namespace (argocd, observability, fluent-bit, external-secrets)
+- Each component has its own namespace (argocd, observability, platform, external-secrets, keda, actions-runner-system)
 
 <!-- MANUAL: -->

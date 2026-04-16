@@ -55,8 +55,8 @@ export async function api(path, options = {}) {
 
 export function mapProduct(p) {
   const cat = p.category;
-  const rawImage = p.images?.[0] || p.image_url || null;
-  const imageUrl = rawImage && !rawImage.includes('mall.example.com') ? rawImage : null;
+  const allImages = (p.images || []).filter(u => u && !u.includes('mall.example.com'));
+  const imageUrl = allImages[0] || p.image_url || null;
   return {
     id: p.productId || p.product_id || p.id || p._id,
     name: p.name,
@@ -67,9 +67,14 @@ export function mapProduct(p) {
     category: typeof cat === 'object' ? cat?.slug : cat,
     categoryName: typeof cat === 'object' ? cat?.name : cat,
     imageUrl,
+    images: allImages,
     brand: p.brand,
     discount: p.discount || 0,
     description: p.description || '',
+    tags: p.tags || [],
+    attributes: p.attributes || {},
+    stock: p.stock || {},
+    status: p.status || 'active',
   };
 }
 

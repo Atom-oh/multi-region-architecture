@@ -15,6 +15,8 @@ async def connect(uri: str, db_name: str) -> AsyncIOMotorDatabase:
         maxIdleTimeMS=300000,
         waitQueueTimeoutMS=5000,
         serverSelectionTimeoutMS=5000,
+        socketTimeoutMS=10000,
+        connectTimeoutMS=5000,
     )
     _db = _client[db_name]
     return _db

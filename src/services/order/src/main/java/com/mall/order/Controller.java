@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @RestController
 @CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
@@ -30,7 +32,8 @@ public class Controller {
             .build();
         HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
         factory.setConnectTimeout(3000);
-        factory.setConnectionRequestTimeout(5000);
+        factory.setConnectionRequestTimeout(3000);
+        factory.setReadTimeout(5000);
         restTemplate = new RestTemplate(factory);
     }
 
@@ -63,58 +66,74 @@ public class Controller {
 
     @PostMapping("/api/v1/orders")
     public ResponseEntity<Map<String, Object>> createOrder(@RequestBody Map<String, Object> order, HttpServletRequest request) {
-        String userId = (String) order.getOrDefault("user_id", "USR-001");
+        String userId = (String) order.getOrDefault("user_id", "unknown");
         List<?> items = (List<?>) order.getOrDefault("items", List.of());
 
         // Extract product ID from first item for inventory check
-        String productId = "PROD-0001";
+        String productId = null;
         if (!items.isEmpty() && items.get(0) instanceof Map) {
             Object pid = ((Map<?, ?>) items.get(0)).get("product_id");
             if (pid != null) productId = pid.toString();
         }
 
+        // Generate order ID up front so all service calls reference the same ID
+        String orderId = UUID.randomUUID().toString();
+
         // Parallel service calls: inventory, payment, shipping (distributed traces)
         Map<String, Object> paymentBody = new LinkedHashMap<>();
-        paymentBody.put("order_id", "ORD-NEW-001");
+        paymentBody.put("order_id", orderId);
         paymentBody.put("amount", order.getOrDefault("total_amount", 99000));
         paymentBody.put("method", "credit_card");
 
         Map<String, Object> shippingBody = new LinkedHashMap<>();
-        shippingBody.put("order_id", "ORD-NEW-001");
-        shippingBody.put("address", Map.of("street", "서울시 강남구 테헤란로 123", "city", "Seoul"));
+        shippingBody.put("order_id", orderId);
+        shippingBody.put("address", order.getOrDefault("shipping_address", Map.of("street", "서울시 강남구 테헤란로 123", "city", "Seoul")));
 
-        String inventoryUrl = "http://inventory.core-services.svc.cluster.local:80/api/v1/inventory/" + productId;
+        String inventoryUrl = productId != null
+            ? "http://inventory.core-services.svc.cluster.local:80/api/v1/inventory/" + productId
+            : null;
         String paymentUrl = "http://payment.core-services.svc.cluster.local:80/api/v1/payments";
         String shippingUrl = "http://shipping.fulfillment.svc.cluster.local:80/api/v1/shipments";
 
-        CompletableFuture<Map<String, Object>> inventoryFuture = CompletableFuture.supplyAsync(
-            () -> callService(inventoryUrl, HttpMethod.GET, null, request));
+        CompletableFuture<Map<String, Object>> inventoryFuture = inventoryUrl != null
+            ? CompletableFuture.supplyAsync(() -> callService(inventoryUrl, HttpMethod.GET, null, request))
+            : CompletableFuture.completedFuture(Map.of("status", "skipped", "message", "상품 ID 없음"));
         CompletableFuture<Map<String, Object>> paymentFuture = CompletableFuture.supplyAsync(
             () -> callService(paymentUrl, HttpMethod.POST, paymentBody, request));
         CompletableFuture<Map<String, Object>> shippingFuture = CompletableFuture.supplyAsync(
             () -> callService(shippingUrl, HttpMethod.POST, shippingBody, request));
 
-        CompletableFuture.allOf(inventoryFuture, paymentFuture, shippingFuture).join();
+        try {
+            CompletableFuture.allOf(inventoryFuture, paymentFuture, shippingFuture)
+                .get(8, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            // Cancel remaining futures on timeout
+            inventoryFuture.cancel(true);
+            paymentFuture.cancel(true);
+            shippingFuture.cancel(true);
+        } catch (Exception e) {
+            // InterruptedException or ExecutionException — proceed with available results
+        }
 
-        Map<String, Object> inventoryCheck = inventoryFuture.join();
-        Map<String, Object> paymentResult = paymentFuture.join();
-        Map<String, Object> shippingResult = shippingFuture.join();
+        Map<String, Object> inventoryCheck = inventoryFuture.isDone() && !inventoryFuture.isCompletedExceptionally()
+            ? inventoryFuture.join() : Map.of("status", "timeout", "message", "재고 확인 타임아웃");
+        Map<String, Object> paymentResult = paymentFuture.isDone() && !paymentFuture.isCompletedExceptionally()
+            ? paymentFuture.join() : Map.of("status", "timeout", "message", "결제 처리 타임아웃");
+        Map<String, Object> shippingResult = shippingFuture.isDone() && !shippingFuture.isCompletedExceptionally()
+            ? shippingFuture.join() : Map.of("status", "timeout", "message", "배송 요청 타임아웃");
 
-        String orderId = "ORD-NEW-001";
         BigDecimal totalAmount = new BigDecimal(order.getOrDefault("total_amount", 0).toString());
 
         // Try to insert into DB if available
         if (jdbcTemplate != null) {
             try {
-                UUID newOrderId = UUID.randomUUID();
                 jdbcTemplate.update(
                     "INSERT INTO orders (id, user_id, status, total_amount, currency, created_at, updated_at) VALUES (?::uuid, ?::uuid, ?, ?, ?, NOW(), NOW())",
-                    newOrderId.toString(), userId.startsWith("USR-") ? UUID.randomUUID().toString() : userId,
+                    orderId, userId,
                     "pending", totalAmount, "KRW"
                 );
-                orderId = newOrderId.toString();
             } catch (Exception e) {
-                // Fall back to mock ID
+                System.err.println("주문 DB 저장 실패 (orderId=" + orderId + "): " + e.getMessage());
             }
         }
 
@@ -159,7 +178,7 @@ public class Controller {
                 for (Map<String, Object> row : orders) {
                     Map<String, Object> order = new LinkedHashMap<>();
                     order.put("id", row.get("id").toString());
-                    order.put("user_id", row.get("user_id") != null ? row.get("user_id").toString() : "USR-001");
+                    order.put("user_id", row.get("user_id") != null ? row.get("user_id").toString() : null);
                     order.put("total_amount", row.get("total_amount"));
                     order.put("currency", row.get("currency"));
                     order.put("status", row.get("status"));
@@ -199,7 +218,7 @@ public class Controller {
 
                     Map<String, Object> order = new LinkedHashMap<>();
                     order.put("id", row.get("id").toString());
-                    order.put("user_id", row.get("user_id") != null ? row.get("user_id").toString() : "USR-001");
+                    order.put("user_id", row.get("user_id") != null ? row.get("user_id").toString() : null);
                     order.put("items", items.isEmpty() ? List.of() : items);
                     order.put("total_amount", row.get("total_amount"));
                     order.put("currency", row.get("currency"));
@@ -298,7 +317,7 @@ public class Controller {
             ResponseEntity<Map> resp = restTemplate.exchange(url, method, entity, Map.class);
             return resp.getBody() != null ? resp.getBody() : Map.of("status", "ok");
         } catch (Exception e) {
-            return Map.of("status", "fallback", "message", "서비스 호출 실패 - mock 데이터 사용");
+            return Map.of("status", "fallback", "message", "서비스 호출 실패");
         }
     }
 }

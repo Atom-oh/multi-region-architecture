@@ -42,9 +42,9 @@ type AddItemRequest struct {
 	Price     int    `json:"price" binding:"required,min=0"`
 }
 
-// Cart data stored in Valkey (Redis) at runtime
-var mockCartsMu sync.RWMutex
-var mockCarts = map[string]Cart{}
+// In-memory cart storage (used when Valkey is unavailable)
+var memCartsMu sync.RWMutex
+var memCarts = map[string]Cart{}
 
 // OTel-instrumented HTTP client for inter-service calls
 var serviceClient = tracing.HTTPClient()
@@ -126,14 +126,14 @@ func main() {
 	if cfg.CacheHost != "" {
 		client, err := valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
 		if err != nil {
-			log.Printf("WARNING: Valkey unavailable, using mock data: %v", err)
+			log.Printf("WARNING: Valkey unavailable, using in-memory fallback: %v", err)
 		} else {
 			cacheClient = client
 			defer cacheClient.Close()
 			log.Printf("INFO: Connected to Valkey at %s:%d", cfg.CacheHost, cfg.CachePort)
 		}
 	} else {
-		log.Printf("INFO: No CACHE_HOST configured, using mock data")
+		log.Printf("INFO: No CACHE_HOST configured, using in-memory fallback")
 	}
 
 	r := gin.Default()
@@ -194,10 +194,10 @@ func getCart(cfg *config.Config) gin.HandlerFunc {
 			}
 		}
 
-		// Fallback to mock data
-		mockCartsMu.RLock()
-		cart, exists := mockCarts[userID]
-		mockCartsMu.RUnlock()
+		// Fallback to in-memory data
+		memCartsMu.RLock()
+		cart, exists := memCarts[userID]
+		memCartsMu.RUnlock()
 		if exists {
 			cart.UpdatedAt = time.Now()
 			c.JSON(http.StatusOK, cart)
@@ -283,8 +283,8 @@ func addItem(cfg *config.Config) gin.HandlerFunc {
 
 		// Fallback: save to in-memory map when Valkey is unavailable or write failed (e.g. READONLY replica)
 		if !saved {
-			mockCartsMu.Lock()
-			cart := mockCarts[userID]
+			memCartsMu.Lock()
+			cart := memCarts[userID]
 			if cart.UserID == "" {
 				cart = Cart{UserID: userID, Items: []CartItem{}}
 			}
@@ -306,8 +306,8 @@ func addItem(cfg *config.Config) gin.HandlerFunc {
 				cart.ItemCount += item.Quantity
 			}
 			cart.UpdatedAt = time.Now()
-			mockCarts[userID] = cart
-			mockCartsMu.Unlock()
+			memCarts[userID] = cart
+			memCartsMu.Unlock()
 			log.Printf("INFO: Cart saved to in-memory fallback for user %s", userID)
 		}
 
@@ -345,8 +345,8 @@ func removeItem(cfg *config.Config) gin.HandlerFunc {
 
 		// Fallback: remove from in-memory map
 		if !removed {
-			mockCartsMu.Lock()
-			if cart, exists := mockCarts[userID]; exists {
+			memCartsMu.Lock()
+			if cart, exists := memCarts[userID]; exists {
 				newItems := []CartItem{}
 				for _, item := range cart.Items {
 					if item.ProductID != itemID {
@@ -361,9 +361,9 @@ func removeItem(cfg *config.Config) gin.HandlerFunc {
 					cart.ItemCount += item.Quantity
 				}
 				cart.UpdatedAt = time.Now()
-				mockCarts[userID] = cart
+				memCarts[userID] = cart
 			}
-			mockCartsMu.Unlock()
+			memCartsMu.Unlock()
 		}
 
 		c.JSON(http.StatusOK, gin.H{

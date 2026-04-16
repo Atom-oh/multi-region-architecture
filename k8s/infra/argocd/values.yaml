@@ -10,9 +10,30 @@ server:
 
 controller:
   replicas: 3
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "3"
+      memory: 2Gi
+  args:
+    - --status-processors
+    - "10"
+    - --operation-processors
+    - "5"
+    - --repo-server-timeout-seconds
+    - "90"
 
 repoServer:
   replicas: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
 
 applicationSet:
   replicas: 2
@@ -32,3 +53,4 @@ configs:
           - "*"
   params:
     server.insecure: true
+    controller.self.heal.timeout.seconds: "10"

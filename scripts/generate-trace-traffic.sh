@@ -58,7 +58,7 @@ log "Scenario 2 complete: $REPEAT requests sent"
 # ─────────────────────────────────────────────
 echo ""
 echo "=== Scenario 3: POST /api/v1/orders/ (api-gw → order → inventory + payment + shipping) ==="
-ORDER_BODY='{"userId":"USR-001","items":[{"productId":"PRD-001","quantity":1,"price":1890000}],"shippingAddress":{"city":"Seoul","district":"Gangnam","zipCode":"06000"}}'
+ORDER_BODY='{"user_id":"a0000001-0000-0000-0000-000000000001","items":[{"product_id":"PROD-0001","quantity":1,"price":1890000}],"shipping_address":{"city":"Seoul","district":"Gangnam","zipCode":"06000"}}'
 for i in $(seq 1 "$REPEAT"); do
   code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
     -H "Content-Type: application/json" \

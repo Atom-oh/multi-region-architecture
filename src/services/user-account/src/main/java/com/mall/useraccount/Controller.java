@@ -77,7 +77,7 @@ public class Controller {
     @PostMapping("/api/v1/users/register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, Object> user) {
         Map<String, Object> response = Map.ofEntries(
-            Map.entry("id", "USR-NEW-001"),
+            Map.entry("id", UUID.randomUUID().toString()),
             Map.entry("email", user.getOrDefault("email", "newuser@example.com")),
             Map.entry("name", user.getOrDefault("name", "신규회원")),
             Map.entry("phone", user.getOrDefault("phone", "")),
@@ -106,43 +106,45 @@ public class Controller {
         Map<String, Object> userInfo;
         String userId;
 
+        // User IDs match seed data UUIDs in DocumentDB user_profiles collection
         if (email.contains("minsu")) {
-            userId = "USR-001";
+            userId = "a0000001-0000-0000-0000-000000000001";
             userInfo = Map.of(
                 "user_id", userId,
-                "sub", "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-                "name", "김민수",
+                "sub", userId,
+                "name", "김민준",
                 "email", "minsu@example.com",
                 "email_verified", true,
                 "membership_tier", "GOLD"
             );
         } else if (email.contains("seoyeon")) {
-            userId = "USR-002";
+            userId = "a0000001-0000-0000-0000-000000000002";
             userInfo = Map.of(
                 "user_id", userId,
-                "sub", "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-                "name", "이서연",
+                "sub", userId,
+                "name", "이소연",
                 "email", "seoyeon@example.com",
                 "email_verified", true,
                 "membership_tier", "PLATINUM"
             );
         } else if (email.contains("jihoon")) {
-            userId = "USR-003";
+            userId = "a0000001-0000-0000-0000-000000000003";
             userInfo = Map.of(
                 "user_id", userId,
-                "sub", "c3d4e5f6-a7b8-9012-cdef-123456789012",
+                "sub", userId,
                 "name", "박지훈",
                 "email", "jihoon@example.com",
                 "email_verified", true,
                 "membership_tier", "SILVER"
             );
         } else {
-            userId = "USR-001";
+            // Default user for any other email
+            userId = "a0000001-0000-0000-0000-000000000001";
             userInfo = Map.of(
                 "user_id", userId,
-                "sub", "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-                "name", "김민수",
-                "email", "minsu@example.com",
+                "sub", userId,
+                "name", "김민준",
+                "email", email.isEmpty() ? "minsu@example.com" : email,
                 "email_verified", true,
                 "membership_tier", "GOLD"
             );

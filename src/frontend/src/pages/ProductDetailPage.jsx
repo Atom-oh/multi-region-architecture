@@ -181,15 +181,15 @@ export default function ProductDetailPage() {
     weekday: 'long',
   });
 
-  // Review rating distribution
+  // Review rating distribution (from loaded reviews; distribution bars only shown when all loaded)
+  const allReviewsLoaded = !reviewHasMore && reviews.length > 0;
   const ratingDist = [5, 4, 3, 2, 1].map(star => ({
     star,
     count: reviews.filter(r => Math.round(r.rating) === star).length,
-    pct: reviews.length > 0 ? Math.round((reviews.filter(r => Math.round(r.rating) === star).length / reviews.length) * 100) : 0,
+    pct: allReviewsLoaded && reviews.length > 0 ? Math.round((reviews.filter(r => Math.round(r.rating) === star).length / reviews.length) * 100) : 0,
   }));
-  const avgRating = reviews.length > 0
-    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
-    : (product?.rating || 0).toFixed(1);
+  // Use product-level rating (aggregated across all reviews) instead of loaded subset
+  const avgRating = (product?.rating || 0).toFixed(1);
 
   if (loading) {
     return (
@@ -498,9 +498,9 @@ export default function ProductDetailPage() {
                 }`}
               >
                 {t(`detail.${tab === 'reviews' ? 'reviews' : tab}`)}
-                {tab === 'reviews' && reviews.length > 0 && (
+                {tab === 'reviews' && reviewTotal > 0 && (
                   <span className="ml-1.5 text-xs bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded-full">
-                    {reviews.length}
+                    {reviewTotal}
                   </span>
                 )}
                 {activeTab === tab && (
@@ -562,7 +562,7 @@ export default function ProductDetailPage() {
                   [t('detail.origin'), product.attributes?.origin],
                   ...Object.entries(product.attributes || {})
                     .filter(([k]) => !['weight', 'origin'].includes(k))
-                    .map(([k, v]) => [k, v]),
+                    .map(([k, v]) => [k === 'crawled_specs' ? '상세 사양' : k, v]),
                   ['Product ID', product.id],
                   ['Status', product.status],
                 ].filter(([, v]) => v).map(([label, value], i) => (
@@ -625,7 +625,8 @@ export default function ProductDetailPage() {
 
                     <hr className="border-outline-variant/30 my-4" />
 
-                    {/* Rating distribution bars */}
+                    {/* Rating distribution bars (only accurate when all reviews loaded) */}
+                    {allReviewsLoaded && (
                     <div className="space-y-2">
                       {ratingDist.map(({ star, count, pct }) => (
                         <div key={star} className="flex items-center gap-2">
@@ -642,6 +643,7 @@ export default function ProductDetailPage() {
                         </div>
                       ))}
                     </div>
+                    )}
                   </div>
                 </div>
 

@@ -12,12 +12,14 @@ import sys
 import time
 from datetime import datetime, timedelta
 
+import re
+
 try:
-    import requests
+    from curl_cffi import requests as cf_requests
     from bs4 import BeautifulSoup
-    HAS_REQUESTS = True
+    HAS_CRAWLER = True
 except ImportError:
-    HAS_REQUESTS = False
+    HAS_CRAWLER = False
 
 # ── Deterministic random seed ──────────────────────────────────────────────
 random.seed(42)
@@ -1203,87 +1205,279 @@ PRODUCT_DATA = {
     ],
 }
 
-# ── Naver Shopping crawling (best-effort) ──────────────────────────────────
-NAVER_SEARCH_QUERIES = {
-    "CAT-01": ["스마트폰", "노트북 2025", "블루투스 이어폰"],
-    "CAT-02": ["나이키 운동화", "패딩 자켓", "여성 가방"],
-    "CAT-03": ["라면 멀티팩", "과자 세트", "커피 원두"],
-    "CAT-04": ["스킨케어 세럼", "쿠션 파운데이션", "향수"],
-    "CAT-05": ["냉장고 삼성", "로봇청소기", "에어프라이어"],
-    "CAT-06": ["등산화", "골프 드라이버", "요가매트"],
-    "CAT-07": ["베스트셀러 소설", "자기계발 책", "IT 개발 도서"],
-    "CAT-08": ["강아지 사료", "고양이 간식", "반려동물 용품"],
-    "CAT-09": ["소파 3인", "사무용 의자", "수납 가구"],
-    "CAT-10": ["유모차 2025", "기저귀", "레고 듀플로"],
+# ── Multi-source product crawling ─────────────────────────────────────────
+# Sources tried in order: Danawa (Korean price comparison) → Amazon → static fallback.
+# Uses curl_cffi for TLS fingerprint impersonation to bypass bot detection.
+
+CRAWL_QUERIES = {
+    "CAT-01": {
+        "danawa": ["스마트폰", "노트북 2025", "태블릿PC", "블루투스 이어폰", "스마트워치"],
+        "amazon": ["Samsung Galaxy phone", "laptop 2024", "wireless earbuds"],
+    },
+    "CAT-02": {
+        "danawa": ["나이키 운동화", "아디다스 의류", "여성 가방", "남성 자켓", "원피스"],
+        "amazon": ["Nike running shoes", "Adidas jacket", "women handbag"],
+    },
+    "CAT-03": {
+        "danawa": ["라면 멀티팩", "커피 원두", "과자 세트", "건강식품", "차 선물세트"],
+        "amazon": ["instant ramen variety", "coffee beans", "Korean snacks"],
+    },
+    "CAT-04": {
+        "danawa": ["세럼 스킨케어", "선크림 SPF", "향수 여성", "클렌징폼", "마스크팩"],
+        "amazon": ["face serum skincare", "sunscreen SPF50", "Korean beauty mask"],
+    },
+    "CAT-05": {
+        "danawa": ["공기청정기", "로봇청소기", "에어프라이어", "전자레인지", "세탁기"],
+        "amazon": ["air purifier HEPA", "robot vacuum", "air fryer"],
+    },
+    "CAT-06": {
+        "danawa": ["러닝화", "요가매트", "골프 드라이버", "등산화", "자전거 헬멧"],
+        "amazon": ["running shoes men", "yoga mat", "golf driver"],
+    },
+    "CAT-07": {
+        "danawa": [],  # Danawa is weak on books
+        "amazon": ["bestseller novel 2024", "self help books", "programming books", "science books"],
+    },
+    "CAT-08": {
+        "danawa": ["강아지 사료", "고양이 간식", "강아지 장난감", "고양이 화장실"],
+        "amazon": ["dog food premium", "cat treats", "pet toys"],
+    },
+    "CAT-09": {
+        "danawa": ["사무용 의자", "컴퓨터 책상", "소파 3인", "수납장", "침대 프레임"],
+        "amazon": ["office chair ergonomic", "desk", "bookshelf"],
+    },
+    "CAT-10": {
+        "danawa": ["유모차", "기저귀", "분유", "아기 장난감", "카시트"],
+        "amazon": ["baby stroller", "diapers", "baby toys"],
+    },
 }
 
-NAVER_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "ko-KR,ko;q=0.9",
-    "Referer": "https://search.shopping.naver.com/",
-}
+
+def _retry_request(fn, retries=2, delay=2.0):
+    """Retry a request function with exponential backoff."""
+    for attempt in range(retries + 1):
+        try:
+            result = fn()
+            if result is not None:
+                return result
+        except Exception as e:
+            if attempt == retries:
+                print(f"    ✗ Failed after {retries + 1} attempts: {e}")
+                return None
+            time.sleep(delay * (attempt + 1))
+    return None
 
 
-def crawl_naver_shopping(query: str, page_size: int = 40) -> list:
-    """Attempt to crawl Naver Shopping search results. Returns list of (name, brand, price)."""
-    if not HAS_REQUESTS:
+# Known Korean brands for extraction from Danawa product names
+_KNOWN_BRANDS = [
+    "삼성전자", "LG전자", "LG", "삼성", "애플", "Apple", "소니", "Sony", "다이슨", "Dyson",
+    "나이키", "Nike", "아디다스", "Adidas", "뉴발란스", "New Balance", "푸마", "Puma",
+    "아모레퍼시픽", "이니스프리", "설화수", "라네즈", "헤라", "미샤", "네이처리퍼블릭",
+    "오뚜기", "농심", "CJ", "풀무원", "동서식품", "남양", "매일유업", "롯데",
+    "쿠쿠", "필립스", "Philips", "보쉬", "Bosch", "일렉트로룩스", "위닉스",
+    "로얄캐닌", "이즈칸", "퓨리나", "하림펫푸드", "지위픽", "오리젠",
+    "한샘", "이케아", "IKEA", "시디즈", "듀오백", "제닉스",
+    "코멕스", "보만", "쿠팡", "샤오미", "Xiaomi", "레노버", "Lenovo",
+    "HP", "ASUS", "에이수스", "MSI", "Dell", "마이크로소프트",
+    "부가부", "스토케", "싸이벡스", "브라이택스", "순성",
+    "아식스", "Asics", "살로몬", "Salomon", "데카트론", "미즈노",
+    "스킨1004", "네시픽", "코스알엑스", "라운드랩", "토리든", "달바",
+    "JBL", "보스", "Bose", "젠하이저", "Sennheiser",
+]
+
+
+def _extract_brand_from_name(full_name: str) -> tuple:
+    """Extract brand from Danawa product name. Returns (brand, cleaned_name)."""
+    # Try known brands first (longest match)
+    for brand in sorted(_KNOWN_BRANDS, key=len, reverse=True):
+        if full_name.startswith(brand):
+            rest = full_name[len(brand):].strip()
+            return brand, rest if rest else full_name
+    # Fallback: first token before space is often the brand
+    parts = full_name.split(" ", 1)
+    if len(parts) == 2 and len(parts[0]) >= 2:
+        return parts[0], parts[1]
+    return "", full_name
+
+
+def crawl_danawa(query: str) -> list:
+    """Crawl Danawa price comparison. Returns list of (name, brand, price, image_url, specs)."""
+    if not HAS_CRAWLER:
         return []
 
-    url = "https://search.shopping.naver.com/api/search/all"
-    params = {"query": query, "pagingIndex": 1, "pagingSize": page_size, "viewType": "list"}
-
-    try:
-        resp = requests.get(url, params=params, headers=NAVER_HEADERS, timeout=10)
+    def _fetch():
+        resp = cf_requests.get(
+            "https://search.danawa.com/dsearch.php",
+            params={"query": query, "tab": "goods"},
+            impersonate="chrome",
+            timeout=15,
+        )
         if resp.status_code != 200:
+            print(f"    Danawa returned {resp.status_code} for '{query}'")
             return []
 
-        data = resp.json()
-        items = data.get("shoppingResult", {}).get("products", [])
+        soup = BeautifulSoup(resp.text, "lxml")
+        items = soup.select(".prod_main_info")
         results = []
+
         for item in items:
-            name = item.get("productTitle", "").replace("<b>", "").replace("</b>", "")
-            brand = item.get("brand", "") or item.get("maker", "") or ""
+            # Name
+            name_el = item.select_one(".prod_name a") or item.select_one(".prod_name")
+            if not name_el:
+                continue
+            full_name = name_el.get_text(strip=True)
+
+            # Price
+            price_el = item.select_one(".price_sect strong")
+            if not price_el:
+                continue
+            price_text = price_el.get_text(strip=True).replace(",", "")
             try:
-                price = int(item.get("price", 0))
+                price = int(price_text)
             except (ValueError, TypeError):
                 continue
-            if name and price > 0:
-                results.append((name, brand, price))
+            if price <= 0:
+                continue
+
+            # Brand: extract from product name
+            brand, name = _extract_brand_from_name(full_name)
+
+            # Image
+            img_el = item.parent.select_one(".thumb_image img") if item.parent else None
+            image_url = ""
+            if img_el:
+                image_url = img_el.get("data-original") or img_el.get("data-src") or img_el.get("src") or ""
+
+            # Specs (compact form)
+            spec_el = item.select_one(".spec_list")
+            specs = ""
+            if spec_el:
+                raw = spec_el.get_text(" ", strip=True)
+                specs = re.sub(r"\s*/\s*", " / ", raw)
+                specs = re.sub(r"\s+", " ", specs).strip()[:200]
+
+            results.append((name, brand, price, image_url, specs))
+
         return results
-    except Exception:
+
+    return _retry_request(_fetch) or []
+
+
+def crawl_amazon(query: str) -> list:
+    """Crawl Amazon.com search. Returns list of (name, brand, price, image_url, specs)."""
+    if not HAS_CRAWLER:
         return []
+
+    def _fetch():
+        resp = cf_requests.get(
+            "https://www.amazon.com/s",
+            params={"k": query},
+            impersonate="chrome",
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            print(f"    Amazon returned {resp.status_code} for '{query}'")
+            return []
+
+        soup = BeautifulSoup(resp.text, "lxml")
+        items = soup.select('[data-component-type="s-search-result"]')
+        results = []
+
+        for item in items:
+            # Name
+            title_el = item.select_one("h2 span")
+            if not title_el:
+                continue
+            name = title_el.get_text(strip=True)
+
+            # Price (Amazon auto-converts to KRW for Korea-region clients)
+            price_whole = item.select_one(".a-price-whole")
+            if price_whole:
+                try:
+                    price = int(price_whole.get_text(strip=True).replace(",", "").rstrip("."))
+                except (ValueError, TypeError):
+                    continue
+            else:
+                continue
+            if price <= 0 or price > 5_000_000:
+                continue
+
+            # Brand: from byline text, cleaned
+            brand = ""
+            byline = item.select_one(".a-row .a-size-base.a-color-secondary")
+            if byline:
+                text = byline.get_text(strip=True)
+                # Remove "by " prefix and trailing separators
+                brand = re.sub(r"^by\s+", "", text).strip().split("|")[0].strip()
+
+            # Image
+            img_el = item.select_one(".s-image")
+            image_url = img_el.get("src", "") if img_el else ""
+
+            # Rating as pseudo-spec
+            rating_el = item.select_one(".a-icon-alt")
+            specs = rating_el.get_text(strip=True) if rating_el else ""
+
+            results.append((name, brand, price, image_url, specs))
+
+        return results
+
+    return _retry_request(_fetch) or []
 
 
 def attempt_crawl() -> dict:
-    """Try to crawl Naver Shopping for each category. Returns {cat_id: [(name, brand, price)]}."""
+    """Try Danawa → Amazon for each category. Returns {cat_id: [(name, brand, price, image_url, specs)]}."""
+    if not HAS_CRAWLER:
+        print("  ✗ curl_cffi not installed — skipping crawl")
+        return {}
+
     crawled = {}
     total = 0
 
     for cat in CATEGORIES:
         cat_id = cat["id"]
-        queries = NAVER_SEARCH_QUERIES.get(cat_id, [])
+        cat_name = cat["name"]
+        queries = CRAWL_QUERIES.get(cat_id, {"danawa": [], "amazon": []})
         cat_results = []
 
-        for q in queries:
-            results = crawl_naver_shopping(q)
-            cat_results.extend(results)
+        # Source 1: Danawa (Korean products with KRW prices)
+        for q in queries.get("danawa", []):
+            results = crawl_danawa(q)
             if results:
-                print(f"  Crawled {len(results)} products for '{q}'")
-            time.sleep(1.5)  # rate limit
+                cat_results.extend(results)
+                print(f"  ✓ Danawa '{q}': {len(results)} products")
+            else:
+                print(f"  ✗ Danawa '{q}': 0 products")
+            time.sleep(1.0)
 
-        # Deduplicate by name
+        # Source 2: Amazon (international products, fallback or supplement)
+        if len(cat_results) < 50:
+            for q in queries.get("amazon", []):
+                results = crawl_amazon(q)
+                if results:
+                    cat_results.extend(results)
+                    print(f"  ✓ Amazon '{q}': {len(results)} products")
+                else:
+                    print(f"  ✗ Amazon '{q}': 0 products")
+                time.sleep(1.0)
+
+        # Deduplicate by name (case-insensitive)
         seen = set()
         unique = []
-        for name, brand, price in cat_results:
-            if name not in seen:
-                seen.add(name)
-                unique.append((name, brand, price))
+        for item in cat_results:
+            key = item[0].lower().strip()
+            if key not in seen:
+                seen.add(key)
+                unique.append(item)
 
         crawled[cat_id] = unique[:100]
-        total += len(crawled[cat_id])
+        cat_count = len(crawled[cat_id])
+        total += cat_count
+        print(f"  → {cat_name} ({cat_id}): {cat_count} crawled products")
 
-    return crawled if total >= 500 else {}
+    # Accept partial results — even 200 products enriches the dataset
+    print(f"\n  Total crawled: {total} products")
+    return crawled if total >= 200 else {}
 
 
 def get_unsplash_url(category_slug: str, index: int, size: int = 400) -> str:
@@ -1444,19 +1638,149 @@ DETAIL_PHRASES = {
 }
 
 
+def generate_category_attributes(category_slug: str, idx: int, name: str) -> dict:
+    """Generate realistic, category-specific product attributes."""
+    r = random.Random(idx * 31 + hash(category_slug))
+
+    if category_slug == "electronics":
+        sub = idx % 20
+        if sub < 5:  # smartphone
+            return {
+                "screen_size": r.choice(["6.1인치", "6.4인치", "6.7인치", "6.8인치", "6.9인치"]),
+                "processor": r.choice(["Snapdragon 8 Gen 3", "Exynos 2400", "A17 Pro", "Dimensity 9300", "Snapdragon 8 Gen 2"]),
+                "ram": r.choice(["8GB", "12GB", "16GB"]),
+                "storage": r.choice(["128GB", "256GB", "512GB", "1TB"]),
+                "battery": r.choice(["4500mAh", "5000mAh", "5500mAh"]),
+                "camera": r.choice(["50MP 트리플", "108MP 쿼드", "200MP 듀얼", "48MP 트리플"]),
+                "os": r.choice(["Android 14", "Android 15", "iOS 18"]),
+                "weight": f"{r.randint(170, 230)}g",
+                "color": r.choice(["티타늄 블랙", "팬텀 화이트", "크림", "미드나이트 블루", "라벤더"]),
+            }
+        elif sub < 10:  # laptop
+            return {
+                "screen_size": r.choice(["13.3인치", "14인치", "15.6인치", "16인치", "17인치"]),
+                "processor": r.choice(["Intel Core i7-14700H", "AMD Ryzen 9 7945HX", "Apple M3 Pro", "Intel Core Ultra 7"]),
+                "ram": r.choice(["16GB", "32GB", "64GB"]),
+                "storage": r.choice(["512GB SSD", "1TB SSD", "2TB SSD"]),
+                "gpu": r.choice(["RTX 4060", "RTX 4070", "Intel Arc", "내장 그래픽"]),
+                "battery_life": r.choice(["10시간", "12시간", "15시간", "18시간", "22시간"]),
+                "weight": f"{round(r.uniform(1.2, 2.5), 1)}kg",
+                "color": r.choice(["스페이스 그레이", "실버", "미드나이트", "스타라이트"]),
+            }
+        else:  # tablet, audio, wearable
+            return {
+                "connectivity": r.choice(["Bluetooth 5.3", "Wi-Fi 6E", "Bluetooth 5.4 + Wi-Fi"]),
+                "battery_life": r.choice(["8시간", "12시간", "24시간", "30시간", "40시간"]),
+                "weight": f"{r.randint(50, 600)}g",
+                "color": r.choice(["블랙", "화이트", "네이비", "그레이", "그린"]),
+                "water_resistance": r.choice(["IPX4", "IPX7", "IP68", "없음"]),
+            }
+    elif category_slug == "fashion":
+        return {
+            "material": r.choice(["면 100%", "폴리에스터 100%", "면 60%/폴리 40%", "나일론", "울 80%/캐시미어 20%", "린넨", "가죽"]),
+            "size": "S / M / L / XL / XXL",
+            "color": r.choice(["블랙", "화이트", "네이비", "베이지", "카키", "차콜", "와인", "크림"]),
+            "season": r.choice(["봄/가을", "여름", "겨울", "사계절"]),
+            "fit": r.choice(["레귤러핏", "슬림핏", "오버핏", "세미오버핏"]),
+            "care": r.choice(["드라이클리닝", "찬물 손세탁", "세탁기 가능", "울 전용 세탁"]),
+            "origin": r.choice(["한국", "이탈리아", "베트남", "중국", "포르투갈"]),
+        }
+    elif category_slug == "food":
+        return {
+            "weight_volume": r.choice(["120g", "250g", "500g", "1kg", "1.5L", "350ml", "2kg"]),
+            "calories": f"{r.randint(80, 650)}kcal",
+            "origin": r.choice(["국내산", "미국산", "호주산", "뉴질랜드산", "이탈리아산"]),
+            "storage": r.choice(["실온 보관", "냉장 보관", "냉동 보관", "서늘한 곳 보관"]),
+            "shelf_life": r.choice(["제조일로부터 6개월", "12개월", "18개월", "24개월"]),
+            "allergen": r.choice(["밀, 대두 함유", "우유 함유", "알레르기 유발물질 없음", "견과류 함유", "계란, 밀 함유"]),
+            "certification": r.choice(["HACCP", "유기농 인증", "무농약 인증", "HACCP, ISO 22000"]),
+        }
+    elif category_slug == "beauty":
+        return {
+            "volume": r.choice(["30ml", "50ml", "75ml", "100ml", "150ml", "200ml"]),
+            "skin_type": r.choice(["모든 피부", "건성", "지성", "민감성", "복합성"]),
+            "main_ingredient": r.choice(["히알루론산", "레티놀", "비타민C", "나이아신아마이드", "세라마이드", "펩타이드", "콜라겐"]),
+            "spf": r.choice(["없음", "SPF30 PA++", "SPF50+ PA+++", "SPF50+ PA++++"]),
+            "certification": r.choice(["피부과 테스트 완료", "비건 인증", "EWG 그린등급", "더마 테스트 완료"]),
+            "expiry": r.choice(["개봉 후 6개월", "개봉 후 12개월", "제조일로부터 24개월"]),
+            "origin": r.choice(["한국", "프랑스", "일본", "미국"]),
+        }
+    elif category_slug == "appliances":
+        return {
+            "power": r.choice(["220V / 60Hz", "110-220V 프리볼트"]),
+            "energy_rating": r.choice(["1등급", "2등급", "3등급"]),
+            "capacity": r.choice(["3L", "5L", "10L", "15kg", "21kg", "500L", "800L"]),
+            "noise_level": f"{r.randint(25, 55)}dB",
+            "dimensions": f"{r.randint(30, 90)}×{r.randint(30, 70)}×{r.randint(20, 100)}cm",
+            "weight": f"{round(r.uniform(1.5, 45.0), 1)}kg",
+            "color": r.choice(["화이트", "실버", "블랙", "베이지", "민트"]),
+            "warranty": r.choice(["1년", "2년", "3년", "핵심부품 10년"]),
+        }
+    elif category_slug == "sports":
+        return {
+            "material": r.choice(["폴리에스터", "고어텍스", "탄소 섬유", "EVA 폼", "메쉬", "네오프렌"]),
+            "size": r.choice(["프리사이즈", "S/M/L/XL", "230-300mm", "26/27/28인치"]),
+            "weight": f"{r.randint(100, 2500)}g",
+            "color": r.choice(["블랙/화이트", "네이비/레드", "그레이/그린", "올블랙", "형광 옐로우"]),
+            "waterproof": r.choice(["방수", "발수", "비방수", "고어텍스 방수"]),
+            "season": r.choice(["사계절", "봄/여름", "가을/겨울"]),
+        }
+    elif category_slug == "books":
+        return {
+            "author": r.choice(["김영하", "한강", "정유정", "유발 하라리", "로버트 기요사키", "제임스 클리어", "무라카미 하루키", "베르나르 베르베르"]),
+            "pages": f"{r.randint(180, 650)}쪽",
+            "publication_date": f"2024년 {r.randint(1,12)}월",
+            "isbn": f"979-11-{r.randint(1000, 9999)}-{r.randint(100, 999)}-{r.randint(0, 9)}",
+            "format": r.choice(["양장본", "소프트커버", "문고판"]),
+            "language": r.choice(["한국어", "한국어 (번역서)", "영한 대역"]),
+        }
+    elif category_slug == "pets":
+        return {
+            "target_pet": r.choice(["강아지", "고양이", "강아지/고양이 공용", "소형견", "중대형견"]),
+            "life_stage": r.choice(["전 연령", "퍼피/키튼", "성견/성묘", "시니어"]),
+            "main_ingredient": r.choice(["닭고기", "연어", "소고기", "오리고기", "참치", "양고기"]),
+            "weight_volume": r.choice(["100g", "500g", "1.5kg", "6kg", "12kg"]),
+            "certification": r.choice(["AAFCO 기준 충족", "수의사 추천", "유기농 인증", "무항생제"]),
+            "origin": r.choice(["한국", "캐나다", "호주", "뉴질랜드", "미국"]),
+        }
+    elif category_slug == "furniture":
+        return {
+            "material": r.choice(["원목 (참나무)", "MDF + PB", "스틸 프레임", "패브릭 + 원목", "대리석 + 스틸", "월넛 원목"]),
+            "dimensions": f"가로 {r.randint(40, 250)}cm × 세로 {r.randint(40, 200)}cm × 높이 {r.randint(30, 180)}cm",
+            "weight": f"{round(r.uniform(5, 80), 1)}kg",
+            "color": r.choice(["내추럴 오크", "월넛 브라운", "화이트", "그레이", "블랙"]),
+            "assembly": r.choice(["조립 필요 (설명서 포함)", "완제품 배송", "전문 기사 조립 포함"]),
+            "max_load": f"{r.choice([50, 80, 100, 120, 150, 200])}kg",
+            "origin": r.choice(["한국", "말레이시아", "인도네시아", "이탈리아"]),
+        }
+    elif category_slug == "baby":
+        return {
+            "age_range": r.choice(["0-6개월", "6-12개월", "12-36개월", "0-48개월", "3세 이상"]),
+            "material": r.choice(["유기농 면", "BPA-Free 플라스틱", "실리콘", "천연 라텍스", "대나무 섬유"]),
+            "certification": r.choice(["KC 안전 인증", "KC + CE + ASTM", "식약처 인증", "OEKO-TEX 인증"]),
+            "weight": f"{r.randint(100, 12000)}g",
+            "color": r.choice(["아이보리", "핑크", "스카이블루", "민트", "그레이"]),
+            "origin": r.choice(["한국", "독일", "일본", "네덜란드"]),
+        }
+    # fallback
+    return {"weight": f"{round(r.uniform(0.1, 5.0), 1)}kg", "origin": r.choice(["한국", "미국", "일본", "독일", "중국"])}
+
+
 def generate_description(name: str, brand: str, category_slug: str, idx: int) -> str:
     """Generate a realistic, category-specific product description."""
     templates = DESCRIPTION_TEMPLATES.get(category_slug, DESCRIPTION_TEMPLATES["electronics"])
     details = DETAIL_PHRASES.get(category_slug, DETAIL_PHRASES["electronics"])
 
     template = templates[idx % len(templates)]
-    detail = details[idx % len(details)]
+    detail1 = details[idx % len(details)]
+    detail2 = details[(idx + 2) % len(details)]
 
     desc = template.format(name=name, brand=brand)
-    return f"{desc} {detail}"
+    return f"{desc} {detail1} {detail2}"
 
 
-def generate_product(idx: int, cat: dict, name: str, brand: str, price: int) -> dict:
+def generate_product(idx: int, cat: dict, name: str, brand: str, price: int,
+                     crawled_image: str = "", crawled_specs: str = "") -> dict:
     """Generate a single product document matching the DocumentDB schema."""
     pid = f"PROD-{idx:04d}"
     rating = round(3.5 + random.random() * 1.5, 1)
@@ -1464,14 +1788,25 @@ def generate_product(idx: int, cat: dict, name: str, brand: str, price: int) -> 
     discount_choices = [0, 0, 0, 0, 5, 10, 15, 20, 25, 30]
     discount = random.choice(discount_choices)
     sale_price = round(price * (1 - discount / 100)) if discount > 0 else None
-    origins = ["한국", "미국", "일본", "독일", "중국", "프랑스", "이탈리아", "영국"]
-
     slug = cat["slug"]
-    img1 = get_unsplash_url(slug, idx - 1, 400)
-    img2 = get_unsplash_url(slug, idx - 1, 800)
-    img3 = get_unsplash_url(slug, idx, 600)
+
+    # Images: use crawled product image directly (Danawa CDN / Amazon CDN)
+    # Fall back to category-relevant Unsplash/picsum for static products
+    if crawled_image and crawled_image.startswith("http"):
+        images = [crawled_image]
+    else:
+        images = [
+            get_unsplash_url(slug, idx - 1, 400),
+            get_unsplash_url(slug, idx - 1, 800),
+            get_unsplash_url(slug, idx, 600),
+        ]
 
     created = datetime(2025, 1, 1) + timedelta(days=random.randint(0, 500))
+
+    # Attributes: use crawled specs if available, otherwise generate
+    attrs = generate_category_attributes(slug, idx, name)
+    if crawled_specs:
+        attrs["crawled_specs"] = crawled_specs
 
     return {
         "productId": pid,
@@ -1485,12 +1820,9 @@ def generate_product(idx: int, cat: dict, name: str, brand: str, price: int) -> 
         "rating": rating,
         "reviewCount": review_count,
         "description": generate_description(name, brand, slug, idx),
-        "images": [img1, img2, img3],
+        "images": images,
         "tags": [slug, brand.lower().replace(" ", "-"), "인기상품"],
-        "attributes": {
-            "weight": f"{round(random.uniform(0.1, 5.0), 1)}kg",
-            "origin": random.choice(origins),
-        },
+        "attributes": attrs,
         "stock": {
             "available": random.randint(5, 500),
             "warehouse": random.choice(["WH-EAST-1", "WH-WEST-2"]),
@@ -1503,46 +1835,72 @@ def generate_product(idx: int, cat: dict, name: str, brand: str, price: int) -> 
 
 def main():
     print("=" * 60)
-    print(" Shopping Mall Product Generator")
+    print(" Shopping Mall Product Generator (Multi-Source)")
     print(f" Target: 1000 products (100 × {len(CATEGORIES)} categories)")
+    print(f" Sources: Danawa → Amazon → Static fallback")
     print("=" * 60)
 
-    # Phase 1: Attempt Naver Shopping crawl
-    print("\n[Phase 1] Attempting Naver Shopping crawl...")
+    # Phase 1: Multi-source crawl
+    print("\n[Phase 1] Crawling product data...")
     crawled = attempt_crawl()
     use_crawled = bool(crawled)
+    crawled_count = sum(len(v) for v in crawled.values()) if crawled else 0
 
     if use_crawled:
-        print(f"  ✓ Crawled enough products from Naver Shopping")
+        print(f"\n  ✓ Crawled {crawled_count} products — merging with static data")
     else:
-        print(f"  ✗ Crawling failed or insufficient data — using curated dataset")
+        print(f"\n  ✗ Crawling failed or insufficient data — using curated dataset only")
 
-    # Phase 2: Generate products
+    # Phase 2: Generate products (crawled products first, backfill with static)
     print("\n[Phase 2] Generating product data...")
     products = []
     product_idx = 1
+    stats = {"crawled": 0, "static": 0}
 
     for cat in CATEGORIES:
         cat_id = cat["id"]
         cat_products = []
 
-        if use_crawled and cat_id in crawled:
-            source = crawled[cat_id]
-        else:
-            source = PRODUCT_DATA.get(cat_id, [])
+        # Merge: crawled first, then fill remaining slots from static data
+        crawled_items = crawled.get(cat_id, []) if use_crawled else []
+        static_items = PRODUCT_DATA.get(cat_id, [])
+        target = 100
 
-        for i, item in enumerate(source[:100]):
-            if isinstance(item, tuple):
-                name, brand, price = item
-            else:
-                name, brand, price = item["name"], item["brand"], item["price"]
-
-            product = generate_product(product_idx, cat, name, brand, price)
+        # Add crawled products
+        for item in crawled_items[:target]:
+            # 5-tuple: (name, brand, price, image_url, specs)
+            name, brand, price = item[0], item[1], item[2]
+            image_url = item[3] if len(item) > 3 else ""
+            specs = item[4] if len(item) > 4 else ""
+            product = generate_product(product_idx, cat, name, brand, price, image_url, specs)
+            product["source"] = "crawled"
             cat_products.append(product)
             product_idx += 1
+            stats["crawled"] += 1
+
+        # Fill remaining from static data
+        remaining = target - len(cat_products)
+        if remaining > 0:
+            for item in static_items[:remaining]:
+                if isinstance(item, tuple):
+                    name, brand, price = item[0], item[1], item[2]
+                else:
+                    name, brand, price = item["name"], item["brand"], item["price"]
+                product = generate_product(product_idx, cat, name, brand, price)
+                product["source"] = "static"
+                cat_products.append(product)
+                product_idx += 1
+                stats["static"] += 1
 
         products.extend(cat_products)
-        print(f"  {cat['name']:8s} ({cat['slug']:12s}): {len(cat_products)} products")
+        n_crawled = sum(1 for p in cat_products if p["source"] == "crawled")
+        n_static = len(cat_products) - n_crawled
+        src_info = f"(crawled: {n_crawled}, static: {n_static})" if n_crawled > 0 else "(static)"
+        print(f"  {cat['name']:8s} ({cat['slug']:12s}): {len(cat_products)} products {src_info}")
+
+    # Remove internal 'source' field before writing
+    for p in products:
+        p.pop("source", None)
 
     # Phase 3: Write output
     print(f"\n[Phase 3] Writing {len(products)} products to {OUTPUT_FILE}...")
@@ -1561,8 +1919,9 @@ def main():
         by_cat[slug] = by_cat.get(slug, 0) + 1
     for slug, count in by_cat.items():
         print(f"  {slug:12s}: {count}")
-    print(f"\n  Source: {'Naver Shopping crawl' if use_crawled else 'Curated Korean market data'}")
-    print(f"  Images: Unsplash (free, stable URLs)")
+    print(f"\n  Crawled: {stats['crawled']} products (Danawa + Amazon)")
+    print(f"  Static:  {stats['static']} products (curated fallback)")
+    print(f"  Images:  Crawled product images + Unsplash/picsum fallback")
     print("=" * 60)
 
 

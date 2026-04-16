@@ -32,6 +32,7 @@ spec:
         targetRevision: 0.115.0
         helm:
           valuesObject:
+            fullnameOverride: otel-collector
             image:
               repository: otel/opentelemetry-collector-contrib
             mode: daemonset

@@ -80,3 +80,5 @@ terraform/environments/**/tfplan
 # Zip archives
 *.zip
 atom-hosted-runner.2026-03-30.private-key.pem
+src/services/search/search
+scripts/seed-data/global-bundle.pem

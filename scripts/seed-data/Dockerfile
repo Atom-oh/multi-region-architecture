@@ -7,6 +7,7 @@ RUN yum install -y \
     redis6 \
     python3 python3-pip \
     openssl jq bc \
+    awscli \
     --quiet && \
     yum clean all
 
@@ -14,11 +15,11 @@ RUN yum install -y \
 RUN curl -sS -o /tmp/global-bundle.pem \
     https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 
-# Install Node.js MongoDB driver for DocumentDB seeding
-RUN npm install -g mongodb@6
-
 WORKDIR /seed-data
 COPY . /seed-data/
+
+# Install Node.js MongoDB driver for DocumentDB seeding (local to WORKDIR)
+RUN npm install mongodb@6
 
 RUN chmod +x *.sh
 

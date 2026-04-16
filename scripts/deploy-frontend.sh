@@ -3,7 +3,7 @@ set -e
 
 REGION="us-east-1"
 S3_BUCKET="production-mall-static-assets-us-east-1"
-CF_DISTRIBUTION="EXXXXXXXXXXXXX"
+CF_DISTRIBUTION="E2XBVTVYBYX8T6"
 FRONTEND_DIR="/home/ec2-user/multi-region-architecture/src/frontend"
 
 echo "=== Building frontend ==="
@@ -14,8 +14,9 @@ echo "=== Syncing assets to S3 (with long cache for hashed files) ==="
 aws s3 sync dist/ "s3://$S3_BUCKET/" \
   --region "$REGION" \
   --delete \
-  --cache-control "public, max-age=31536000, immutable" \
-  --exclude "index.html"
+  --exclude "index.html" \
+  --exclude "images/*" \
+  --cache-control "public, max-age=31536000, immutable"
 
 echo "=== Uploading index.html (no-cache to always serve latest) ==="
 aws s3 cp dist/index.html "s3://$S3_BUCKET/index.html" \

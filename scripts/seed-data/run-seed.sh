@@ -35,10 +35,28 @@ run_step() {
   echo ""
 }
 
-# ── Step 1: Aurora PostgreSQL ───────────────────────────────────────────────
+# ── Step 1: Aurora PostgreSQL / DSQL ───────────────────────────────────────
 if [ -n "${AURORA_ENDPOINT:-}" ]; then
-  run_step "Aurora PostgreSQL" \
-    "PGPASSWORD=\${AURORA_PASSWORD} psql -h \${AURORA_ENDPOINT} -U \${AURORA_USER:-mall_admin} -d \${AURORA_DB:-mall} -f ${SCRIPT_DIR}/seed-aurora.sql"
+  # Detect Aurora DSQL endpoint and use IAM auth
+  if [[ "${AURORA_ENDPOINT}" == *".dsql."* ]]; then
+    echo "  ℹ Detected Aurora DSQL endpoint, generating IAM auth token..."
+    AURORA_PASSWORD=$(aws dsql generate-db-connect-admin-auth-token \
+      --hostname "${AURORA_ENDPOINT}" --region "${REGION}" 2>&1) || {
+      echo "✗ Failed to generate DSQL auth token: ${AURORA_PASSWORD}"
+      FAILED=$((FAILED + 1))
+      AURORA_ENDPOINT=""
+    }
+    AURORA_USER="admin"
+    AURORA_DB="postgres"
+    SEED_SQL="${SCRIPT_DIR}/seed-aurora-dsql.sql"
+  else
+    SEED_SQL="${SCRIPT_DIR}/seed-aurora.sql"
+  fi
+
+  if [ -n "${AURORA_ENDPOINT:-}" ]; then
+    run_step "Aurora" \
+      "PGSSLMODE=require PGPASSWORD=\${AURORA_PASSWORD} psql -h \${AURORA_ENDPOINT} -U \${AURORA_USER:-mall_admin} -d \${AURORA_DB:-mall} -f \${SEED_SQL}"
+  fi
 else
   echo "⏭ Skipping Aurora (AURORA_ENDPOINT not set)"
   echo ""

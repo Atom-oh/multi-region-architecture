@@ -1,3 +1,11 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: seed-data
+  namespace: core-services
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/production-dsql-access-us-east-1
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -7,44 +15,27 @@ metadata:
     app: seed-data
     component: data-initialization
 spec:
-  backoffLimit: 3
+  backoffLimit: 1
   ttlSecondsAfterFinished: 86400
   template:
     metadata:
       labels:
         app: seed-data
     spec:
-      restartPolicy: OnFailure
-      serviceAccountName: default
+      restartPolicy: Never
+      serviceAccountName: seed-data
       containers:
         - name: seed-data
-          image: <AWS_ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/shopping-mall/seed-data:latest
+          image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/seed-data:latest
           command: ["bash", "run-seed.sh"]
           env:
-            # Aurora PostgreSQL (secret keys: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT)
+            # Aurora DSQL (IAM auth — token generated at runtime via IRSA)
+            # For DSQL: AURORA_USER/PASSWORD/DB are auto-set by run-seed.sh
             - name: AURORA_ENDPOINT
               valueFrom:
-                secretKeyRef:
-                  name: aurora-credentials
-                  key: DB_HOST
-                  optional: true
-            - name: AURORA_USER
-              valueFrom:
-                secretKeyRef:
-                  name: aurora-credentials
-                  key: DB_USER
-                  optional: true
-            - name: AURORA_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: aurora-credentials
-                  key: DB_PASSWORD
-                  optional: true
-            - name: AURORA_DB
-              valueFrom:
-                secretKeyRef:
-                  name: aurora-credentials
-                  key: DB_NAME
+                configMapKeyRef:
+                  name: region-config
+                  key: DSQL_ENDPOINT
                   optional: true
             # DocumentDB (secret keys: DOCUMENTDB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DOCUMENTDB_PORT)
             - name: DOCUMENTDB_URI
@@ -112,9 +103,9 @@ spec:
                   optional: true
             - name: ELASTICACHE_PORT
               value: "6379"
-            # Region
+            # Region (us-east-1 for DSQL primary + DocumentDB primary)
             - name: AWS_REGION
-              value: "ap-northeast-2"
+              value: "us-east-1"
           resources:
             requests:
               cpu: 500m

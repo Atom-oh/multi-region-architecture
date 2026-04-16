@@ -35,100 +35,6 @@ app.add_middleware(
 init_tracing(config.service_name, app)
 app.include_router(health_router)
 
-# Mock shipments - consistent with shared order IDs
-MOCK_SHIPMENTS = {
-    "SHIP-001": {
-        "id": "SHIP-001",
-        "order_id": "ORD-001",
-        "user_id": "USR-001",
-        "tracking_number": "CJ1234567890123",
-        "carrier": "CJ대한통운",
-        "carrier_code": "CJ",
-        "status": "delivered",
-        "status_display": "배송완료",
-        "estimated_delivery": "2026-03-18T18:00:00Z",
-        "actual_delivery": "2026-03-18T14:32:00Z",
-        "origin": {
-            "name": "Multi-Region Mall 물류센터",
-            "address": "서울특별시 강남구 테헤란로 123",
-            "phone": "02-1234-5678",
-        },
-        "destination": {
-            "name": "김민수",
-            "address": "서울특별시 강남구 테헤란로 123 멀티리전타워 15층",
-            "phone": "010-1234-5678",
-        },
-        "events": [
-            {"status": "delivered", "status_display": "배송완료", "location": "서울 강남구", "timestamp": "2026-03-18T14:32:00Z", "description": "고객님께 배송 완료되었습니다."},
-            {"status": "out_for_delivery", "status_display": "배송출발", "location": "강남 대리점", "timestamp": "2026-03-18T08:15:00Z", "description": "배송 출발하였습니다."},
-            {"status": "in_transit", "status_display": "배송중", "location": "서울 HUB", "timestamp": "2026-03-17T22:30:00Z", "description": "서울 HUB에서 상품을 인수하였습니다."},
-            {"status": "shipped", "status_display": "발송완료", "location": "강남 물류센터", "timestamp": "2026-03-17T14:00:00Z", "description": "상품이 발송되었습니다."},
-            {"status": "picked_up", "status_display": "집하완료", "location": "강남 물류센터", "timestamp": "2026-03-17T10:00:00Z", "description": "상품을 집하하였습니다."},
-        ],
-        "created_at": "2026-03-17T09:00:00Z",
-    },
-    "SHIP-002": {
-        "id": "SHIP-002",
-        "order_id": "ORD-002",
-        "user_id": "USR-002",
-        "tracking_number": "HANJIN9876543210",
-        "carrier": "한진택배",
-        "carrier_code": "HANJIN",
-        "status": "in_transit",
-        "status_display": "배송중",
-        "estimated_delivery": "2026-03-21T18:00:00Z",
-        "actual_delivery": None,
-        "origin": {
-            "name": "Multi-Region Mall 물류센터",
-            "address": "서울특별시 강남구 테헤란로 123",
-            "phone": "02-1234-5678",
-        },
-        "destination": {
-            "name": "이서연",
-            "address": "서울특별시 서초구 강남대로 456 힐스테이트 1203호",
-            "phone": "010-9876-5432",
-        },
-        "events": [
-            {"status": "in_transit", "status_display": "배송중", "location": "용인 HUB", "timestamp": "2026-03-20T06:00:00Z", "description": "용인 HUB에서 상품을 인수하였습니다."},
-            {"status": "shipped", "status_display": "발송완료", "location": "강남 물류센터", "timestamp": "2026-03-19T16:00:00Z", "description": "상품이 발송되었습니다."},
-            {"status": "picked_up", "status_display": "집하완료", "location": "강남 물류센터", "timestamp": "2026-03-19T14:30:00Z", "description": "상품을 집하하였습니다."},
-        ],
-        "created_at": "2026-03-19T14:00:00Z",
-    },
-    "SHIP-003": {
-        "id": "SHIP-003",
-        "order_id": "ORD-003",
-        "user_id": "USR-003",
-        "tracking_number": "LOTTE5555666677",
-        "carrier": "롯데택배",
-        "carrier_code": "LOTTE",
-        "status": "processing",
-        "status_display": "상품준비중",
-        "estimated_delivery": "2026-03-23T18:00:00Z",
-        "actual_delivery": None,
-        "origin": {
-            "name": "Multi-Region Mall 부산센터",
-            "address": "부산광역시 해운대구 센텀로 100",
-            "phone": "051-1234-5678",
-        },
-        "destination": {
-            "name": "박지훈",
-            "address": "부산광역시 해운대구 해운대로 789 마린시티 2501호",
-            "phone": "010-5555-7777",
-        },
-        "events": [
-            {"status": "processing", "status_display": "상품준비중", "location": "부산 물류센터", "timestamp": "2026-03-20T10:00:00Z", "description": "상품을 포장하고 있습니다."},
-        ],
-        "created_at": "2026-03-20T09:00:00Z",
-    },
-}
-
-TRACKING_MAP = {
-    "CJ1234567890123": "SHIP-001",
-    "HANJIN9876543210": "SHIP-002",
-    "LOTTE5555666677": "SHIP-003",
-}
-
 
 def _row_to_shipment(row) -> dict:
     """Convert asyncpg Row to shipment dict."""
@@ -152,7 +58,7 @@ async def root():
 
 @app.get("/api/v1/shipments")
 async def list_shipments():
-    """List all shipments (DB with mock fallback)."""
+    """List all shipments."""
     if _pg_pool:
         try:
             async with _pg_pool.acquire() as conn:
@@ -161,8 +67,8 @@ async def list_shipments():
                 )
                 return [_row_to_shipment(row) for row in rows]
         except Exception as e:
-            logger.warning(f"DB query failed, using mock: {e}")
-    return list(MOCK_SHIPMENTS.values())
+            logger.warning(f"DB query failed: {e}")
+    return []
 
 
 @app.post("/api/v1/shipments")
@@ -201,27 +107,12 @@ async def create_shipment(shipment: dict):
         except Exception as e:
             logger.warning(f"DB insert failed, using mock: {e}")
 
-    # Mock fallback
-    shipment_id = f"SHIP-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
-    tracking = f"MRM{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
-    return {
-        "id": shipment_id,
-        "order_id": shipment.get("order_id", "unknown"),
-        "tracking_number": tracking,
-        "carrier": shipment.get("carrier", "CJ대한통운"),
-        "carrier_code": "CJ",
-        "status": "pending",
-        "status_display": "접수대기",
-        "estimated_delivery": "2026-03-25T18:00:00Z",
-        "created_at": datetime.utcnow().isoformat(),
-        "created": True,
-        "message": "배송이 접수되었습니다",
-    }
+    raise HTTPException(status_code=503, detail="배송 서비스가 일시적으로 불가합니다")
 
 
 @app.get("/api/v1/shipments/{shipment_id}")
 async def get_shipment(shipment_id: str):
-    """Get shipment by ID (DB with mock fallback)."""
+    """Get shipment by ID."""
     if _pg_pool:
         try:
             async with _pg_pool.acquire() as conn:
@@ -231,17 +122,13 @@ async def get_shipment(shipment_id: str):
                 if row:
                     return _row_to_shipment(row)
         except Exception as e:
-            logger.warning(f"DB query failed, using mock: {e}")
-
-    # Mock fallback
-    if shipment_id in MOCK_SHIPMENTS:
-        return MOCK_SHIPMENTS[shipment_id]
+            logger.warning(f"DB query failed: {e}")
     raise HTTPException(status_code=404, detail="배송 정보를 찾을 수 없습니다")
 
 
 @app.get("/api/v1/shipments/order/{order_id}")
 async def get_shipments_by_order(order_id: str):
-    """Get shipments by order ID (DB with mock fallback)."""
+    """Get shipments by order ID."""
     if _pg_pool:
         try:
             async with _pg_pool.acquire() as conn:
@@ -252,34 +139,47 @@ async def get_shipments_by_order(order_id: str):
                 if rows:
                     return [_row_to_shipment(row) for row in rows]
         except Exception as e:
-            logger.warning(f"DB query failed, using mock: {e}")
-
-    # Mock fallback
-    results = [s for s in MOCK_SHIPMENTS.values() if s.get("order_id") == order_id]
-    if results:
-        return results
+            logger.warning(f"DB query failed: {e}")
     raise HTTPException(status_code=404, detail="주문에 대한 배송 정보를 찾을 수 없습니다")
 
 
 @app.put("/api/v1/shipments/{shipment_id}/status")
 async def update_status(shipment_id: str, status_update: dict):
-    """Update shipment status (stub - returns acknowledgment)."""
-    if shipment_id not in MOCK_SHIPMENTS:
-        raise HTTPException(status_code=404, detail="배송 정보를 찾을 수 없습니다")
-    return {
-        "id": shipment_id,
-        "status": status_update.get("status", "unknown"),
-        "updated_at": datetime.utcnow().isoformat(),
-        "updated": True,
-        "message": "배송 상태가 업데이트되었습니다",
-    }
+    """Update shipment status."""
+    if _pg_pool:
+        try:
+            new_status = status_update.get("status", "unknown")
+            async with _pg_pool.acquire() as conn:
+                result = await conn.execute(
+                    "UPDATE shipments SET status = $1 WHERE id = $2::uuid",
+                    new_status, shipment_id
+                )
+                if result != "UPDATE 0":
+                    return {
+                        "id": shipment_id,
+                        "status": new_status,
+                        "updated_at": datetime.utcnow().isoformat(),
+                        "updated": True,
+                        "message": "배송 상태가 업데이트되었습니다",
+                    }
+        except Exception as e:
+            logger.warning(f"DB update failed: {e}")
+    raise HTTPException(status_code=404, detail="배송 정보를 찾을 수 없습니다")
 
 
 @app.get("/api/v1/shipments/track/{tracking_number}")
 async def track_shipment(tracking_number: str):
     """Track shipment by tracking number."""
-    if tracking_number in TRACKING_MAP:
-        return MOCK_SHIPMENTS[TRACKING_MAP[tracking_number]]
+    if _pg_pool:
+        try:
+            async with _pg_pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT * FROM shipments WHERE tracking_number = $1", tracking_number
+                )
+                if row:
+                    return _row_to_shipment(row)
+        except Exception as e:
+            logger.warning(f"DB query failed: {e}")
     raise HTTPException(status_code=404, detail="운송장 번호를 찾을 수 없습니다")
 
 
@@ -303,6 +203,7 @@ async def startup():
                     host=config.db_host, port=5432,
                     database="postgres", user="admin", password=token,
                     ssl="require", min_size=1, max_size=5,
+                    command_timeout=10, timeout=5,
                 )
                 logger.info(f"Connected to Aurora DSQL at {config.db_host}")
             else:
@@ -315,12 +216,13 @@ async def startup():
                     ssl="require",
                     min_size=1,
                     max_size=5,
+                    command_timeout=10, timeout=5,
                 )
                 logger.info(f"Connected to Aurora PostgreSQL at {config.db_host}")
         except Exception as e:
-            logger.warning(f"PostgreSQL unavailable, using mock data: {e}")
+            logger.warning(f"PostgreSQL unavailable: {e}")
     else:
-        logger.info("No DB_HOST configured, using mock data")
+        logger.info("No DB_HOST configured, DB features disabled")
 
     # Initialize Kafka consumer for order events (graceful degradation)
     if config.kafka_brokers and config.kafka_brokers != "localhost:9092":

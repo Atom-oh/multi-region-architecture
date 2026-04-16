@@ -16,15 +16,15 @@ Multi-region Kubernetes deployment configuration for a shopping mall e-commerce 
 |-----------|---------|
 | `base/` | Shared resources: namespaces, network policies, resource quotas |
 | `services/` | Application deployments grouped by domain (core, user, fulfillment, business, platform) |
-| `overlays/` | Region-specific Kustomize overlays (us-east-1, us-west-2) |
-| `infra/` | Infrastructure: ArgoCD, OTEL, Prometheus, Fluent Bit, Karpenter, External Secrets |
+| `overlays/` | Region-specific Kustomize overlays (us-east-1, us-west-2, ap-northeast-2-az-a, ap-northeast-2-az-c) |
+| `infra/` | Infrastructure: ArgoCD (US + Korea), OTel Collector, ClickHouse, Prometheus, Grafana, Tempo, Karpenter, External Secrets, KEDA, Actions Runner |
 
 ## For AI Agents
 ### Working In This Directory
 - Use Kustomize patterns: base resources + overlays for environment variation
 - Regional overlays inject: `REGION_ROLE`, `AWS_REGION`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_RESOURCE_ATTRIBUTES`
-- ArgoCD ApplicationSets in `infra/argocd/apps/` auto-deploy per region
-- us-east-1 is PRIMARY region, us-west-2 is SECONDARY
+- ArgoCD ApplicationSets in `infra/argocd/apps/` (US) and `infra/argocd-korea/apps/` (Korea) auto-deploy per region
+- us-east-1 is PRIMARY, us-west-2 is SECONDARY, ap-northeast-2 is SECONDARY (Korea multi-AZ)
 - All services use common label `app.kubernetes.io/part-of: shopping-mall`
 
 ### Deployment Flow

@@ -15,6 +15,7 @@ RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends curl un
 ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.12.0/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar"
 ENV OTEL_TRACES_EXPORTER="otlp"
+ENV OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
 ENV OTEL_METRICS_EXPORTER="none"
 ENV OTEL_LOGS_EXPORTER="none"
 COPY --from=builder /app/target/*.jar app.jar

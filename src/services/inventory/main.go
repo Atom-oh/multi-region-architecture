@@ -51,8 +51,8 @@ type UpdateStockRequest struct {
 	Reason    string `json:"reason"`
 }
 
-// Inventory data comes from Aurora DB at runtime
-var mockInventory = map[string]InventoryItem{}
+// In-memory inventory cache (used when Aurora DB is unavailable)
+var memInventory = map[string]InventoryItem{}
 var lowStockItems []InventoryItem
 
 func main() {
@@ -92,14 +92,14 @@ func main() {
 	if cfg.DBHost != "" {
 		client, err := aurora.New(ctx, cfg)
 		if err != nil {
-			log.Printf("WARNING: Aurora DB unavailable, using mock data: %v", err)
+			log.Printf("WARNING: Aurora DB unavailable, using in-memory fallback: %v", err)
 		} else {
 			dbClient = client
 			defer dbClient.Close()
 			log.Printf("INFO: Connected to Aurora DB at %s:%d", cfg.DBHost, cfg.DBPort)
 		}
 	} else {
-		log.Printf("INFO: No DB_HOST configured, using mock data")
+		log.Printf("INFO: No DB_HOST configured, using in-memory fallback")
 	}
 
 	// Initialize Kafka producers for inventory events (graceful degradation)
@@ -190,8 +190,8 @@ func getInventory(cfg *config.Config) gin.HandlerFunc {
 			log.Printf("DB query failed for product %s: %v", productID, err)
 		}
 
-		// Fallback to mock data
-		if item, exists := mockInventory[productID]; exists {
+		// Fallback to in-memory data
+		if item, exists := memInventory[productID]; exists {
 			item.LastUpdated = time.Now()
 			c.JSON(http.StatusOK, item)
 			return
@@ -256,8 +256,8 @@ func updateStock(cfg *config.Config) gin.HandlerFunc {
 			log.Printf("DB update failed for product %s: %v", productID, err)
 		}
 
-		// Fallback to mock data
-		item, exists := mockInventory[productID]
+		// Fallback to in-memory data
+		item, exists := memInventory[productID]
 		if !exists {
 			item = InventoryItem{
 				ProductID: productID,
@@ -369,7 +369,7 @@ func getLowStock(cfg *config.Config) gin.HandlerFunc {
 			log.Printf("DB low stock query failed: %v", err)
 		}
 
-		// Fallback to mock data
+		// Fallback to in-memory data
 		c.JSON(http.StatusOK, gin.H{
 			"threshold": threshold,
 			"count":     len(lowStockItems),

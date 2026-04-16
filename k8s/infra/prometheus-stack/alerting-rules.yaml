@@ -1,0 +1,217 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mall-alerting-rules
+  namespace: observability
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+    # ── ArgoCD Health ────────────────────────────────────────────────
+    - name: argocd.rules
+      rules:
+        - alert: ArgoCDControllerHighCPU
+          expr: |
+            sum by (pod) (
+              rate(container_cpu_usage_seconds_total{
+                namespace="argocd",
+                pod=~"argocd-application-controller.*",
+                container!=""
+              }[5m])
+            ) > 1.5
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "ArgoCD Controller CPU 과부하 ({{ $labels.pod }})"
+            description: "{{ $labels.pod }}의 CPU 사용량이 {{ $value | printf \"%.2f\" }} 코어로 10분 이상 1.5코어를 초과하고 있습니다. 동기화 대상 Application 수 확인 필요."
+            runbook: "kubectl logs {{ $labels.pod }} -n argocd --since=10m | grep -E 'WARN|ERROR'"
+
+        - alert: ArgoCDControllerHighCPUCritical
+          expr: |
+            sum by (pod) (
+              rate(container_cpu_usage_seconds_total{
+                namespace="argocd",
+                pod=~"argocd-application-controller.*",
+                container!=""
+              }[5m])
+            ) > 2.0
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "ArgoCD Controller CPU 위험 수준 ({{ $labels.pod }})"
+            description: "{{ $labels.pod }}의 CPU 사용량이 {{ $value | printf \"%.2f\" }} 코어로 5분 이상 2코어를 초과하고 있습니다. CPU throttling 발생 중일 수 있습니다."
+
+        - alert: ArgoCDSyncFailed
+          expr: |
+            count(argocd_app_info{sync_status="OutOfSync"}) > 3
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "ArgoCD OutOfSync Application {{ $value }}개 감지"
+            description: "15분 이상 3개 초과 Application이 OutOfSync 상태입니다. 동기화 실패 또는 Controller 과부하 가능성."
+            runbook: "kubectl get applications -n argocd -o wide | grep OutOfSync"
+
+        - alert: ArgoCDAppSyncDurationHigh
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le, name) (
+                rate(argocd_app_sync_total{phase="Succeeded"}[30m])
+              )
+            ) == 0
+            and
+            sum by (name) (
+              rate(argocd_app_sync_total{phase="Error"}[30m])
+            ) > 0
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "ArgoCD Application 동기화 반복 실패"
+            description: "Application이 10분 이상 동기화에 성공하지 못하고 에러가 발생하고 있습니다."
+
+    # ── Service Error Rates ──────────────────────────────────────────
+    - name: service-error-rate.rules
+      rules:
+        - alert: ServiceHighErrorRate
+          expr: |
+            (
+              sum by (service_name) (
+                rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m])
+              )
+              /
+              sum by (service_name) (
+                rate(http_server_request_duration_seconds_count[5m])
+              )
+            ) > 0.05
+          for: 3m
+          labels:
+            severity: critical
+            team: service
+          annotations:
+            summary: "서비스 에러율 5% 초과 ({{ $labels.service_name }})"
+            description: "{{ $labels.service_name }} 서비스의 5xx 에러율이 {{ $value | printf \"%.1f\" }}%로 3분 이상 5%를 초과하고 있습니다."
+
+        - alert: ServiceHighLatencyP95
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le, service_name) (
+                rate(http_server_request_duration_seconds_bucket[5m])
+              )
+            ) > 5
+          for: 5m
+          labels:
+            severity: warning
+            team: service
+          annotations:
+            summary: "서비스 P95 레이턴시 5초 초과 ({{ $labels.service_name }})"
+            description: "{{ $labels.service_name }} 서비스의 P95 응답시간이 {{ $value | printf \"%.1f\" }}초로 5분 이상 5초를 초과하고 있습니다."
+
+        - alert: ServiceHighLatencyP95Critical
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le, service_name) (
+                rate(http_server_request_duration_seconds_bucket[5m])
+              )
+            ) > 10
+          for: 3m
+          labels:
+            severity: critical
+            team: service
+          annotations:
+            summary: "서비스 P95 레이턴시 10초 초과 ({{ $labels.service_name }})"
+            description: "{{ $labels.service_name }} 서비스의 P95 응답시간이 {{ $value | printf \"%.1f\" }}초로 3분 이상 10초를 초과하고 있습니다. 타임아웃 발생 가능."
+
+    # ── Tracing Pipeline Health ──────────────────────────────────────
+    - name: tracing-health.rules
+      rules:
+        - alert: OTelCollectorDroppedSpans
+          expr: |
+            sum by (pod) (
+              rate(otelcol_exporter_send_failed_spans_total[5m])
+            ) > 10
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "OTel Collector span 전송 실패 ({{ $labels.pod }})"
+            description: "{{ $labels.pod }}에서 분당 {{ $value | printf \"%.0f\" }}개 span 전송에 실패하고 있습니다. Tempo 또는 X-Ray 백엔드 확인 필요."
+
+        - alert: OTelCollectorHighMemory
+          expr: |
+            sum by (pod) (
+              container_memory_working_set_bytes{
+                namespace="platform",
+                pod=~"otel-collector.*",
+                container!=""
+              }
+            ) / sum by (pod) (
+              kube_pod_container_resource_limits{
+                namespace="platform",
+                pod=~"otel-collector.*",
+                resource="memory"
+              }
+            ) > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "OTel Collector 메모리 사용률 85% 초과 ({{ $labels.pod }})"
+            description: "{{ $labels.pod }}의 메모리 사용률이 {{ $value | printf \"%.0f\" }}%입니다. OOM 위험."
+
+    # ── Pod Health ────────────────────────────────────────────────────
+    - name: pod-health.rules
+      rules:
+        - alert: PodCrashLooping
+          expr: |
+            rate(kube_pod_container_status_restarts_total{
+              namespace=~"core-services|user-services|fulfillment-services|business-services|platform-services"
+            }[15m]) > 0
+          for: 5m
+          labels:
+            severity: critical
+            team: service
+          annotations:
+            summary: "Pod CrashLoop 감지 ({{ $labels.namespace }}/{{ $labels.pod }})"
+            description: "{{ $labels.pod }}이 15분 내 재시작되었습니다. 로그 확인: kubectl logs {{ $labels.pod }} -n {{ $labels.namespace }} --previous"
+
+        - alert: PodNotReady
+          expr: |
+            kube_pod_status_ready{
+              condition="true",
+              namespace=~"core-services|user-services|fulfillment-services|business-services|platform-services"
+            } == 0
+          for: 5m
+          labels:
+            severity: warning
+            team: service
+          annotations:
+            summary: "Pod 미준비 상태 ({{ $labels.namespace }}/{{ $labels.pod }})"
+            description: "{{ $labels.pod }}이 5분 이상 Ready 상태가 아닙니다."
+
+    # ── Database Connection Health ────────────────────────────────────
+    - name: database-health.rules
+      rules:
+        - alert: HighDBConnectionLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le, service_name) (
+                rate(db_client_operation_duration_seconds_bucket[5m])
+              )
+            ) > 2
+          for: 3m
+          labels:
+            severity: warning
+            team: service
+          annotations:
+            summary: "DB 연결 P95 레이턴시 2초 초과 ({{ $labels.service_name }})"
+            description: "{{ $labels.service_name }}의 DB 작업 P95 레이턴시가 {{ $value | printf \"%.1f\" }}초입니다. 커넥션 풀 고갈 또는 DB 부하 확인 필요."

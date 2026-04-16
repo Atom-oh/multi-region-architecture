@@ -3,13 +3,13 @@
 # Multi-Region Shopping Mall Architecture
 
 ## Purpose
-Production-grade multi-region e-commerce platform deployed across AWS us-east-1 (primary) and us-west-2 (secondary). 20 microservices across 3 language stacks with full observability, managed via Terraform and Kubernetes.
+Production-grade multi-region e-commerce platform deployed across AWS us-east-1 (primary), us-west-2 (secondary), and ap-northeast-2 (Korea, multi-AZ with 3 EKS clusters). 20 microservices across 3 language stacks with full observability, managed via Terraform and Kubernetes.
 
 ## Architecture Overview
 - **Active-Active** multi-region with primary write region and read replicas
 - **20 Microservices**: 5 Go/Gin, 7 Java/Spring Boot, 8 Python/FastAPI
 - **Data Layer**: Aurora Global, DocumentDB Global, ElastiCache Global, MSK, OpenSearch
-- **Observability**: OpenTelemetry → OTEL Collector → AWS X-Ray + Tempo + Prometheus + CloudWatch
+- **Observability**: OpenTelemetry → OTEL Collector → ClickHouse + Tempo + AWS X-Ray + Prometheus
 - **Edge**: CloudFront + WAF + Route 53 (latency-based routing)
 
 ## Key Files
@@ -36,11 +36,11 @@ Production-grade multi-region e-commerce platform deployed across AWS us-east-1 
 
 | Category | Services | Language |
 |----------|----------|----------|
-| **Core** | api-gateway, order, payment, product-catalog, cart, search, inventory | Go + Java + Python |
+| **Core** | product-catalog, search, cart, order, payment, inventory | Python + Go + Java |
 | **User** | user-account, user-profile, review, wishlist | Java + Python |
 | **Fulfillment** | shipping, warehouse, returns | Python + Java |
 | **Business** | pricing, seller, recommendation, notification | Java + Python |
-| **Platform** | event-bus, analytics | Go + Python |
+| **Platform** | api-gateway, event-bus, analytics, synthetic-monitor | Go + Python |
 
 ### Language Patterns
 
@@ -55,8 +55,8 @@ All services are instrumented with OpenTelemetry. Traces flow: Service SDK → O
 
 ### Working In This Repository
 - Run `scripts/build-and-push.sh` to build and push all service images to ECR
-- Kustomize overlays per region: `k8s/overlays/us-east-1/` and `k8s/overlays/us-west-2/`
-- ArgoCD ApplicationSets auto-deploy from `k8s/infra/argocd/apps/`
+- Kustomize overlays per region: `k8s/overlays/{us-east-1,us-west-2,ap-northeast-2-az-a,ap-northeast-2-az-c}/`
+- ArgoCD ApplicationSets auto-deploy from `k8s/infra/argocd/apps/` (US) and `k8s/infra/argocd-korea/apps/` (Korea)
 - Terraform state is remote (S3 + DynamoDB locking)
 
 ### Testing Requirements

@@ -7,7 +7,6 @@ from mall_common import valkey
 from mall_common.kafka import Producer
 from mall_common.service_client import get_product, get_products_by_ids, get_user_profile
 
-from app.config import config
 from app.models.review import Review, ReviewCreate, ReviewListResponse, ReviewUpdate
 from app.repositories import review_repo
 
@@ -17,20 +16,6 @@ CACHE_TTL = 600  # 10 minutes for individual reviews
 LIST_CACHE_TTL = 300  # 5 minutes for review lists (more dynamic)
 
 _producer: Optional[Producer] = None
-
-
-async def init_producer() -> None:
-    global _producer
-    _producer = Producer(config.kafka_brokers)
-    await _producer.start()
-    logger.info("Kafka producer initialized")
-
-
-async def stop_producer() -> None:
-    global _producer
-    if _producer:
-        await _producer.stop()
-        _producer = None
 
 
 async def _publish_event(topic: str, key: str, data: dict) -> None:
@@ -182,4 +167,5 @@ async def increment_helpful(review_id: str) -> Optional[Review]:
     review = await review_repo.increment_helpful(review_id)
     if review:
         await valkey.delete(f"review:{review_id}")
+        await valkey.delete_pattern(f"review:product:{review.product_id}:*")
     return review

@@ -19,6 +19,9 @@ async def connect(host: str, port: int = 6379, use_tls: bool = True) -> RedisClu
         ssl=use_tls,
         ssl_context=ssl_context,
         read_from_replicas=True,  # Prefer same-AZ replicas for reads
+        socket_timeout=3.0,
+        socket_connect_timeout=2.0,
+        retry_on_timeout=True,
     )
     await _client.ping()
     return _client

@@ -67,7 +67,7 @@ public class Controller {
         Map<String, Object> response = Map.ofEntries(
             Map.entry("id", "RET-NEW-001"),
             Map.entry("order_id", returnRequest.getOrDefault("order_id", "ORD-001")),
-            Map.entry("user_id", returnRequest.getOrDefault("user_id", "USR-001")),
+            Map.entry("user_id", returnRequest.getOrDefault("user_id", "unknown")),
             Map.entry("reason", returnRequest.getOrDefault("reason", "단순변심")),
             Map.entry("reason_detail", returnRequest.getOrDefault("reason_detail", "")),
             Map.entry("status", "pending"),
@@ -105,7 +105,7 @@ public class Controller {
                         String orderId = row.get("id") != null ? row.get("id").toString() : "unknown";
                         ret.put("id", "RET-" + orderId.substring(0, Math.min(8, orderId.length())));
                         ret.put("order_id", orderId);
-                        ret.put("user_id", row.getOrDefault("user_id", "USR-001").toString());
+                        ret.put("user_id", row.getOrDefault("user_id", "unknown").toString());
                         ret.put("product_name", row.getOrDefault("product_name", "상품").toString());
                         ret.put("status", "completed");
                         ret.put("status_display", "반품완료");

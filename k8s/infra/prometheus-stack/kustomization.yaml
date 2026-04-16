@@ -5,6 +5,9 @@ kind: Kustomization
 # This kustomization references the values file for documentation
 # Deploy with: helm install prometheus prometheus-community/kube-prometheus-stack -f values.yaml
 
+resources:
+  - alerting-rules.yaml
+
 configMapGenerator:
   - name: prometheus-helm-values
     files:
