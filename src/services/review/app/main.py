@@ -3,7 +3,7 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from mall_common.documentdb import connect, disconnect
+from mall_common.documentdb import connect, connect_writer, disconnect
 from mall_common import valkey
 from mall_common.kafka import Producer
 from mall_common.health import router as health_router, set_ready, set_started
@@ -45,7 +45,10 @@ async def startup():
     if config.documentdb_host != "localhost":
         try:
             await connect(config.documentdb_uri, config.db_name or "mall")
-            logger.info("Connected to DocumentDB (db=%s)", config.db_name)
+            logger.info("Connected to DocumentDB (read, db=%s)", config.db_name)
+            if config.documentdb_write_host:
+                await connect_writer(config.documentdb_write_uri, config.db_name or "mall")
+                logger.info("Connected to DocumentDB writer at %s", config.documentdb_write_host)
         except Exception as e:
             logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
     if config.cache_host != "localhost":

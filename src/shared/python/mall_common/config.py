@@ -19,6 +19,7 @@ class ServiceConfig(BaseSettings):
     kafka_brokers: str = "localhost:9092"
     opensearch_endpoint: str = "http://localhost:9200"
     documentdb_host: str = "localhost"
+    documentdb_write_host: str = ""
     documentdb_port: int = 27017
     s3_bucket: str = ""
     log_level: str = "info"
@@ -47,6 +48,18 @@ class ServiceConfig(BaseSettings):
                 f"&readPreference=secondaryPreferred"
             )
         return f"mongodb://{self.documentdb_host}:{self.documentdb_port}/{self.db_name}"
+
+    @property
+    def documentdb_write_uri(self) -> str:
+        host = self.documentdb_write_host or self.documentdb_host
+        if self.db_password:
+            return (
+                f"mongodb://{self.db_user}:{self.db_password}"
+                f"@{host}:{self.documentdb_port}"
+                f"/{self.db_name}?tls=true&tlsAllowInvalidCertificates=true&retryWrites=false"
+                f"&directConnection=true"
+            )
+        return f"mongodb://{host}:{self.documentdb_port}/{self.db_name}"
 
     @property
     def aurora_dsn(self) -> str:

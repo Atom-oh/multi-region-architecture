@@ -6,18 +6,25 @@ from typing import Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from mall_common.documentdb import get_db
+from mall_common.documentdb import get_db, get_write_db
 
 
 class ProductRepository:
     def __init__(self):
         self._db: Optional[AsyncIOMotorDatabase] = None
+        self._write_db: Optional[AsyncIOMotorDatabase] = None
 
     @property
     def db(self) -> AsyncIOMotorDatabase:
         if self._db is None:
             self._db = get_db()
         return self._db
+
+    @property
+    def write_db(self) -> AsyncIOMotorDatabase:
+        if self._write_db is None:
+            self._write_db = get_write_db()
+        return self._write_db
 
     @property
     def products(self):
@@ -63,20 +70,20 @@ class ProductRepository:
     async def create_product(self, product_data: dict) -> dict:
         product_data["created_at"] = datetime.utcnow()
         product_data["updated_at"] = datetime.utcnow()
-        result = await self.products.insert_one(product_data)
+        result = await self.write_db["products"].insert_one(product_data)
         product_data["_id"] = str(result.inserted_id)
         return product_data
 
     async def update_product(self, product_id: str, update_data: dict) -> Optional[dict]:
         update_data["updated_at"] = datetime.utcnow()
-        await self.products.update_one(
+        await self.write_db["products"].update_one(
             {"_id": ObjectId(product_id)},
             {"$set": update_data},
         )
         return await self.get_product(product_id)
 
     async def delete_product(self, product_id: str) -> bool:
-        result = await self.products.delete_one({"_id": ObjectId(product_id)})
+        result = await self.write_db["products"].delete_one({"_id": ObjectId(product_id)})
         return result.deleted_count > 0
 
     async def list_categories(self) -> list[dict]:
@@ -95,7 +102,7 @@ class ProductRepository:
 
     async def create_category(self, category_data: dict) -> dict:
         category_data["created_at"] = datetime.utcnow()
-        result = await self.categories.insert_one(category_data)
+        result = await self.write_db["categories"].insert_one(category_data)
         category_data["_id"] = str(result.inserted_id)
         return category_data
 

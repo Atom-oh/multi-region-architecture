@@ -4,7 +4,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mall_common.config import ServiceConfig
-from mall_common.documentdb import connect, disconnect, get_db
+from mall_common.documentdb import connect, connect_writer, disconnect, get_db, get_write_db
 from mall_common import valkey
 from mall_common.health import router as health_router, set_ready, set_started
 from mall_common.tracing import init_tracing
@@ -69,7 +69,7 @@ async def update_profile(user_id: str, profile: dict):
     """Update user profile."""
     if _db_connected:
         try:
-            db = get_db()
+            db = get_write_db()
             result = await db["user_profiles"].update_one(
                 {"userId": user_id}, {"$set": profile}
             )
@@ -101,7 +101,10 @@ async def startup():
         try:
             await connect(config.documentdb_uri, config.db_name or "mall")
             _db_connected = True
-            logger.info("Connected to DocumentDB")
+            logger.info("Connected to DocumentDB (read)")
+            if config.documentdb_write_host:
+                await connect_writer(config.documentdb_write_uri, config.db_name or "mall")
+                logger.info("Connected to DocumentDB writer at %s", config.documentdb_write_host)
         except Exception as e:
             logger.warning(f"DocumentDB unavailable: {e}")
     if config.cache_host != "localhost":

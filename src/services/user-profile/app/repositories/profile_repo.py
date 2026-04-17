@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from mall_common.documentdb import get_db
+from mall_common.documentdb import get_db, get_write_db
 
 from app.models.profile import Address, AddressCreate, AddressUpdate, ProfileUpdate, UserProfile
 
@@ -24,7 +24,7 @@ async def get_profile(user_id: str) -> Optional[UserProfile]:
 
 
 async def create_profile(user_id: str) -> UserProfile:
-    db = get_db()
+    db = get_write_db()
     profile = UserProfile(user_id=user_id)
     await db[COLLECTION].insert_one(profile.model_dump())
     logger.info("Created profile for user: %s", user_id)
@@ -32,7 +32,7 @@ async def create_profile(user_id: str) -> UserProfile:
 
 
 async def update_profile(user_id: str, update: ProfileUpdate) -> Optional[UserProfile]:
-    db = get_db()
+    db = get_write_db()
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
     update_data["updated_at"] = datetime.utcnow()
 
@@ -62,7 +62,7 @@ async def get_addresses(user_id: str) -> list[Address]:
 
 
 async def add_address(user_id: str, address: AddressCreate) -> Address:
-    db = get_db()
+    db = get_write_db()
     new_address = Address(id=str(uuid4()), **address.model_dump())
 
     await get_or_create_profile(user_id)
@@ -85,7 +85,7 @@ async def add_address(user_id: str, address: AddressCreate) -> Address:
 
 
 async def update_address(user_id: str, address_id: str, update: AddressUpdate) -> Optional[Address]:
-    db = get_db()
+    db = get_write_db()
     profile = await get_profile(user_id)
     if not profile:
         return None
@@ -121,7 +121,7 @@ async def update_address(user_id: str, address_id: str, update: AddressUpdate) -
 
 
 async def delete_address(user_id: str, address_id: str) -> bool:
-    db = get_db()
+    db = get_write_db()
     result = await db[COLLECTION].update_one(
         {"user_id": user_id},
         {

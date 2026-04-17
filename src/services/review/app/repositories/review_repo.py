@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from mall_common.documentdb import get_db
+from mall_common.documentdb import get_db, get_write_db
 
 from app.models.review import Review, ReviewCreate, ReviewUpdate
 
@@ -55,7 +55,7 @@ async def get_reviews_by_product(
 
 
 async def create_review(data: ReviewCreate) -> Review:
-    db = get_db()
+    db = get_write_db()
     review = Review(
         id=str(uuid4()),
         user_id=data.user_id,
@@ -71,7 +71,7 @@ async def create_review(data: ReviewCreate) -> Review:
 
 
 async def update_review(review_id: str, update: ReviewUpdate) -> Optional[Review]:
-    db = get_db()
+    db = get_write_db()
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
     if not update_data:
         return await get_review(review_id)
@@ -91,12 +91,12 @@ async def update_review(review_id: str, update: ReviewUpdate) -> Optional[Review
 
 
 async def update_user_name(review_id: str, user_name: str) -> None:
-    db = get_db()
+    db = get_write_db()
     await db[COLLECTION].update_one({"id": review_id}, {"$set": {"user_name": user_name}})
 
 
 async def increment_helpful(review_id: str) -> Optional[Review]:
-    db = get_db()
+    db = get_write_db()
     result = await db[COLLECTION].find_one_and_update(
         {"id": review_id},
         {"$inc": {"helpful_count": 1}},
@@ -109,7 +109,7 @@ async def increment_helpful(review_id: str) -> Optional[Review]:
 
 
 async def delete_review(review_id: str) -> bool:
-    db = get_db()
+    db = get_write_db()
     result = await db[COLLECTION].delete_one({"id": review_id})
     deleted = result.deleted_count > 0
     if deleted:

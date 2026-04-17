@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from mall_common.documentdb import get_db
+from mall_common.documentdb import get_db, get_write_db
 
 from app.models.wishlist import Wishlist, WishlistItem, WishlistItemCreate
 
@@ -23,7 +23,7 @@ async def get_wishlist(user_id: str) -> Optional[Wishlist]:
 
 
 async def create_wishlist(user_id: str) -> Wishlist:
-    db = get_db()
+    db = get_write_db()
     wishlist = Wishlist(user_id=user_id)
     await db[COLLECTION].insert_one(wishlist.model_dump())
     logger.info("Created wishlist for user: %s", user_id)
@@ -38,7 +38,7 @@ async def get_or_create_wishlist(user_id: str) -> Wishlist:
 
 
 async def add_item(user_id: str, item: WishlistItemCreate) -> WishlistItem:
-    db = get_db()
+    db = get_write_db()
     await get_or_create_wishlist(user_id)
 
     existing = await db[COLLECTION].find_one({
@@ -64,7 +64,7 @@ async def add_item(user_id: str, item: WishlistItemCreate) -> WishlistItem:
 
 
 async def remove_item(user_id: str, product_id: str) -> bool:
-    db = get_db()
+    db = get_write_db()
     result = await db[COLLECTION].update_one(
         {"user_id": user_id},
         {

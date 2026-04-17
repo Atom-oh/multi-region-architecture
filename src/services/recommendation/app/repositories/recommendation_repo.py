@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-from mall_common.documentdb import get_db
+from mall_common.documentdb import get_db, get_write_db
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class RecommendationRepository:
         return await cursor.to_list(length=limit)
 
     async def save_activity(self, activity: dict) -> str:
-        result = await self.activities.insert_one(activity)
+        result = await get_write_db()[self._activities_collection].insert_one(activity)
         logger.debug("Saved activity for user %s", activity.get("user_id"))
         return str(result.inserted_id)
 
@@ -39,7 +39,7 @@ class RecommendationRepository:
 
     async def cache_recommendations(self, user_id: str, recommendations: list[dict], ttl_hours: int = 1) -> None:
         expires_at = datetime.utcnow() + timedelta(hours=ttl_hours)
-        await self.recommendations.update_one(
+        await get_write_db()[self._recommendations_collection].update_one(
             {"user_id": user_id},
             {
                 "$set": {
