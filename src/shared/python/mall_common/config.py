@@ -15,6 +15,7 @@ class ServiceConfig(BaseSettings):
     db_user: str = "mall"
     db_password: str = ""
     cache_host: str = "localhost"
+    cache_write_host: str = ""
     cache_port: int = 6379
     kafka_brokers: str = "localhost:9092"
     opensearch_endpoint: str = "http://localhost:9200"

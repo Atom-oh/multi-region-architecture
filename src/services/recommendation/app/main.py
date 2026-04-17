@@ -52,7 +52,10 @@ async def startup():
     if config.cache_host != "localhost":
         try:
             await valkey.connect(config.cache_host, config.cache_port)
-            logger.info("Connected to Valkey")
+            logger.info("Connected to Valkey (read)")
+            if config.cache_write_host:
+                await valkey.connect_writer(config.cache_write_host, config.cache_port)
+                logger.info("Connected to Valkey writer at %s", config.cache_write_host)
         except Exception as e:
             logger.warning(f"Valkey unavailable: {e}")
 

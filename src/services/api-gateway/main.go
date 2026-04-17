@@ -40,7 +40,13 @@ func main() {
 
 	// Initialize Valkey connection for rate limiting (graceful fallback)
 	if cfg.CacheHost != "" && cfg.CacheHost != "localhost" {
-		client, err := valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
+		var client *valkey.Client
+		var err error
+		if cfg.CacheWriteHost != "" {
+			client, err = valkey.NewWithWriter(cfg.CacheHost, cfg.CacheWriteHost, cfg.CachePort, cfg.CachePassword)
+		} else {
+			client, err = valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
+		}
 		if err != nil {
 			log.Printf("WARNING: Valkey unavailable, rate limiting disabled: %v", err)
 		} else {

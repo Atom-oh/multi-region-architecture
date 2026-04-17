@@ -124,7 +124,13 @@ func main() {
 
 	// Initialize Valkey connection (graceful fallback to mock if unavailable)
 	if cfg.CacheHost != "" {
-		client, err := valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
+		var client *valkey.Client
+		var err error
+		if cfg.CacheWriteHost != "" {
+			client, err = valkey.NewWithWriter(cfg.CacheHost, cfg.CacheWriteHost, cfg.CachePort, cfg.CachePassword)
+		} else {
+			client, err = valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
+		}
 		if err != nil {
 			log.Printf("WARNING: Valkey unavailable, using in-memory fallback: %v", err)
 		} else {

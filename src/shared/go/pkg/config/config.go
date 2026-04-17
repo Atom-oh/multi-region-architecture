@@ -17,6 +17,7 @@ type Config struct {
 	DBUser         string
 	DBPassword     string
 	CacheHost      string
+	CacheWriteHost string // Writer endpoint for cache writes (GDS primary)
 	CachePort      int
 	CachePassword  string
 	KafkaBrokers   string
@@ -45,6 +46,7 @@ func Load(serviceName string) *Config {
 		DBUser:         getEnv("DB_USER", "mall"),
 		DBPassword:     getEnv("DB_PASSWORD", ""),
 		CacheHost:      getEnv("CACHE_HOST", "localhost"),
+		CacheWriteHost: getEnv("CACHE_WRITE_HOST", ""),
 		CachePort:      getEnvInt("CACHE_PORT", 6379),
 		CachePassword:  getEnv("CACHE_AUTH_TOKEN", ""),
 		KafkaBrokers:   getEnv("KAFKA_BROKERS", "localhost:9092"),

@@ -76,7 +76,13 @@ func main() {
 
 	// Initialize Valkey connection (graceful fallback if unavailable)
 	if cfg.CacheHost != "" && cfg.CacheHost != "localhost" {
-		client, err := valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
+		var client *valkey.Client
+		var err error
+		if cfg.CacheWriteHost != "" {
+			client, err = valkey.NewWithWriter(cfg.CacheHost, cfg.CacheWriteHost, cfg.CachePort, cfg.CachePassword)
+		} else {
+			client, err = valkey.New(cfg.CacheHost, cfg.CachePort, cfg.CachePassword)
+		}
 		if err != nil {
 			log.Printf("WARNING: Valkey unavailable, inventory lookups will not be cached: %v", err)
 		} else {
