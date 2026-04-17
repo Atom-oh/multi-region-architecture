@@ -52,13 +52,13 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
-          name: DOCUMENTDB_WRITE_HOST
-          value: "production-docdb-global-primary.cluster-zzzzzzzzzzzz.us-east-1.docdb.amazonaws.com"
+          name: DOCUMENTDB_HOST
+          value: "production-docdb-ap-northeast-2-az-a.zzzzzzzzzzzz.ap-northeast-2.docdb.amazonaws.com"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
-          name: CACHE_WRITE_HOST
-          value: "master.production-elasticache-us-east-1.zzzzzz.use1.cache.amazonaws.com"
+          name: DOCUMENTDB_WRITE_HOST
+          value: "production-docdb-ap-northeast-2.cluster-zzzzzzzzzzzz.ap-northeast-2.docdb.amazonaws.com"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
@@ -93,10 +93,9 @@ configMapGenerator:
       - AVAILABILITY_ZONE=ap-northeast-2a
       - AURORA_WRITER_ENDPOINT=production-aurora-global-ap-northeast-2.cluster-zzzzzzzzzzzz.ap-northeast-2.rds.amazonaws.com
       - AURORA_READER_LOCAL_ENDPOINT=reader-2a.cluster-custom-zzzzzzzzzzzz.ap-northeast-2.rds.amazonaws.com
-      - DOCUMENTDB_ENDPOINT=production-docdb-global-ap-northeast-2.cluster-zzzzzzzzzzzz.ap-northeast-2.docdb.amazonaws.com
-      - DOCUMENTDB_WRITER_ENDPOINT=production-docdb-global-primary.cluster-zzzzzzzzzzzz.us-east-1.docdb.amazonaws.com
+      - DOCUMENTDB_READER_ENDPOINT=production-docdb-ap-northeast-2-az-a.zzzzzzzzzzzz.ap-northeast-2.docdb.amazonaws.com
+      - DOCUMENTDB_WRITER_ENDPOINT=production-docdb-ap-northeast-2.cluster-zzzzzzzzzzzz.ap-northeast-2.docdb.amazonaws.com
       - VALKEY_ENDPOINT=master.production-elasticache-ap-northeast-2.zzzzzz.apn2.cache.amazonaws.com
-      - VALKEY_WRITER_ENDPOINT=master.production-elasticache-us-east-1.zzzzzz.use1.cache.amazonaws.com
       - MSK_BROKERS=b-2.productionmskapne2.zzzzzz.c3.kafka.ap-northeast-2.amazonaws.com:9096,b-3.productionmskapne2.zzzzzz.c3.kafka.ap-northeast-2.amazonaws.com:9096,b-4.productionmskapne2.zzzzzz.c3.kafka.ap-northeast-2.amazonaws.com:9096
       - OPENSEARCH_ENDPOINT=https://vpc-production-os-apne2-zzzzzzzzzzzzzzzzzzzzzzzzzz.ap-northeast-2.es.amazonaws.com
   - name: tempo-region-config

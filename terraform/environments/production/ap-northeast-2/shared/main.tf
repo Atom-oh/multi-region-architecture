@@ -151,21 +151,22 @@ module "msk" {
   tags                       = var.tags
 }
 
-# DocumentDB: secondary, joining global cluster from primary
+# DocumentDB: independent primary cluster for Korean region
+# Data seeded via one-time copy from US (mongodump/mongorestore)
 module "documentdb" {
   source = "../../../../modules/data/documentdb-global"
 
   environment               = var.environment
   region                    = var.region
-  is_primary                = false
-  global_cluster_identifier = var.docdb_global_cluster_identifier
-  source_region             = "us-east-1"
+  is_primary                = true
+  global_cluster_identifier = ""
+  source_region             = ""
   vpc_id                    = module.vpc.vpc_id
   data_subnet_ids           = module.vpc.data_subnet_ids
   security_group_id         = module.security_groups.documentdb_security_group_id
   kms_key_arn               = module.kms.key_arns["documentdb"]
   instance_class            = "db.r6g.large"
-  instance_count            = 1
+  instance_count            = 2
   tags                      = var.tags
 }
 
