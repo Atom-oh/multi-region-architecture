@@ -177,7 +177,7 @@
         "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }] } },
         "overrides": [
           { "matcher": { "id": "byName", "options": "duration_ms" }, "properties": [{ "id": "unit", "value": "ms" }, { "id": "thresholds", "value": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1000 }, { "color": "red", "value": 5000 }] } }, { "id": "custom.cellOptions", "value": { "type": "color-background" } }] },
-          { "matcher": { "id": "byName", "options": "TraceId" }, "properties": [{ "id": "links", "value": [{ "title": "View in Tempo", "url": "/explore?left={\"datasource\":\"${tempo}\",\"queries\":[{\"refId\":\"A\",\"queryType\":\"traceql\",\"query\":\"${__value.raw}\"}]}", "targetBlank": true }] }] }
+          { "matcher": { "id": "byName", "options": "TraceId" }, "properties": [{ "id": "links", "value": [{ "title": "View in Tempo", "internal": { "datasourceUid": "tempo", "query": { "queryType": "traceql", "query": "${__value.raw}" } } }] }] }
         ]
       },
       "options": { "sortBy": [{ "displayName": "duration_ms", "desc": true }] },
@@ -196,7 +196,7 @@
       "fieldConfig": {
         "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": null }] } },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "TraceId" }, "properties": [{ "id": "links", "value": [{ "title": "View in Tempo", "url": "/explore?left={\"datasource\":\"${tempo}\",\"queries\":[{\"refId\":\"A\",\"queryType\":\"traceql\",\"query\":\"${__value.raw}\"}]}", "targetBlank": true }] }] }
+          { "matcher": { "id": "byName", "options": "TraceId" }, "properties": [{ "id": "links", "value": [{ "title": "View in Tempo", "internal": { "datasourceUid": "tempo", "query": { "queryType": "traceql", "query": "${__value.raw}" } } }] }] }
         ]
       },
       "options": { "sortBy": [{ "displayName": "Timestamp", "desc": true }] },

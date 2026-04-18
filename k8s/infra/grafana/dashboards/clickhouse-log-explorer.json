@@ -161,8 +161,10 @@
           "thresholds": { "steps": [{ "color": "green", "value": null }] },
           "links": [{
             "title": "View Trace in Tempo",
-            "url": "/explore?orgId=1&left=%7B%22datasource%22:%22tempo%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22queryType%22:%22traceql%22,%22query%22:%22${__value.text}%22%7D%5D%7D",
-            "targetBlank": true
+            "internal": {
+              "datasourceUid": "tempo",
+              "query": { "queryType": "traceql", "query": "${__value.raw}" }
+            }
           }]
         },
         "overrides": [
