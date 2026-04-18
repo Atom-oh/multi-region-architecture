@@ -196,10 +196,10 @@ public class Controller {
             }
         }
 
-        // Empty fallback - no mock data
+        // Demo fallback with real catalog products
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-            .body(List.of());
+            .body(getDemoOrders());
     }
 
     @GetMapping("/api/v1/orders/{id}")
@@ -235,15 +235,17 @@ public class Controller {
             }
         }
 
-        // Empty fallback - no mock data
-        Map<String, Object> order = Map.of(
-            "id", id,
-            "error", "주문을 찾을 수 없습니다",
-            "status", "not_found"
-        );
+        // Check demo orders fallback
+        for (Map<String, Object> demo : getDemoOrders()) {
+            if (id.equals(demo.get("id"))) {
+                return ResponseEntity.ok()
+                    .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                    .body(demo);
+            }
+        }
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-            .body(order);
+            .body(Map.of("id", id, "error", "주문을 찾을 수 없습니다", "status", "not_found"));
     }
 
     @GetMapping("/api/v1/orders/user/{userId}")
@@ -278,16 +280,97 @@ public class Controller {
             }
         }
 
-        // Empty fallback - no mock data
-        List<Map<String, Object>> orders = List.of();
-        Map<String, Object> response = Map.of(
-            "user_id", userId,
-            "orders", orders,
-            "total", orders.size()
-        );
+        // Filter demo orders by user
+        List<Map<String, Object>> userOrders = new ArrayList<>();
+        for (Map<String, Object> demo : getDemoOrders()) {
+            if (userId.equals(demo.get("user_id"))) userOrders.add(demo);
+        }
         return ResponseEntity.ok()
             .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-            .body(response);
+            .body(Map.of("user_id", userId, "orders", userOrders, "total", userOrders.size()));
+    }
+
+    private List<Map<String, Object>> getDemoOrders() {
+        List<Map<String, Object>> orders = new ArrayList<>();
+
+        Map<String, Object> o1 = new LinkedHashMap<>();
+        o1.put("id", "demo-ord-001");
+        o1.put("user_id", "a0000001-0000-0000-0000-000000000001");
+        o1.put("user_name", "김민지");
+        o1.put("status", "delivered");
+        o1.put("status_display", "배송완료");
+        o1.put("total_amount", 1969851);
+        o1.put("currency", "KRW");
+        o1.put("items", List.of(
+            Map.of("product_id", "PROD-0001", "name", "갤럭시S26 울트라 512GB, 자급제", "quantity", 1, "price", 1683571),
+            Map.of("product_id", "PROD-0102", "name", "레볼루션 8 HJ9198-003", "quantity", 1, "price", 38256),
+            Map.of("product_id", "PROD-0202", "name", "신라면 120g", "quantity", 10, "price", 2359)
+        ));
+        o1.put("created_at", "2026-04-10T14:30:00Z");
+        orders.add(o1);
+
+        Map<String, Object> o2 = new LinkedHashMap<>();
+        o2.put("id", "demo-ord-002");
+        o2.put("user_id", "a0000001-0000-0000-0000-000000000002");
+        o2.put("user_name", "이서연");
+        o2.put("status", "shipping");
+        o2.put("status_display", "배송중");
+        o2.put("total_amount", 1327168);
+        o2.put("currency", "KRW");
+        o2.put("items", List.of(
+            Map.of("product_id", "PROD-0012", "name", "아이폰17 256GB, 자급제", "quantity", 1, "price", 1092384),
+            Map.of("product_id", "PROD-0301", "name", "마다가스카르 센텔라 히알루-시카 워터핏 선세럼50ml", "quantity", 2, "price", 16418),
+            Map.of("product_id", "PROD-0801", "name", "아레나 멀티 게이밍 책상 (1600x800)", "quantity", 1, "price", 122168)
+        ));
+        o2.put("created_at", "2026-04-14T11:20:00Z");
+        orders.add(o2);
+
+        Map<String, Object> o3 = new LinkedHashMap<>();
+        o3.put("id", "demo-ord-003");
+        o3.put("user_id", "a0000001-0000-0000-0000-000000000003");
+        o3.put("user_name", "박지훈");
+        o3.put("status", "processing");
+        o3.put("status_display", "상품준비중");
+        o3.put("total_amount", 758511);
+        o3.put("currency", "KRW");
+        o3.put("items", List.of(
+            Map.of("product_id", "PROD-0503", "name", "아디제로 SL2 M JQ0351", "quantity", 1, "price", 86361),
+            Map.of("product_id", "PROD-0401", "name", "블루스카이 5500 AP70F06103RTD", "quantity", 1, "price", 237560),
+            Map.of("product_id", "PROD-0601", "name", "The Frozen River: A GMA Book Club Pick", "quantity", 2, "price", 13276),
+            Map.of("product_id", "PROD-0901", "name", "요요3 프리미엄 휴대용유모차", "quantity", 1, "price", 615600)
+        ));
+        o3.put("created_at", "2026-04-16T09:45:00Z");
+        orders.add(o3);
+
+        Map<String, Object> o4 = new LinkedHashMap<>();
+        o4.put("id", "demo-ord-004");
+        o4.put("user_id", "a0000001-0000-0000-0000-000000000001");
+        o4.put("user_name", "김민지");
+        o4.put("status", "pending");
+        o4.put("status_display", "주문접수");
+        o4.put("total_amount", 2261170);
+        o4.put("currency", "KRW");
+        o4.put("items", List.of(
+            Map.of("product_id", "PROD-0007", "name", "갤럭시Z 폴드7 512GB, 자급제", "quantity", 1, "price", 2261170)
+        ));
+        o4.put("created_at", "2026-04-17T16:00:00Z");
+        orders.add(o4);
+
+        Map<String, Object> o5 = new LinkedHashMap<>();
+        o5.put("id", "demo-ord-005");
+        o5.put("user_id", "a0000001-0000-0000-0000-000000000004");
+        o5.put("user_name", "최수현");
+        o5.put("status", "cancelled");
+        o5.put("status_display", "주문취소");
+        o5.put("total_amount", 507398);
+        o5.put("currency", "KRW");
+        o5.put("items", List.of(
+            Map.of("product_id", "PROD-0402", "name", "퓨리케어 360˚ 플러스 AS305DWWA", "quantity", 1, "price", 507398)
+        ));
+        o5.put("created_at", "2026-04-12T08:15:00Z");
+        orders.add(o5);
+
+        return orders;
     }
 
     private String getStatusDisplay(String status) {

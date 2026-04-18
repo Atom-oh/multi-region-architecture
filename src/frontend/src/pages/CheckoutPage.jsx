@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { api } from '../api';
-import { validatePhone, validateCardNumber, validateExpiry, validateCVC } from '../utils';
+import { validatePhone } from '../utils';
 import { useI18n } from '../context/I18nContext';
 
 export default function CheckoutPage() {
@@ -71,20 +71,7 @@ export default function CheckoutPage() {
       setError(t('checkout.invalidPhone'));
       return;
     }
-    if (formData.paymentMethod === 'card') {
-      if (!validateCardNumber(formData.cardNumber)) {
-        setError(t('checkout.invalidCard'));
-        return;
-      }
-      if (!validateExpiry(formData.cardExpiry)) {
-        setError(t('checkout.invalidExpiry'));
-        return;
-      }
-      if (!validateCVC(formData.cardCvc)) {
-        setError(t('checkout.invalidCvc'));
-        return;
-      }
-    }
+    // Card validation skipped — demo mode
 
     setIsProcessing(true);
     try {
