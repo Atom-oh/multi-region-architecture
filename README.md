@@ -32,21 +32,20 @@ graph TB
         EKS_W --> OS_W[(OpenSearch)]
     end
 
-    subgraph korea [ap-northeast-2 — Korea Multi-AZ]
+    subgraph korea [ap-northeast-2 — Korea Multi-AZ · Independent]
         ALB_K --> EKS_K_A[EKS AZ-A<br/>20 Services]
         ALB_K --> EKS_K_C[EKS AZ-C<br/>20 Services]
         EKS_K_MGMT[EKS Mgmt<br/>Observability · ArgoCD · Runners]
-        EKS_K_A --> AURORA_K[(Aurora PostgreSQL<br/>Reader)]
-        EKS_K_A --> DOCDB_K[(DocumentDB<br/>Reader)]
-        EKS_K_A --> CACHE_K[(ElastiCache Valkey)]
+        EKS_K_A --> AURORA_K[(Aurora PostgreSQL<br/>Writer / Reader)]
+        EKS_K_A --> DOCDB_K[(DocumentDB<br/>Writer / Reader)]
+        EKS_K_A --> CACHE_K[(ElastiCache Valkey<br/>Primary)]
+        EKS_K_A --> MSK_K[MSK Kafka]
+        EKS_K_A --> OS_K[(OpenSearch)]
     end
 
     AURORA_E -. "Global DB<br/>Replication" .-> AURORA_W
-    AURORA_E -. "Global DB<br/>Replication" .-> AURORA_K
     DOCDB_E -. "Global Cluster<br/>Replication" .-> DOCDB_W
-    DOCDB_E -. "Global Cluster<br/>Replication" .-> DOCDB_K
     CACHE_E -. "Global Datastore" .-> CACHE_W
-    CACHE_E -. "Global Datastore" .-> CACHE_K
     MSK_E -. "MSK Replicator" .-> MSK_W
     EKS_E <-. "Transit Gateway<br/>Peering" .-> EKS_W
 
@@ -57,11 +56,10 @@ graph TB
     style korea fill:#27711615,stroke:#277116,color:#000
 ```
 
-### Design Pattern: Write-Primary / Read-Local
+### Design Pattern
 
-- **쓰기**: us-east-1 Primary로 라우팅 (Aurora Global Write Forwarding)
-- **읽기**: 각 리전의 로컬 Read Replica에서 처리 (sub-10ms latency)
-- **이벤트**: MSK Replicator로 크로스 리전 이벤트 동기화
+- **US (us-east-1 ↔ us-west-2)**: Write-Primary / Read-Local 패턴. Aurora Global Write Forwarding으로 us-east-1에서 쓰기, 각 리전 Read Replica에서 읽기 (sub-10ms). MSK Replicator로 크로스 리전 이벤트 동기화.
+- **Korea (ap-northeast-2)**: 모든 데이터 스토어가 **독립 Primary**. US와 Global Cluster를 공유하지 않음. 각 AZ별 Reader endpoint 분리 (write → cluster writer, read → nearest AZ instance).
 
 ## Tech Stack
 
@@ -181,7 +179,8 @@ multi-region-architecture/
 │   ├── environments/
 │   │   └── production/
 │   │       ├── us-east-1/              # Primary region (260 resources)
-│   │       └── us-west-2/              # Secondary region
+│   │       ├── us-west-2/              # Secondary region
+│   │       └── ap-northeast-2/         # Korea (shared, eks-mgmt, eks-az-a, eks-az-c)
 │   └── modules/
 │       ├── networking/                 # VPC, Transit Gateway, Security Groups
 │       ├── compute/                    # EKS, ALB Controller
@@ -199,24 +198,27 @@ multi-region-architecture/
 │   │   ├── business/                  # notification, pricing, recommendation, seller
 │   │   └── platform/                  # analytics, api-gateway, event-bus
 │   ├── infra/                          # Infrastructure components
-│   │   ├── argocd/                    # ArgoCD ApplicationSets
+│   │   ├── argocd/                    # ArgoCD ApplicationSets (US)
+│   │   ├── argocd-korea/             # ArgoCD ApplicationSets (Korea, from mgmt)
 │   │   ├── prometheus-stack/          # Prometheus + Grafana
 │   │   ├── tempo/                     # Grafana Tempo (distributed tracing)
 │   │   ├── otel-collector/            # OpenTelemetry Collector
-│   │   ├── fluent-bit/                # Log forwarding
+│   │   ├── clickhouse/                # Trace/log analytics storage
 │   │   ├── karpenter/                 # Node autoscaling
 │   │   ├── external-secrets/          # AWS Secrets Manager sync
 │   │   └── keda/                      # Event-driven autoscaling
 │   └── overlays/                       # Region-specific patches
 │       ├── us-east-1/                 # Primary config + real endpoints
-│       └── us-west-2/                 # Secondary config + real endpoints
+│       ├── us-west-2/                 # Secondary config + real endpoints
+│       ├── ap-northeast-2-az-a/       # Korea AZ-A (independent data stores)
+│       └── ap-northeast-2-az-c/       # Korea AZ-C
 │
 ├── src/                                # Application source code (20 services)
 │
 ├── scripts/
 │   └── seed-data/                     # Mock data for all data stores
 │       ├── seed-aurora.sql            # 50 users, 200 orders, payments, inventory
-│       ├── seed-documentdb.js         # 150 products, profiles, wishlists, reviews
+│       ├── seed-documentdb.js         # 1000 products (crawled), profiles, wishlists, reviews
 │       ├── seed-opensearch.sh         # Product search index (nori analyzer)
 │       ├── seed-kafka-topics.sh       # 35 event topics
 │       ├── seed-redis.sh             # Cache, sessions, carts, leaderboards
@@ -236,7 +238,7 @@ multi-region-architecture/
 ### Prerequisites
 
 - AWS Account with appropriate permissions
-- Terraform >= 1.5
+- Terraform >= 1.9
 - kubectl
 - AWS CLI v2
 - helm
@@ -311,7 +313,8 @@ graph LR
 
 - **Prometheus**: 메트릭 수집 + 알림 규칙
 - **Grafana**: 대시보드, Tempo/Prometheus/CloudWatch 통합
-- **Fluent Bit**: 로그 수집 → CloudWatch Logs
+- **OTel Collector**: 로그 수집 (filelog receiver → ClickHouse + CloudWatch). Fluent Bit를 대체.
+- **ClickHouse**: Trace/Log 분석 스토리지 (`otel` database, 30일 TTL)
 - **CloudWatch**: 인프라 알림 (Aurora lag, MSK under-replicated, error rate)
 
 ## Event-Driven Architecture

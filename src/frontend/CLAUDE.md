@@ -77,8 +77,9 @@ All routes defined in `App.jsx`. Public: `/login`, `/register`, `/products`, `/p
 - **Tailwind v4 config** — tokens live in `index.css` `@theme` block, NOT in `tailwind.config.js` (which doesn't exist). The Vite plugin handles everything.
 - **formatPrice duplication** — `utils.js` exports `formatPrice` but most pages define their own inline copy. Both produce the same `₩X,XXX` format.
 - **API trailing slash** — `api.js` auto-appends `/` before query strings. Backend routes without trailing slash support will 301; this avoids that.
-- **Product images** — products have 3 images each (Unsplash/picsum URLs). `mapProduct` filters out `mall.example.com` placeholder URLs.
+- **Product images** — 1000 real products crawled from danuri.io. Images served from danuri.io CDN. `mapProduct` filters out `mall.example.com` placeholder URLs.
 - **No build-time env vars** — API base is hardcoded as `/api/v1` (relies on reverse proxy in production).
 - **Error handling** — pages use try/catch around `api()` calls. `api.js` throws `ApiError(status, message, data)`. 401 triggers auto-logout. Pages typically show `alert()` on error or set empty-state UI.
+- **Checkout validation** — Card number, expiry, CVC validation removed for demo mode. Only shipping info (name, phone, address) is required. Card fields still render but are optional.
 - **i18n gaps** — `OrderStatusBadge.jsx` hardcodes Korean strings instead of using `t()`. Other components use i18n correctly.
 - **deploy-frontend.sh** — has placeholder `CF_DISTRIBUTION="EXXXXXXXXXXXXX"` — use actual ID `E2XBVTVYBYX8T6`.

@@ -4,13 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Multi-region shopping mall platform on AWS. Three regions: **us-east-1** (primary), **us-west-2** (secondary), **ap-northeast-2** (Korea, multi-AZ). Write-Primary/Read-Local data pattern with Aurora Global Write Forwarding. 20 microservices across 5 domains.
+Multi-region shopping mall platform (**VELLURE**) on AWS. Three regions: **us-east-1** (primary), **us-west-2** (secondary), **ap-northeast-2** (Korea, multi-AZ). 20 microservices across 5 domains. 1000 real products (crawled from danuri.io).
 
 - **AWS Account**: `<AWS_ACCOUNT_ID>` (sanitized for public repo; set via `.env.example`)
-- **Domain**: atomai.click (wildcard cert `*.atomai.click`)
+- **Domain**: atomai.click (wildcard cert `*.atomai.click`), CloudFront distribution `E2XBVTVYBYX8T6`
 - **EKS Clusters**:
   - us-east-1 / us-west-2: `multi-region-mall`
   - ap-northeast-2: `mall-apne2-mgmt` (management), `mall-apne2-az-a`, `mall-apne2-az-c` (workload)
+
+### Data Topology
+
+- **US (us-east-1 ↔ us-west-2)**: Aurora, DocumentDB, ElastiCache share Global Clusters. us-east-1 = primary writer, us-west-2 = read-only secondary.
+- **Korea (ap-northeast-2)**: All data stores are **independent primaries** (Aurora, ElastiCache, MSK, OpenSearch, DocumentDB). Korea does NOT share global clusters with the US. Data seeded via one-time copy.
+- **Within Korea**: Each AZ has per-AZ reader endpoints. Writes go to the regional cluster writer; reads go to the nearest AZ instance.
 
 ## Traffic Flow
 
@@ -81,7 +87,7 @@ go test ./...
 - `terraform/environments/production/{us-east-1,us-west-2}/` — Root modules per US region
 - `terraform/environments/production/ap-northeast-2/` — Korea region (subdirs: `shared/`, `eks-mgmt/`, `eks-az-a/`, `eks-az-c/`)
 - `terraform/modules/` — Reusable modules: `compute/`, `data/`, `dr-automation/`, `edge/`, `networking/`, `observability/`, `security/`
-- `terraform/global/` — Cross-region resources (Aurora global cluster, DocumentDB global cluster, Route53 zone, state bucket)
+- `terraform/global/` — Cross-region resources (Aurora global cluster, DocumentDB global cluster, Route53 zone, state bucket). **Note**: Korea does not participate in global clusters — its data stores are independent primaries.
 - Provider: `hashicorp/aws >= 6.0`, Terraform `>= 1.9`
 
 ### K8s Structure
@@ -109,7 +115,8 @@ go test ./...
 - IAM roles in us-east-1 use `role_name_suffix = ""` (no region suffix) — these were created before the suffix convention was added. us-west-2 uses `-us-west-2` suffix.
 - DocumentDB us-east-1 primary uses `cluster_identifier_override = "production-docdb-global-primary"` (restored from snapshot, non-standard name).
 - OpenSearch domain names max 28 chars — uses shortened region codes (`use1`, `usw2`).
-- ElastiCache secondary: `engine`, `engine_version`, encryption params must be null (inherited from global datastore). `automatic_failover_enabled` in lifecycle `ignore_changes`.
+- ElastiCache secondary (us-west-2 only): `engine`, `engine_version`, encryption params must be null (inherited from global datastore). `automatic_failover_enabled` in lifecycle `ignore_changes`.
+- Korea DocumentDB: `is_primary = true`, `instance_count = 2` (writer + AZ-local reader). NOT a global cluster secondary.
 
 ### K8s / Kustomize
 
@@ -132,6 +139,12 @@ go test ./...
 - After `terraform apply` or `kubectl apply` that changes networking, load balancers, or ingress, **always run** `bash scripts/test-traffic-flow.sh` to verify the traffic flow.
 - The script checks: DNS resolution, NLB existence, target group health, CloudFront connectivity, Route53 records, SG audit (no 0.0.0.0/0), and CloudFront origin.
 - `WARN` for empty target groups is expected when pods are not yet deployed (nginx:alpine placeholders).
+
+### Data Layer Read/Write Splitting
+
+- **DocumentDB**: `mall_common/documentdb.py` has `connect()` (reader) and `connect_writer()` (writer). Repository write operations use `get_write_db()` which falls back to `get_db()` when no writer is configured. In Korea overlays, `DOCUMENTDB_HOST` = AZ-local reader instance, `DOCUMENTDB_WRITE_HOST` = cluster writer endpoint.
+- **Valkey**: `mall_common/valkey.py` has `connect()` (reader) and `connect_writer()`. Write operations (`set_json`, `delete`, `delete_pattern`) use the write client. Go `valkey.Client` supports `NewWithWriter()` for separate reader/writer. `CACHE_WRITE_HOST` env var controls writer endpoint.
+- **Aurora**: Java services use `DB_WRITE_HOST` and `DB_READ_HOST_LOCAL` env vars, configured per-AZ in Korea overlays.
 
 ### Observability
 
