@@ -99,3 +99,119 @@ module "tempo_storage" {
   name_suffix       = "-mgmt"
   tags              = var.tags
 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CI Runner — Pod Identity for GitHub Actions self-hosted runners
+# Grants ECR push, Bedrock invoke, and AgentCore access to all runner pods.
+# ─────────────────────────────────────────────────────────────────────────────
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_role" "ci_runner" {
+  name = "mall-apne2-mgmt-ci-runner"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "pods.eks.amazonaws.com"
+      }
+      Action = ["sts:AssumeRole", "sts:TagSession"]
+    }]
+  })
+
+  tags = merge(var.tags, { Name = "mall-apne2-mgmt-ci-runner" })
+}
+
+resource "aws_iam_role_policy" "ci_runner_ecr" {
+  name = "ecr-push"
+  role = aws_iam_role.ci_runner.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:CreateRepository",
+          "ecr:DescribeRepositories"
+        ]
+        Resource = "arn:aws:ecr:${var.region}:${data.aws_caller_identity.current.account_id}:repository/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "ci_runner_bedrock" {
+  name = "bedrock-invoke"
+  role = aws_iam_role.ci_runner.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream",
+          "bedrock:Converse",
+          "bedrock:ConverseStream",
+          "bedrock:GetFoundationModel",
+          "bedrock:ListFoundationModels",
+          "bedrock:GetInferenceProfile",
+          "bedrock:ListInferenceProfiles"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "bedrock-agentcore:*"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Pod Identity Associations — one per runner service account
+locals {
+  runner_service_accounts = [
+    "ttobak-x86-gha-rs-no-permission",
+    "ttobak-arm-gha-rs-no-permission",
+    "cc-bedrock-x86-gha-rs-no-permission",
+    "cc-bedrock-arm-gha-rs-no-permission",
+    "aws-fsi-demo-x86-gha-rs-no-permission",
+    "aws-fsi-demo-arm-gha-rs-no-permission",
+    "awsops-x86-gha-rs-no-permission",
+    "awsops-arm-gha-rs-no-permission",
+    "self-hosted-x86-gha-rs-no-permission",
+    "self-hosted-arm-gha-rs-no-permission",
+  ]
+}
+
+resource "aws_eks_pod_identity_association" "ci_runner" {
+  for_each = toset(local.runner_service_accounts)
+
+  cluster_name    = "mall-apne2-mgmt"
+  namespace       = "actions-runner-system"
+  service_account = each.value
+  role_arn        = aws_iam_role.ci_runner.arn
+
+  tags = merge(var.tags, { Name = "ci-runner-${each.value}" })
+
+  depends_on = [module.eks]
+}
