@@ -208,6 +208,11 @@ resource "aws_iam_role_policy_attachment" "ci_runner_readonly" {
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
 
+resource "aws_iam_role_policy_attachment" "ci_runner_s3_full" {
+  role       = aws_iam_role.ci_runner.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
 resource "aws_iam_role_policy" "ci_runner_cdk_deploy" {
   name = "cdk-deploy"
   role = aws_iam_role.ci_runner.id
