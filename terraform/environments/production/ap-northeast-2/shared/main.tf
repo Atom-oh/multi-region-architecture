@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 6.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.0"
+    }
   }
 }
 
@@ -95,7 +99,12 @@ module "secrets_manager" {
 # Data (Korean Region)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Aurora: secondary, joining global cluster from primary
+resource "random_password" "aurora" {
+  length  = 32
+  special = false
+}
+
+# Aurora: standalone primary (Korean region is independent)
 module "aurora" {
   source = "../../../../modules/data/aurora-global"
 
@@ -108,7 +117,7 @@ module "aurora" {
   data_subnet_ids           = module.vpc.data_subnet_ids
   security_group_id         = module.security_groups.documentdb_security_group_id
   kms_key_arn               = module.kms.key_arns["aurora"]
-  master_password           = "<YOUR_PASSWORD>"
+  master_password           = random_password.aurora.result
   reader_count              = 1
   reader_availability_zones = ["ap-northeast-2a"]
   tags                      = var.tags

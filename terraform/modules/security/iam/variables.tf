@@ -67,7 +67,7 @@ variable "terraform_state_bucket" {
 variable "terraform_lock_table" {
   description = "DynamoDB table name for Terraform lock"
   type        = string
-  default     = "multi-region-mall-terraform-lock"
+  default     = "multi-region-mall-terraform-locks"
 }
 
 variable "bedrock_pr_review_model_id" {

@@ -36,7 +36,7 @@ data:
       storage:
         path: /var/tempo/generator/wal
         remote_write:
-          - url: http://k8s-monitori-promethe-0fad301b35-bd8824e1caa3e556.elb.ap-northeast-2.amazonaws.com:9090/api/v1/write
+          - url: http://${PROMETHEUS_REMOTE_WRITE_HOST}:9090/api/v1/write
             send_exemplars: true
 
     storage:

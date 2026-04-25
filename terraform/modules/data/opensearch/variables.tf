@@ -92,7 +92,7 @@ variable "master_password" {
   description = "Master password for OpenSearch admin user"
   type        = string
   sensitive   = true
-  default     = "<YOUR_PASSWORD>"
+  default     = null
 }
 
 variable "tags" {

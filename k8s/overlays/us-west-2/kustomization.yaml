@@ -90,7 +90,7 @@ configMapGenerator:
       - DSQL_ENDPOINT=<placeholder-until-apply>.us-west-2.dsql.amazonaws.com
       - DOCUMENTDB_ENDPOINT=production-docdb-global-us-west-2.cluster-yyyyyyyyyyyy.us-west-2.docdb.amazonaws.com
       - VALKEY_ENDPOINT=clustercfg.production-elasticache-us-west-2.yyyyyy.usw2.cache.amazonaws.com
-      - MSK_BROKERS=b-1.productionmskuswest2.yyyyyy.yyy.kafka.us-west-2.amazonaws.com:9096
+      - MSK_BROKERS=b-1.productionmskuswest2.yyyyyy.yyy.kafka.us-west-2.amazonaws.com:9096,b-2.productionmskuswest2.yyyyyy.yyy.kafka.us-west-2.amazonaws.com:9096,b-3.productionmskuswest2.yyyyyy.yyy.kafka.us-west-2.amazonaws.com:9096
       - OPENSEARCH_ENDPOINT=https://vpc-production-os-usw2-yyyyyyyyyyyyyyyyyyyyyyyyyyyy.us-west-2.es.amazonaws.com
   - name: tempo-region-config
     namespace: observability
