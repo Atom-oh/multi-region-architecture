@@ -203,6 +203,67 @@ resource "aws_iam_role_policy" "ci_runner_bedrock" {
   })
 }
 
+resource "aws_iam_role_policy_attachment" "ci_runner_readonly" {
+  role       = aws_iam_role.ci_runner.name
+  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
+
+resource "aws_iam_role_policy" "ci_runner_cdk_deploy" {
+  name = "cdk-deploy"
+  role = aws_iam_role.ci_runner.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "CDKBootstrapSSM"
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters"
+        ]
+        Resource = "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/cdk-bootstrap/*"
+      },
+      {
+        Sid    = "CDKAssumeRoles"
+        Effect = "Allow"
+        Action = "sts:AssumeRole"
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/cdk-*"
+        ]
+      },
+      {
+        Sid    = "CloudFormation"
+        Effect = "Allow"
+        Action = [
+          "cloudformation:DescribeStacks",
+          "cloudformation:GetTemplate",
+          "cloudformation:CreateChangeSet",
+          "cloudformation:DescribeChangeSet",
+          "cloudformation:ExecuteChangeSet",
+          "cloudformation:DeleteChangeSet",
+          "cloudformation:DescribeStackEvents"
+        ]
+        Resource = "arn:aws:cloudformation:*:${data.aws_caller_identity.current.account_id}:stack/*/*"
+      },
+      {
+        Sid    = "S3CDKAssets"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ]
+        Resource = [
+          "arn:aws:s3:::cdk-*",
+          "arn:aws:s3:::cdk-*/*"
+        ]
+      }
+    ]
+  })
+}
+
 # Pod Identity Associations — one per runner service account
 locals {
   runner_service_accounts = [
