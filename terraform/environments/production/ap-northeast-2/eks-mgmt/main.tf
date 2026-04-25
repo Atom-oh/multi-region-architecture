@@ -235,6 +235,35 @@ resource "aws_iam_role_policy" "ci_runner_cloudfront" {
   })
 }
 
+resource "aws_iam_role_policy" "ci_runner_ecs" {
+  name = "ecs-deploy"
+  role = aws_iam_role.ci_runner.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecs:RegisterTaskDefinition",
+          "ecs:DeregisterTaskDefinition",
+          "ecs:DescribeTaskDefinition",
+          "ecs:ListTaskDefinitions",
+          "ecs:UpdateService",
+          "ecs:DescribeServices",
+          "ecs:DescribeTasks",
+          "ecs:ListTasks",
+          "ecs:RunTask",
+          "ecs:StopTask",
+          "ecs:DescribeClusters",
+          "ecs:ListServices"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "ci_runner_cdk_deploy" {
   name = "cdk-deploy"
   role = aws_iam_role.ci_runner.id
