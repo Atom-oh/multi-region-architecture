@@ -404,7 +404,7 @@ resource "aws_vpc_endpoint" "bedrock_runtime" {
   vpc_endpoint_type   = "Interface"
   subnet_ids          = aws_subnet.private[*].id
   security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
+  private_dns_enabled = false # Cross-region calls (e.g. us-east-1) must route via NAT, not local endpoint
 
   tags = merge(var.tags, {
     Name        = "${var.environment}-bedrock-runtime-endpoint"
@@ -421,7 +421,7 @@ resource "aws_vpc_endpoint" "bedrock" {
   vpc_endpoint_type   = "Interface"
   subnet_ids          = aws_subnet.private[*].id
   security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
+  private_dns_enabled = false # Same reason — cross-region Bedrock calls need NAT path
 
   tags = merge(var.tags, {
     Name        = "${var.environment}-bedrock-endpoint"
