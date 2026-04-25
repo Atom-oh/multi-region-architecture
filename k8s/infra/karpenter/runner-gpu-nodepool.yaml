@@ -1,0 +1,42 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: runner-gpu
+spec:
+  template:
+    metadata:
+      labels:
+        node-pool: runner-gpu
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: runner-gpu
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values:
+            - spot
+        - key: kubernetes.io/arch
+          operator: In
+          values:
+            - amd64
+        - key: karpenter.k8s.aws/instance-family
+          operator: In
+          values:
+            - g5
+        - key: karpenter.k8s.aws/instance-size
+          operator: In
+          values:
+            - xlarge
+      taints:
+        - key: workload-type
+          value: ci-runner-gpu
+          effect: NoSchedule
+  limits:
+    cpu: "16"
+    memory: 64Gi
+    nvidia.com/gpu: "4"
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 30s
