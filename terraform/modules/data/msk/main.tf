@@ -36,6 +36,7 @@ PROPERTIES
 
   lifecycle {
     create_before_destroy = true
+    ignore_changes        = [kafka_versions]
   }
 }
 
@@ -98,6 +99,7 @@ resource "aws_msk_cluster" "this" {
 
   lifecycle {
     ignore_changes = [
+      kafka_version,                          # Auto-upgraded by AWS — prevents forced replacement
       broker_node_group_info[0].storage_info, # MSK does not support EBS shrinkage
     ]
   }

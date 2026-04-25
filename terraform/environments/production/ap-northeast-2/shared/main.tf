@@ -109,8 +109,8 @@ module "aurora" {
   security_group_id         = module.security_groups.documentdb_security_group_id
   kms_key_arn               = module.kms.key_arns["aurora"]
   master_password           = "<YOUR_PASSWORD>"
-  reader_count              = 1
-  reader_availability_zones = ["ap-northeast-2c", "ap-northeast-2a"]
+  reader_count              = 2
+  reader_availability_zones = ["ap-northeast-2a", "ap-northeast-2c"]
   tags                      = var.tags
 }
 
@@ -126,7 +126,7 @@ module "elasticache" {
   data_subnet_ids             = module.vpc.data_subnet_ids
   security_group_id           = module.security_groups.elasticache_security_group_id
   kms_key_arn                 = module.kms.key_arns["elasticache"]
-  node_type                   = "cache.t4g.medium"
+  node_type                   = "cache.r6g.large"
   num_node_groups             = 1
   replicas_per_node_group     = 1
   tags                        = var.tags
@@ -147,6 +147,7 @@ module "msk" {
   broker_instance_type   = "kafka.t3.small"
   number_of_broker_nodes = 4   # t3 instances do not support broker removal
   ebs_volume_size        = 100 # MSK does not support EBS shrinkage
+  kafka_version              = "3.9.x"
   enable_replicator          = false
   tags                       = var.tags
 }

@@ -160,7 +160,7 @@ resource "aws_iam_role_policy" "github_actions_ecs_deploy" {
 resource "aws_bedrock_inference_profile" "pr_review" {
   count       = var.create_github_actions_role ? 1 : 0
   name        = "pr-review-sonnet"
-  description = "PR review inference profile for GitHub Actions CI — token usage tracking"
+  description = "PR review inference profile for CI token tracking"
 
   model_source {
     copy_from = var.bedrock_source_profile_arn
