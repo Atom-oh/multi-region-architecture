@@ -292,3 +292,156 @@ resource "aws_vpc_endpoint" "logs" {
     Environment = var.environment
   })
 }
+
+#------------------------------------------------------------------------------
+# VPC Interface Endpoint - SSM (Karpenter AMI discovery, CDK bootstrap)
+#------------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "ssm" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.ssm"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-ssm-endpoint"
+    Environment = var.environment
+  })
+}
+
+#------------------------------------------------------------------------------
+# VPC Interface Endpoint - EC2 (Karpenter instance provisioning)
+#------------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "ec2" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.ec2"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-ec2-endpoint"
+    Environment = var.environment
+  })
+}
+
+#------------------------------------------------------------------------------
+# VPC Interface Endpoint - EKS (kubelet → API server private access)
+#------------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "eks" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.eks"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-eks-endpoint"
+    Environment = var.environment
+  })
+}
+
+#------------------------------------------------------------------------------
+# VPC Interface Endpoint - KMS (EBS encryption, Secrets decryption)
+#------------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "kms" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.kms"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-kms-endpoint"
+    Environment = var.environment
+  })
+}
+
+#------------------------------------------------------------------------------
+# VPC Interface Endpoint - Secrets Manager (ExternalSecrets sync)
+#------------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "secretsmanager" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-secretsmanager-endpoint"
+    Environment = var.environment
+  })
+}
+
+#------------------------------------------------------------------------------
+# VPC Interface Endpoint - CloudFormation (CDK deploy)
+#------------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "cloudformation" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.cloudformation"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-cloudformation-endpoint"
+    Environment = var.environment
+  })
+}
+
+#------------------------------------------------------------------------------
+# VPC Interface Endpoint - Bedrock Runtime (model inference)
+#------------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "bedrock_runtime" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.bedrock-runtime"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-bedrock-runtime-endpoint"
+    Environment = var.environment
+  })
+}
+
+#------------------------------------------------------------------------------
+# VPC Interface Endpoint - Bedrock (model management, AgentCore)
+#------------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "bedrock" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.bedrock"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-bedrock-endpoint"
+    Environment = var.environment
+  })
+}
+
+#------------------------------------------------------------------------------
+# VPC Interface Endpoint - EKS Auth (Pod Identity token exchange)
+#------------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "eks_auth" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.eks-auth"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-eks-auth-endpoint"
+    Environment = var.environment
+  })
+}
