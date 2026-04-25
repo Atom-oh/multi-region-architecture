@@ -27,8 +27,12 @@ spec:
           values:
             - c6i
             - c7i
+            - c7i-flex
+            - c8i
             - m6i
             - m7i
+            - m7i-flex
+            - m8i
         - key: karpenter.k8s.aws/instance-size
           operator: In
           values:
