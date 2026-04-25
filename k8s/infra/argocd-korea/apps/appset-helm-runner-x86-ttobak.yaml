@@ -25,7 +25,7 @@ spec:
             controllerServiceAccount:
               name: arc-controller-mall-apne2-mgmt-gha-rs-controller
               namespace: actions-runner-system
-            runnerScaleSetName: ttobak-x86
+            runnerScaleSetName: self-hosted
             minRunners: 0
             maxRunners: 50
             containerMode:
