@@ -282,6 +282,7 @@ locals {
     "awsops-arm-gha-rs-no-permission",
     "self-hosted-x86-gha-rs-no-permission",
     "self-hosted-arm-gha-rs-no-permission",
+    "ttobak-whisper-x86-gha-rs-no-permission",
   ]
 }
 

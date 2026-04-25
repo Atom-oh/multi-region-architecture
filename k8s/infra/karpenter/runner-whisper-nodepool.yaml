@@ -1,0 +1,45 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: runner-whisper
+spec:
+  template:
+    metadata:
+      labels:
+        node-pool: runner-whisper
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: runner-whisper
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values:
+            - spot
+            - on-demand
+        - key: kubernetes.io/arch
+          operator: In
+          values:
+            - amd64
+        - key: karpenter.k8s.aws/instance-family
+          operator: In
+          values:
+            - r6i
+            - r7i
+            - r8i
+        - key: karpenter.k8s.aws/instance-size
+          operator: In
+          values:
+            - xlarge
+            - 2xlarge
+      taints:
+        - key: workload-type
+          value: ci-runner-whisper
+          effect: NoSchedule
+  limits:
+    cpu: "32"
+    memory: 256Gi
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 30s
