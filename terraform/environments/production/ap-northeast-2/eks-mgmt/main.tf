@@ -185,15 +185,17 @@ resource "aws_iam_role_policy" "ci_runner_bedrock" {
         Resource = "*"
       },
       {
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*agentcore*"
+      },
+      {
         Effect = "Allow"
         Action = "iam:PassRole"
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*"
         Condition = {
           StringEquals = {
-            "iam:PassedToService" = [
-              "bedrock-agentcore.amazonaws.com",
-              "ecs-tasks.amazonaws.com"
-            ]
+            "iam:PassedToService" = "ecs-tasks.amazonaws.com"
           }
         }
       }
