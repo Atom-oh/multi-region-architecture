@@ -32,16 +32,16 @@ spec:
         - key: karpenter.k8s.aws/instance-size
           operator: In
           values:
-            - large
             - xlarge
             - 2xlarge
+            - 4xlarge
       taints:
         - key: workload-type
           value: ci-runner
           effect: NoSchedule
   limits:
-    cpu: "64"
-    memory: 128Gi
+    cpu: "128"
+    memory: 256Gi
   disruption:
     consolidationPolicy: WhenEmpty
     consolidateAfter: 30s
