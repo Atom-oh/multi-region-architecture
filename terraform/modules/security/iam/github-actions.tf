@@ -174,7 +174,7 @@ resource "aws_bedrock_inference_profile" "pr_review" {
 
 resource "aws_iam_role_policy" "github_actions_bedrock" {
   count = var.create_github_actions_role ? 1 : 0
-  name  = "github-actions-bedrock-pr-review"
+  name  = "github-actions-bedrock"
   role  = aws_iam_role.github_actions[0].id
 
   policy = jsonencode({
@@ -185,18 +185,22 @@ resource "aws_iam_role_policy" "github_actions_bedrock" {
         Effect = "Allow"
         Action = [
           "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream"
+          "bedrock:InvokeModelWithResponseStream",
+          "bedrock:Converse",
+          "bedrock:ConverseStream"
         ]
         Resource = [
-          aws_bedrock_inference_profile.pr_review[0].arn,
-          "arn:aws:bedrock:${var.region}::foundation-model/${var.bedrock_pr_review_model_id}",
-          "arn:aws:bedrock:*::foundation-model/${var.bedrock_pr_review_model_id}"
+          "arn:aws:bedrock:*::foundation-model/*",
+          "arn:aws:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+          "arn:aws:bedrock:*:${data.aws_caller_identity.current.account_id}:application-inference-profile/*"
         ]
       },
       {
-        Sid    = "BedrockGetInferenceProfile"
+        Sid    = "BedrockModelDiscovery"
         Effect = "Allow"
         Action = [
+          "bedrock:GetFoundationModel",
+          "bedrock:ListFoundationModels",
           "bedrock:GetInferenceProfile",
           "bedrock:ListInferenceProfiles"
         ]

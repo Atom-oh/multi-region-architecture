@@ -110,7 +110,7 @@ module "aurora" {
   kms_key_arn               = module.kms.key_arns["aurora"]
   master_password           = "<YOUR_PASSWORD>"
   reader_count              = 1
-  reader_availability_zones = ["ap-northeast-2a"]
+  reader_availability_zones = ["ap-northeast-2c", "ap-northeast-2a"]
   tags                      = var.tags
 }
 
@@ -126,7 +126,7 @@ module "elasticache" {
   data_subnet_ids             = module.vpc.data_subnet_ids
   security_group_id           = module.security_groups.elasticache_security_group_id
   kms_key_arn                 = module.kms.key_arns["elasticache"]
-  node_type                   = "cache.r7g.medium"
+  node_type                   = "cache.t4g.medium"
   num_node_groups             = 1
   replicas_per_node_group     = 1
   tags                        = var.tags

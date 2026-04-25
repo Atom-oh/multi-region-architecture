@@ -235,7 +235,9 @@ class RecommendationService:
             if catalog_data:
                 rec.name = catalog_data.get("name")
                 rec.price = catalog_data.get("price")
-                rec.image_url = catalog_data.get("image_url")
+                images = catalog_data.get("images", [])
+                rec.images = images
+                rec.image_url = images[0] if images else None
                 cat = catalog_data.get("category")
                 rec.category = cat.get("slug") if isinstance(cat, dict) else cat
 

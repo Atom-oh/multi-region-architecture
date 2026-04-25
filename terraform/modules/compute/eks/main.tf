@@ -76,6 +76,17 @@ resource "aws_iam_role_policy_attachment" "eks_vpc_resource_controller" {
   role       = aws_iam_role.eks_cluster.name
 }
 
+# Pre-create CloudWatch log group with retention before EKS creates it (prevents Never Expire)
+resource "aws_cloudwatch_log_group" "eks_cluster" {
+  count             = length(var.enabled_cluster_log_types) > 0 ? 1 : 0
+  name              = "/aws/eks/${var.cluster_name}/cluster"
+  retention_in_days = 7
+
+  tags = merge(var.tags, {
+    Name = "/aws/eks/${var.cluster_name}/cluster"
+  })
+}
+
 # EKS Cluster
 resource "aws_eks_cluster" "main" {
   name     = var.cluster_name
@@ -92,10 +103,7 @@ resource "aws_eks_cluster" "main" {
     endpoint_public_access  = true
   }
 
-  enabled_cluster_log_types = [
-    "api",
-    "authenticator",
-  ]
+  enabled_cluster_log_types = var.enabled_cluster_log_types
 
   encryption_config {
     provider {

@@ -7,6 +7,25 @@ import { useI18n } from '../context/I18nContext';
 import StarRating from '../components/StarRating';
 import ReviewForm from '../components/ReviewForm';
 
+const ATTR_LABELS = {
+  screen_size: '화면 크기', processor: '프로세서', ram: 'RAM', storage: '저장공간',
+  battery: '배터리', camera: '카메라', os: 'OS', color: '색상',
+  material: '소재', size: '사이즈', season: '시즌', fit: '핏', care: '관리법',
+  weight_volume: '용량', calories: '칼로리', storage_method: '보관법',
+  shelf_life: '유통기한', allergen: '알레르기', certification: '인증',
+  volume: '용량', skin_type: '피부 타입', main_ingredient: '주요 성분', spf: 'SPF', expiry: '유효기간',
+  power: '소비전력', energy_rating: '에너지 등급', noise: '소음', capacity: '용량', warranty: '보증기간',
+  sport_type: '종목', gender: '성별', level: '레벨', author: '저자', publisher: '출판사',
+  pages: '페이지', isbn: 'ISBN', language: '언어', age_group: '연령대', breed_size: '품종 크기',
+  life_stage: '생애단계', flavor: '맛', dimension: '크기', assembly: '조립',
+  max_weight: '최대하중', age_range: '사용연령', safety_cert: '안전인증',
+  crawled_specs: '상세 사양',
+};
+
+function formatAttrKey(key) {
+  return ATTR_LABELS[key] || key.replace(/_/g, ' ');
+}
+
 export default function ProductDetailPage() {
   const { t } = useI18n();
   const { id } = useParams();
@@ -350,7 +369,7 @@ export default function ProductDetailPage() {
                 .filter(([k]) => !['weight', 'origin'].includes(k))
                 .map(([key, value]) => (
                   <tr key={key} className="border-b border-outline-variant/20">
-                    <td className="py-2 pr-4 font-semibold text-on-surface whitespace-nowrap capitalize">{key}</td>
+                    <td className="py-2 pr-4 font-semibold text-on-surface whitespace-nowrap capitalize">{formatAttrKey(key)}</td>
                     <td className="py-2 text-on-surface-variant">{value}</td>
                   </tr>
                 ))}
@@ -562,7 +581,7 @@ export default function ProductDetailPage() {
                   [t('detail.origin'), product.attributes?.origin],
                   ...Object.entries(product.attributes || {})
                     .filter(([k]) => !['weight', 'origin'].includes(k))
-                    .map(([k, v]) => [k === 'crawled_specs' ? '상세 사양' : k, v]),
+                    .map(([k, v]) => [formatAttrKey(k), v]),
                   ['Product ID', product.id],
                   ['Status', product.status],
                 ].filter(([, v]) => v).map(([label, value], i) => (

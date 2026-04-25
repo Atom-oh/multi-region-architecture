@@ -8,6 +8,7 @@ export default function HomePage() {
   const { t } = useI18n();
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [trendingProducts, setTrendingProducts] = useState([]);
+  const [bentoData, setBentoData] = useState({ furniture: [], fashion: [], electronics: [] });
   const [loading, setLoading] = useState(true);
   const [heroSlide, setHeroSlide] = useState(0);
   const trendingScrollRef = useRef(null);
@@ -15,9 +16,12 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [productsRes, trendingRes] = await Promise.all([
+        const [productsRes, trendingRes, furnitureRes, fashionRes, electronicsRes] = await Promise.all([
           api('/products?limit=8'),
           api('/recommendations/trending').catch(() => ({ products: [] })),
+          api('/products?category=furniture&limit=4').catch(() => ({ products: [] })),
+          api('/products?category=fashion&limit=1').catch(() => ({ products: [] })),
+          api('/products?category=electronics&limit=4').catch(() => ({ products: [] })),
         ]);
         setFeaturedProducts((productsRes.products || productsRes || []).map(mapProduct));
         const trending = (trendingRes.products || trendingRes || []).map(p => {
@@ -25,6 +29,11 @@ export default function HomePage() {
           return mapProduct(p);
         });
         setTrendingProducts(trending);
+        setBentoData({
+          furniture: (furnitureRes.products || []).map(mapProduct),
+          fashion: (fashionRes.products || []).map(mapProduct),
+          electronics: (electronicsRes.products || []).map(mapProduct),
+        });
       } catch (error) {
         console.error('Failed to load data:', error);
       } finally {
@@ -109,47 +118,47 @@ export default function HomePage() {
       {/* ============ Bento Grid Categories ============ */}
       <section className="max-w-7xl mx-auto px-4 md:px-6 -mt-20 relative z-20 pb-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-          {/* Card 1: Modern Bohemian Living (2-col) */}
+          {/* Card 1: 가구 컬렉션 (2-col, 2x2 grid) */}
           <div className="md:col-span-2 bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow group">
             <div className="p-6 pb-4">
               <h3 className="text-lg font-bold text-brand-900 font-[family-name:var(--font-headline)] mb-1">
-                Modern Bohemian Living
+                가구 컬렉션
               </h3>
-              <p className="text-sm text-secondary mb-4">Curated essentials for warm spaces</p>
+              <p className="text-sm text-secondary mb-4">따뜻한 공간을 위한 큐레이션</p>
             </div>
             <div className="grid grid-cols-2 gap-1 px-4 pb-4">
-              {[1, 2, 3, 4].map(i => (
+              {(bentoData.furniture.length > 0 ? bentoData.furniture : [...Array(4)].map((_, i) => ({ id: i }))).map(p => (
                 <Link
-                  key={i}
-                  to="/products?category=home"
+                  key={p.id}
+                  to={p.imageUrl ? `/products/${p.id}` : '/products?category=furniture'}
                   className="aspect-square bg-surface-container overflow-hidden rounded-lg"
                 >
-                  <img
-                    src={`https://picsum.photos/seed/bento-boho-${i}/300/300`}
-                    alt=""
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+                  {p.imageUrl ? (
+                    <img src={p.imageUrl} alt={p.name || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="w-full h-full bg-surface-high animate-pulse" />
+                  )}
                 </Link>
               ))}
             </div>
           </div>
 
-          {/* Card 2: Fall Trends (1-col, tall image) */}
+          {/* Card 2: 패션 트렌드 (1-col, tall image) */}
           <div className="md:col-span-1 bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow group">
-            <Link to="/products?category=fashion" className="block h-full">
+            <Link to={bentoData.fashion[0] ? `/products/${bentoData.fashion[0].id}` : '/products?category=fashion'} className="block h-full">
               <div className="relative h-full min-h-[320px]">
-                <img
-                  src="https://picsum.photos/seed/bento-fall/400/600"
-                  alt="Fall Trends"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
+                {bentoData.fashion[0]?.imageUrl ? (
+                  <img src={bentoData.fashion[0].imageUrl} alt={bentoData.fashion[0].name || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                ) : (
+                  <div className="w-full h-full bg-surface-high animate-pulse" />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-brand-900/70 to-transparent" />
                 <div className="absolute bottom-0 left-0 p-5">
-                  <h3 className="text-lg font-bold text-white font-[family-name:var(--font-headline)] mb-2">
-                    Fall Trends
+                  <h3 className="text-lg font-bold text-white font-[family-name:var(--font-headline)] mb-1">
+                    {bentoData.fashion[0]?.name || '패션 트렌드'}
                   </h3>
                   <span className="inline-flex items-center gap-1 text-sm font-bold text-brand-400 group-hover:text-brand-300 transition-colors">
-                    Shop Now
+                    {t('home.viewDetails')}
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                   </span>
                 </div>
@@ -157,28 +166,28 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* Card 3: Smart Workspace (1-col, 2x2 grid + badge) */}
+          {/* Card 3: 전자제품 (1-col, 2x2 grid + badge) */}
           <div className="md:col-span-1 bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow group">
             <div className="p-5 pb-3">
               <div className="inline-block bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-sm uppercase mb-2">
-                20% Off Bundles
+                인기 카테고리
               </div>
               <h3 className="text-lg font-bold text-brand-900 font-[family-name:var(--font-headline)]">
-                Smart Workspace
+                전자제품
               </h3>
             </div>
             <div className="grid grid-cols-2 gap-1 px-4 pb-4">
-              {[1, 2, 3, 4].map(i => (
+              {(bentoData.electronics.length > 0 ? bentoData.electronics : [...Array(4)].map((_, i) => ({ id: i }))).map(p => (
                 <Link
-                  key={i}
-                  to="/products?category=electronics"
+                  key={p.id}
+                  to={p.imageUrl ? `/products/${p.id}` : '/products?category=electronics'}
                   className="aspect-square bg-surface-container overflow-hidden rounded-lg"
                 >
-                  <img
-                    src={`https://picsum.photos/seed/bento-workspace-${i}/300/300`}
-                    alt=""
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+                  {p.imageUrl ? (
+                    <img src={p.imageUrl} alt={p.name || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="w-full h-full bg-surface-high animate-pulse" />
+                  )}
                 </Link>
               ))}
             </div>

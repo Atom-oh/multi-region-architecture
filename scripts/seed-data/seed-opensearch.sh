@@ -20,8 +20,8 @@ echo "Endpoint: ${OS_ENDPOINT}"
 echo "Deleting existing product index..."
 $CURL -X DELETE "${OS_ENDPOINT}/products" 2>/dev/null || true
 
-# ── Create index with nori analyzer ─────────────────────────────────────────
-echo "Creating product index with nori analyzer..."
+# ── Create index with seunjeon analyzer (Korean morphological analysis) ─────
+echo "Creating product index with seunjeon analyzer..."
 $CURL -X PUT "${OS_ENDPOINT}/products" -H 'Content-Type: application/json' -d '{
   "settings": {
     "index": {
@@ -32,43 +32,8 @@ $CURL -X PUT "${OS_ENDPOINT}/products" -H 'Content-Type: application/json' -d '{
       "analyzer": {
         "korean": {
           "type": "custom",
-          "tokenizer": "nori_tokenizer",
-          "filter": ["nori_readingform", "lowercase", "nori_part_of_speech_basic"]
-        },
-        "korean_search": {
-          "type": "custom",
-          "tokenizer": "nori_tokenizer",
-          "filter": ["nori_readingform", "lowercase", "synonym_filter"]
-        }
-      },
-      "filter": {
-        "nori_part_of_speech_basic": {
-          "type": "nori_part_of_speech",
-          "stoptags": ["E", "IC", "J", "MAG", "MAJ", "MM", "SP", "SSC", "SSO", "SC", "SE", "XPN", "XSA", "XSN", "XSV", "UNA", "NA", "VSV"]
-        },
-        "synonym_filter": {
-          "type": "synonym",
-          "synonyms": [
-            "노트북,랩탑,laptop",
-            "핸드폰,스마트폰,휴대폰,phone",
-            "냉장고,refrigerator,fridge",
-            "세탁기,washing machine",
-            "에어컨,에어컨디셔너,air conditioner",
-            "청소기,vacuum cleaner",
-            "이어폰,이어버드,earphone,earbuds",
-            "헤드폰,헤드셋,headphone",
-            "신발,운동화,슈즈,shoes,sneakers",
-            "가방,백,bag",
-            "기저귀,diaper,nappy",
-            "분유,formula,baby milk",
-            "유모차,stroller,buggy",
-            "강아지,개,dog,puppy",
-            "고양이,cat,kitty",
-            "소파,couch,sofa",
-            "침대,bed",
-            "책상,desk",
-            "의자,chair"
-          ]
+          "tokenizer": "seunjeon_tokenizer",
+          "filter": ["lowercase"]
         }
       }
     }
@@ -76,7 +41,7 @@ $CURL -X PUT "${OS_ENDPOINT}/products" -H 'Content-Type: application/json' -d '{
   "mappings": {
     "properties": {
       "productId":   { "type": "keyword" },
-      "name":        { "type": "text", "analyzer": "korean", "search_analyzer": "korean_search", "fields": { "keyword": { "type": "keyword" } } },
+      "name":        { "type": "text", "analyzer": "korean", "fields": { "keyword": { "type": "keyword" } } },
       "brand":       { "type": "text", "analyzer": "korean", "fields": { "keyword": { "type": "keyword" } } },
       "category":    { "type": "keyword" },
       "categoryName":{ "type": "text", "analyzer": "korean", "fields": { "keyword": { "type": "keyword" } } },
@@ -161,7 +126,7 @@ $CURL -X PUT "${OS_ENDPOINT}/notification-logs" -H 'Content-Type: application/js
       "userId":    { "type": "keyword" },
       "type":      { "type": "keyword" },
       "channel":   { "type": "keyword" },
-      "title":     { "type": "text", "analyzer": "korean" },
+      "title":     { "type": "text" },
       "status":    { "type": "keyword" },
       "sentAt":    { "type": "date" },
       "readAt":    { "type": "date" }

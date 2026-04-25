@@ -14,6 +14,7 @@ class Recommendation(BaseModel):
     name: Optional[str] = None
     price: Optional[int] = None
     image_url: Optional[str] = None
+    images: list[str] = []
 
 
 class UserActivity(BaseModel):

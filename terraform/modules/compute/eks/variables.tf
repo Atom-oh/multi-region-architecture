@@ -118,3 +118,9 @@ variable "addon_versions" {
     eks_pod_identity_agent = "v1.3.7-eksbuild.2"
   }
 }
+
+variable "enabled_cluster_log_types" {
+  description = "EKS control plane log types to enable (e.g., api, authenticator, audit, scheduler, controllerManager). Empty list disables all."
+  type        = list(string)
+  default     = []
+}

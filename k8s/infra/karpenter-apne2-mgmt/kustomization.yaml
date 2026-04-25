@@ -7,8 +7,6 @@ resources:
   - ../karpenter/runner-x86-nodepool.yaml
   - ../karpenter/runner-arm-ec2nodeclass.yaml
   - ../karpenter/runner-arm-nodepool.yaml
-  - ../karpenter/runner-whisper-ec2nodeclass.yaml
-  - ../karpenter/runner-whisper-nodepool.yaml
 
 patches:
   - target:
