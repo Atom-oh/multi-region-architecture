@@ -3,10 +3,9 @@ FROM ghcr.io/actions/actions-runner:latest
 USER root
 
 ARG GH_CLI_VERSION=2.74.0
-ARG TARGETARCH
 
 # gh CLI
-RUN curl -sL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_${TARGETARCH}.tar.gz" -o /tmp/gh.tar.gz \
+RUN curl -sL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_arm64.tar.gz" -o /tmp/gh.tar.gz \
     && tar -xzf /tmp/gh.tar.gz -C /tmp \
     && cp /tmp/gh_*/bin/gh /usr/local/bin/gh \
     && rm -rf /tmp/gh* \
