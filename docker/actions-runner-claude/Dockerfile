@@ -13,10 +13,9 @@ RUN curl -sL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh
     && gh --version
 
 # Claude Code CLI
-ENV PATH="/root/.local/bin:${PATH}"
 RUN curl -fsSL https://claude.ai/install.sh | bash \
     && cp /root/.local/bin/claude /usr/local/bin/claude \
-    && claude --version
+    && rm -rf /root/.claude /root/.local
 
 # python3 (used by PR review scripts)
 RUN apt-get update && apt-get install -y --no-install-recommends python3 \

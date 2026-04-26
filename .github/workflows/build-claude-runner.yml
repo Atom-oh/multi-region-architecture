@@ -43,7 +43,7 @@ jobs:
       - name: Extract Claude version
         id: version
         run: |
-          CLAUDE_VERSION=$(docker run --rm claude-runner:local claude --version 2>/dev/null | head -1 | grep -oP '[\d]+\.[\d]+\.[\d]+')
+          CLAUDE_VERSION=$(docker run --rm --entrypoint claude claude-runner:local --version 2>/dev/null | head -1 | grep -oP '[\d]+\.[\d]+\.[\d]+')
           echo "claude_version=$CLAUDE_VERSION" >> "$GITHUB_OUTPUT"
           echo "Claude version: $CLAUDE_VERSION"
 
