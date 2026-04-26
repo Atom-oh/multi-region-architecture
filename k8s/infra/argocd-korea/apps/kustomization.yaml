@@ -30,4 +30,8 @@ resources:
   - appset-helm-runner-arm-cc-on-bedrock.yaml
   - appset-helm-runner-x86-ttobak.yaml
   - appset-helm-runner-arm-ttobak.yaml
-  - appset-grafana-nlb.yaml
+  - appset-helm-runner-claude-arm.yaml
+  - appset-helm-runner-claude-arm-awsops.yaml
+  - appset-helm-runner-claude-arm-aws-fsi-demo.yaml
+  - appset-helm-runner-claude-arm-cc-on-bedrock.yaml
+  - appset-helm-runner-claude-arm-ttobak.yaml
