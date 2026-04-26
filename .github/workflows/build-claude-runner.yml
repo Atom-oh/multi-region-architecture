@@ -1,0 +1,56 @@
+name: Build Claude Runner Image
+
+on:
+  push:
+    branches: [main]
+    paths: ['docker/actions-runner-claude/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
+  IMAGE_NAME: actions-runner-claude
+
+jobs:
+  build-and-push:
+    runs-on: self-hosted-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image (load locally for version extraction)
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/actions-runner-claude
+          platforms: linux/arm64
+          load: true
+          tags: claude-runner:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract Claude version
+        id: version
+        run: |
+          CLAUDE_VERSION=$(docker run --rm claude-runner:local claude --version 2>/dev/null | head -1 | grep -oP '[\d]+\.[\d]+\.[\d]+')
+          echo "claude_version=$CLAUDE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Claude version: $CLAUDE_VERSION"
+
+      - name: Push with version tags
+        run: |
+          CLAUDE_VERSION="${{ steps.version.outputs.claude_version }}"
+          docker tag claude-runner:local "$ECR_REGISTRY/$IMAGE_NAME:$CLAUDE_VERSION"
+          docker tag claude-runner:local "$ECR_REGISTRY/$IMAGE_NAME:latest"
+          docker push "$ECR_REGISTRY/$IMAGE_NAME:$CLAUDE_VERSION"
+          docker push "$ECR_REGISTRY/$IMAGE_NAME:latest"
