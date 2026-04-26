@@ -45,6 +45,7 @@ spec:
                 containers:
                   - name: runner
                     image: 180294183052.dkr.ecr.ap-northeast-2.amazonaws.com/actions-runner-claude:latest
+                    command: ["/home/runner/run.sh"]
                     resources:
                       requests:
                         cpu: "1800m"
