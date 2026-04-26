@@ -28,8 +28,6 @@ spec:
             runnerScaleSetName: ttobak-claude-arm
             minRunners: 0
             maxRunners: 50
-            containerMode:
-              type: dind
             listenerTemplate:
               spec:
                 containers:
