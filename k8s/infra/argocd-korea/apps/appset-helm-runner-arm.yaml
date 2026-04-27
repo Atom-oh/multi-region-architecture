@@ -46,6 +46,8 @@ spec:
                   kubernetes.io/arch: arm64
                 containers:
                   - name: runner
+                    image: ghcr.io/actions/actions-runner:latest
+                    command: ["/home/runner/run.sh"]
                     resources:
                       requests:
                         cpu: "1800m"
