@@ -55,6 +55,13 @@ spec:
                   path: /spec/template/spec/nodeSelector
                   value:
                     node-pool: platform
+                - op: replace
+                  path: /spec/template/spec/containers/0/env
+                  value:
+                    - name: AWS_REGION
+                      value: '{{values.awsRegion}}'
+                    - name: TEMPO_S3_BUCKET
+                      value: '{{values.tempoS3Bucket}}'
       destination:
         server: '{{server}}'
         namespace: observability
