@@ -41,6 +41,20 @@ spec:
                 - op: replace
                   path: /data/AWS_REGION
                   value: '{{values.awsRegion}}'
+            - target:
+                kind: Deployment
+                name: tempo
+              patch: |-
+                - op: replace
+                  path: /spec/template/spec/tolerations
+                  value:
+                    - key: workload-type
+                      value: platform
+                      effect: NoSchedule
+                - op: replace
+                  path: /spec/template/spec/nodeSelector
+                  value:
+                    node-pool: platform
       destination:
         server: '{{server}}'
         namespace: observability

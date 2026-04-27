@@ -22,20 +22,20 @@ spec:
           valuesObject:
             global:
               tolerations:
-                - key: node-role
-                  value: system-critical
+                - key: workload-type
+                  value: platform
                   effect: NoSchedule
               nodeSelector:
-                role: system
+                node-pool: platform
             grafana:
               enabled: true
               replicas: 1
               tolerations:
-                - key: node-role
-                  value: system-critical
+                - key: workload-type
+                  value: platform
                   effect: NoSchedule
               nodeSelector:
-                role: system
+                node-pool: platform
               persistence:
                 enabled: true
                 size: 10Gi
@@ -102,19 +102,19 @@ spec:
                         defaultRegion: ap-northeast-2
             prometheusOperator:
               tolerations:
-                - key: node-role
-                  value: system-critical
+                - key: workload-type
+                  value: platform
                   effect: NoSchedule
               nodeSelector:
-                role: system
+                node-pool: platform
               admissionWebhooks:
                 patch:
                   tolerations:
-                    - key: node-role
-                      value: system-critical
+                    - key: workload-type
+                      value: platform
                       effect: NoSchedule
                   nodeSelector:
-                    role: system
+                    node-pool: platform
             prometheus:
               prometheusSpec:
                 replicas: 2
@@ -123,11 +123,11 @@ spec:
                 enableFeatures:
                   - exemplar-storage
                 tolerations:
-                  - key: node-role
-                    value: system-critical
+                  - key: workload-type
+                    value: platform
                     effect: NoSchedule
                 nodeSelector:
-                  role: system
+                  node-pool: platform
                 storageSpec:
                   volumeClaimTemplate:
                     spec:
@@ -144,20 +144,23 @@ spec:
               alertmanagerSpec:
                 replicas: 2
                 tolerations:
-                  - key: node-role
-                    value: system-critical
+                  - key: workload-type
+                    value: platform
                     effect: NoSchedule
                 nodeSelector:
-                  role: system
+                  node-pool: platform
             kube-state-metrics:
               tolerations:
-                - key: node-role
-                  value: system-critical
+                - key: workload-type
+                  value: platform
                   effect: NoSchedule
               nodeSelector:
-                role: system
+                node-pool: platform
             prometheus-node-exporter:
               tolerations:
+                - key: workload-type
+                  value: platform
+                  effect: NoSchedule
                 - key: node-role
                   value: system-critical
                   effect: NoSchedule

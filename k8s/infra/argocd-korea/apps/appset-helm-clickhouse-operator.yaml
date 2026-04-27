@@ -26,11 +26,11 @@ spec:
                 - name: WATCH_NAMESPACES
                   value: "observability,clickhouse-operator-system"
             tolerations:
-              - key: node-role
-                value: system-critical
+              - key: workload-type
+                value: platform
                 effect: NoSchedule
             nodeSelector:
-              role: system
+              node-pool: platform
       destination:
         server: '{{server}}'
         namespace: clickhouse-operator-system

@@ -86,11 +86,11 @@ spec:
       - name: clickhouse-pod
         spec:
           tolerations:
-            - key: node-role
-              value: system-critical
+            - key: workload-type
+              value: platform
               effect: NoSchedule
           nodeSelector:
-            role: system
+            node-pool: platform
           securityContext:
             runAsUser: 101
             runAsGroup: 101

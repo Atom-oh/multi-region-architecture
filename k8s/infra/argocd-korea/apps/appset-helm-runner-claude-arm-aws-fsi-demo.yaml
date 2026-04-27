@@ -33,11 +33,11 @@ spec:
                 containers:
                   - name: listener
                 tolerations:
-                  - key: node-role
-                    value: system-critical
+                  - key: workload-type
+                    value: platform
                     effect: NoSchedule
                 nodeSelector:
-                  role: system
+                  node-pool: platform
             template:
               spec:
                 nodeSelector:
