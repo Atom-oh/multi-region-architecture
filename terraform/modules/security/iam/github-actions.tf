@@ -124,6 +124,48 @@ resource "aws_iam_role_policy" "github_actions_cloudformation" {
         Resource = "*"
       },
       {
+        Sid    = "CDKAssetBucket"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ]
+        Resource = [
+          "arn:aws:s3:::cdk-hnb659fds-assets-${data.aws_caller_identity.current.account_id}-*",
+          "arn:aws:s3:::cdk-hnb659fds-assets-${data.aws_caller_identity.current.account_id}-*/*"
+        ]
+      },
+      {
+        Sid    = "CDKAssetECR"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:DescribeRepositories",
+          "ecr:CreateRepository",
+          "ecr:SetRepositoryPolicy"
+        ]
+        Resource = "arn:aws:ecr:*:${data.aws_caller_identity.current.account_id}:repository/cdk-hnb659fds-container-assets-*"
+      },
+      {
+        Sid    = "CDKAssumeRoles"
+        Effect = "Allow"
+        Action = "sts:AssumeRole"
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/cdk-hnb659fds-deploy-role-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/cdk-hnb659fds-file-publishing-role-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/cdk-hnb659fds-image-publishing-role-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/cdk-hnb659fds-lookup-role-*"
+        ]
+      },
+      {
         Sid    = "SSMParameterForCDK"
         Effect = "Allow"
         Action = [
