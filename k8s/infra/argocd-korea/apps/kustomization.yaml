@@ -38,3 +38,4 @@ resources:
   - appset-helm-runner-org-x86.yaml
   - appset-helm-runner-org-arm.yaml
   - appset-helm-runner-org-claude-arm.yaml
+  - appset-runner-scheduler.yaml
