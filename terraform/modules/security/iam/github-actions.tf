@@ -90,6 +90,54 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CloudFormation — CDK deployments (aws-fsi-demo etc.)
+# ─────────────────────────────────────────────────────────────────────────────
+
+resource "aws_iam_role_policy" "github_actions_cloudformation" {
+  count = var.create_github_actions_role ? 1 : 0
+  name  = "github-actions-cloudformation"
+  role  = aws_iam_role.github_actions[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "CloudFormationReadDeploy"
+        Effect = "Allow"
+        Action = [
+          "cloudformation:DescribeStacks",
+          "cloudformation:DescribeStackEvents",
+          "cloudformation:DescribeChangeSet",
+          "cloudformation:CreateChangeSet",
+          "cloudformation:ExecuteChangeSet",
+          "cloudformation:DeleteChangeSet",
+          "cloudformation:GetTemplate",
+          "cloudformation:GetTemplateSummary",
+          "cloudformation:ListStacks"
+        ]
+        Resource = "arn:aws:cloudformation:*:${data.aws_caller_identity.current.account_id}:stack/*"
+      },
+      {
+        Sid      = "CloudFormationGlobal"
+        Effect   = "Allow"
+        Action   = ["cloudformation:ListStacks", "cloudformation:GetTemplateSummary"]
+        Resource = "*"
+      },
+      {
+        Sid    = "SSMParameterForCDK"
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:PutParameter"
+        ]
+        Resource = "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/cdk-bootstrap/*"
+      }
+    ]
+  })
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # ECS — Deploy tasks and update services
 # ─────────────────────────────────────────────────────────────────────────────
 
