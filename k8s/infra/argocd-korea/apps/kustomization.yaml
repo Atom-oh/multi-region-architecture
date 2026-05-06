@@ -35,6 +35,9 @@ resources:
   - appset-helm-runner-claude-arm-aws-fsi-demo.yaml
   - appset-helm-runner-claude-arm-cc-on-bedrock.yaml
   - appset-helm-runner-claude-arm-ttobak.yaml
+  - appset-helm-runner-x86-odt.yaml
+  - appset-helm-runner-arm-odt.yaml
+  - appset-helm-runner-claude-arm-odt.yaml
   - appset-helm-runner-org-x86.yaml
   - appset-helm-runner-org-arm.yaml
   - appset-helm-runner-org-claude-arm.yaml
