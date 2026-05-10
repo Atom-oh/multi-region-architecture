@@ -48,10 +48,11 @@ jobs:
           fi
           head -"$MAX_LINES" /tmp/pr-diff.txt > /tmp/pr-diff-truncated.txt
 
-          cat <<PROMPT_EOF > /tmp/prompt.txt
-          You are reviewing PR #${PR_NUMBER}: ${PR_TITLE}
-          ${TRUNCATED:+
-          ${TRUNCATED}}
+          printf 'You are reviewing PR #%s: %s\n' "$PR_NUMBER" "$PR_TITLE" > /tmp/prompt.txt
+          if [ -n "$TRUNCATED" ]; then
+            printf '%s\n' "$TRUNCATED" >> /tmp/prompt.txt
+          fi
+          cat <<'PROMPT_EOF' >> /tmp/prompt.txt
 
           Read CLAUDE.md for project context. Then review the diff provided via stdin.
 
@@ -75,7 +76,7 @@ jobs:
           Use FAIL if there are any CRITICAL or MAJOR issues. Use PASS otherwise.
           PROMPT_EOF
 
-          cat /tmp/pr-diff-truncated.txt | claude -p "$(cat /tmp/prompt.txt)" --output-format text > /tmp/review.md
+          claude -p "$(cat /tmp/prompt.txt)" --input-file /tmp/pr-diff-truncated.txt --output-format text > /tmp/review.md
 
           if [ ! -s /tmp/review.md ]; then
             echo "ERROR: review output is empty" >&2
@@ -87,10 +88,11 @@ jobs:
       - name: Check for blocking issues
         id: gate
         run: |
-          if grep -q "^VERDICT: FAIL$" /tmp/review.md; then
+          LAST_LINE=$(grep "^VERDICT:" /tmp/review.md | tail -1)
+          if [ "$LAST_LINE" = "VERDICT: FAIL" ]; then
             echo "result=fail" >> "$GITHUB_OUTPUT"
             echo "reason=VERDICT: FAIL" >> "$GITHUB_OUTPUT"
-          elif grep -q "^VERDICT: PASS$" /tmp/review.md; then
+          elif [ "$LAST_LINE" = "VERDICT: PASS" ]; then
             echo "result=pass" >> "$GITHUB_OUTPUT"
             echo "reason=No blocking issues" >> "$GITHUB_OUTPUT"
           else
