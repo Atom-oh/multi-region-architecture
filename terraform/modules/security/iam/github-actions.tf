@@ -295,6 +295,26 @@ resource "aws_iam_role_policy" "github_actions_bedrock" {
           "bedrock:ListInferenceProfiles"
         ]
         Resource = "*"
+      },
+      {
+        Sid    = "BedrockAgentCore"
+        Effect = "Allow"
+        Action = [
+          "bedrock-agentcore:*",
+          "bedrock-agentcore-control:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "PassRoleToAgentCore"
+        Effect = "Allow"
+        Action = "iam:PassRole"
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*agentcore*"
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "bedrock-agentcore.amazonaws.com"
+          }
+        }
       }
     ]
   })

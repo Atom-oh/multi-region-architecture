@@ -30,6 +30,8 @@ spec:
             grafana:
               enabled: true
               replicas: 1
+              deploymentStrategy:
+                type: Recreate
               tolerations:
                 - key: workload-type
                   value: platform
