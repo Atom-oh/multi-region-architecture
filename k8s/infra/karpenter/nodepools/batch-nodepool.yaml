@@ -47,7 +47,7 @@ spec:
     memory: 600Gi
   disruption:
     consolidationPolicy: WhenEmpty
-    consolidateAfter: 10s
+    consolidateAfter: 30s
     budgets:
       - nodes: "50%"
 ---
