@@ -26,7 +26,7 @@ spec:
               name: arc-controller-mall-apne2-mgmt-gha-rs-controller
               namespace: actions-runner-system
             runnerScaleSetName: aws-fsi-demo-arm
-            minRunners: 0
+            minRunners: 6
             maxRunners: 50
             containerMode:
               type: dind

@@ -26,7 +26,7 @@ spec:
               name: arc-controller-mall-apne2-mgmt-gha-rs-controller
               namespace: actions-runner-system
             runnerScaleSetName: aws-fsi-demo-claude-arm
-            minRunners: 0
+            minRunners: 2
             maxRunners: 50
             listenerTemplate:
               spec:
