@@ -24,7 +24,7 @@ spec:
             node-pool: platform
           containers:
             - name: kubectl
-              image: public.ecr.aws/bitnami/kubectl:latest
+              image: 180294183052.dkr.ecr.ap-northeast-2.amazonaws.com/bitnami-kubectl:latest
               command:
                 - /bin/sh
                 - -c
@@ -63,7 +63,7 @@ spec:
             node-pool: platform
           containers:
             - name: kubectl
-              image: public.ecr.aws/bitnami/kubectl:latest
+              image: 180294183052.dkr.ecr.ap-northeast-2.amazonaws.com/bitnami-kubectl:latest
               command:
                 - /bin/sh
                 - -c
