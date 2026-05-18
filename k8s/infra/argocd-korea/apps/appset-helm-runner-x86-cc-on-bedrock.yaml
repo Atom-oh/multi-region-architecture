@@ -30,6 +30,8 @@ spec:
             maxRunners: 50
             containerMode:
               type: dind
+              dind:
+                image: public.ecr.aws/docker/library/docker:dind
             listenerTemplate:
               spec:
                 containers:
