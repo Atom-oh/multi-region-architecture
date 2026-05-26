@@ -8,8 +8,13 @@ resources:
   - fulfillment
   - business
   - platform
-  - ../../infra/otel-collector
-  - ../../infra/tempo
+  # Observability shared agents (otel-collector, tempo) removed —
+  # their bases have AWS_REGION env which conflicts with the top-level
+  # 'op: add' env patch (duplicates), causing ArgoCD strict structured-merge
+  # diff to fail. They should be deployed via a dedicated shared-agents path
+  # that doesn't inherit the workload-targeted top-level patches.
+  # Tempo is also being deprecated per AWS-Demo-Platform Stage 4 plan
+  # (ClickHouse replaces it for traces).
 
 namespace: ""
 
