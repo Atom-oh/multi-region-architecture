@@ -24,21 +24,9 @@ patches:
   - target:
       kind: Deployment
     patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: REGION_ROLE
-          value: "SECONDARY"
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: AWS_REGION
-          value: "ap-northeast-2"
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: AVAILABILITY_ZONE
-          value: "ap-northeast-2c"
+      # Append per-region data store endpoints. Keys already provided
+      # by per-domain overlays (AWS_REGION/REGION_ROLE/AVAILABILITY_ZONE/
+      # OTEL_EXPORTER_OTLP_ENDPOINT) are NOT re-added here to avoid duplicates.
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
@@ -59,11 +47,6 @@ patches:
         value:
           name: DOCUMENTDB_WRITE_HOST
           value: "production-docdb-ap-northeast-2.cluster-zzzzzzzzzzzz.ap-northeast-2.docdb.amazonaws.com"
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://otel-collector.platform.svc.cluster.local:4317"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
