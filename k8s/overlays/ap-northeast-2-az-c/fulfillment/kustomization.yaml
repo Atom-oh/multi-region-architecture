@@ -8,16 +8,14 @@ patches:
   - target:
       kind: Deployment
     patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: REGION_ROLE
-          value: "SECONDARY"
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: AWS_REGION
-          value: "ap-northeast-2"
+      # env[0]=AWS_REGION, env[1]=REGION_ROLE in all base service deployments.
+      # Use op:replace to avoid duplicates that fail ArgoCD's structured-merge diff.
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: "ap-northeast-2"
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/value
+        value: "SECONDARY"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
