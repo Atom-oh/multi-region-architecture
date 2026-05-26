@@ -8,8 +8,8 @@ resources:
   - fulfillment
   - business
   - platform
-  - ../../infra/otel-collector
-  - ../../infra/tempo
+  # Observability shared agents removed — same reason as az-a overlay
+  # (duplicate env conflict + Stage 4 deprecation plan).
 
 namespace: ""
 
