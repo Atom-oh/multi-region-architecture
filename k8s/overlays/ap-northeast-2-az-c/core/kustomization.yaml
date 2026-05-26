@@ -8,16 +8,16 @@ patches:
   - target:
       kind: Deployment
     patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: REGION_ROLE
-          value: "SECONDARY"
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: AWS_REGION
-          value: "ap-northeast-2"
+      # All core service deployments have AWS_REGION at env[0] and
+      # REGION_ROLE at env[1] in the base. Override values (not append)
+      # to avoid duplicate-key errors in strict structured-merge clients
+      # (ArgoCD ComparisonError "duplicate entries for key").
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: "ap-northeast-2"
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/value
+        value: "SECONDARY"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
