@@ -38,4 +38,7 @@ resources:
   - appset-helm-runner-x86-odt.yaml
   - appset-helm-runner-arm-odt.yaml
   - appset-helm-runner-claude-arm-odt.yaml
+  - appset-helm-runner-x86-call-center-admin.yaml
+  - appset-helm-runner-arm-call-center-admin.yaml
+  - appset-helm-runner-claude-arm-call-center-admin.yaml
   - appset-runner-scheduler.yaml
