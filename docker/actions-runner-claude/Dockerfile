@@ -2,7 +2,7 @@ FROM ghcr.io/actions/actions-runner:latest
 
 USER root
 
-ARG GH_CLI_VERSION=2.74.0
+ARG GH_CLI_VERSION=2.93.0
 
 # gh CLI
 RUN curl -sL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_arm64.tar.gz" -o /tmp/gh.tar.gz \
