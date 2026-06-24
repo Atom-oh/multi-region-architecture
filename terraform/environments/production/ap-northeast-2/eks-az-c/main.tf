@@ -34,16 +34,14 @@ data "terraform_remote_state" "shared" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Remote State — management cluster (for cross-cluster ArgoCD SG access)
+# Management cluster SG (cross-cluster ArgoCD access).
+# Looked up directly from the live EKS cluster, NOT from the eks-mgmt remote
+# state — that state is owned by the AWS-Demo-Platform repo, and we don't want a
+# cross-repo state dependency here. Requires eks:DescribeCluster on mall-apne2-mgmt.
 # ─────────────────────────────────────────────────────────────────────────────
 
-data "terraform_remote_state" "eks_mgmt" {
-  backend = "s3"
-  config = {
-    bucket = "multi-region-mall-terraform-state"
-    key    = "production/ap-northeast-2/eks-mgmt/terraform.tfstate"
-    region = "us-east-1"
-  }
+data "aws_eks_cluster" "mgmt" {
+  name = "mall-apne2-mgmt"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -53,17 +51,17 @@ data "terraform_remote_state" "eks_mgmt" {
 module "eks" {
   source = "../../../../modules/compute/eks"
 
-  environment                  = var.environment
-  region                       = var.region
-  cluster_name                 = "mall-apne2-az-c"
-  vpc_id                       = data.terraform_remote_state.shared.outputs.vpc_id
-  private_subnet_ids           = data.terraform_remote_state.shared.outputs.private_subnet_ids
-  alb_security_group_id        = data.terraform_remote_state.shared.outputs.alb_security_group_id
-  nlb_security_group_id        = data.terraform_remote_state.shared.outputs.nlb_security_group_id
-  argocd_security_group_id     = data.terraform_remote_state.eks_mgmt.outputs.cluster_security_group_id
+  environment                   = var.environment
+  region                        = var.region
+  cluster_name                  = "mall-apne2-az-c"
+  vpc_id                        = data.terraform_remote_state.shared.outputs.vpc_id
+  private_subnet_ids            = data.terraform_remote_state.shared.outputs.private_subnet_ids
+  alb_security_group_id         = data.terraform_remote_state.shared.outputs.alb_security_group_id
+  nlb_security_group_id         = data.terraform_remote_state.shared.outputs.nlb_security_group_id
+  argocd_security_group_id      = data.aws_eks_cluster.mgmt.vpc_config[0].cluster_security_group_id
   bootstrap_node_instance_types = ["t3.medium", "t3a.medium"]
-  role_name_suffix             = "-apne2-az-c"
-  tags                         = var.tags
+  role_name_suffix              = "-apne2-az-c"
+  tags                          = var.tags
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
