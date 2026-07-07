@@ -1,7 +1,7 @@
 name: AI Code Review
 
 # PR마다 lens×모델 매트릭스 패널(Codex + Kiro x3, L2~L5 각 lens 독립 에이전트)이 리뷰하고
-# Claude Opus 4.8 의장이 lens별로 종합해 코멘트로 게시(fail-closed VERDICT). 공유
+# Claude Fable 5 의장이 lens별로 종합해 코멘트로 게시(fail-closed VERDICT). 공유
 # actions-runner-claude 이미지 사용. (oh-my-cloud-skills 의 lens×model 매트릭스 설계를
 # 포팅 — 이 repo는 매니페스트 검증 대상이 없어 L1 결정적 게이트는 포함하지 않음)
 #   - pull_request_target base-ref 체크아웃(M1): PR head 코드 미실행, diff 는 데이터로만
@@ -26,7 +26,7 @@ jobs:
       contents: read
     env:
       # us-east-1 통일: Claude us. geo(on-demand) + codex gpt-5.5 mantle(In-Region).
-      ANTHROPIC_MODEL: us.anthropic.claude-opus-4-8
+      ANTHROPIC_MODEL: us.anthropic.claude-fable-5
       CLAUDE_CODE_USE_BEDROCK: 1
       ANTHROPIC_BEDROCK_BASE_URL: https://bedrock-runtime.us-east-1.amazonaws.com
       AWS_REGION: us-east-1
@@ -175,7 +175,7 @@ jobs:
           sed '$ { /^VERDICT:/d }' /tmp/review.md > /tmp/review-clean.md
           {
             echo "$MARKER"
-            echo "## 🤖 AI Code Review (${chair_used:-Claude Opus 4.8} chair · lens×model matrix)"
+            echo "## 🤖 AI Code Review (${chair_used:-Claude Fable 5} chair · lens×model matrix)"
             echo ""
             echo "_Cells (model/lens): ${panel_responded:-solo}_"
             [ "${panel_truncated:-0}" = "1" ] && echo "_⚠️ diff truncated to first 3000 lines — review is partial._"
