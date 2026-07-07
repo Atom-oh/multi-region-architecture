@@ -2,7 +2,8 @@
 # lens×모델 매트릭스 병렬 fan-out. 인자: <diff> <lenses_dir> <workdir>
 # lenses_dir 안의 각 *.txt 가 lens 하나(파일명 stem = lens 태그, 예: L2/L3/L4/L5) —
 # 그 lens 전용 리뷰 프롬프트(자체 완결형: "이 lens만 봐"). 각 lens × 각 모델이
-# 독립 에이전트 셀 하나(design: docs/superpowers/specs/2026-07-05-pr-review-hybrid-lens-design.md).
+# 독립 에이전트 셀 하나(design: oh-my-cloud-skills 원본 설계 문서 — 이 repo엔 없음, 그 repo의
+# docs/superpowers/specs/2026-07-05-pr-review-hybrid-lens-design.md 참조).
 # diff 전달 경로는 CLI 별로 다름: Codex 는 stdin(`< "$DIFF"` 직접 리다이렉트, 파일이라
 # TTY 아님 → no-hang); Kiro 는 stdin 을 무시하므로 `fs_read`로 파일 경로를 읽게 한다
 # (아래 Kiro 셀 주석 참조) — 어느 쪽도 diff 를 argv 텍스트로 embed 하지 않는다(ARG_MAX/
@@ -73,7 +74,9 @@ try_panel() {
 # coverage-severe.flag/slot/lenses 와 같은 뿌리 — 비-ephemeral 러너에서 $WORK 가
 # 재사용되면 kiro-cli 가 이 가짜 HOME 아래 남긴 캐시/세션 상태가 실행 간 누적·전이될 수
 # 있다(크리덴셜은 없어 보안 영향은 아니지만 재현성 문제) — 매 실행 시작 시 리셋.
-KIRO_CWD="$WORK/kiro-cwd"; rm -rf "$KIRO_CWD"; mkdir -p "$KIRO_CWD"
+KIRO_CWD="$WORK/kiro-cwd"
+[ -L "$KIRO_CWD" ] && { echo "run-panel.sh: \$KIRO_CWD is a symlink, refusing (TOCTOU guard)" >&2; exit 1; }
+rm -rf "$KIRO_CWD"; mkdir -p "$KIRO_CWD"
 # HOME 도 격리(실제 러너 $HOME 이 아니라 $KIRO_CWD) — fs_read 의 절대경로 read 자체는 여전히
 # 잔여 위험(막을 방법 없음)이지만, "~/.aws/credentials"·"~/.codex/config.toml" 처럼 상대적
 # ~ 표기로 유도되는 케이스의 실효 표면을 줄인다(실제 크리덴셜은 이 가짜 HOME 아래 없음).
@@ -100,8 +103,9 @@ for lens_file in "${LENS_FILES[@]}"; do
   # `fs_read` from a file path in argv, NOT embedded as text: embedding risks the
   # single-argv 128KiB exec limit (a 3000-line diff only needs ~43B/line to exceed it)
   # and leaks the full diff into `ps` output. Same fs_read pattern already established
-  # in plugins/co-agent/skills/co-agent/references/ai-cli-adapters.md — `--trust-tools=
-  # read,grep` (previous revision) is invalid; the real read-only tool name is `fs_read`.
+  # in oh-my-cloud-skills's plugins/co-agent/skills/co-agent/references/ai-cli-adapters.md
+  # (cross-repo reference, not a path in this repo) — `--trust-tools=read,grep` (previous
+  # revision) is invalid; the real read-only tool name is `fs_read`.
   KIRO_INSTRUCTION="$LENS_PROMPT"$'\n\n'"Read the diff under review with fs_read from: $DIFF (review THIS diff only; do not scan the wider repo)"
   for entry in "${KIRO_MODELS[@]}"; do
     m="${entry%%:*}"; tag="${entry##*:}"
@@ -166,7 +170,8 @@ fi
 # public repo 라 이 Actions 로그는 누구나 읽을 수 있고, Kiro fs_read 전환 이후로는 diff
 # 인젝션이 유도한 절대경로 read 결과가 stdout(셀 .md, synthesize.sh 에서 스크럽) 대신
 # stderr(에러 메시지·스택트레이스)로 새어나올 수도 있다 — 원시로 찍으면 이 경로가 스크럽
-# 없는 유출구가 된다(docs/ci-pr-review.md 가 이미 "원시 stderr 노출 안 함"이라 주장하던
+# 없는 유출구가 된다(oh-my-cloud-skills 의 docs/ci-pr-review.md — 이 repo엔 없음 — 가 이미
+# "원시 stderr 노출 안 함"이라 주장하던
 # 것과도 실제로 어긋났었다). synthesize.sh 의 셀과 동일한 scrub_secrets() 를 통과시킨다.
 for e in "$SLOT"/*.err; do
   [ -s "$e" ] || continue
