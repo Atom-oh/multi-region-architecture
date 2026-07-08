@@ -2,7 +2,18 @@
 
 ## Status
 
-Accepted (2026-07-07)
+Accepted (2026-07-07). **Decision #2 (accept the residual risk) is superseded** —
+`fs_read` has since been dropped entirely in favor of embedding the diff directly as
+capped argv text (`--trust-tools=`, no tool grant). Decision #2's premise — "dropping
+`fs_read` would break Kiro's diff delivery, since `chat` ignores stdin" — turned out to
+be a false dichotomy: argv embedding needs neither stdin nor `fs_read`, and is now
+verified working across the fleet (`oh-my-cloud-skills`, `cc-on-bedrock`,
+`AWS-Demo-Platform`, `claude-code-usage-dashboard`, `ttobak`, `security-ops`). This also
+closes a second, independent problem Decision #2 didn't cover: a Kiro cell that never
+calls `fs_read` (or has the call fail silently) can still return a plausible non-empty
+"no findings" response, which the coverage-floor gate can't distinguish from a real
+review (cc-on-bedrock PR#107 review, MAJOR-1). Decisions #1, #3, #4 below remain valid
+and unaffected — they don't depend on `fs_read` being in use.
 
 ## Context
 
@@ -39,13 +50,12 @@ partial secret could still slip through as the *first* line of defense, not a gu
 1. **`persist-credentials: false`** on this workflow's `actions/checkout@v4` step — removes
    the one concrete, known-shape credential this design would otherwise leave on disk.
    This is a direct fix, not just documentation.
-2. **Accept as residual risk, not blocking**: the general "absolute-path `fs_read` can read
-   anything the runner's OS user can read" capability has no full mitigation without
-   dropping `fs_read` entirely (which would break Kiro's diff delivery — Kiro's `chat`
-   ignores stdin). `scrub_secrets()` remains the last line of defense for whatever *does*
-   get read. Accepted per the same reasoning already applied in sibling repos that adopted
-   `fs_read` first (see References) — this is not a new class of risk unique to this repo,
-   and the alternative (no Kiro panel member) loses a full vendor's cross-check.
+2. ~~Accept as residual risk, not blocking~~ — **superseded, see Status**. `fs_read` is no
+   longer granted to Kiro cells; the diff is embedded directly in the `chat` argv instead
+   (capped at `KIRO_DIFF_CAP`, matching the `PANEL_CELL_CAP` convention used elsewhere).
+   This eliminates the absolute-path read vector outright rather than accepting it.
+   `scrub_secrets()` remains in place as defense-in-depth for other leak paths (e.g. an
+   errored cell's raw stderr), just not as the last line of defense for this one anymore.
 3. **Also fixed in this pass**: `lib.sh`'s `ensure_slots()` and `run-panel.sh`'s
    `$KIRO_CWD` setup now refuse to operate if their fixed, non-ephemeral-runner path
    (`$WORK/slot`, `$WORK/kiro-cwd`) is a symlink, closing a separate TOCTOU concern where
@@ -59,15 +69,24 @@ partial secret could still slip through as the *first* line of defense, not a gu
 
 ## Consequences
 
-- The one concrete, addressable leak (persisted `GITHUB_TOKEN`) is closed.
-- The general absolute-path read capability remains an accepted, documented residual risk
-  — any future hardening (e.g. a dedicated low-privilege OS user for the Kiro subprocess)
-  should reference this ADR rather than re-litigating the same trade-off.
+- The one concrete, addressable leak (persisted `GITHUB_TOKEN`) was closed by Decision #1
+  regardless of the `fs_read` question, and remains closed.
+- The general absolute-path read capability is no longer an accepted risk — it's
+  eliminated: Kiro cells get no tool grant at all, so there's no read path left to abuse.
+  `KIRO_DIFF_CAP`-driven truncation (100KB, matching `PANEL_CELL_CAP`) is now the
+  accepted trade-off instead, made visible via a `kiro-diff-truncated.flag` banner in
+  the synthesized review rather than silently dropping coverage.
 
 ## References
 
-- `scripts/pr-review/run-panel.sh` (Kiro cell: `kiro_env`, `KIRO_CWD`, `--trust-tools=fs_read`)
+- `scripts/pr-review/run-panel.sh` (Kiro cell: `kiro_env`, `KIRO_CWD`, `--trust-tools=`,
+  `KIRO_DIFF_CAP`/`KIRO_DIFF_TEXT`)
 - `scripts/pr-review/lib.sh` (`scrub_secrets`, `ensure_slots`)
 - `.github/workflows/pr-review.yml` (`persist-credentials: false`, hardened VERDICT gate)
-- Same trade-off documented in sibling repos' own ADRs for the ported lens×model design
-  (e.g. cc-on-bedrock ADR-013, ttobak ADR-019, aws-fsi-demo ADR-012).
+- `oh-my-cloud-skills` — original source of the argv-embed fix (round 19 review,
+  CRITICAL — cwd/HOME isolation alone did not stop an absolute-path `fs_read` in a live
+  reproduction). Correction: the previous version of this ADR cited "cc-on-bedrock
+  ADR-013" and "ttobak ADR-019" documenting the same accepted-risk trade-off — neither
+  ADR exists in those repos; that reference was unverified and is removed. Only
+  `aws-fsi-demo`'s `ADR-012-pr-review-kiro-fs-read-risk.md` is a real sibling document
+  (same trade-off, same correction pending there).
