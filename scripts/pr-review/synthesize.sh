@@ -165,10 +165,19 @@ if [ -f "$WORK/kiro-diff-truncated.flag" ]; then
   # kiro-lens-skipped.flag 가 있으면 적어도 한 lens 는 Kiro 셀이 diff 를 전혀 못 본 것이다
   # (argv-cap 재트림 후에도 초과해 완전 skip) — "앞부분만 리뷰함" 은 그 경우 거짓이다
   # (multi-region-architecture PR#28 리뷰 L4-MAJOR-1, 3개 벤더 수렴, diff 대조 확인).
+  # kiro-diffcap-fired.flag(diff 자체가 큼) 와 kiro-argvcap-fired.flag(diff 는 작아도
+  # lens 프롬프트 오버헤드로 조립문이 넘침) 는 독립적으로 설 수 있다 — 하나로 뭉쳐진
+  # kiro-diff-truncated.flag 만 보면 argv-cap 단독 발동에도 "diff 가 KIRO_DIFF_CAP 을
+  # 초과했다"고 오귀속하게 된다(multi-region-architecture PR#28 리뷰 L5-MAJOR-1, 3개
+  # 벤더 수렴, diff 대조 확인).
   if [ -f "$WORK/kiro-lens-skipped.flag" ]; then
     KIRO_COVERAGE_DESC="적어도 한 lens 는 조립된 프롬프트가 KIRO_ARGV_CAP 을 초과해 Kiro 셀이 앞부분조차 못 보고 완전히 skip 됨"
-  else
+  elif [ -f "$WORK/kiro-diffcap-fired.flag" ] && [ -f "$WORK/kiro-argvcap-fired.flag" ]; then
+    KIRO_COVERAGE_DESC="diff 자체가 KIRO_DIFF_CAP 을 초과했고, 일부 lens 는 프롬프트 오버헤드로 KIRO_ARGV_CAP 도 추가로 초과해 Kiro 셀은 앞부분만 리뷰함"
+  elif [ -f "$WORK/kiro-diffcap-fired.flag" ]; then
     KIRO_COVERAGE_DESC="diff 가 KIRO_DIFF_CAP 을 초과해 Kiro 셀은 앞부분만 리뷰함"
+  else
+    KIRO_COVERAGE_DESC="diff 자체는 KIRO_DIFF_CAP 이하였으나 lens 프롬프트 오버헤드로 조립된 프롬프트가 KIRO_ARGV_CAP 을 초과해 Kiro 셀은 앞부분만 리뷰함"
   fi
   CODEX_TRUNC_DEAD=0
   [ -s "$WORK/degraded-models.txt" ] && grep -qx codex "$WORK/degraded-models.txt" && CODEX_TRUNC_DEAD=1

@@ -101,20 +101,33 @@ as the *first* line of defense, not a guarantee.
 - The general absolute-path read capability is conditionally eliminated: Kiro cells get no
   tool grant at all, so there's no read path left to abuse *as long as* `--trust-tools=`'s
   empty-value semantic holds — re-verified every run via `KIRO_SEMANTIC_OK` (see Decision
-  #2). Two independent caps now share the same `kiro-diff-truncated.flag` banner in the
-  synthesized review: `KIRO_DIFF_CAP` (default 100000B, same capping convention as
-  `PANEL_CELL_CAP`, default 20000B) bounds the diff slice itself, and `KIRO_ARGV_CAP`
-  (default 125000B, headroom under the 131072B `MAX_ARG_STRLEN` kernel limit) bounds the
-  final assembled `LENS_PROMPT` + diff instruction — an oversized lens prompt can trigger
-  the flag even when the diff itself is well under `KIRO_DIFF_CAP`. The banner text doesn't
-  currently distinguish which cap fired (multi-region-architecture PR#28 review L5-MAJOR);
-  both are accepted trade-offs, visible rather than silently dropping coverage either way.
+  #2). Two independent caps can each trigger truncation: `KIRO_DIFF_CAP` (default 100000B,
+  same capping convention as `PANEL_CELL_CAP`, default 20000B) bounds the diff slice
+  itself (`kiro-diffcap-fired.flag`), and `KIRO_ARGV_CAP` (default 125000B, headroom under
+  the 131072B `MAX_ARG_STRLEN` kernel limit) bounds the final assembled `LENS_PROMPT` +
+  diff instruction (`kiro-argvcap-fired.flag`) — an oversized lens prompt can trigger the
+  latter even when the diff itself is well under `KIRO_DIFF_CAP`. If a lens prompt is so
+  large that even the maximally-trimmed instruction still exceeds `KIRO_ARGV_CAP`, that
+  lens's Kiro cells are skipped entirely rather than sent an oversized argv
+  (`kiro-lens-skipped.flag`). `synthesize.sh`'s banner distinguishes all three cases so the
+  cause isn't misattributed to `KIRO_DIFF_CAP` when only the argv cap fired
+  (multi-region-architecture PR#28 review L5-MAJOR-1, fixed after an earlier revision of
+  this PR shared one flag across all three causes).
+- **Truncation escalates to a forced `VERDICT: FAIL`, overriding the chair's own judgment,
+  when `codex` is *also* degraded that run** (binary absent, timeout, or auth failure) —
+  in that combination, nobody reviewed the diff past the truncation point, which is
+  equivalent to zero surviving vendors for that segment. This is the same fail-closed
+  treatment `coverage-severe.flag` already gives an all-but-one-vendor-degraded run, just
+  triggered by a different combination of conditions (multi-region-architecture PR#28
+  review L5-MAJOR-2 — this escalation existed in the code before this ADR line was added
+  to describe it).
 
 ## References
 
 - `scripts/pr-review/run-panel.sh` (Kiro cell: `kiro_env`, `KIRO_CWD_BASE`/`CELL_CWD`,
   `--trust-tools=`, `KIRO_DIFF_CAP`/`KIRO_DIFF_TEXT`, `KIRO_SEMANTIC_OK` canary gate,
-  `KIRO_ARGV_CAP`/`KIRO_LENS_OVERSIZED`)
+  `KIRO_ARGV_CAP`/`KIRO_LENS_OVERSIZED`, flag files: `kiro-diffcap-fired.flag`,
+  `kiro-argvcap-fired.flag`, `kiro-lens-skipped.flag`)
 - `scripts/pr-review/lib.sh` (`scrub_secrets`, `ensure_slots`)
 - `.github/workflows/pr-review.yml` (`persist-credentials: false`, hardened VERDICT gate)
 - `oh-my-cloud-skills` — original source of the argv-embed fix (round 19 review,
