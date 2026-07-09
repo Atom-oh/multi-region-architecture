@@ -95,6 +95,23 @@ kiro_env() {
     ${KIRO_API_KEY:+KIRO_API_KEY="$KIRO_API_KEY"} "$@"
 }
 
+# `--trust-tools=`(빈 값) = "무툴" 이라는 fail-closed 가정은 지금까지 코드 주석의 버전 핀
+# (kiro-cli 2.11.1)과 사람이 한 라이브 재현으로만 뒷받침됐다 — "Verify CLIs present" 워크플로
+# 스텝은 바이너리 존재만 warning 으로 확인하고 시맨틱은 안 본다. 러너 이미지가 리빌드돼
+# kiro-cli 가 범프되고 그 시맨틱이 fail-open 으로 바뀌면, 이 PR 이 "eliminated" 라고 선언한
+# 절대경로 read 벡터가 어떤 게이트도 못 잡는 채로 조용히 부활한다(multi-region-architecture
+# PR#28 리뷰 L3-MAJOR, 2개 벤더 독립 합의 + chair 코드 대조 확인). 매 실행 시작 시 문서화된
+# 정확한 시맨틱 문구를 재확인 — 사라지면 Kiro row 전체를 skip 해 기존 coverage floor 가
+# 인계하게 한다(binary-absent 스킵과 동일한 fail-closed 경로).
+KIRO_SEMANTIC_OK=0
+if command -v kiro-cli >/dev/null 2>&1; then
+  if kiro-cli chat --help 2>/dev/null | grep -qF -- "trust no tools: '--trust-tools='"; then
+    KIRO_SEMANTIC_OK=1
+  else
+    echo "::error::kiro-cli chat --help no longer documents the '--trust-tools=' = no-tools semantic this design's fail-closed assumption depends on — skipping all Kiro cells this run" >&2
+  fi
+fi
+
 # diff 는 size-capped argv 텍스트로 직접 embed — 단일 argv 128KiB 커널 한도(MAX_ARG_STRLEN)
 # 아래로 캡한다. argv 임베드를 원래 피했던 이유(그 한도, `ps` 노출)는 여기선 실질적
 # 트레이드오프가 아니다: (1) PANEL_CELL_CAP 캡핑 관례를 diff 입력에도 그대로 적용해 한도
@@ -130,12 +147,12 @@ for lens_file in "${LENS_FILES[@]}"; do
   KIRO_INSTRUCTION="$LENS_PROMPT"$'\n\n'"Review ONLY the diff below; do not read or reference any other files:"$'\n\n'"$KIRO_DIFF_TEXT"
   for entry in "${KIRO_MODELS[@]}"; do
     m="${entry%%:*}"; tag="${entry##*:}"
-    if command -v kiro-cli >/dev/null 2>&1; then
+    if [ "$KIRO_SEMANTIC_OK" = "1" ]; then
       CELL_CWD="$KIRO_CWD_BASE/$tag-$lens"; mkdir -p "$CELL_CWD"
       ( cd "$CELL_CWD" && try_panel "$SLOT/$tag-$lens.md" "$SLOT/$tag-$lens.err" \
           kiro_env "$CELL_CWD" timeout "$T" kiro-cli chat "$KIRO_INSTRUCTION" --model "$m" \
           --mode default --no-interactive --trust-tools= --wrap never ) &
-    else echo "[skip] $tag/$lens (binary absent)" >&2; : > "$SLOT/$tag-$lens.md"; fi
+    else echo "[skip] $tag/$lens (binary absent or --trust-tools= semantic unverified)" >&2; : > "$SLOT/$tag-$lens.md"; fi
   done
 done
 
