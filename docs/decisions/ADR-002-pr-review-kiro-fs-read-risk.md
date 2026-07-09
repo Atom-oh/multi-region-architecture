@@ -59,7 +59,15 @@ as the *first* line of defense, not a guarantee.
 2. ~~Accept as residual risk, not blocking~~ — **superseded, see Status**. `fs_read` is no
    longer granted to Kiro cells; the diff is embedded directly in the `chat` argv instead
    (capped at `KIRO_DIFF_CAP`, matching the `PANEL_CELL_CAP` convention used elsewhere).
-   This eliminates the absolute-path read vector outright rather than accepting it.
+   This eliminates the absolute-path read vector **conditional on `--trust-tools=`'s
+   "no tools" semantic actually holding** — not unconditionally, as an earlier version of
+   this section claimed (multi-region-architecture PR#28 review L5-MAJOR). `run-panel.sh`
+   re-verifies this at the start of every run (`KIRO_SEMANTIC_OK` gate: help-text phrase
+   grep + a live behavioral canary that plants a marker file and confirms no Kiro cell can
+   read it back) and skips all Kiro cells that run if either check fails — but the
+   elimination is only as durable as that guard, pinned to kiro-cli 2.11.1's documented and
+   observed behavior. If a future kiro-cli version changes the semantic in a way the canary
+   doesn't catch, this reverts to an accepted-risk situation, not an eliminated one.
    `scrub_secrets()` remains in place as defense-in-depth for other leak paths (e.g. an
    errored cell's raw stderr), just not as the last line of defense for this one anymore.
 3. **Also fixed in this pass**: `lib.sh`'s `ensure_slots()` and `run-panel.sh`'s
@@ -77,9 +85,10 @@ as the *first* line of defense, not a guarantee.
 
 - The one concrete, addressable leak (persisted `GITHUB_TOKEN`) was closed by Decision #1
   regardless of the `fs_read` question, and remains closed.
-- The general absolute-path read capability is no longer an accepted risk — it's
-  eliminated: Kiro cells get no tool grant at all, so there's no read path left to abuse.
-  `KIRO_DIFF_CAP`-driven truncation (default 100000B, same capping convention as
+- The general absolute-path read capability is conditionally eliminated: Kiro cells get no
+  tool grant at all, so there's no read path left to abuse *as long as* `--trust-tools=`'s
+  empty-value semantic holds — re-verified every run via `KIRO_SEMANTIC_OK` (see Decision
+  #2). `KIRO_DIFF_CAP`-driven truncation (default 100000B, same capping convention as
   `PANEL_CELL_CAP`, default 20000B) is now the accepted trade-off instead, made visible
   via a `kiro-diff-truncated.flag` banner in the synthesized review rather than silently
   dropping coverage.

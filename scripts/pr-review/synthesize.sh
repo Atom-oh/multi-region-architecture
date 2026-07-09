@@ -157,11 +157,31 @@ fi
 # 셀에 prefix 만 전달된다(argv 커널 한도 회피, 의도된 트레이드오프). truncation 은 VERDICT
 # 를 강제하진 않되(codex 는 여전히 전체 diff 를 봄) 신호 없이 넘기면 "Kiro 셀이 diff 뒷부분은
 # 못 본 채 정상 응답으로 집계됐다"는 사실이 리뷰에서 안 보인다.
+# "codex 는 전체를 봤다"는 codex 도 이 실행에서 degraded(바이너리 부재/timeout/인증 실패)
+# 일 수 있어 무조건 참이 아니다(multi-region-architecture PR#28 리뷰 L4-MAJOR-1, 2개 벤더
+# 독립 도달) — degraded-models.txt 와 교차해 확인. codex 마저 degraded 면 truncation 뒷부분을
+# 어떤 벤더도 안 본 것과 동등하므로, coverage-severe 와 동일하게 강제 FAIL 한다.
 if [ -f "$WORK/kiro-diff-truncated.flag" ]; then
-  { echo "✂️ **Kiro diff truncated**: diff 가 KIRO_DIFF_CAP 을 초과해 Kiro 셀은 앞부분만 리뷰함 — codex 는 전체 diff 를 봤으므로 뒷부분 이슈는 codex 단일 벤더 커버리지."
-    echo ""
-    cat "$OUT"
-  } > "$OUT.tmp" && mv "$OUT.tmp" "$OUT"
+  CODEX_TRUNC_DEAD=0
+  [ -s "$WORK/degraded-models.txt" ] && grep -qx codex "$WORK/degraded-models.txt" && CODEX_TRUNC_DEAD=1
+  if [ "$CODEX_TRUNC_DEAD" -eq 1 ]; then
+    if grep -q '^VERDICT:' "$OUT"; then
+      TAC_TMP="$(tac "$OUT" | sed '0,/^VERDICT:/d' | tac)"
+      printf '%s\n' "$TAC_TMP" > "$OUT"
+    fi
+    {
+      echo "🛑 **Kiro diff truncated + codex degraded — 강제 FAIL**: diff 가 KIRO_DIFF_CAP 을 초과해 Kiro 셀은 앞부분만 리뷰했고, codex 도 이 실행에서 degraded 라 diff 뒷부분(cap 이후)을 어떤 모델도 보지 않았다 — 살아남은 벤더가 0개라 체어의 판정과 무관하게 fail-closed."
+      echo ""
+      cat "$OUT"
+      echo ""
+      echo "VERDICT: FAIL"
+    } > "$OUT.tmp" && mv "$OUT.tmp" "$OUT"
+  else
+    { echo "✂️ **Kiro diff truncated**: diff 가 KIRO_DIFF_CAP 을 초과해 Kiro 셀은 앞부분만 리뷰함 — codex 는 전체 diff 를 봤으므로 뒷부분 이슈는 codex 단일 벤더 커버리지."
+      echo ""
+      cat "$OUT"
+    } > "$OUT.tmp" && mv "$OUT.tmp" "$OUT"
+  fi
 fi
 
 # 심각도 상향(run-panel.sh 의 coverage-severe.flag) — degraded 모델이 (전체-1)개 이상이면
