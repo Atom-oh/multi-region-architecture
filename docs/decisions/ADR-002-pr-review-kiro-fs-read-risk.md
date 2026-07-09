@@ -1,4 +1,4 @@
-# ADR-002: PR-Review Kiro `fs_read` — Residual Exfiltration Risk (Accepted, Mitigated)
+# ADR-002: PR-Review Kiro `fs_read` — Residual Exfiltration Risk (historical — eliminated, see Status)
 
 ## Status
 
@@ -36,14 +36,20 @@ region/account before any scrub runs.
 - `scrub_secrets()` — a last-line-of-defense regex pass over every cell's output before
   it reaches the chair or a public PR comment.
 
-## Residual Risk (Accepted)
+## Residual Risk (historical — superseded, see Status)
 
-None of the above stops an **absolute-path** `fs_read` from succeeding — `fs_read` is
-read-capable by design and the isolation only affects env vars and `~`-relative lookups.
-The concrete residual path: `actions/checkout`'s default `persist-credentials: true` writes
-`GITHUB_TOKEN` into `.git/config`; a diff-borne injection reading that absolute path would
-have `scrub_secrets()` catch a well-formed GitHub token pattern, but a differently-shaped or
-partial secret could still slip through as the *first* line of defense, not a guarantee.
+This section describes the risk as it stood when `fs_read` was still granted to Kiro
+cells. It no longer reflects the current implementation — see Status/Decision #2:
+`fs_read` is not granted at all anymore, so the absolute-path read vector this section
+describes has been eliminated, not merely mitigated. Kept for historical record.
+
+None of the mitigations above stopped an **absolute-path** `fs_read` from succeeding —
+`fs_read` is read-capable by design and the isolation only affected env vars and
+`~`-relative lookups. The concrete residual path: `actions/checkout`'s default
+`persist-credentials: true` writes `GITHUB_TOKEN` into `.git/config`; a diff-borne
+injection reading that absolute path would have `scrub_secrets()` catch a well-formed
+GitHub token pattern, but a differently-shaped or partial secret could still slip through
+as the *first* line of defense, not a guarantee.
 
 ## Decision
 
@@ -73,14 +79,15 @@ partial secret could still slip through as the *first* line of defense, not a gu
   regardless of the `fs_read` question, and remains closed.
 - The general absolute-path read capability is no longer an accepted risk — it's
   eliminated: Kiro cells get no tool grant at all, so there's no read path left to abuse.
-  `KIRO_DIFF_CAP`-driven truncation (100KB, matching `PANEL_CELL_CAP`) is now the
-  accepted trade-off instead, made visible via a `kiro-diff-truncated.flag` banner in
-  the synthesized review rather than silently dropping coverage.
+  `KIRO_DIFF_CAP`-driven truncation (default 100000B, same capping convention as
+  `PANEL_CELL_CAP`, default 20000B) is now the accepted trade-off instead, made visible
+  via a `kiro-diff-truncated.flag` banner in the synthesized review rather than silently
+  dropping coverage.
 
 ## References
 
-- `scripts/pr-review/run-panel.sh` (Kiro cell: `kiro_env`, `KIRO_CWD`, `--trust-tools=`,
-  `KIRO_DIFF_CAP`/`KIRO_DIFF_TEXT`)
+- `scripts/pr-review/run-panel.sh` (Kiro cell: `kiro_env`, `KIRO_CWD_BASE`/`CELL_CWD`,
+  `--trust-tools=`, `KIRO_DIFF_CAP`/`KIRO_DIFF_TEXT`)
 - `scripts/pr-review/lib.sh` (`scrub_secrets`, `ensure_slots`)
 - `.github/workflows/pr-review.yml` (`persist-credentials: false`, hardened VERDICT gate)
 - `oh-my-cloud-skills` — original source of the argv-embed fix (round 19 review,
