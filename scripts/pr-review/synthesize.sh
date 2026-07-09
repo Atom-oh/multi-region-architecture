@@ -162,6 +162,14 @@ fi
 # 독립 도달) — degraded-models.txt 와 교차해 확인. codex 마저 degraded 면 truncation 뒷부분을
 # 어떤 벤더도 안 본 것과 동등하므로, coverage-severe 와 동일하게 강제 FAIL 한다.
 if [ -f "$WORK/kiro-diff-truncated.flag" ]; then
+  # kiro-lens-skipped.flag 가 있으면 적어도 한 lens 는 Kiro 셀이 diff 를 전혀 못 본 것이다
+  # (argv-cap 재트림 후에도 초과해 완전 skip) — "앞부분만 리뷰함" 은 그 경우 거짓이다
+  # (multi-region-architecture PR#28 리뷰 L4-MAJOR-1, 3개 벤더 수렴, diff 대조 확인).
+  if [ -f "$WORK/kiro-lens-skipped.flag" ]; then
+    KIRO_COVERAGE_DESC="적어도 한 lens 는 조립된 프롬프트가 KIRO_ARGV_CAP 을 초과해 Kiro 셀이 앞부분조차 못 보고 완전히 skip 됨"
+  else
+    KIRO_COVERAGE_DESC="diff 가 KIRO_DIFF_CAP 을 초과해 Kiro 셀은 앞부분만 리뷰함"
+  fi
   CODEX_TRUNC_DEAD=0
   [ -s "$WORK/degraded-models.txt" ] && grep -qx codex "$WORK/degraded-models.txt" && CODEX_TRUNC_DEAD=1
   if [ "$CODEX_TRUNC_DEAD" -eq 1 ]; then
@@ -170,14 +178,14 @@ if [ -f "$WORK/kiro-diff-truncated.flag" ]; then
       printf '%s\n' "$TAC_TMP" > "$OUT"
     fi
     {
-      echo "🛑 **Kiro diff truncated + codex degraded — 강제 FAIL**: diff 가 KIRO_DIFF_CAP 을 초과해 Kiro 셀은 앞부분만 리뷰했고, codex 도 이 실행에서 degraded 라 diff 뒷부분(cap 이후)을 어떤 모델도 보지 않았다 — 살아남은 벤더가 0개라 체어의 판정과 무관하게 fail-closed."
+      echo "🛑 **Kiro diff truncated + codex degraded — 강제 FAIL**: $KIRO_COVERAGE_DESC, codex 도 이 실행에서 degraded 라 diff 뒷부분(cap 이후)을 어떤 모델도 보지 않았다 — 살아남은 벤더가 0개라 체어의 판정과 무관하게 fail-closed."
       echo ""
       cat "$OUT"
       echo ""
       echo "VERDICT: FAIL"
     } > "$OUT.tmp" && mv "$OUT.tmp" "$OUT"
   else
-    { echo "✂️ **Kiro diff truncated**: diff 가 KIRO_DIFF_CAP 을 초과해 Kiro 셀은 앞부분만 리뷰함 — codex 는 전체 diff 를 봤으므로 뒷부분 이슈는 codex 단일 벤더 커버리지."
+    { echo "✂️ **Kiro diff truncated**: $KIRO_COVERAGE_DESC — codex 가 이 실행에서 degraded 로 기록되지 않았다면 통상 전체 diff 를 봤겠으나(실행 전체 기준이라 이 lens 한정 응답 여부까지는 확정 못함), 뒷부분 이슈는 최선의 경우에도 codex 단일 벤더 커버리지."
       echo ""
       cat "$OUT"
     } > "$OUT.tmp" && mv "$OUT.tmp" "$OUT"

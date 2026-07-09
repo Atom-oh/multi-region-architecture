@@ -41,7 +41,9 @@ region/account before any scrub runs.
 This section describes the risk as it stood when `fs_read` was still granted to Kiro
 cells. It no longer reflects the current implementation — see Status/Decision #2:
 `fs_read` is not granted at all anymore, so the absolute-path read vector this section
-describes has been eliminated, not merely mitigated. Kept for historical record.
+describes is *conditionally* eliminated (not unconditionally — see Decision #2's
+`KIRO_SEMANTIC_OK` caveat; an earlier revision of this line overstated the guarantee as
+unconditional, multi-region-architecture PR#28 review). Kept for historical record.
 
 None of the mitigations above stopped an **absolute-path** `fs_read` from succeeding —
 `fs_read` is read-capable by design and the isolation only affected env vars and
@@ -63,16 +65,21 @@ as the *first* line of defense, not a guarantee.
    "no tools" semantic actually holding** — not unconditionally, as an earlier version of
    this section claimed (multi-region-architecture PR#28 review L5-MAJOR). `run-panel.sh`
    re-verifies this at the start of every run via `KIRO_SEMANTIC_OK`: a help-text phrase
-   grep, plus a behavioral canary that plants a marker file and asks **one representative
-   model** (`${KIRO_MODELS[0]}`, not all three) to read it back with no tool grant. The
-   canary is leak-positive only: an explicit, non-empty refusal response with no leaked
-   marker is required for `KIRO_SEMANTIC_OK=1` — a canary call that itself fails or times
-   out (network/auth/etc.) does **not** count as a pass and skips all Kiro cells that run,
-   same as a detected leak (fixed after PR#28 review L3-MAJOR flagged the earlier version's
-   opposite, fail-open default). All Kiro cells are skipped if any check fails — but the
-   elimination is only as durable as that guard, pinned to kiro-cli 2.11.1's documented and
-   observed behavior, and only directly verified against one of the three Kiro models. If a
-   future kiro-cli version changes the semantic in a way the canary doesn't catch, this
+   grep, plus a behavioral canary that plants a marker file and asks **every model in
+   `KIRO_MODELS`** (not just one representative — `--trust-tools=` being CLI-layer and
+   therefore model-independent is exactly the assumption the canary exists because we
+   don't trust; verifying only one model would be self-defeating, PR#28 review
+   L3-MAJOR-2) to read it back with no tool grant. The canary is **leak-absence-only**,
+   not a confirmed-refusal check: a non-empty response that doesn't contain the marker
+   counts as a pass, whether or not the model's wording is an explicit refusal (PR#28
+   review L3-MAJOR-1/L5-MAJOR-1) — this is enough to satisfy the canary's actual purpose
+   (detect an active leak), but is a weaker property than "confirmed the model refused."
+   A canary call that itself fails or times out (network/auth/etc.) does **not** count as
+   a pass and skips all Kiro cells that run, same as a detected leak. All Kiro cells are
+   skipped if any model's check fails — but the elimination is only as durable as that
+   guard, pinned to kiro-cli 2.11.1's documented and observed behavior. If a future
+   kiro-cli version changes the semantic in a way the canary doesn't catch (e.g. the model
+   simply doesn't attempt to use the now-available tool during this one probe), this
    reverts to an accepted-risk situation, not an eliminated one.
    `scrub_secrets()` remains in place as defense-in-depth for other leak paths (e.g. an
    errored cell's raw stderr), just not as the last line of defense for this one anymore.
@@ -106,7 +113,8 @@ as the *first* line of defense, not a guarantee.
 ## References
 
 - `scripts/pr-review/run-panel.sh` (Kiro cell: `kiro_env`, `KIRO_CWD_BASE`/`CELL_CWD`,
-  `--trust-tools=`, `KIRO_DIFF_CAP`/`KIRO_DIFF_TEXT`)
+  `--trust-tools=`, `KIRO_DIFF_CAP`/`KIRO_DIFF_TEXT`, `KIRO_SEMANTIC_OK` canary gate,
+  `KIRO_ARGV_CAP`/`KIRO_LENS_OVERSIZED`)
 - `scripts/pr-review/lib.sh` (`scrub_secrets`, `ensure_slots`)
 - `.github/workflows/pr-review.yml` (`persist-credentials: false`, hardened VERDICT gate)
 - `oh-my-cloud-skills` — original source of the argv-embed fix (round 19 review,
