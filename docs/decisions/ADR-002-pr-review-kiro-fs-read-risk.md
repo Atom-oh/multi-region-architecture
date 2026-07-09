@@ -62,12 +62,18 @@ as the *first* line of defense, not a guarantee.
    This eliminates the absolute-path read vector **conditional on `--trust-tools=`'s
    "no tools" semantic actually holding** — not unconditionally, as an earlier version of
    this section claimed (multi-region-architecture PR#28 review L5-MAJOR). `run-panel.sh`
-   re-verifies this at the start of every run (`KIRO_SEMANTIC_OK` gate: help-text phrase
-   grep + a live behavioral canary that plants a marker file and confirms no Kiro cell can
-   read it back) and skips all Kiro cells that run if either check fails — but the
+   re-verifies this at the start of every run via `KIRO_SEMANTIC_OK`: a help-text phrase
+   grep, plus a behavioral canary that plants a marker file and asks **one representative
+   model** (`${KIRO_MODELS[0]}`, not all three) to read it back with no tool grant. The
+   canary is leak-positive only: an explicit, non-empty refusal response with no leaked
+   marker is required for `KIRO_SEMANTIC_OK=1` — a canary call that itself fails or times
+   out (network/auth/etc.) does **not** count as a pass and skips all Kiro cells that run,
+   same as a detected leak (fixed after PR#28 review L3-MAJOR flagged the earlier version's
+   opposite, fail-open default). All Kiro cells are skipped if any check fails — but the
    elimination is only as durable as that guard, pinned to kiro-cli 2.11.1's documented and
-   observed behavior. If a future kiro-cli version changes the semantic in a way the canary
-   doesn't catch, this reverts to an accepted-risk situation, not an eliminated one.
+   observed behavior, and only directly verified against one of the three Kiro models. If a
+   future kiro-cli version changes the semantic in a way the canary doesn't catch, this
+   reverts to an accepted-risk situation, not an eliminated one.
    `scrub_secrets()` remains in place as defense-in-depth for other leak paths (e.g. an
    errored cell's raw stderr), just not as the last line of defense for this one anymore.
 3. **Also fixed in this pass**: `lib.sh`'s `ensure_slots()` and `run-panel.sh`'s
@@ -88,10 +94,14 @@ as the *first* line of defense, not a guarantee.
 - The general absolute-path read capability is conditionally eliminated: Kiro cells get no
   tool grant at all, so there's no read path left to abuse *as long as* `--trust-tools=`'s
   empty-value semantic holds — re-verified every run via `KIRO_SEMANTIC_OK` (see Decision
-  #2). `KIRO_DIFF_CAP`-driven truncation (default 100000B, same capping convention as
-  `PANEL_CELL_CAP`, default 20000B) is now the accepted trade-off instead, made visible
-  via a `kiro-diff-truncated.flag` banner in the synthesized review rather than silently
-  dropping coverage.
+  #2). Two independent caps now share the same `kiro-diff-truncated.flag` banner in the
+  synthesized review: `KIRO_DIFF_CAP` (default 100000B, same capping convention as
+  `PANEL_CELL_CAP`, default 20000B) bounds the diff slice itself, and `KIRO_ARGV_CAP`
+  (default 125000B, headroom under the 131072B `MAX_ARG_STRLEN` kernel limit) bounds the
+  final assembled `LENS_PROMPT` + diff instruction — an oversized lens prompt can trigger
+  the flag even when the diff itself is well under `KIRO_DIFF_CAP`. The banner text doesn't
+  currently distinguish which cap fired (multi-region-architecture PR#28 review L5-MAJOR);
+  both are accepted trade-offs, visible rather than silently dropping coverage either way.
 
 ## References
 
