@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.atomai.click/multi-region-architecture/sitemap.xml

@@ -7,7 +7,7 @@ const config: Config = {
   tagline: 'AWS 기반 멀티리전 마이크로서비스 아키텍처',
   favicon: 'img/logo.svg',
 
-  url: 'https://atom-oh.github.io',
+  url: 'https://www.atomai.click',
   baseUrl: '/multi-region-architecture/',
 
   organizationName: 'Atom-oh',
