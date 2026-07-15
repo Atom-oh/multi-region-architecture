@@ -7,7 +7,7 @@
 # diff 전달 경로는 CLI 별로 다름: Codex 는 stdin(`< "$DIFF"` 직접 리다이렉트, 파일이라
 # TTY 아님 → no-hang); Kiro 는 stdin 을 무시하고 어떤 툴도 못 받으므로(아래 Kiro 셀 주석
 # 참조) size-capped argv 텍스트로 직접 embed 한다. timeout 백스톱 + 비대화형 플래그로
-# 멈춤 방지. 셀이 비면 최대 PANEL_RETRIES 회 재시도(gpt-5.6-sol/bedrock-mantle 등 transient
+# 멈춤 방지. 셀이 비면 최대 PANEL_RETRIES 회 재시도(gpt-5.6 계열/bedrock-mantle 등 transient
 # 흡수). 매 시도마다 재실행.
 # 모든 셀(모델 수 × lens 수)이 병렬(&+wait) — 벽시계 ≈ 최슬로우 셀 하나, 순차합 아님.
 set -uo pipefail
@@ -138,7 +138,7 @@ if command -v kiro-cli >/dev/null 2>&1; then
       # "확정 leak"(marker 발견)과 "확인 못함"(call 실패/빈 응답)을 구분해 재시도 정책을
       # 다르게 준다 — leak 은 재시도해도 결론이 바뀔 리 없으니 즉시 fail-closed, 확인
       # 못함은 실 셀의 try_panel/PANEL_RETRIES 와 동일하게 transient 를 흡수할 기회를
-      # 준다. 재시도 없이 단발 실패로 바로 skip 하면, gpt-5.6-sol/bedrock 류의 흔한 일시
+      # 준다. 재시도 없이 단발 실패로 바로 skip 하면, gpt-5.6-terra/kiro-cli 류의 흔한 일시
       # 오류 하나가 canary 에서 터질 때마다 Kiro 12셀 전부가 비어 coverage-severe 로
       # 리뷰 전체가 강제 FAIL 되는 게이트-비대칭이 생긴다(multi-region-architecture
       # PR#28 리뷰 L4-MAJOR, 2개 벤더 수렴 + chair 코드 대조 확인).
