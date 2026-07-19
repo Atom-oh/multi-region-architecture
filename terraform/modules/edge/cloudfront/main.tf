@@ -50,9 +50,6 @@ resource "aws_cloudfront_distribution" "main" {
       origin_ssl_protocols   = ["TLSv1.2"]
     }
 
-    origin_shield {
-      enabled = false
-    }
   }
 
   # Default cache behavior - S3 static content
