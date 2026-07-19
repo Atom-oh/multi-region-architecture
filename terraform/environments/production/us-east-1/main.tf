@@ -350,6 +350,21 @@ module "cloudfront" {
   tags                             = var.tags
 }
 
+# mall.<domain> now serves from ap-northeast-2 (terraform/environments/production/ap-northeast-2/shared/main.tf)
+# since us-east-1's CloudFront/EKS/data-plane infra has been decommissioned —
+# see docs/portability-assessment.md. www.<domain> still points here.
+resource "aws_route53_record" "www" {
+  zone_id = var.route53_zone_id
+  name    = "www.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = module.cloudfront.distribution_domain_name
+    zone_id                = module.cloudfront.distribution_hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
 module "cloudfront_argocd" {
   source = "../../../modules/edge/cloudfront-argocd"
 

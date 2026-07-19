@@ -14,6 +14,7 @@ resources:
   - appset-grafana-dashboards.yaml
   - appset-helm-karpenter.yaml
   - appset-helm-external-secrets.yaml
+  - appset-external-secrets-crs.yaml
   - appset-helm-alb-controller.yaml
   - appset-helm-clickhouse-operator.yaml
   - appset-helm-otel-collector.yaml

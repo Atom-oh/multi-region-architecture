@@ -259,6 +259,97 @@ resource "aws_route53_record" "argocd_kr" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CloudFront — Mall (mall.atomai.click → CF → S3 + Korea NLB)
+#
+# us-east-1's CloudFront/EKS/data-plane infra has been decommissioned; this
+# replaces it as mall.<domain>'s origin. api_domain_name relies on the
+# existing api-internal.<domain> alias (already points at the Korea NLB).
+# The module also declares www.<domain> as an alias, but that hostname still
+# points at us-east-1's (defunct) distribution — out of scope here.
+# ─────────────────────────────────────────────────────────────────────────────
+
+module "cloudfront" {
+  source = "../../../../modules/edge/cloudfront"
+
+  environment                      = var.environment
+  domain_name                      = var.domain_name
+  acm_certificate_arn              = var.cloudfront_acm_certificate_arn
+  static_assets_bucket_domain_name = module.s3.static_assets_bucket_domain_name
+  static_assets_bucket_id          = module.s3.static_assets_bucket_id
+  api_domain_name                  = "api-internal.${var.domain_name}"
+  waf_web_acl_id                   = ""
+  tags                             = var.tags
+}
+
+data "aws_caller_identity" "current" {}
+
+# The cloudfront module only creates the OAC — nothing grants it access to
+# the bucket or its SSE-KMS key. us-east-1 has the same gap (its module call
+# has no matching bucket policy either); adding both here since without them
+# every S3-origin request through this distribution 403s.
+resource "aws_s3_bucket_policy" "static_assets_cloudfront" {
+  bucket = module.s3.static_assets_bucket_id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowCloudFrontServicePrincipal"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:GetObject"
+        Resource  = "${module.s3.static_assets_bucket_arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = module.cloudfront.distribution_arn
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_kms_key_policy" "s3_cloudfront" {
+  key_id = module.kms.key_ids["s3"]
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EnableIAMUserPermissions"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        Sid       = "AllowCloudFrontServicePrincipal"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "kms:Decrypt"
+        Resource  = "*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = module.cloudfront.distribution_arn
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_route53_record" "mall" {
+  zone_id = var.route53_zone_id
+  name    = "mall.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = module.cloudfront.distribution_domain_name
+    zone_id                = module.cloudfront.distribution_hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CloudFront — ArgoCD Korea (argocd-korea.atomai.click → CF → NLB → ArgoCD)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -432,4 +523,62 @@ module "s3" {
   replication_role_arn               = ""
   kms_key_arn                        = module.kms.key_arns["s3"]
   tags                               = var.tags
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IAM — External Secrets Operator IRSA (az-a + az-c)
+#
+# k8s/infra/external-secrets/ (ClusterSecretStore + ExternalSecret CRs) was
+# never wired into any ArgoCD Application for Korea — only the operator's
+# Helm chart was, via appset-helm-external-secrets.yaml. Without this role,
+# and without the CRs applied, no data-store secrets ever reach the cluster.
+# ─────────────────────────────────────────────────────────────────────────────
+
+data "aws_eks_cluster" "az_a" {
+  name = "mall-apne2-az-a"
+}
+
+data "aws_eks_cluster" "az_c" {
+  name = "mall-apne2-az-c"
+}
+
+resource "aws_iam_role" "external_secrets" {
+  name = "mall-apne2-external-secrets"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      for cluster in [data.aws_eks_cluster.az_a, data.aws_eks_cluster.az_c] : {
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:external-secrets:external-secrets-sa"
+            "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:aud" = "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "external_secrets_read" {
+  name = "secrets-manager-read"
+  role = aws_iam_role.external_secrets.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:mall/*"
+      }
+    ]
+  })
 }
