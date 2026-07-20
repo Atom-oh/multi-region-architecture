@@ -42,3 +42,8 @@ output "internal_observability_nlb_security_group_id" {
   description = "The ID of the internal observability NLB security group (ClickHouse, Tempo, Prometheus)"
   value       = aws_security_group.internal_observability_nlb.id
 }
+
+output "istio_eastwest_security_group_id" {
+  description = "The ID of the Istio ambient east-west gateway security group (az-a <-> az-c cross-cluster mesh)"
+  value       = aws_security_group.istio_eastwest.id
+}

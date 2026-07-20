@@ -69,6 +69,15 @@ patches:
         value:
           name: CACHE_PORT
           value: "6379"
+  # Opts every workload namespace into the ambient mesh (ztunnel picks up
+  # pods here transparently, no sidecar/restart needed) so the Istio
+  # ambient east-west gateway can provide zone failover between az-a/az-c.
+  - target:
+      kind: Namespace
+    patch: |-
+      - op: add
+        path: /metadata/labels/istio.io~1dataplane-mode
+        value: ambient
 
 configMapGenerator:
   - name: region-config

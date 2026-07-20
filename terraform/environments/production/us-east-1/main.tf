@@ -280,8 +280,8 @@ module "msk" {
   security_group_id      = module.security_groups.msk_security_group_id
   kms_key_arn            = module.kms.key_arns["msk"]
   broker_instance_type   = "kafka.t3.small"
-  number_of_broker_nodes = 6   # t3 instances do not support broker removal
-  ebs_volume_size        = 100 # MSK does not support EBS shrinkage
+  number_of_broker_nodes = 6     # t3 instances do not support broker removal
+  ebs_volume_size        = 100   # MSK does not support EBS shrinkage
   enable_replicator      = false # Replicator configured separately after both clusters exist
   tags                   = var.tags
 }

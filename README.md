@@ -233,57 +233,117 @@ multi-region-architecture/
     └── otel-tracing-design.md        # Distributed tracing design
 ```
 
-## Quick Start
+## Deploy It Yourself (Quick Start)
+
+이 리포지토리 하나로 **새 AWS 계정에 전체 플랫폼을 재현**할 수 있습니다. 기준 리전은 한국(ap-northeast-2, AZ별 zonal EKS 클러스터 2개 + 관리 클러스터)입니다. US 리전(us-east-1/us-west-2) terraform도 포함되어 있으나 현재 비용 절감을 위해 철수된 참조 구성이므로 선택 사항입니다.
 
 ### Prerequisites
 
-- AWS Account with appropriate permissions
-- Terraform >= 1.9
-- kubectl
-- AWS CLI v2
-- helm
+- AWS 계정 (Administrator 또는 그에 준하는 권한)
+- Terraform >= 1.9, AWS CLI v2, kubectl, kustomize (ArgoCD 설치 시 `--enable-helm` 사용), Docker, argocd CLI, istioctl (Istio mesh 사용 시)
+- (선택) Route53 호스팅 존 + ACM 인증서 — CloudFront용 인증서는 반드시 us-east-1에서 발급
 
-### 1. Infrastructure Deployment
+### 0. State Backend 준비
 
-```bash
-# State backend 생성
-cd terraform/environments/production/us-east-1
-terraform init
-terraform apply
-
-# Secondary region
-cd ../us-west-2
-terraform init
-terraform apply
-```
-
-### 2. EKS Cluster Access
+Terraform state는 S3 + DynamoDB lock을 사용합니다. **새 계정에서는 본인 버킷을 만들고 각 레이어의 `backend.tf`의 `bucket`(현재 `multi-region-mall-terraform-state`)을 교체하세요.**
 
 ```bash
-aws eks update-kubeconfig --name multi-region-mall --region us-east-1
-aws eks update-kubeconfig --name multi-region-mall --region us-west-2
+aws s3 mb s3://<your-tf-state-bucket> --region us-east-1
+aws dynamodb create-table --table-name multi-region-mall-terraform-locks \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST --region us-east-1
 ```
 
-### 3. ArgoCD Deployment
+### 1. Terraform — 반드시 이 순서로 (레이어 간 remote state 의존)
 
 ```bash
-kubectl apply -k k8s/infra/argocd/
+cd terraform/environments/production/ap-northeast-2
+
+# ① VPC, SG, 데이터 스토어(Aurora/DocumentDB/ElastiCache/MSK/OpenSearch),
+#    ECR 리포 22개(ecr.tf), CloudFront + mall.<domain> Route53
+(cd shared    && terraform init && terraform apply)
+
+# ② 관리 클러스터 (ArgoCD, observability, runners)
+(cd eks-mgmt  && terraform init && terraform apply)
+
+# ③④ 워크로드 클러스터 (AZ별 1개)
+(cd eks-az-a  && terraform init && terraform apply)
+(cd eks-az-c  && terraform init && terraform apply)
 ```
 
-ArgoCD가 ApplicationSet을 통해 모든 인프라 컴포넌트와 서비스를 자동 배포합니다.
+`terraform.tfvars`의 도메인/인증서 ARN을 본인 값으로 교체하세요. 기존 계정(이미 리소스 존재)에 적용하는 경우 `shared/ecr.tf` 상단 주석의 import 절차를 먼저 실행합니다.
 
-### 4. Seed Data
+### 2. 컨테이너 이미지 빌드 (재크롤링·외부 의존 없음)
+
+모든 이미지(20개 서비스 + synthetic-monitor + seed-data)는 커밋된 소스에서 재빌드됩니다:
+
+```bash
+AWS_ACCOUNT_ID=<your-account-id> AWS_REGION=ap-northeast-2 bash scripts/build-and-push.sh
+```
+
+### 3. Seed 데이터 — 크롤링 없이 zip 다운로드
+
+크롤링된 상품 1,000개 + 상품 이미지 스냅샷(949장)이 패키징되어 있습니다:
+
+```bash
+curl -LO https://mall.atomai.click/datasets/mall-seed-dataset.zip && unzip mall-seed-dataset.zip
+```
+
+데이터 스토어 시딩 (엔드포인트는 `shared` 레이어의 `terraform output` 값 사용):
 
 ```bash
 cd scripts/seed-data
-export AURORA_ENDPOINT="production-aurora-global-us-east-1.cluster-xxx.us-east-1.rds.amazonaws.com"
-export DOCUMENTDB_URI="mongodb://docdb_admin:<YOUR_PASSWORD>@production-docdb-global-us-east-1.cluster-xxx.us-east-1.docdb.amazonaws.com:27017"
-export OPENSEARCH_ENDPOINT="https://vpc-production-os-use1-xxx.us-east-1.es.amazonaws.com"
-export MSK_BOOTSTRAP="b-1.productionmskuseast1.xxx.kafka.us-east-1.amazonaws.com:9096"
-export ELASTICACHE_ENDPOINT="clustercfg.production-elasticache-us-east-1.xxx.use1.cache.amazonaws.com"
-
+export AURORA_ENDPOINT=... DOCUMENTDB_URI=... OPENSEARCH_ENDPOINT=... \
+       MSK_BOOTSTRAP=... ELASTICACHE_ENDPOINT=...
 bash run-seed.sh
 ```
+
+본인 환경에서 zip을 재생성/재게시하려면: `bash scripts/seed-data/package-dataset.sh` (자신의 static-assets 버킷에 업로드되고 CloudFront 기본 경로로 즉시 서빙됨).
+
+### 4. kubeconfig 컨텍스트 등록
+
+```bash
+aws eks update-kubeconfig --name mall-apne2-mgmt --region ap-northeast-2 --alias mall-apne2-mgmt
+aws eks update-kubeconfig --name mall-apne2-az-a --region ap-northeast-2 --alias mall-apne2-az-a
+aws eks update-kubeconfig --name mall-apne2-az-c --region ap-northeast-2 --alias mall-apne2-az-c
+```
+
+### 5. ArgoCD + App of Apps — root app 하나만 등록하면 전체 배포
+
+ArgoCD는 mgmt 클러스터에서 실행되며 워크로드 클러스터를 원격 관리합니다.
+
+```bash
+# ① ArgoCD 설치 (mgmt) — helmCharts 필드를 쓰므로 kubectl -k가 아니라
+#    standalone kustomize + --enable-helm이 필요
+kustomize build --enable-helm k8s/infra/argocd-korea/ | kubectl apply -f - --context mall-apne2-mgmt
+
+# ② 워크로드 클러스터 등록 — ApplicationSet의 cluster generator가
+#    `cluster-name` 라벨로 클러스터를 선택하므로 라벨 지정이 필수
+argocd cluster add mall-apne2-az-a --name mall-apne2-az-a --label cluster-name=mall-apne2-az-a
+argocd cluster add mall-apne2-az-c --name mall-apne2-az-c --label cluster-name=mall-apne2-az-c
+argocd cluster add mall-apne2-mgmt --name mall-apne2-mgmt --label cluster-name=mall-apne2-mgmt
+
+# ③ root app 등록 — 이거 하나로 워크로드 20개 서비스 + 인프라(Karpenter,
+#    ALB Controller, External Secrets, Istio ambient mesh 등) 전체가 배포됨
+kubectl apply -f k8s/infra/argocd-korea/apps/root-app.yaml --context mall-apne2-mgmt
+```
+
+본인 fork에서 배포한다면 `root-app.yaml`과 `apps/appset-*.yaml`의 `repoURL`을 fork 주소로 교체하세요. 다른 ArgoCD(예: 별도 허브)에 tenant로 등록할 때도 `k8s/infra/argocd-korea/apps` 경로를 가리키는 Application 하나면 충분합니다.
+
+### 6. (선택) Istio Ambient — AZ 간 zone failover
+
+az-a/az-c 클러스터 간 부분 장애 우회(east-west failover)는 Istio ambient multicluster로 구성됩니다. root app이 Istio 컴포넌트를 배포한 뒤, 클러스터 간 신뢰 연결(remote secret) 1회 수동 실행과 east-west gateway SG 값 교체가 필요합니다 — 절차는 [`k8s/infra/istio-eastwest/README.md`](k8s/infra/istio-eastwest/README.md) 참고.
+
+### 7. 검증
+
+```bash
+bash scripts/test-traffic-flow.sh          # DNS → CloudFront → NLB → pod 전체 경로 + SG 감사
+kubectl get pods -A --context mall-apne2-az-a
+kubectl get applications -n argocd --context mall-apne2-mgmt
+```
+
+프론트엔드 배포: `scripts/deploy-frontend.sh` (S3 버킷/CloudFront distribution ID를 본인 값으로 교체 필요).
 
 ## Observability
 

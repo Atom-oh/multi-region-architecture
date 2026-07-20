@@ -1,0 +1,85 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-istio-eastwest-gateway
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+        values:
+          network: az-a
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+        values:
+          network: az-c
+  template:
+    metadata:
+      name: 'istio-eastwest-gateway-{{name}}'
+    spec:
+      project: default
+      source:
+        chart: gateway
+        repoURL: https://istio-release.storage.googleapis.com/charts
+        targetRevision: 1.30.1
+        helm:
+          valuesObject:
+            profile: ambient
+            labels:
+              istio: eastwestgateway
+              topology.istio.io/network: '{{values.network}}'
+            env:
+              ISTIO_META_ROUTER_MODE: sni-dnat
+            networkGateways:
+              - network: '{{values.network}}'
+                port: 15008
+            service:
+              type: LoadBalancer
+              ports:
+                - name: status-port
+                  port: 15021
+                  targetPort: 15021
+                - name: tls
+                  port: 15008
+                  targetPort: 15008
+                  appProtocol: tls
+                - name: tls-istiod
+                  port: 15012
+                  targetPort: 15012
+                - name: tls-webhook
+                  port: 15017
+                  targetPort: 15017
+            serviceAnnotations:
+              service.beta.kubernetes.io/aws-load-balancer-type: "external"
+              service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+              service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+              service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+              # SG ID from: terraform output istio_eastwest_security_group_id
+              # (terraform/modules/networking/security-groups — module.security_groups
+              # in terraform/environments/production/ap-northeast-2/shared/)
+              service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-0a1b2c3d4e5f60789"
+            tolerations:
+              - key: node-role
+                value: system-critical
+                effect: NoSchedule
+            nodeSelector:
+              role: system
+      destination:
+        server: '{{server}}'
+        namespace: istio-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

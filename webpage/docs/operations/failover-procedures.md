@@ -463,6 +463,53 @@ aws route53 change-resource-record-sets \
 echo "DNS 롤백 완료. 데이터베이스는 수동 확인 필요."
 ```
 
+## 존 페일오버 (Korea, 부분 장애) — Istio Ambient
+
+위 절차는 모두 **리전 전체 장애**를 다룹니다. 한국 리전(az-a/az-c)은 완전히 분리된 두 클러스터로 구성되어, **클러스터 전체** 장애는 이미 multi-AZ NLB weighted target group(50/50)이 자동으로 처리합니다. 이 절차는 그 사이의 공백 — **부분 장애**(한 클러스터 안의 특정 서비스만 다운) — 를 다룹니다.
+
+### 왜 별도 절차가 필요한가
+
+`api-gateway`는 항상 자기 클러스터의 서비스만 호출합니다(`payment.core-services.svc.cluster.local`). az-a의 `payment` 파드가 전부 죽어도 az-a의 `api-gateway`는 정상이라, 위 4단계의 리전 페일오버 트리거(Route53 Health Check, CloudWatch Alarm)가 걸리지 않은 채로 az-a로 들어온 결제 요청만 계속 실패합니다.
+
+Istio ambient(`k8s/infra/istio-eastwest/`)가 이 케이스에서 az-c의 `payment`로 자동 우회를 제공합니다 — 애플리케이션 코드 변경 없이. 현재는 `payment`, `order`만 파일럿으로 적용되어 있습니다.
+
+### 감지
+
+```bash
+# az-a payment 파드 상태
+kubectl get pods -n core-services -l app=payment --context mall-apne2-az-a
+
+# 두 클러스터의 istiod/ztunnel/cni 상태
+kubectl get pods -n istio-system --context mall-apne2-az-a
+kubectl get pods -n istio-system --context mall-apne2-az-c
+```
+
+### 검증 (정상적으로 우회되는지 확인)
+
+```bash
+# az-a의 api-gateway가 실제로 payment의 원격(az-c) 엔드포인트를 보고 있는지 확인
+istioctl proxy-config endpoints <api-gateway-pod> -n platform \
+  --context mall-apne2-az-a | grep payment
+
+# az-a 쪽 payment를 의도적으로 내리고 결제 플로우가 계속 성공하는지 확인
+kubectl scale deployment/payment -n core-services --replicas=0 \
+  --context mall-apne2-az-a
+curl -s https://mall-kr.atomai.click/api/v1/orders/health
+
+# 트레이스에서 실제로 az-c로 넘어갔는지 확인 (Grafana/ClickHouse)
+# availability_zone=ap-northeast-2c 인데 진입 지점은 az-a였던 요청을 찾음
+
+# 복구
+kubectl scale deployment/payment -n core-services --replicas=<원래값> \
+  --context mall-apne2-az-a
+```
+
+### 평상시 확인
+
+정상 상태(양쪽 AZ 모두 건강)에서는 ambient가 로컬 엔드포인트를 우선하므로, cross-AZ 트래픽 비율은 0에 가까워야 합니다. 이게 갑자기 높아지면 한쪽 클러스터에 이미 부분 장애가 진행 중이라는 신호입니다.
+
+자세한 설치/부트스트랩(remote-secret 교환 등)은 [Network Design](/multi-az-korea/network#istio-ambient-east-west-gateway-zone-failover)과 `k8s/infra/istio-eastwest/README.md`를 참고하세요.
+
 ## 관련 문서
 
 - [재해 복구](./disaster-recovery)

@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-ztunnel
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+  template:
+    metadata:
+      name: 'ztunnel-{{name}}'
+    spec:
+      project: default
+      source:
+        chart: ztunnel
+        repoURL: https://istio-release.storage.googleapis.com/charts
+        targetRevision: 1.30.1
+        helm:
+          valuesObject:
+            profile: ambient
+            # ztunnel is a per-node DaemonSet proxy — same reasoning as istio-cni,
+            # it must run on every node, not just system nodes.
+            tolerations:
+              - operator: Exists
+      destination:
+        server: '{{server}}'
+        namespace: istio-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

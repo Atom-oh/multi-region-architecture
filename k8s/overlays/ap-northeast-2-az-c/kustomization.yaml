@@ -64,6 +64,14 @@ patches:
         value:
           name: CACHE_PORT
           value: "6379"
+  # Opts every workload namespace into the ambient mesh — mirrors the az-a
+  # overlay patch. See there for rationale.
+  - target:
+      kind: Namespace
+    patch: |-
+      - op: add
+        path: /metadata/labels/istio.io~1dataplane-mode
+        value: ambient
 
 configMapGenerator:
   - name: region-config

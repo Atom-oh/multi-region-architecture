@@ -117,6 +117,7 @@ go test ./...
 - OpenSearch domain names max 28 chars — uses shortened region codes (`use1`, `usw2`).
 - ElastiCache secondary (us-west-2 only): `engine`, `engine_version`, encryption params must be null (inherited from global datastore). `automatic_failover_enabled` in lifecycle `ignore_changes`.
 - Korea DocumentDB: `is_primary = true`, `instance_count = 2` (writer + AZ-local reader). NOT a global cluster secondary.
+- EKS cluster `version` (`terraform/modules/compute/eks`) is in lifecycle `ignore_changes` — clusters get upgraded out-of-band (console/eksctl/auto-upgrade) and EKS can't downgrade, so letting terraform track it produces an unappliable plan diff. `cluster_version` variable default (currently `1.36`) only matters for new cluster creation; bump it there, but upgrade existing clusters outside terraform.
 
 ### K8s / Kustomize
 

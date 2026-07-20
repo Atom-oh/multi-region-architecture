@@ -26,6 +26,31 @@ patches:
       - op: replace
         path: /spec/template/spec/topologySpreadConstraints/0/whenUnsatisfiable
         value: "ScheduleAnyway"
+  # Pilot for ambient mesh zone failover: az-a's payment/order Services
+  # become visible as remote endpoints to az-c (and vice versa via the
+  # identical patch there), so an in-cluster payment/order outage fails
+  # over to the other AZ's cluster instead of erroring. Everything else
+  # in core stays cluster-local. Expand this list once the pilot is
+  # validated (see k8s/infra/istio/README.md).
+  - target:
+      kind: Service
+      name: payment
+    patch: |-
+      # payment/order Services have no metadata.labels in the base, so the
+      # whole map is added here rather than a nested key (JSON patch `add`
+      # requires the parent object to already exist).
+      - op: add
+        path: /metadata/labels
+        value:
+          istio.io/global: "true"
+  - target:
+      kind: Service
+      name: order
+    patch: |-
+      - op: add
+        path: /metadata/labels
+        value:
+          istio.io/global: "true"
 
 commonLabels:
   region: ap-northeast-2

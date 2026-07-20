@@ -138,18 +138,18 @@ module "elasticache" {
 module "msk" {
   source = "../../../../modules/data/msk"
 
-  environment                = var.environment
-  region                     = var.region
-  vpc_id                     = module.vpc.vpc_id
-  data_subnet_ids            = module.vpc.data_subnet_ids
-  security_group_id          = module.security_groups.msk_security_group_id
-  kms_key_arn                = module.kms.key_arns["msk"]
+  environment            = var.environment
+  region                 = var.region
+  vpc_id                 = module.vpc.vpc_id
+  data_subnet_ids        = module.vpc.data_subnet_ids
+  security_group_id      = module.security_groups.msk_security_group_id
+  kms_key_arn            = module.kms.key_arns["msk"]
   broker_instance_type   = "kafka.t3.small"
   number_of_broker_nodes = 4   # t3 instances do not support broker removal
   ebs_volume_size        = 100 # MSK does not support EBS shrinkage
-  kafka_version              = "3.9.x"
-  enable_replicator          = false
-  tags                       = var.tags
+  kafka_version          = "3.9.x"
+  enable_replicator      = false
+  tags                   = var.tags
 }
 
 # DocumentDB: independent primary cluster for Korean region

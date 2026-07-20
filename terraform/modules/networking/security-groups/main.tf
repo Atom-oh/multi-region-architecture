@@ -130,6 +130,44 @@ resource "aws_security_group_rule" "internal_obs_nlb_egress" {
 }
 
 #------------------------------------------------------------------------------
+# Istio Ambient East-West Gateway Security Group (az-a <-> az-c cross-cluster mesh)
+#------------------------------------------------------------------------------
+resource "aws_security_group" "istio_eastwest" {
+  name_prefix = "${var.environment}-istio-eastwest-"
+  vpc_id      = var.vpc_id
+  description = "Security group for Istio ambient east-west gateway internal NLBs (cross-cluster mesh traffic)"
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-istio-eastwest-sg"
+    Environment = var.environment
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_security_group_rule" "istio_eastwest_ingress" {
+  type              = "ingress"
+  from_port         = 15008
+  to_port           = 15017
+  protocol          = "tcp"
+  cidr_blocks       = [var.vpc_cidr]
+  security_group_id = aws_security_group.istio_eastwest.id
+  description       = "HBONE (15008) / istiod XDS (15012) / webhook (15017) from peer cluster, single port-range rule"
+}
+
+resource "aws_security_group_rule" "istio_eastwest_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.istio_eastwest.id
+  description       = "Allow all outbound"
+}
+
+#------------------------------------------------------------------------------
 # EKS Node Security Group
 #------------------------------------------------------------------------------
 resource "aws_security_group" "eks_node" {
