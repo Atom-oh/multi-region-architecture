@@ -11,7 +11,7 @@
 #   for r in api-gateway event-bus cart search inventory product-catalog analytics \
 #            user-profile wishlist review shipping recommendation notification \
 #            order payment user-account warehouse returns pricing seller \
-#            synthetic-monitor seed-data; do
+#            synthetic-monitor seed-data backup-restore; do
 #     terraform import "aws_ecr_repository.services[\"$r\"]" "shopping-mall/$r"
 #   done
 # ─────────────────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ locals {
     # Java (7)
     "order", "payment", "user-account", "warehouse", "returns", "pricing", "seller",
     # Standalone
-    "synthetic-monitor", "seed-data",
+    "synthetic-monitor", "seed-data", "backup-restore",
   ]
 }
 

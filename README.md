@@ -241,7 +241,8 @@ multi-region-architecture/
 
 - AWS 계정 (Administrator 또는 그에 준하는 권한)
 - Terraform >= 1.9, AWS CLI v2, kubectl, kustomize (ArgoCD 설치 시 `--enable-helm` 사용), Docker, argocd CLI, istioctl (Istio mesh 사용 시)
-- (선택) Route53 호스팅 존 + ACM 인증서 — CloudFront용 인증서는 반드시 us-east-1에서 발급
+- **Route53 호스팅 존 + ACM 인증서 (필수)** — `shared` 레이어가 `terraform.tfvars`의 zone ID/인증서 ARN을 요구합니다. CloudFront용 인증서는 반드시 us-east-1에서 발급.
+- **계정 고정값 치환**: 이 리포는 데모 계정의 실제 값(계정 ID `180294183052`, SG/서브넷/엔드포인트)을 커밋해 둡니다. 새 계정에서는 `grep -rl 180294183052 | xargs sed -i 's/180294183052/<YOUR_ACCOUNT>/g'` 후 overlay/appset의 엔드포인트·ARN을 본인 terraform output으로 교체하는 단계가 필요합니다 (`docs/portability-assessment.md`의 체크리스트 참고).
 
 ### 0. State Backend 준비
 
@@ -274,6 +275,8 @@ cd terraform/environments/production/ap-northeast-2
 
 `terraform.tfvars`의 도메인/인증서 ARN을 본인 값으로 교체하세요. 기존 계정(이미 리소스 존재)에 적용하는 경우 `shared/ecr.tf` 상단 주석의 import 절차를 먼저 실행합니다.
 
+> **Two-pass 부트스트랩**: `shared`에는 EKS 클러스터를 조회하는 리소스(backup-restore IRSA의 `data.aws_eks_cluster` 등)가 있어, **완전 신규 계정에서는 최초 `shared` apply가 해당 리소스에서 실패할 수 있습니다.** 이 경우 `-target`으로 VPC/SG/데이터 스토어만 먼저 적용 → ②③④ 클러스터 생성 → `shared`를 한 번 더 전체 apply 하세요.
+
 ### 2. 컨테이너 이미지 빌드 (재크롤링·외부 의존 없음)
 
 모든 이미지(20개 서비스 + synthetic-monitor + seed-data)는 커밋된 소스에서 재빌드됩니다:
@@ -284,7 +287,7 @@ AWS_ACCOUNT_ID=<your-account-id> AWS_REGION=ap-northeast-2 bash scripts/build-an
 
 ### 3. Seed 데이터 — 크롤링 없이 zip 다운로드
 
-크롤링된 상품 1,000개 + 상품 이미지 스냅샷(949장)이 패키징되어 있습니다:
+크롤링된 상품 1,000개 + 상품 이미지 스냅샷(949장)이 패키징되어 있습니다. (상품 JSON 자체는 이 리포의 `scripts/seed-data/products-1000.json`에 커밋되어 있고, zip은 이미지 스냅샷을 더한 편의 번들입니다 — 아래 URL은 기존 데모 배포가 살아있는 동안 유효하며, 죽었다면 `package-dataset.sh`로 본인 환경에서 재생성하면 됩니다):
 
 ```bash
 curl -LO https://mall.atomai.click/datasets/mall-seed-dataset.zip && unzip mall-seed-dataset.zip
@@ -329,11 +332,24 @@ argocd cluster add mall-apne2-mgmt --name mall-apne2-mgmt --label cluster-name=m
 kubectl apply -f k8s/infra/argocd-korea/apps/root-app.yaml --context mall-apne2-mgmt
 ```
 
-본인 fork에서 배포한다면 `root-app.yaml`과 `apps/appset-*.yaml`의 `repoURL`을 fork 주소로 교체하세요. 다른 ArgoCD(예: 별도 허브)에 tenant로 등록할 때도 `k8s/infra/argocd-korea/apps` 경로를 가리키는 Application 하나면 충분합니다.
+본인 fork에서 배포한다면 `root-app.yaml`과 `apps/appset-*.yaml`의 `repoURL`을 fork 주소로 교체하세요 (HTTPS 형식 권장 — SSH 형식 appset은 HTTPS 자격증명만 등록된 ArgoCD에서 sync되지 않습니다). 다른 ArgoCD(예: 별도 허브)에 tenant로 등록할 때도 `k8s/infra/argocd-korea/apps` 경로를 가리키는 Application 하나면 충분합니다.
+
+> **현재 라이브 데모 계정은 이 모델과 다릅니다**: 운영 중인 환경에서는 플랫폼 계열 ApplicationSet(karpenter, ALB controller, external-secrets 등)의 실제 source of truth가 허브 리포(`AWS-Demo-Platform/argocd-apps/system/`)이고, 이 리포의 해당 파일들은 미러입니다 — 상세는 [`docs/portability-assessment.md`](docs/portability-assessment.md). 위 root-app 방식은 **신규/독립 환경에 이 리포 하나로 배포하는 표준 경로**이며, 두 모델의 통합(허브는 mgmt 전용, 이 리포가 워크로드 클러스터 전체 소유)은 진행 중인 정리 작업입니다.
 
 ### 6. (선택) Istio Ambient — AZ 간 zone failover
 
-az-a/az-c 클러스터 간 부분 장애 우회(east-west failover)는 Istio ambient multicluster로 구성됩니다. root app이 Istio 컴포넌트를 배포한 뒤, 클러스터 간 신뢰 연결(remote secret) 1회 수동 실행과 east-west gateway SG 값 교체가 필요합니다 — 절차는 [`k8s/infra/istio-eastwest/README.md`](k8s/infra/istio-eastwest/README.md) 참고.
+az-a/az-c 클러스터 간 부분 장애 우회(east-west failover)는 Istio ambient multicluster로 구성됩니다. GitOps로 배포되지 않는 수동 부트스트랩 2단계가 필요합니다 — **순서 중요**:
+
+```bash
+# ① 공통 root CA (istiod 기동 전) — 이거 없으면 cross-cluster mTLS가 신뢰되지 않아 failover가 동작하지 않음
+bash scripts/istio-cacerts.sh
+
+# ② 클러스터 간 remote secret (istiod 기동 후)
+istioctl create-remote-secret --context=mall-apne2-az-a --name=mall-apne2-az-a | kubectl apply -f - --context mall-apne2-az-c
+istioctl create-remote-secret --context=mall-apne2-az-c --name=mall-apne2-az-c | kubectl apply -f - --context mall-apne2-az-a
+```
+
+상세 절차와 검증(중복 결제 확인 포함)은 [`k8s/infra/istio-eastwest/README.md`](k8s/infra/istio-eastwest/README.md) 참고.
 
 ### 7. 검증
 

@@ -150,11 +150,11 @@ resource "aws_security_group" "istio_eastwest" {
 resource "aws_security_group_rule" "istio_eastwest_ingress" {
   type              = "ingress"
   from_port         = 15008
-  to_port           = 15017
+  to_port           = 15021
   protocol          = "tcp"
   cidr_blocks       = [var.vpc_cidr]
   security_group_id = aws_security_group.istio_eastwest.id
-  description       = "HBONE (15008) / istiod XDS (15012) / webhook (15017) from peer cluster, single port-range rule"
+  description       = "HBONE (15008) + NLB health check / status port (15021) from peer cluster, single port-range rule"
 }
 
 resource "aws_security_group_rule" "istio_eastwest_egress" {

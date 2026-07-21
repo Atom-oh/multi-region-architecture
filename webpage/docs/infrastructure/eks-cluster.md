@@ -55,6 +55,10 @@ flowchart TB
     API --> B1
 ```
 
+:::warning US 리전 철수
+아래 us-east-1/us-west-2 구성은 비용 절감을 위해 철수된 **참조 아키텍처**입니다. 현재 라이브 배포는 한국 리전(ap-northeast-2)의 3-클러스터 구조(`mall-apne2-mgmt`/`az-a`/`az-c`)입니다 — [Multi-AZ Korea](/multi-az-korea/overview) 참고. 또한 `version`이 `ignore_changes`에 있으므로 아래 버전 표기는 신규 생성 기본값일 뿐, 운영 중 실버전은 콘솔/`aws eks describe-cluster`로 확인하세요.
+:::
+
 ## 클러스터 사양
 
 | 항목 | us-east-1 | us-west-2 |

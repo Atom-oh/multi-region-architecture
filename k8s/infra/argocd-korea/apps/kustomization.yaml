@@ -19,7 +19,6 @@ resources:
   - appset-helm-istio-cni.yaml
   - appset-helm-istiod.yaml
   - appset-helm-ztunnel.yaml
-  - appset-helm-istio-eastwest-gateway.yaml
   - appset-istio-eastwest.yaml
   - appset-helm-alb-controller.yaml
   - appset-helm-clickhouse-operator.yaml

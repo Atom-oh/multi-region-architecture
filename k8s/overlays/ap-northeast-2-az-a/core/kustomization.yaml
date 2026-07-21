@@ -31,7 +31,7 @@ patches:
   # identical patch there), so an in-cluster payment/order outage fails
   # over to the other AZ's cluster instead of erroring. Everything else
   # in core stays cluster-local. Expand this list once the pilot is
-  # validated (see k8s/infra/istio/README.md).
+  # validated (see k8s/infra/istio-eastwest/README.md).
   - target:
       kind: Service
       name: payment

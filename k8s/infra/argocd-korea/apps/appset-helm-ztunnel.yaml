@@ -9,10 +9,16 @@ spec:
         selector:
           matchLabels:
             cluster-name: mall-apne2-az-a
+        values:
+          clusterName: mall-apne2-az-a
+          network: az-a
     - clusters:
         selector:
           matchLabels:
             cluster-name: mall-apne2-az-c
+        values:
+          clusterName: mall-apne2-az-c
+          network: az-c
   template:
     metadata:
       name: 'ztunnel-{{name}}'
@@ -25,6 +31,13 @@ spec:
         helm:
           valuesObject:
             profile: ambient
+            # Required for ambient multicluster: ztunnel must know its own
+            # cluster + network to route cross-network HBONE via the
+            # east-west gateway (matches istiod's values).
+            multiCluster:
+              clusterName: '{{values.clusterName}}'
+            global:
+              network: '{{values.network}}'
             # ztunnel is a per-node DaemonSet proxy — same reasoning as istio-cni,
             # it must run on every node, not just system nodes.
             tolerations:

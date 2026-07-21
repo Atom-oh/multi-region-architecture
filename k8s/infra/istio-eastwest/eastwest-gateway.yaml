@@ -1,0 +1,37 @@
+# Ambient multicluster east-west gateway (Gateway API).
+# This is the 1.29+ ambient model — a single HBONE listener on 15008 with
+# ISTIO_MUTUAL (double-HBONE) termination. The legacy sidecar-style
+# eastwestgateway (helm `gateway` chart + ISTIO_META_ROUTER_MODE=sni-dnat +
+# AUTO_PASSTHROUGH Gateway) does NOT apply to ambient and was replaced by this.
+#
+# Istio auto-deploys a Service/Deployment for this Gateway and copies the
+# annotations below onto the generated Service — that's how the internal-NLB
+# and Terraform-managed SG settings reach the AWS Load Balancer Controller.
+#
+# topology.istio.io/network is patched per cluster (az-a / az-c) by
+# appset-istio-eastwest.yaml.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: istio-eastwestgateway
+  namespace: istio-system
+  labels:
+    topology.istio.io/network: PATCHED-PER-CLUSTER
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    # SG ID from: terraform output istio_eastwest_security_group_id
+    # (terraform/environments/production/ap-northeast-2/shared)
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-0355c4a665545ff7d"
+spec:
+  gatewayClassName: istio-east-west
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE
+      tls:
+        mode: Terminate
+        options:
+          gateway.istio.io/tls-terminate-mode: ISTIO_MUTUAL

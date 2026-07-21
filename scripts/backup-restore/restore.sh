@@ -52,6 +52,25 @@ fi
 
 FAILED=0
 
+# ── Safety: never restore into a read-only DocumentDB global secondary ──────
+# Korea's DocumentDB is (as of the portability assessment) a live global-cluster
+# secondary of us-east-1 — writes are rejected at the storage layer, so
+# `mongorestore --drop` against it fails AFTER Aurora was already wiped and
+# restored, leaving the stores inconsistent. Check before touching anything.
+# (Detach/promote the cluster first if you really are failing over.)
+if [ -n "${DOCUMENTDB_HOST:-}" ]; then
+  DOCDB_CLUSTER_ID="${DOCUMENTDB_HOST%%.*}"
+  SECONDARY_ARNS=$(aws docdb describe-global-clusters \
+    --query 'GlobalClusters[].GlobalClusterMembers[?IsWriter==`false`].DBClusterArn[]' \
+    --output text 2>/dev/null || echo "")
+  if echo "${SECONDARY_ARNS}" | tr '\t' '\n' | grep -q ":cluster:${DOCDB_CLUSTER_ID}$"; then
+    echo "✗ ABORT: DocumentDB target '${DOCDB_CLUSTER_ID}' is a read-only global-cluster"
+    echo "  secondary — mongorestore would fail and leave Aurora/DocumentDB inconsistent."
+    echo "  Promote it first: aws docdb remove-from-global-cluster ... (then re-run)."
+    exit 1
+  fi
+fi
+
 # ── Aurora PostgreSQL ────────────────────────────────────────────────────────
 if [ -n "${AURORA_ENDPOINT:-}" ] && [ -f "${WORKDIR}/aurora/aurora.dump" ]; then
   echo "▶ Aurora: pg_restore -> ${AURORA_ENDPOINT}"
@@ -74,7 +93,8 @@ fi
 
 if [ -n "${DOCUMENTDB_URI:-}" ] && [ -f "${WORKDIR}/documentdb/documentdb.archive.gz" ]; then
   echo "▶ DocumentDB: mongorestore"
-  if mongorestore --uri="${DOCUMENTDB_URI}" --tlsInsecure \
+  if mongorestore --uri="${DOCUMENTDB_URI}" \
+      --tlsCAFile=/etc/ssl/certs/rds-global-bundle.pem \
       --archive="${WORKDIR}/documentdb/documentdb.archive.gz" --gzip --drop; then
     echo "✓ DocumentDB restored"
   else

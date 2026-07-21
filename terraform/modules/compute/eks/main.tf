@@ -204,11 +204,11 @@ resource "aws_security_group_rule" "eks_cluster_sg_istio_eastwest_ingress" {
 
   type                     = "ingress"
   from_port                = 15008
-  to_port                  = 15017
+  to_port                  = 15021
   protocol                 = "tcp"
   security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
   source_security_group_id = var.istio_eastwest_security_group_id
-  description              = "HBONE/XDS/webhook from Istio ambient east-west gateway (cross-cluster mesh)"
+  description              = "HBONE + status/health-check port from Istio ambient east-west gateway (cross-cluster mesh)"
 }
 
 # OIDC Provider for IRSA

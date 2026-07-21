@@ -626,6 +626,23 @@ resource "aws_iam_role_policy" "backup_restore_s3" {
         ]
       },
       {
+        # Backup archives go to the dedicated private bucket (backups-bucket.tf),
+        # never the CloudFront-served static-assets bucket.
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
+        Resource = [
+          aws_s3_bucket.backups.arn,
+          "${aws_s3_bucket.backups.arn}/*",
+        ]
+      },
+      {
+        # restore.sh aborts before any destructive step if the DocumentDB
+        # target is still a read-only global-cluster secondary.
+        Effect   = "Allow"
+        Action   = ["rds:DescribeGlobalClusters", "rds:DescribeDBClusters"]
+        Resource = "*"
+      },
+      {
         Effect   = "Allow"
         Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
         Resource = module.kms.key_arns["s3"]

@@ -24,6 +24,10 @@ spec:
     spec:
       restartPolicy: Never
       serviceAccountName: backup-restore
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
         - name: backup
           image: <AWS_ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/shopping-mall/backup-restore:latest
@@ -40,6 +44,11 @@ spec:
               value: "production-aurora-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.rds.amazonaws.com"
             - name: AURORA_USER
               value: "mall_admin"
+            - name: AURORA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: order-secrets # ExternalSecret <- mall/core/aurora
+                  key: DB_PASSWORD
             - name: DOCUMENTDB_HOST
               value: "production-docdb-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com"
             - name: DOCUMENTDB_USER
@@ -47,17 +56,18 @@ spec:
                 secretKeyRef:
                   name: product-catalog-secrets
                   key: DB_USER
-                  optional: true
             - name: DOCUMENTDB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: product-catalog-secrets
                   key: DB_PASSWORD
-                  optional: true
             - name: STATIC_ASSETS_BUCKET
               value: "production-mall-static-assets-ap-northeast-2"
+            # Private bucket (terraform: shared/backups-bucket.tf) — NEVER the
+            # static-assets bucket: that one is a CloudFront origin whose default
+            # behavior serves backups/* publicly at https://mall.<domain>/backups/...
             - name: BACKUP_S3_BUCKET
-              value: "production-mall-static-assets-ap-northeast-2"
+              value: "production-mall-backups-ap-northeast-2"
             - name: BACKUP_S3_PREFIX
               value: "backups"
           resources:

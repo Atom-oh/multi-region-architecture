@@ -31,11 +31,17 @@ spec:
         helm:
           valuesObject:
             profile: ambient
+            # Ambient multicluster (beta since 1.29) is gated behind these
+            # pilot env flags — without them istiod ignores remote-cluster
+            # endpoints entirely and failover silently never happens.
+            env:
+              AMBIENT_ENABLE_MULTI_NETWORK: "true"
+              AMBIENT_ENABLE_BAGGAGE: "true"
             global:
               # Shared meshID + trust domain across az-a/az-c so cross-cluster
               # mTLS is trusted; distinct network per cluster (they sit in the
               # same VPC but ambient multicluster only supports the
-              # multi-network model — see k8s/infra/istio/README.md).
+              # multi-network model — see k8s/infra/istio-eastwest/README.md).
               meshID: vellure-mesh-kr
               network: '{{values.network}}'
               multiCluster:

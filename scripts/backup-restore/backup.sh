@@ -37,6 +37,7 @@ echo "  \"region_label\": \"${REGION_LABEL}\"," >> "${MANIFEST}"
 echo "  \"targets\": {" >> "${MANIFEST}"
 
 FIRST_TARGET=1
+FAILED=0
 add_target() {
   local name=$1 status=$2 detail=$3
   [ "$FIRST_TARGET" -eq 1 ] || echo "," >> "${MANIFEST}"
@@ -58,6 +59,7 @@ if [ -n "${AURORA_ENDPOINT:-}" ]; then
   else
     add_target "aurora" "failed" "\"see aurora/pg_dump.log\""
     echo "✗ Aurora dump FAILED (continuing)"
+    FAILED=$((FAILED + 1))
   fi
 else
   add_target "aurora" "skipped" "\"AURORA_ENDPOINT not set\""
@@ -74,7 +76,8 @@ fi
 
 if [ -n "${DOCUMENTDB_URI:-}" ]; then
   echo "▶ DocumentDB: mongodump"
-  if mongodump --uri="${DOCUMENTDB_URI}" --tlsInsecure \
+  if mongodump --uri="${DOCUMENTDB_URI}" \
+      --tlsCAFile=/etc/ssl/certs/rds-global-bundle.pem \
       --archive="${WORKDIR}/documentdb/documentdb.archive.gz" --gzip \
       2>"${WORKDIR}/documentdb/mongodump.log"; then
     DOC_SUMMARY=$(grep -oE "done dumping \`[^\`]+\` \([0-9]+ documents?\)" "${WORKDIR}/documentdb/mongodump.log" | sed -E 's/done dumping //' | paste -sd, - || echo "")
@@ -83,6 +86,7 @@ if [ -n "${DOCUMENTDB_URI:-}" ]; then
   else
     add_target "documentdb" "failed" "\"see documentdb/mongodump.log\""
     echo "✗ DocumentDB dump FAILED (continuing)"
+    FAILED=$((FAILED + 1))
   fi
 else
   add_target "documentdb" "skipped" "\"DOCUMENTDB_URI/DOCUMENTDB_HOST not set\""
@@ -103,6 +107,7 @@ if [ -n "${STATIC_ASSETS_BUCKET:-}" ]; then
   else
     add_target "s3_static_assets" "failed" "\"aws s3 sync errored\""
     echo "✗ S3 sync FAILED (continuing)"
+    FAILED=$((FAILED + 1))
   fi
 else
   add_target "s3_static_assets" "skipped" "\"STATIC_ASSETS_BUCKET not set\""
@@ -127,5 +132,10 @@ else
 fi
 
 echo "============================================"
-echo " Backup complete: ${ARCHIVE_NAME}"
+echo " Backup complete: ${ARCHIVE_NAME} (failed targets: ${FAILED})"
 echo "============================================"
+
+# A backup with failed targets must NOT look like a success — the archive is
+# still uploaded (partial data beats none) but the Job exits non-zero so it
+# can't be silently trusted as a restore point.
+[ "$FAILED" -eq 0 ]
