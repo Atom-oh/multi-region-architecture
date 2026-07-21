@@ -582,3 +582,54 @@ resource "aws_iam_role_policy" "external_secrets_read" {
     ]
   })
 }
+
+# IAM — scripts/backup-restore/ (mall-backup / mall-restore Jobs, SA
+# core-services/backup-restore)
+resource "aws_iam_role" "backup_restore" {
+  name = "mall-apne2-backup-restore"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      for cluster in [data.aws_eks_cluster.az_a, data.aws_eks_cluster.az_c] : {
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:core-services:backup-restore"
+            "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:aud" = "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "backup_restore_s3" {
+  name = "static-assets-rw"
+  role = aws_iam_role.backup_restore.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
+        Resource = [
+          module.s3.static_assets_bucket_arn,
+          "${module.s3.static_assets_bucket_arn}/*",
+        ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
+        Resource = module.kms.key_arns["s3"]
+      }
+    ]
+  })
+}
