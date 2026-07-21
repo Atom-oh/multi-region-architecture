@@ -138,18 +138,18 @@ module "elasticache" {
 module "msk" {
   source = "../../../../modules/data/msk"
 
-  environment                = var.environment
-  region                     = var.region
-  vpc_id                     = module.vpc.vpc_id
-  data_subnet_ids            = module.vpc.data_subnet_ids
-  security_group_id          = module.security_groups.msk_security_group_id
-  kms_key_arn                = module.kms.key_arns["msk"]
+  environment            = var.environment
+  region                 = var.region
+  vpc_id                 = module.vpc.vpc_id
+  data_subnet_ids        = module.vpc.data_subnet_ids
+  security_group_id      = module.security_groups.msk_security_group_id
+  kms_key_arn            = module.kms.key_arns["msk"]
   broker_instance_type   = "kafka.t3.small"
   number_of_broker_nodes = 4   # t3 instances do not support broker removal
   ebs_volume_size        = 100 # MSK does not support EBS shrinkage
-  kafka_version              = "3.9.x"
-  enable_replicator          = false
-  tags                       = var.tags
+  kafka_version          = "3.9.x"
+  enable_replicator      = false
+  tags                   = var.tags
 }
 
 # DocumentDB: independent primary cluster for Korean region
@@ -578,6 +578,74 @@ resource "aws_iam_role_policy" "external_secrets_read" {
         Effect   = "Allow"
         Action   = "secretsmanager:GetSecretValue"
         Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:mall/*"
+      }
+    ]
+  })
+}
+
+# IAM — scripts/backup-restore/ (mall-backup / mall-restore Jobs, SA
+# core-services/backup-restore)
+resource "aws_iam_role" "backup_restore" {
+  name = "mall-apne2-backup-restore"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      for cluster in [data.aws_eks_cluster.az_a, data.aws_eks_cluster.az_c] : {
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:core-services:backup-restore"
+            "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:aud" = "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "backup_restore_s3" {
+  name = "static-assets-rw"
+  role = aws_iam_role.backup_restore.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
+        Resource = [
+          module.s3.static_assets_bucket_arn,
+          "${module.s3.static_assets_bucket_arn}/*",
+        ]
+      },
+      {
+        # Backup archives go to the dedicated private bucket (backups-bucket.tf),
+        # never the CloudFront-served static-assets bucket.
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
+        Resource = [
+          aws_s3_bucket.backups.arn,
+          "${aws_s3_bucket.backups.arn}/*",
+        ]
+      },
+      {
+        # restore.sh aborts before any destructive step if the DocumentDB
+        # target is still a read-only global-cluster secondary.
+        Effect   = "Allow"
+        Action   = ["rds:DescribeGlobalClusters", "rds:DescribeDBClusters"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
+        Resource = module.kms.key_arns["s3"]
       }
     ]
   })

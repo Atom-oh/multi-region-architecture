@@ -2,10 +2,10 @@
 set -e
 
 ACCOUNT_ID="${AWS_ACCOUNT_ID:?Set AWS_ACCOUNT_ID env var}"
-REGION="${AWS_REGION:-us-east-1}"
+REGION="${AWS_REGION:-ap-northeast-2}" # Korea is the live baseline region
 ECR_PREFIX="shopping-mall"
 TAG="${1:-latest}"
-SRC_DIR="/home/ec2-user/multi-region-architecture/src"
+SRC_DIR="${SRC_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../src" && pwd)}"
 
 echo "Building and pushing all services to ECR (amd64)..."
 

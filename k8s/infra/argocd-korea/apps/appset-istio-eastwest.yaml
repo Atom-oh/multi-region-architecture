@@ -1,0 +1,57 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: istio-eastwest
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+        values:
+          network: az-a
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+        values:
+          network: az-c
+  template:
+    metadata:
+      name: 'istio-eastwest-{{name}}'
+    spec:
+      project: default
+      source:
+        # HTTPS, not SSH: ArgoCD in this account only has HTTPS credentials
+        # registered (see docs/portability-assessment.md) — SSH-form appsets
+        # never sync.
+        repoURL: https://github.com/Atom-oh/multi-region-architecture
+        targetRevision: main
+        path: k8s/infra/istio-eastwest
+        kustomize:
+          patches:
+            - target:
+                group: gateway.networking.k8s.io
+                kind: Gateway
+                name: istio-eastwestgateway
+              patch: |-
+                - op: replace
+                  path: /metadata/labels/topology.istio.io~1network
+                  value: '{{values.network}}'
+      destination:
+        server: '{{server}}'
+        namespace: istio-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true # gateway-api CRDs exceed the 262KB annotation limit
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

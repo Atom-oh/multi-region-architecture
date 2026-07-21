@@ -1,0 +1,69 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-istiod
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+        values:
+          clusterName: mall-apne2-az-a
+          network: az-a
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+        values:
+          clusterName: mall-apne2-az-c
+          network: az-c
+  template:
+    metadata:
+      name: 'istiod-{{name}}'
+    spec:
+      project: default
+      source:
+        chart: istiod
+        repoURL: https://istio-release.storage.googleapis.com/charts
+        targetRevision: 1.30.1
+        helm:
+          valuesObject:
+            profile: ambient
+            # Ambient multicluster (beta since 1.29) is gated behind these
+            # pilot env flags — without them istiod ignores remote-cluster
+            # endpoints entirely and failover silently never happens.
+            env:
+              AMBIENT_ENABLE_MULTI_NETWORK: "true"
+              AMBIENT_ENABLE_BAGGAGE: "true"
+            global:
+              # Shared meshID + trust domain across az-a/az-c so cross-cluster
+              # mTLS is trusted; distinct network per cluster (they sit in the
+              # same VPC but ambient multicluster only supports the
+              # multi-network model — see k8s/infra/istio-eastwest/README.md).
+              meshID: vellure-mesh-kr
+              network: '{{values.network}}'
+              multiCluster:
+                clusterName: '{{values.clusterName}}'
+            tolerations:
+              - key: node-role
+                value: system-critical
+                effect: NoSchedule
+            nodeSelector:
+              role: system
+      destination:
+        server: '{{server}}'
+        namespace: istio-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

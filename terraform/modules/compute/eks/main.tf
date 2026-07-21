@@ -122,7 +122,13 @@ resource "aws_eks_cluster" "main" {
 
   lifecycle {
     ignore_changes = [
-      access_config[0].bootstrap_cluster_creator_admin_permissions
+      access_config[0].bootstrap_cluster_creator_admin_permissions,
+      # EKS control-plane upgrades (console/eksctl/auto-upgrade) move this out
+      # from under var.cluster_version's default; since EKS can't downgrade,
+      # letting terraform track it would just produce a perpetual, unappliable
+      # plan diff. Bump var.cluster_version's default when creating new
+      # clusters, but upgrade existing ones outside terraform.
+      version
     ]
   }
 
@@ -189,6 +195,20 @@ resource "aws_security_group_rule" "eks_cluster_sg_internal_obs_nlb_ingress" {
   security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
   source_security_group_id = var.internal_observability_nlb_security_group_id
   description              = "All TCP from internal observability NLBs (ClickHouse, Tempo, Prometheus)"
+}
+
+# Allow the Istio ambient east-west gateway (peer cluster's ztunnel/eastwestgateway
+# traffic arrives via this internal NLB SG) to reach the east-west gateway pods.
+resource "aws_security_group_rule" "eks_cluster_sg_istio_eastwest_ingress" {
+  count = var.istio_eastwest_security_group_id != "" ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 15008
+  to_port                  = 15021
+  protocol                 = "tcp"
+  security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  source_security_group_id = var.istio_eastwest_security_group_id
+  description              = "HBONE + status/health-check port from Istio ambient east-west gateway (cross-cluster mesh)"
 }
 
 # OIDC Provider for IRSA
@@ -323,9 +343,9 @@ resource "aws_eks_addon" "coredns" {
   configuration_values = jsonencode({
     tolerations = [
       {
-        key      = "node-role"
-        value    = "system-critical"
-        effect   = "NoSchedule"
+        key    = "node-role"
+        value  = "system-critical"
+        effect = "NoSchedule"
       }
     ]
     nodeSelector = {
@@ -589,9 +609,9 @@ resource "aws_iam_role_policy" "karpenter_controller" {
         Resource = "*"
       },
       {
-        Sid    = "ConditionalEC2Termination"
-        Effect = "Allow"
-        Action = "ec2:TerminateInstances"
+        Sid      = "ConditionalEC2Termination"
+        Effect   = "Allow"
+        Action   = "ec2:TerminateInstances"
         Resource = "*"
         Condition = {
           StringLike = {
@@ -600,9 +620,9 @@ resource "aws_iam_role_policy" "karpenter_controller" {
         }
       },
       {
-        Sid    = "PassNodeIAMRole"
-        Effect = "Allow"
-        Action = "iam:PassRole"
+        Sid      = "PassNodeIAMRole"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
         Resource = "*"
         Condition = {
           StringEquals = {
@@ -611,9 +631,9 @@ resource "aws_iam_role_policy" "karpenter_controller" {
         }
       },
       {
-        Sid    = "EKSClusterEndpointLookup"
-        Effect = "Allow"
-        Action = "eks:DescribeCluster"
+        Sid      = "EKSClusterEndpointLookup"
+        Effect   = "Allow"
+        Action   = "eks:DescribeCluster"
         Resource = aws_eks_cluster.main.arn
       },
       {

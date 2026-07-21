@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backup-restore
+  namespace: core-services
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/mall-apne2-backup-restore
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mall-restore
+  namespace: core-services
+  labels:
+    app: backup-restore
+    component: data-restore
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: backup-restore
+    spec:
+      restartPolicy: Never
+      serviceAccountName: backup-restore
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: restore
+          image: <AWS_ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/shopping-mall/backup-restore:latest
+          command: ["bash", "restore.sh"]
+          env:
+            # Fill in before applying: the archive to restore from
+            # (backups live in the private production-mall-backups-<region> bucket).
+            - name: ARCHIVE_S3_URI
+              value: "s3://production-mall-backups-ap-northeast-2/backups/mall-data-backup-<region>-<timestamp>.tar.gz"
+            - name: AWS_REGION
+              value: "ap-northeast-2"
+            # Literal, not configMapKeyRef: kustomize's configMapGenerator
+            # hash-suffixes "region-config"'s real name, so a fixed name here
+            # would never resolve — this Job isn't part of that same build.
+            # Update these when restoring into a different environment.
+            - name: AURORA_ENDPOINT
+              value: "production-aurora-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.rds.amazonaws.com"
+            - name: AURORA_USER
+              value: "mall_admin"
+            - name: AURORA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: order-secrets # ExternalSecret <- mall/core/aurora
+                  key: DB_PASSWORD
+            - name: DOCUMENTDB_HOST
+              value: "production-docdb-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com"
+            - name: DOCUMENTDB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: product-catalog-secrets
+                  key: DB_USER
+            - name: DOCUMENTDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: product-catalog-secrets
+                  key: DB_PASSWORD
+            - name: STATIC_ASSETS_BUCKET
+              value: "<TARGET_STATIC_ASSETS_BUCKET>"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi

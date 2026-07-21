@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-istio-cni
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-a
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-name: mall-apne2-az-c
+  template:
+    metadata:
+      name: 'istio-cni-{{name}}'
+    spec:
+      project: default
+      source:
+        chart: cni
+        repoURL: https://istio-release.storage.googleapis.com/charts
+        targetRevision: 1.30.1
+        helm:
+          valuesObject:
+            profile: ambient
+            # CNI node agent is a DaemonSet — must run on every node (including
+            # bootstrap system nodes) to install the redirect rules ambient
+            # depends on, so it tolerates everything rather than using the
+            # system-only nodeSelector applied to istiod/eastwestgateway.
+            tolerations:
+              - operator: Exists
+      destination:
+        server: '{{server}}'
+        namespace: istio-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

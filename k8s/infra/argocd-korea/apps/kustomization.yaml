@@ -15,6 +15,11 @@ resources:
   - appset-helm-karpenter.yaml
   - appset-helm-external-secrets.yaml
   - appset-external-secrets-crs.yaml
+  - appset-helm-istio-base.yaml
+  - appset-helm-istio-cni.yaml
+  - appset-helm-istiod.yaml
+  - appset-helm-ztunnel.yaml
+  - appset-istio-eastwest.yaml
   - appset-helm-alb-controller.yaml
   - appset-helm-clickhouse-operator.yaml
   - appset-helm-otel-collector.yaml

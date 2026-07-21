@@ -53,17 +53,18 @@ data "terraform_remote_state" "eks_mgmt" {
 module "eks" {
   source = "../../../../modules/compute/eks"
 
-  environment                  = var.environment
-  region                       = var.region
-  cluster_name                 = "mall-apne2-az-a"
-  vpc_id                       = data.terraform_remote_state.shared.outputs.vpc_id
-  private_subnet_ids           = data.terraform_remote_state.shared.outputs.private_subnet_ids
-  alb_security_group_id        = data.terraform_remote_state.shared.outputs.alb_security_group_id
-  nlb_security_group_id        = data.terraform_remote_state.shared.outputs.nlb_security_group_id
-  argocd_security_group_id     = data.terraform_remote_state.eks_mgmt.outputs.cluster_security_group_id
-  bootstrap_node_instance_types = ["t3.medium", "t3a.medium"]
-  role_name_suffix             = "-apne2-az-a"
-  tags                         = var.tags
+  environment                      = var.environment
+  region                           = var.region
+  cluster_name                     = "mall-apne2-az-a"
+  vpc_id                           = data.terraform_remote_state.shared.outputs.vpc_id
+  private_subnet_ids               = data.terraform_remote_state.shared.outputs.private_subnet_ids
+  alb_security_group_id            = data.terraform_remote_state.shared.outputs.alb_security_group_id
+  nlb_security_group_id            = data.terraform_remote_state.shared.outputs.nlb_security_group_id
+  argocd_security_group_id         = data.terraform_remote_state.eks_mgmt.outputs.cluster_security_group_id
+  istio_eastwest_security_group_id = data.terraform_remote_state.shared.outputs.istio_eastwest_security_group_id
+  bootstrap_node_instance_types    = ["t3.medium", "t3a.medium"]
+  role_name_suffix                 = "-apne2-az-a"
+  tags                             = var.tags
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
