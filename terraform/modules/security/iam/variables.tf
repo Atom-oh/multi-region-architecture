@@ -65,9 +65,9 @@ variable "terraform_state_bucket" {
 }
 
 variable "terraform_lock_table" {
-  description = "DynamoDB table name for Terraform lock"
+  description = "DynamoDB table name for Terraform state locking. Must match dynamodb_table in the layers' backend.tf, or every CI apply fails to acquire the lock."
   type        = string
-  default     = "multi-region-mall-terraform-lock"
+  default     = "multi-region-mall-terraform-locks"
 }
 
 variable "bedrock_pr_review_model_id" {
@@ -83,7 +83,7 @@ variable "bedrock_source_profile_arn" {
 }
 
 variable "describable_cluster_names" {
-  description = "EKS clusters this role may eks:DescribeCluster but does not own. Needed for the live mgmt-cluster lookup in eks-az-{a,c} (see docs/decisions/ADR-003)."
+  description = "EKS clusters this role may eks:DescribeCluster but does not own. Needed for the live mgmt-cluster lookup in eks-az-{a,c} (see docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md)."
   type        = list(string)
   default     = []
 }

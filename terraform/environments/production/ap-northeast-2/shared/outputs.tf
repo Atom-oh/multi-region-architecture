@@ -5,7 +5,7 @@
 # state for `vpc_id`, `private_subnet_ids`,
 # `internal_observability_nlb_security_group_id` and `kms_key_arns["s3"]`.
 # Renaming or retyping those four breaks that repo's plan; treat them as a
-# frozen contract (docs/decisions/ADR-003).
+# frozen contract (docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md).
 # ─────────────────────────────────────────────────────────────────────────────
 
 output "vpc_id" {

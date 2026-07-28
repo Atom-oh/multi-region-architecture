@@ -45,23 +45,38 @@ locals {
   # hatch for when AWS-Demo-Platform legitimately rebuilds mgmt elsewhere —
   # without it the guard below would be an unfixable-from-here plan failure.
   expected_mgmt_vpc_id = var.expected_mgmt_vpc_id != "" ? var.expected_mgmt_vpc_id : data.terraform_remote_state.shared.outputs.vpc_id
+
+  mgmt_lookup = var.mgmt_cluster_security_group_id == null
+  mgmt_sg_id  = local.mgmt_lookup ? data.aws_eks_cluster.mgmt[0].vpc_config[0].cluster_security_group_id : var.mgmt_cluster_security_group_id
 }
 
 data "aws_eks_cluster" "mgmt" {
+  # count, not an unconditional lookup: a declared data source is refreshed and
+  # its postconditions evaluated on every plan, so with mgmt deleted or moved
+  # there would be no way to plan this layer short of editing this file mid-
+  # incident. Setting mgmt_cluster_security_group_id removes the read.
+  count = local.mgmt_lookup ? 1 : 0
+
   name = var.mgmt_cluster_name
 
   # The SG below becomes an ingress trust boundary on this cluster's API server,
   # and the cluster it comes from is created by a repo we don't control. A
   # name-only lookup would authorize whatever happens to answer to that name, so
-  # assert both the VPC and our own provisioning tags before trusting it.
+  # assert the VPC, our provisioning tags, and that the SG actually exists.
   lifecycle {
     postcondition {
       condition     = self.vpc_config[0].vpc_id == local.expected_mgmt_vpc_id
       error_message = "${var.mgmt_cluster_name} is in VPC ${self.vpc_config[0].vpc_id}, not ${local.expected_mgmt_vpc_id} — refusing to trust its cluster SG. Set expected_mgmt_vpc_id if the move was intentional."
     }
     postcondition {
-      condition     = try(self.tags["ManagedBy"], "") == "terraform" && try(self.tags["Project"], "") == "multi-region-mall"
-      error_message = "${var.mgmt_cluster_name} is missing the ManagedBy=terraform / Project=multi-region-mall tags this platform stamps on its clusters — it may not be the cluster we think it is."
+      condition     = alltrue([for k, v in var.expected_mgmt_tags : try(self.tags[k], "") == v])
+      error_message = "${var.mgmt_cluster_name} does not carry the expected tags (${jsonencode(var.expected_mgmt_tags)}) this platform stamps on its clusters — it may not be the cluster we think it is. Set expected_mgmt_tags = {} to release this guard."
+    }
+    postcondition {
+      # Empty means the module below silently drops the cross-cluster ingress
+      # rule and ArgoCD's sync fails at runtime instead of at plan time.
+      condition     = self.vpc_config[0].cluster_security_group_id != ""
+      error_message = "${var.mgmt_cluster_name} reported no cluster security group — it is probably still being created. Retry once it is ACTIVE."
     }
   }
 }
@@ -80,7 +95,7 @@ module "eks" {
   private_subnet_ids            = data.terraform_remote_state.shared.outputs.private_subnet_ids
   alb_security_group_id         = data.terraform_remote_state.shared.outputs.alb_security_group_id
   nlb_security_group_id         = data.terraform_remote_state.shared.outputs.nlb_security_group_id
-  argocd_security_group_id      = data.aws_eks_cluster.mgmt.vpc_config[0].cluster_security_group_id
+  argocd_security_group_id      = local.mgmt_sg_id
   bootstrap_node_instance_types = ["t3.medium", "t3a.medium"]
   role_name_suffix              = "-apne2-az-a"
   tags                          = var.tags

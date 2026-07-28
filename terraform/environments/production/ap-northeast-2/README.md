@@ -37,10 +37,13 @@ Terraform lives in the shared platform repo `AWS-Demo-Platform`
 (`infra/eks-mgmt`, applied by that repo's Atlantis) and owns the state key
 `production/ap-northeast-2/eks-mgmt/terraform.tfstate` in this same bucket.
 Never apply that state from here — split-brain applies on a shared state
-object are how you lose a cluster. This is enforced, not just documented:
-`github-actions-role` carries an explicit `s3:PutObject`/`s3:DeleteObject`
-**Deny** on that key (`externally_owned_state_keys` in `shared/main.tf`).
-Rationale and the full contract: `docs/decisions/ADR-003`.
+object are how you lose a cluster. Partially enforced: `github-actions-role`
+carries an explicit `s3:PutObject`/`s3:DeleteObject` **Deny** on that key
+(`externally_owned_state_keys` in `shared/main.tf`), which closes the CI path.
+It binds that one principal only — a human with admin credentials, or any other
+role, is still free to write the object, and the DynamoDB lock row and the mgmt
+resources themselves are not covered. Rationale and the full contract:
+`docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md`.
 
 ## Deployment Order
 
@@ -80,14 +83,21 @@ Requires `eks:DescribeCluster` on `mall-apne2-mgmt`: both spokes need that
 cluster's EKS-managed SG as an ingress source so mgmt's ArgoCD can reach their
 API servers, and they read it with a live `data "aws_eks_cluster" "mgmt"`
 lookup rather than a cross-repo `terraform_remote_state`. The grant is in
-`shared/main.tf` (`describable_cluster_names`), scoped to that one cluster ARN.
+`shared/main.tf` (`describable_cluster_names`), scoped to that one cluster ARN
+in `ap-northeast-2`. Note the coupling: `mgmt_cluster_name` in a spoke and
+`describable_cluster_names` in `shared/` name the same cluster from two layers.
+Renaming mgmt is therefore two-phase — add the new name to
+`describable_cluster_names` and apply `shared/` **first**, or the spokes hit
+`AccessDenied` on the lookup before any guard can report anything useful.
 
-Two `postcondition`s guard the lookup: the cluster must sit in this region's
-shared VPC, and it must carry this platform's `ManagedBy=terraform` /
-`Project=multi-region-mall` tags. That SG becomes an ingress trust boundary on
-the workload API servers, so a name-only match is not enough. If
-`AWS-Demo-Platform` legitimately rebuilds mgmt in another VPC, set
-`expected_mgmt_vpc_id` to release the guard deliberately.
+Three `postcondition`s guard the lookup: the cluster must sit in this region's
+shared VPC, it must carry this platform's `ManagedBy=terraform` /
+`Project=multi-region-mall` tags, and it must actually report a cluster SG
+(empty would make the EKS module drop the ingress rule silently). That SG
+becomes an ingress trust boundary on the workload API servers, so a name-only
+match is not enough. Each guard has a deliberate release: `expected_mgmt_vpc_id`
+for the VPC, `expected_mgmt_tags = {}` for the tags, and
+`mgmt_cluster_security_group_id` to skip the lookup entirely.
 
 ## Runbooks
 
@@ -98,11 +108,20 @@ GitOps sync breaks, and only at the next sync, so this fails quietly:
 2. Here: `terraform apply` in **both** `eks-az-a/` and `eks-az-c/`.
 3. On mgmt: `argocd cluster list` shows both spokes `Successful`.
 
-**mgmt is down / `eks:DescribeCluster` fails and you must apply a spoke.**
-The live lookup makes mgmt a plan-time dependency. The EKS module skips the
-ArgoCD ingress rule when `argocd_security_group_id` is `""`, so blank that
-argument (or substitute the known SG ID literal) to unblock the apply, then
-restore it once mgmt is back. Only GitOps reachability is affected — the
+**mgmt is down / moved / `eks:DescribeCluster` fails and you must apply a spoke.**
+The live lookup makes mgmt a plan-time dependency, so set
+`mgmt_cluster_security_group_id` — any non-null value drops the data source's
+`count` to 0, removing both the API read and its postconditions:
+
+```bash
+# keep the ArgoCD ingress rule, using the SG ID you already know
+terraform apply -var 'mgmt_cluster_security_group_id=sg-0123456789abcdef0'
+
+# or drop the rule entirely — the EKS module skips it on ""
+terraform apply -var 'mgmt_cluster_security_group_id='
+```
+
+Unset it once mgmt is back. Only GitOps reachability is affected — the
 CloudFront → NLB → api-gateway traffic path does not use this SG.
 
 ## Remote State Dependencies
@@ -127,6 +146,11 @@ or retyping them breaks that repo's plan:
 | `private_subnet_ids` | mgmt node placement |
 | `internal_observability_nlb_security_group_id` | spoke → mgmt Tempo/Prometheus ingest |
 | `kms_key_arns["s3"]` | mgmt-side Tempo bucket encryption |
+
+The contract runs the other way too: the mgmt cluster must be created **in this
+region's shared VPC** and tagged `ManagedBy=terraform` /
+`Project=multi-region-mall`. Both spokes assert this before trusting mgmt's SG,
+so dropping either breaks their plan, not just a convention.
 
 Korea's **central** observability storage (mgmt-side Tempo S3 bucket + its IRSA)
 is created by `AWS-Demo-Platform`. The per-AZ `tempo_storage` /

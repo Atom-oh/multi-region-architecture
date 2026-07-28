@@ -97,7 +97,7 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
         Sid      = "DescribeExternallyOwnedMgmtCluster"
         Effect   = "Allow"
         Action   = "eks:DescribeCluster"
-        Resource = [for name in var.describable_cluster_names : "arn:aws:eks:*:${data.aws_caller_identity.current.account_id}:cluster/${name}"]
+        Resource = [for name in var.describable_cluster_names : "arn:aws:eks:${var.region}:${data.aws_caller_identity.current.account_id}:cluster/${name}"]
       }],
       # State custody: mgmt's state object lives in this same bucket but is owned
       # and applied by AWS-Demo-Platform. A README warning is not a control — two
