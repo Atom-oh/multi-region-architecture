@@ -6,6 +6,13 @@
 # (mongodump), and S3 product images. Valkey/MSK/OpenSearch are skipped —
 # restore.sh re-seeds them via scripts/seed-data/ instead.
 #
+# NOT a point-in-time snapshot across stores. The three dumps run sequentially
+# and DocumentDB is read with readPreference=secondaryPreferred (so it also
+# trails by the replication lag), which means an order written between the
+# Aurora dump and the DocumentDB dump can land in one and not the other. The
+# manifest records started_at/finished_at per target so the skew window is at
+# least visible at restore time. Quiesce writes first if you need consistency.
+#
 # Env vars (same convention as scripts/seed-data/run-seed.sh):
 #   AURORA_ENDPOINT, AURORA_USER, AURORA_PASSWORD, AURORA_DB
 #   DOCUMENTDB_URI (or DOCUMENTDB_HOST/USER/PASSWORD/DB/PORT)
@@ -38,26 +45,34 @@ echo "  \"targets\": {" >> "${MANIFEST}"
 
 FIRST_TARGET=1
 FAILED=0
+# started_at/finished_at per target: the stores are dumped sequentially and
+# DocumentDB is read with readPreference=secondaryPreferred, so the archive is
+# NOT a single point in time. Recording each window is the minimum needed to
+# reason about cross-store skew when restoring (there is no global snapshot
+# mechanism across Aurora + DocumentDB + S3 here).
 add_target() {
-  local name=$1 status=$2 detail=$3
+  local name=$1 status=$2 detail=$3 started=${4:-} finished=${5:-}
   [ "$FIRST_TARGET" -eq 1 ] || echo "," >> "${MANIFEST}"
   FIRST_TARGET=0
-  printf '    "%s": {"status": "%s", "detail": %s}' "$name" "$status" "$detail" >> "${MANIFEST}"
+  printf '    "%s": {"status": "%s", "started_at": "%s", "finished_at": "%s", "detail": %s}' \
+    "$name" "$status" "$started" "$finished" "$detail" >> "${MANIFEST}"
 }
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 # ── Aurora PostgreSQL ────────────────────────────────────────────────────────
 if [ -n "${AURORA_ENDPOINT:-}" ]; then
   echo "▶ Aurora: pg_dump ${AURORA_ENDPOINT}"
+  T0="$(now)"
   if PGSSLMODE=require PGPASSWORD="${AURORA_PASSWORD:-}" pg_dump \
       -h "${AURORA_ENDPOINT}" -U "${AURORA_USER:-mall_admin}" -d "${AURORA_DB:-mall}" \
       -Fc -f "${WORKDIR}/aurora/aurora.dump" 2>"${WORKDIR}/aurora/pg_dump.log"; then
     ROWCOUNTS=$(PGSSLMODE=require PGPASSWORD="${AURORA_PASSWORD:-}" psql \
       -h "${AURORA_ENDPOINT}" -U "${AURORA_USER:-mall_admin}" -d "${AURORA_DB:-mall}" \
       -Atc "select coalesce(json_agg(json_build_object('table', relname, 'approx_rows', n_live_tup)), '[]') from pg_stat_user_tables;" 2>/dev/null || echo '[]')
-    add_target "aurora" "ok" "${ROWCOUNTS}"
+    add_target "aurora" "ok" "${ROWCOUNTS}" "$T0" "$(now)"
     echo "✓ Aurora dumped"
   else
-    add_target "aurora" "failed" "\"see aurora/pg_dump.log\""
+    add_target "aurora" "failed" "\"see aurora/pg_dump.log\"" "$T0" "$(now)"
     echo "✗ Aurora dump FAILED (continuing)"
     FAILED=$((FAILED + 1))
   fi
@@ -76,15 +91,16 @@ fi
 
 if [ -n "${DOCUMENTDB_URI:-}" ]; then
   echo "▶ DocumentDB: mongodump"
+  T0="$(now)"
   if mongodump --uri="${DOCUMENTDB_URI}" \
       --tlsCAFile=/etc/ssl/certs/rds-global-bundle.pem \
       --archive="${WORKDIR}/documentdb/documentdb.archive.gz" --gzip \
       2>"${WORKDIR}/documentdb/mongodump.log"; then
     DOC_SUMMARY=$(grep -oE "done dumping \`[^\`]+\` \([0-9]+ documents?\)" "${WORKDIR}/documentdb/mongodump.log" | sed -E 's/done dumping //' | paste -sd, - || echo "")
-    add_target "documentdb" "ok" "\"${DOC_SUMMARY}\""
+    add_target "documentdb" "ok" "\"${DOC_SUMMARY}\"" "$T0" "$(now)"
     echo "✓ DocumentDB dumped (${DOC_SUMMARY})"
   else
-    add_target "documentdb" "failed" "\"see documentdb/mongodump.log\""
+    add_target "documentdb" "failed" "\"see documentdb/mongodump.log\"" "$T0" "$(now)"
     echo "✗ DocumentDB dump FAILED (continuing)"
     FAILED=$((FAILED + 1))
   fi
@@ -96,16 +112,17 @@ fi
 # ── S3 static assets (product images) ────────────────────────────────────────
 if [ -n "${STATIC_ASSETS_BUCKET:-}" ]; then
   echo "▶ S3: syncing s3://${STATIC_ASSETS_BUCKET}"
+  T0="$(now)"
   # --exclude "backups/*": when BACKUP_S3_BUCKET is the same bucket as
   # STATIC_ASSETS_BUCKET, prior backup archives live under that prefix —
   # without the exclude, each backup would recursively swallow every
   # backup before it.
   if aws s3 sync "s3://${STATIC_ASSETS_BUCKET}" "${WORKDIR}/s3-static-assets/" --exclude "backups/*" --only-show-errors; then
     OBJECT_COUNT=$(find "${WORKDIR}/s3-static-assets" -type f | wc -l | tr -d ' ')
-    add_target "s3_static_assets" "ok" "\"${OBJECT_COUNT} objects\""
+    add_target "s3_static_assets" "ok" "\"${OBJECT_COUNT} objects\"" "$T0" "$(now)"
     echo "✓ S3 synced (${OBJECT_COUNT} objects)"
   else
-    add_target "s3_static_assets" "failed" "\"aws s3 sync errored\""
+    add_target "s3_static_assets" "failed" "\"aws s3 sync errored\"" "$T0" "$(now)"
     echo "✗ S3 sync FAILED (continuing)"
     FAILED=$((FAILED + 1))
   fi
