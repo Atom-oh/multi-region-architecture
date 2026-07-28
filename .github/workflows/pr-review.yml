@@ -8,6 +8,9 @@ name: AI Code Review
 #   - 매트릭스 fan-out: scripts/pr-review/run-panel.sh(3모델×4lens=12셀) → synthesize.sh
 #   - 인증: EKS Pod Identity(ci-runner) SigV4 + ai-panel-keys(KIRO)
 #   - 리전: us-east-1 (Claude us. geo / codex gpt-5.6-sol bedrock-mantle In-Region)
+#   - fail-closed VERDICT 의 **유일한 예외**: 아래 awk 필터를 통과하는 텍스트가 0줄인 PR은
+#     패널을 건너뛰고 PASS 한다(리뷰 대상이 없으므로). 범위·근거: docs/decisions/ADR-004.
+#     필터 목록을 넓히면 이 auto-PASS 범위도 함께 넓어지므로 ADR 을 같이 갱신할 것.
 
 on:
   pull_request_target:
@@ -73,12 +76,22 @@ jobs:
                      (path ~ /(^|\/)yarn\.lock$/) ||
                      (path ~ /(^|\/)node_modules\//) ||
                      (path ~ /\.(pptx|png|jpg|jpeg|gif|pdf|vsix|zip)$/) ||
-                     (path ~ /(^|\/)(dist|out|build)\//) ||
-                     (path ~ /\.terraform\.lock\.hcl$/)
+                     (path ~ /(^|\/)(dist|out|build)\//)
+              # .terraform.lock.hcl is deliberately NOT skipped: it pins provider
+              # versions and integrity hashes, which in an IaC repo is the one
+              # supply-chain surface worth a panel's attention. It is also plain
+              # reviewable text, unlike the entries above.
             }
             !skip
           ' /tmp/pr-diff-raw.txt > /tmp/pr-diff.txt
           echo "total_lines=$(wc -l < /tmp/pr-diff.txt)" >> "$GITHUB_ENV"
+          # What the filter dropped — so a human can check a skip was legitimate
+          # instead of taking the workflow's word for it.
+          comm -13 \
+            <(grep '^diff --git' /tmp/pr-diff.txt | sort) \
+            <(grep '^diff --git' /tmp/pr-diff-raw.txt | sort) \
+            | sed 's|^diff --git a/||; s| b/.*||' | sort -u > /tmp/pr-diff-filtered-paths.txt
+          echo "filtered_paths=$(paste -sd' ' < /tmp/pr-diff-filtered-paths.txt)" >> "$GITHUB_ENV"
 
       - name: Build lens prompts (L2-L5 — each self-contained, one lens only)
         run: |
@@ -154,14 +167,26 @@ jobs:
           # 삭제만 하는 PR — 은 리뷰할 대상 자체가 없다. run-panel.sh 는 빈 diff 에
           # fail-close 하고, 그러면 VERDICT 라인이 없어 게이트도 fail-close 하므로 이런 PR은
           # 어떤 지적도 없이 영구히 머지 불가가 된다. 패널을 건너뛰고 PASS 로 통과시킨다.
-          if [ "${total_lines:-0}" -eq 0 ]; then
+          # total_lines 는 "Get PR diff" 스텝이 GITHUB_ENV 로 넘긴 값이다. 그 스텝이
+          # 실패하면 잡 자체가 죽으므로(-e) 여기 도달하지 못하지만, 스텝 재배치로
+          # 변수가 사라지면 조용히 0 으로 접혀 전체 auto-PASS 가 된다. 그러니 넘겨받은
+          # 값을 믿지 말고 실제로 패널에 전달할 파일에서 다시 센다.
+          reviewable="$(wc -l < /tmp/pr-diff-truncated.txt)"
+          if [ "$reviewable" -eq 0 ]; then
             {
-              echo "리뷰할 텍스트 변경이 없습니다 — diff 가 전부 바이너리/락파일/빌드"
-              echo "산출물이라 패널 필터에서 제외되었습니다. 패널을 실행하지 않았습니다."
+              echo "리뷰할 텍스트 변경이 없습니다 — 이 PR 의 diff 는 전부 패널 필터"
+              echo "대상(바이너리/이미지/의존성 락파일/빌드 산출물)이라 리뷰할 텍스트가"
+              echo "남지 않았습니다. 패널을 실행하지 않았습니다."
+              echo ""
+              echo "필터로 제외된 경로:"
+              sed 's/^/- `/; s/$/`/' /tmp/pr-diff-filtered-paths.txt
+              echo ""
+              echo "이 예외의 범위와 근거: \`docs/decisions/ADR-004\`."
               echo ""
               echo "VERDICT: PASS"
             } > /tmp/review.md
             echo "panel_responded=skipped (no reviewable text in diff)" >> "$GITHUB_ENV"
+            echo "chair_used=no chair — panel skipped" >> "$GITHUB_ENV"
             exit 0
           fi
           bash scripts/pr-review/run-panel.sh /tmp/pr-diff-truncated.txt /tmp/pr-review/lenses /tmp/pr-review
