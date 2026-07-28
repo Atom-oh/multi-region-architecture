@@ -152,8 +152,28 @@ module "msk" {
   tags                   = var.tags
 }
 
-# DocumentDB: independent primary cluster for Korean region
-# Data seeded via one-time copy from US (mongodump/mongorestore)
+# DocumentDB — ⚠ KNOWN DRIFT: this config does NOT describe the live cluster.
+#
+# Config here says independent primary. Live AWS says the Korea cluster is a
+# read-only SECONDARY of the us-east-1 global cluster `multi-region-mall-docdb`
+# (verified in docs/portability-assessment.md). Consequences while the drift
+# stands:
+#   - writes to this cluster are rejected at the storage layer;
+#   - password rotation must happen on the us-east-1 primary
+#     (`production-docdb-global-primary`), not here;
+#   - us-east-1 cannot be fully decommissioned until this is promoted
+#     (`aws docdb remove-from-global-cluster`), even though every other Korea
+#     data store is genuinely independent.
+#
+# `is_primary = true` / `global_cluster_identifier = ""` below are the drifting
+# values. They are NOT corrected to `false` here on purpose: flipping them would
+# make Terraform want to recreate the cluster with `master_username`/`password`
+# nulled and a different parameter group. The module keeps
+# `global_cluster_identifier` in `ignore_changes`, so an apply will not detach
+# the live membership either way. Reconcile by promoting the cluster in AWS
+# first, then making this block match — not the reverse.
+#
+# Data was seeded via one-time copy from US (mongodump/mongorestore).
 module "documentdb" {
   source = "../../../../modules/data/documentdb-global"
 
@@ -583,15 +603,34 @@ resource "aws_iam_role_policy" "external_secrets_read" {
   })
 }
 
-# IAM — scripts/backup-restore/ (mall-backup / mall-restore Jobs, SA
-# core-services/backup-restore)
-resource "aws_iam_role" "backup_restore" {
-  name = "mall-apne2-backup-restore"
+# ─────────────────────────────────────────────────────────────────────────────
+# IAM — scripts/backup-restore/
+#
+# Two roles, split by direction, because the two directions need opposite
+# permissions on the static-assets bucket and only ONE of them is routine:
+#
+#   backup  (mall-backup Job, possibly scheduled)  static-assets: READ
+#   restore (mall-restore Job, run by a human in
+#            an incident, and destructive anyway)  static-assets: READ+WRITE
+#
+# static-assets is a CloudFront origin. A single role would leave the routine,
+# long-lived backup credential holding PutObject on the origin that serves
+# mall.<domain> — i.e. a compromised backup SA could publish content to the
+# public site. Backup never writes there; it only reads objects to archive.
+# ─────────────────────────────────────────────────────────────────────────────
+
+locals {
+  # Same trust policy for both roles except the SA name.
+  backup_restore_oidc_clusters = [data.aws_eks_cluster.az_a, data.aws_eks_cluster.az_c]
+}
+
+resource "aws_iam_role" "backup" {
+  name = "mall-apne2-backup"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      for cluster in [data.aws_eks_cluster.az_a, data.aws_eks_cluster.az_c] : {
+      for cluster in local.backup_restore_oidc_clusters : {
         Effect = "Allow"
         Principal = {
           Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}"
@@ -599,7 +638,7 @@ resource "aws_iam_role" "backup_restore" {
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
-            "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:core-services:backup-restore"
+            "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:core-services:mall-backup"
             "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:aud" = "sts.amazonaws.com"
           }
         }
@@ -610,39 +649,103 @@ resource "aws_iam_role" "backup_restore" {
   tags = var.tags
 }
 
-resource "aws_iam_role_policy" "backup_restore_s3" {
-  name = "static-assets-rw"
-  role = aws_iam_role.backup_restore.id
+resource "aws_iam_role_policy" "backup" {
+  name = "backup-read-assets-write-archives"
+  role = aws_iam_role.backup.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
+        # READ ONLY. backup.sh only ever syncs FROM this bucket.
+        Sid      = "StaticAssetsRead"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:ListBucket"]
+        Resource = [module.s3.static_assets_bucket_arn, "${module.s3.static_assets_bucket_arn}/*"]
+      },
+      {
+        # Archives go to the dedicated private bucket (backups-bucket.tf), never
+        # the CloudFront-served static-assets bucket. No DeleteObject: expiry is
+        # the lifecycle rule's job, and a backup job should not be able to erase
+        # earlier backups.
+        Sid      = "BackupArchiveWrite"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
+        Resource = [aws_s3_bucket.backups.arn, "${aws_s3_bucket.backups.arn}/*"]
+      },
+      {
+        Sid      = "S3KmsEncrypt"
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
+        Resource = module.kms.key_arns["s3"]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "restore" {
+  name = "mall-apne2-restore"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      for cluster in local.backup_restore_oidc_clusters : {
         Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
+        Principal = {
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:core-services:mall-restore"
+            "${replace(cluster.identity[0].oidc[0].issuer, "https://", "")}:aud" = "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "restore" {
+  name = "restore-write-assets-read-archives"
+  role = aws_iam_role.restore.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # restore.sh runs `s3 sync --delete` to reproduce the snapshot, so it
+        # needs DeleteObject here. This is the write path onto the CloudFront
+        # origin and the reason this role is separate from the backup one.
+        Sid    = "StaticAssetsRestore"
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
         Resource = [
           module.s3.static_assets_bucket_arn,
           "${module.s3.static_assets_bucket_arn}/*",
         ]
       },
       {
-        # Backup archives go to the dedicated private bucket (backups-bucket.tf),
-        # never the CloudFront-served static-assets bucket.
-        Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
-        Resource = [
-          aws_s3_bucket.backups.arn,
-          "${aws_s3_bucket.backups.arn}/*",
-        ]
+        # READ ONLY on the archives — a restore must never mutate the backup it
+        # is restoring from.
+        Sid      = "BackupArchiveRead"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:ListBucket"]
+        Resource = [aws_s3_bucket.backups.arn, "${aws_s3_bucket.backups.arn}/*"]
       },
       {
-        # restore.sh aborts before any destructive step if the DocumentDB
-        # target is still a read-only global-cluster secondary.
+        # restore.sh aborts before any destructive step if the DocumentDB target
+        # is still a read-only global-cluster secondary. Fail-closed: it aborts
+        # if this call fails too, so the grant is load-bearing.
+        Sid      = "DocdbTopologyCheck"
         Effect   = "Allow"
         Action   = ["rds:DescribeGlobalClusters", "rds:DescribeDBClusters"]
         Resource = "*"
       },
       {
+        Sid      = "S3KmsDecrypt"
         Effect   = "Allow"
         Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
         Resource = module.kms.key_arns["s3"]

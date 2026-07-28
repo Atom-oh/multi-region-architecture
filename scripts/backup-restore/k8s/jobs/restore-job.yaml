@@ -1,10 +1,12 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: backup-restore
+  name: mall-restore
   namespace: core-services
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/mall-apne2-backup-restore
+    # Separate role per direction: backup holds READ-only on the static-assets
+    # bucket (a CloudFront origin), restore holds the write. See shared/main.tf.
+    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/mall-apne2-restore
 ---
 apiVersion: batch/v1
 kind: Job
@@ -23,7 +25,7 @@ spec:
         app: backup-restore
     spec:
       restartPolicy: Never
-      serviceAccountName: backup-restore
+      serviceAccountName: mall-restore
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -36,7 +38,7 @@ spec:
             # Fill in before applying: the archive to restore from
             # (backups live in the private production-mall-backups-<region> bucket).
             - name: ARCHIVE_S3_URI
-              value: "s3://production-mall-backups-ap-northeast-2/backups/mall-data-backup-<region>-<timestamp>.tar.gz"
+              value: "s3://production-mall-backups-ap-northeast-2-<AWS_ACCOUNT_ID>/backups/mall-data-backup-<region>-<timestamp>.tar.gz"
             - name: AWS_REGION
               value: "ap-northeast-2"
             # Literal, not configMapKeyRef: kustomize's configMapGenerator
