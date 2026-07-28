@@ -19,10 +19,17 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: self-hosted-claude-arm
     # 행 백스톱: GitHub 기본값은 360분(6시간)이라 스크립트 내부 timeout 이 못 덮는 구간
-    # (gh pr diff, npm fallback, 패널 wait 등)에서 멈추면 러너 파드가 6시간 잡힌다.
-    # 정상 상한은 패널 PANEL_TIMEOUT×PANEL_RETRIES + 의장 CHAIR_TIMEOUT×2 ≈ 35분이므로
-    # 45분이면 정상 실행을 자르지 않고 행만 끊는다.
-    timeout-minutes: 45
+    # (checkout, gh pr diff, claude npm fallback, 코멘트 게시)에서 멈추면 러너 파드가 6시간
+    # 잡힌다. 스크립트가 보장하는 상한 산식(이 repo 는 canary 단계가 있어 다른 pr-review
+    # 리포보다 크다):
+    #   ① Kiro --trust-tools= behavioral canary — KIRO_MODELS 3개를 **순차**로,
+    #      모델당 최대 PANEL_RETRIES(3) × `timeout 60` = 최대 540s(9분). 패널 fan-out 전.
+    #   ② 패널 fan-out — 모든 셀이 `&` 병렬 + `wait` 이므로 PANEL_TIMEOUT(300s) ×
+    #      PANEL_RETRIES(3) = 최대 900s(15분), 셀 수와 무관.
+    #   ③ 의장 — CHAIR_TIMEOUT(600s) × 2(primary + fallback) = 최대 1200s(20분).
+    # 합 ≈ 44분 + 무상한 준비 단계 → 45분으로는 정상 실행이 절단될 수 있어 60분으로 잡는다
+    # (fail-closed 절단은 retries/fallback 이 흡수하려는 degraded 상황과 정면충돌한다).
+    timeout-minutes: 60
     concurrency:
       group: pr-review-${{ github.event.pull_request.number }}
       cancel-in-progress: true
