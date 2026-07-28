@@ -38,8 +38,9 @@ terraform init
 terraform plan
 terraform apply
 
-# Korea region (layered: shared → eks-mgmt → eks-az-a → eks-az-c)
-cd terraform/environments/production/ap-northeast-2/shared   # or eks-mgmt, eks-az-a, eks-az-c
+# Korea region (layered: shared → eks-az-a / eks-az-c)
+# The mgmt cluster is NOT in this repo — see note below.
+cd terraform/environments/production/ap-northeast-2/shared   # or eks-az-a, eks-az-c
 terraform init && terraform plan
 
 # Global resources (Aurora global cluster, DocumentDB global cluster, Route53 zone, state bucket)
@@ -85,7 +86,7 @@ go test ./...
 ### Terraform Structure
 
 - `terraform/environments/production/{us-east-1,us-west-2}/` — Root modules per US region
-- `terraform/environments/production/ap-northeast-2/` — Korea region (subdirs: `shared/`, `eks-mgmt/`, `eks-az-a/`, `eks-az-c/`)
+- `terraform/environments/production/ap-northeast-2/` — Korea region (subdirs: `shared/`, `eks-az-a/`, `eks-az-c/`). The `mall-apne2-mgmt` hub cluster is **owned by the `AWS-Demo-Platform` repo** (`infra/eks-mgmt`, applied by its Atlantis) and holds the `production/ap-northeast-2/eks-mgmt/terraform.tfstate` key in this repo's bucket — never apply that state from here. The spokes read the one value they need from it (mgmt's cluster SG, for cross-cluster ArgoCD access) via a live `data "aws_eks_cluster" "mgmt"` lookup, so `eks:DescribeCluster` on that cluster is required.
 - `terraform/modules/` — Reusable modules: `compute/`, `data/`, `dr-automation/`, `edge/`, `networking/`, `observability/`, `security/`
 - `terraform/global/` — Cross-region resources (Aurora global cluster, DocumentDB global cluster, Route53 zone, state bucket). **Note**: Korea does not participate in global clusters — its data stores are independent primaries.
 - Provider: `hashicorp/aws >= 6.0`, Terraform `>= 1.9`

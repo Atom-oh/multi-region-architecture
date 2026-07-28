@@ -42,6 +42,16 @@ data "terraform_remote_state" "shared" {
 
 data "aws_eks_cluster" "mgmt" {
   name = "mall-apne2-mgmt"
+
+  # The SG below becomes an ingress trust boundary, and this cluster is created
+  # by a repo we don't control — if it ever gets rebuilt in a different VPC, a
+  # name-only lookup would silently authorize a foreign SG. Fail the plan instead.
+  lifecycle {
+    postcondition {
+      condition     = self.vpc_config[0].vpc_id == data.terraform_remote_state.shared.outputs.vpc_id
+      error_message = "mall-apne2-mgmt is in VPC ${self.vpc_config[0].vpc_id}, not this region's shared VPC — refusing to trust its cluster SG."
+    }
+  }
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -10,9 +10,11 @@ Independent Korean region with multi-AZ architecture. Standalone data stores (no
                     │                                     │
                     │  ┌───────────┐  ┌───────────────┐   │
                     │  │  eks-mgmt │  │    shared/     │   │
-                    │  │  (ArgoCD, │  │  (VPC, Data,   │   │
+                    │  │ (ArgoCD,  │  │  (VPC, Data,   │   │
                     │  │  Runners, │  │   NLB, IAM)    │   │
                     │  │  OTel)    │  └───────────────┘   │
+                    │  │ ⚠ owned   │                      │
+                    │  │ elsewhere │                      │
                     │  └───────────┘                      │
                     │  ┌──────────┐  ┌──────────┐         │
                     │  │ eks-az-a │  │ eks-az-c │         │
@@ -27,16 +29,25 @@ Independent Korean region with multi-AZ architecture. Standalone data stores (no
 | Layer | State Key | Description |
 |-------|-----------|-------------|
 | `shared/` | `production/ap-northeast-2/shared/terraform.tfstate` | VPC, Security Groups, KMS, Secrets, IAM, Aurora, DocumentDB, ElastiCache, MSK, OpenSearch, NLB (weighted), S3 |
-| `eks-mgmt/` | `production/ap-northeast-2/eks-mgmt/terraform.tfstate` | Management EKS cluster (ArgoCD, GitHub Runners, OTel) |
 | `eks-az-a/` | `production/ap-northeast-2/eks-az-a/terraform.tfstate` | Workload EKS cluster in AZ-A (~115 pods) |
 | `eks-az-c/` | `production/ap-northeast-2/eks-az-c/terraform.tfstate` | Workload EKS cluster in AZ-C (~115 pods) |
+
+The management cluster (`mall-apne2-mgmt`) is **not a layer in this repo**. Its
+Terraform lives in the shared platform repo `AWS-Demo-Platform`
+(`infra/eks-mgmt`, applied by that repo's Atlantis) and owns the state key
+`production/ap-northeast-2/eks-mgmt/terraform.tfstate` in this same bucket.
+Never apply that state from here — split-brain applies on a shared state
+object are how you lose a cluster.
 
 ## Deployment Order
 
 ```
-shared/  →  eks-mgmt/  →  eks-az-a/  (parallel)
-                       →  eks-az-c/  (parallel)
+shared/  →  eks-az-a/  (parallel)
+         →  eks-az-c/  (parallel)
 ```
+
+`mall-apne2-mgmt` must already exist (created from `AWS-Demo-Platform`) before
+the spokes apply — they look it up live for its cluster SG, see below.
 
 ### 1. shared/ (Foundation)
 
@@ -49,19 +60,7 @@ terraform apply
 
 Creates: VPC (10.2.0.0/16), all data stores, weighted NLB, security groups, KMS keys, IAM roles (including GitHub Actions OIDC).
 
-### 2. eks-mgmt/ (Management Cluster)
-
-```bash
-cd terraform/environments/production/ap-northeast-2/eks-mgmt
-terraform init
-terraform plan
-terraform apply
-```
-
-Reads `shared/` state for VPC, subnets, security groups, KMS keys.
-Creates: `mall-apne2-mgmt` EKS cluster (m5.xlarge nodes), ALB controller IRSA, OTel IRSA, Tempo storage.
-
-### 3. eks-az-a/ and eks-az-c/ (Workload Clusters)
+### 2. eks-az-a/ and eks-az-c/ (Workload Clusters)
 
 ```bash
 # Can run in parallel
@@ -72,17 +71,25 @@ cd terraform/environments/production/ap-northeast-2/eks-az-c
 terraform init && terraform plan && terraform apply
 ```
 
-Reads `shared/` and `eks-mgmt/` states. Creates workload EKS clusters with ALB controller, OTel, Tempo.
+Reads `shared/` state. Creates workload EKS clusters with ALB controller, OTel, Tempo.
+
+Requires `eks:DescribeCluster` on `mall-apne2-mgmt`: both spokes need that
+cluster's EKS-managed SG as an ingress source so mgmt's ArgoCD can reach their
+API servers, and they read it with a live `data "aws_eks_cluster" "mgmt"`
+lookup rather than a cross-repo `terraform_remote_state`. A `postcondition`
+asserts the looked-up cluster sits in this region's shared VPC, so a rebuild
+elsewhere fails the plan instead of authorizing a foreign SG.
 
 ## Remote State Dependencies
 
 ```
-shared/  ──read by──>  eks-mgmt/
 shared/  ──read by──>  eks-az-a/
 shared/  ──read by──>  eks-az-c/
-eks-mgmt/ ──read by──> eks-az-a/  (ArgoCD cross-cluster SG)
-eks-mgmt/ ──read by──> eks-az-c/  (ArgoCD cross-cluster SG)
 ```
+
+No dependency on the `eks-mgmt` state — that state belongs to
+`AWS-Demo-Platform`, and the one value the spokes need from it
+(`cluster_security_group_id`) comes from the live-cluster lookup instead.
 
 ## Key Differences from US Regions
 
