@@ -150,6 +150,20 @@ jobs:
           PANEL_TIMEOUT: "300"
         run: |
           set -euo pipefail
+          # 필터(락파일/바이너리/빌드산출물)를 걷어내고 남는 텍스트가 없는 PR — 예: 스크린샷
+          # 삭제만 하는 PR — 은 리뷰할 대상 자체가 없다. run-panel.sh 는 빈 diff 에
+          # fail-close 하고, 그러면 VERDICT 라인이 없어 게이트도 fail-close 하므로 이런 PR은
+          # 어떤 지적도 없이 영구히 머지 불가가 된다. 패널을 건너뛰고 PASS 로 통과시킨다.
+          if [ "${total_lines:-0}" -eq 0 ]; then
+            {
+              echo "리뷰할 텍스트 변경이 없습니다 — diff 가 전부 바이너리/락파일/빌드"
+              echo "산출물이라 패널 필터에서 제외되었습니다. 패널을 실행하지 않았습니다."
+              echo ""
+              echo "VERDICT: PASS"
+            } > /tmp/review.md
+            echo "panel_responded=skipped (no reviewable text in diff)" >> "$GITHUB_ENV"
+            exit 0
+          fi
           bash scripts/pr-review/run-panel.sh /tmp/pr-diff-truncated.txt /tmp/pr-review/lenses /tmp/pr-review
           bash scripts/pr-review/synthesize.sh /tmp/pr-diff-truncated.txt /tmp/pr-review \
             "$PR_NUMBER" "$PR_TITLE" /tmp/review.md
