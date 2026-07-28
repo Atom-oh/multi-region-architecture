@@ -180,7 +180,7 @@ multi-region-architecture/
 │   │   └── production/
 │   │       ├── us-east-1/              # Primary region (260 resources)
 │   │       ├── us-west-2/              # Secondary region
-│   │       └── ap-northeast-2/         # Korea (shared, eks-mgmt, eks-az-a, eks-az-c)
+│   │       └── ap-northeast-2/         # Korea (shared, eks-az-a, eks-az-c / mgmt는 AWS-Demo-Platform 소유)
 │   └── modules/
 │       ├── networking/                 # VPC, Transit Gateway, Security Groups
 │       ├── compute/                    # EKS, ALB Controller

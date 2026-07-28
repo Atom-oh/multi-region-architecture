@@ -507,7 +507,13 @@ module "iam" {
   terraform_lock_table       = "multi-region-mall-terraform-lock"
   bedrock_pr_review_model_id = "anthropic.claude-sonnet-4-6"
   bedrock_source_profile_arn = "arn:aws:bedrock:ap-northeast-2:013503698282:inference-profile/global.anthropic.claude-sonnet-4-6"
-  tags                       = var.tags
+
+  # mall-apne2-mgmt is created and applied by AWS-Demo-Platform (see
+  # docs/decisions/ADR-003). We read it, we never write its state.
+  describable_cluster_names   = ["mall-apne2-mgmt"]
+  externally_owned_state_keys = ["production/ap-northeast-2/eks-mgmt/terraform.tfstate"]
+
+  tags = var.tags
 }
 
 # S3: secondary (no replication source)

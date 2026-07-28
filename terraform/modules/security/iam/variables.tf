@@ -81,3 +81,15 @@ variable "bedrock_source_profile_arn" {
   type        = string
   default     = ""
 }
+
+variable "describable_cluster_names" {
+  description = "EKS clusters this role may eks:DescribeCluster but does not own. Needed for the live mgmt-cluster lookup in eks-az-{a,c} (see docs/decisions/ADR-003)."
+  type        = list(string)
+  default     = []
+}
+
+variable "externally_owned_state_keys" {
+  description = "Terraform state object keys in terraform_state_bucket that another repo owns and applies. Writes to these are explicitly denied so this repo cannot become a second writer."
+  type        = list(string)
+  default     = []
+}

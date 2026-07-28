@@ -44,7 +44,10 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    # concat, not a single list: an IAM statement with an empty Resource list is
+    # rejected, so the two externally-owned-mgmt statements have to drop out
+    # entirely when their name/key list is empty.
+    Statement = concat([
       {
         Effect   = "Allow"
         Action   = ["ecr:GetAuthorizationToken"]
@@ -85,7 +88,29 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
         ]
         Resource = "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.terraform_lock_table}"
       }
-    ]
+      ],
+      # The eks-az-{a,c} layers read the mgmt cluster live (data "aws_eks_cluster"
+      # "mgmt") instead of through its remote state, because that state belongs to
+      # AWS-Demo-Platform. That read happens at plan time, so without this grant
+      # every plan in those layers fails — including plans that touch nothing else.
+      length(var.describable_cluster_names) == 0 ? [] : [{
+        Sid      = "DescribeExternallyOwnedMgmtCluster"
+        Effect   = "Allow"
+        Action   = "eks:DescribeCluster"
+        Resource = [for name in var.describable_cluster_names : "arn:aws:eks:*:${data.aws_caller_identity.current.account_id}:cluster/${name}"]
+      }],
+      # State custody: mgmt's state object lives in this same bucket but is owned
+      # and applied by AWS-Demo-Platform. A README warning is not a control — two
+      # writers on one state object corrupts it. Deny beats the Allow above.
+      length(var.externally_owned_state_keys) == 0 ? [] : [{
+        Sid    = "DenyWritesToExternallyOwnedState"
+        Effect = "Deny"
+        Action = [
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = [for key in var.externally_owned_state_keys : "arn:aws:s3:::${var.terraform_state_bucket}/${key}"]
+    }])
   })
 }
 
@@ -229,9 +254,9 @@ resource "aws_iam_role_policy" "github_actions_ecs_deploy" {
         Resource = "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:cluster/*"
       },
       {
-        Sid    = "PassRoleToECS"
-        Effect = "Allow"
-        Action = "iam:PassRole"
+        Sid      = "PassRoleToECS"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*"
         Condition = {
           StringEquals = {
@@ -306,9 +331,9 @@ resource "aws_iam_role_policy" "github_actions_bedrock" {
         Resource = "*"
       },
       {
-        Sid    = "PassRoleToAgentCore"
-        Effect = "Allow"
-        Action = "iam:PassRole"
+        Sid      = "PassRoleToAgentCore"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*agentcore*"
         Condition = {
           StringEquals = {

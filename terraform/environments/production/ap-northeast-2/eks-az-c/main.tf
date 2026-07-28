@@ -40,16 +40,28 @@ data "terraform_remote_state" "shared" {
 # cross-repo state dependency here. Requires eks:DescribeCluster on mall-apne2-mgmt.
 # ─────────────────────────────────────────────────────────────────────────────
 
-data "aws_eks_cluster" "mgmt" {
-  name = "mall-apne2-mgmt"
+locals {
+  # Empty var = this region's shared VPC. Overriding it is the deliberate escape
+  # hatch for when AWS-Demo-Platform legitimately rebuilds mgmt elsewhere —
+  # without it the guard below would be an unfixable-from-here plan failure.
+  expected_mgmt_vpc_id = var.expected_mgmt_vpc_id != "" ? var.expected_mgmt_vpc_id : data.terraform_remote_state.shared.outputs.vpc_id
+}
 
-  # The SG below becomes an ingress trust boundary, and this cluster is created
-  # by a repo we don't control — if it ever gets rebuilt in a different VPC, a
-  # name-only lookup would silently authorize a foreign SG. Fail the plan instead.
+data "aws_eks_cluster" "mgmt" {
+  name = var.mgmt_cluster_name
+
+  # The SG below becomes an ingress trust boundary on this cluster's API server,
+  # and the cluster it comes from is created by a repo we don't control. A
+  # name-only lookup would authorize whatever happens to answer to that name, so
+  # assert both the VPC and our own provisioning tags before trusting it.
   lifecycle {
     postcondition {
-      condition     = self.vpc_config[0].vpc_id == data.terraform_remote_state.shared.outputs.vpc_id
-      error_message = "mall-apne2-mgmt is in VPC ${self.vpc_config[0].vpc_id}, not this region's shared VPC — refusing to trust its cluster SG."
+      condition     = self.vpc_config[0].vpc_id == local.expected_mgmt_vpc_id
+      error_message = "${var.mgmt_cluster_name} is in VPC ${self.vpc_config[0].vpc_id}, not ${local.expected_mgmt_vpc_id} — refusing to trust its cluster SG. Set expected_mgmt_vpc_id if the move was intentional."
+    }
+    postcondition {
+      condition     = try(self.tags["ManagedBy"], "") == "terraform" && try(self.tags["Project"], "") == "multi-region-mall"
+      error_message = "${var.mgmt_cluster_name} is missing the ManagedBy=terraform / Project=multi-region-mall tags this platform stamps on its clusters — it may not be the cluster we think it is."
     }
   }
 }
