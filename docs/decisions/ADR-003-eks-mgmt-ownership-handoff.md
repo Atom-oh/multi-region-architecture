@@ -54,18 +54,31 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
      non-null이면 data source의 `count`가 0이 되어 **API read 자체와 postcondition
      전체가 사라진다.** 이것이 break-glass의 실제 경로다 — data 블록을 무조건
      선언해두면 인시던트 중 `.tf`를 편집하는 것 외에 방법이 없다.
+     가드 전체를 한 번에 무력화하는 값이고 `TF_VAR_*` 환경변수만으로도 설정되므로,
+     두 가지를 붙여 흔적을 남긴다: `sg-` 형식 `validation`(오타가 apply까지 가지
+     않게), 그리고 `check "mgmt_guards_engaged"` + `output "mgmt_guards_released"` —
+     `check`는 plan을 실패시키지 않고 경고만 내는 유일한 구문이라 해제된 plan이
+     정상 plan과 똑같이 보이지 않게 하고, output은 그 사실을 state에 남겨 사후
+     감사가 break-glass apply를 구분할 수 있게 한다.
    - `var.mgmt_cluster_name` — 이름 변경 대응. 단 `shared/`의
      `describable_cluster_names`와 짝이라 2단계 절차다(아래 Consequences).
 
 5. **"여기서 apply하지 말 것"을 CI 경로에서는 IAM으로 승격한다.** `github-actions-role`에
-   해당 state key에 대한 `s3:PutObject`/`s3:DeleteObject` 명시적 **Deny**를 추가한다
-   (`externally_owned_state_keys`). 문서 경고는 통제가 아니다. 같은 정책에
+   해당 state key에 대한 `s3:GetObject`/`s3:PutObject`/`s3:DeleteObject` 명시적
+   **Deny**를 추가한다 (`externally_owned_state_keys`). read까지 막는 이유는 live
+   lookup이 remote state read를 대체해 이 repo에 그 state를 읽을 이유가 남지 않았고,
+   state 파일이 버킷에서 가장 밀도 높은 시크릿이기 때문이다. 객체만 막고 lock row를
+   두면 절반만 막힌 셈이라 — 외부 repo가 lock을 잡은 동안 row를 지우면 동시 apply가
+   가능해져 방금 보호한 객체가 깨진다 — `dynamodb:LeadingKeys`로 그 state의
+   lock row(`<bucket>/<key>`와 `-md5` digest row)에만 스코프한 write Deny도 함께
+   건다. lock 테이블은 이 repo의 모든 레이어가 공유하므로 테이블 전체 Deny는 불가. 문서 경고는 통제가 아니다. 같은 정책에
    `ap-northeast-2`의 `mall-apne2-mgmt` ARN으로 스코프한 `eks:DescribeCluster`
    **Allow**를 추가한다 (`describable_cluster_names`) — 이 권한 없이는 spoke의
    *모든* plan이 실패한다. 이 Deny의 한계는 명시해둔다: identity policy이므로
    **그 role 하나에만** 걸린다. 사람이 admin 자격증명으로, 혹은 다른 role로 같은
    객체를 쓰는 것은 여전히 가능하고, DynamoDB lock row 쓰기와 mgmt 리소스 자체의
-   변경도 막지 않는다. 완전한 차단이 필요하면 버킷 정책으로 올려야 한다.
+   변경도 막지 않는다. mgmt 리소스 자체의 변경도 막지 않는다. 완전한 차단이
+   필요하면 버킷 정책으로 올려야 한다.
 
 ## Consequences
 
@@ -106,13 +119,24 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
   리소스는 이제 전부 `AWS-Demo-Platform`이 만든다:
   `module "eks"`, `module "alb"`, `module "otel_collector_irsa"`,
   `module "tempo_storage"`(mgmt 중앙 Tempo S3 + IRSA),
-  `aws_iam_role.ci_runner` + inline/attached 정책 6개
-  (`ci_runner_ecr`, `ci_runner_bedrock`, `ci_runner_cloudfront`, `ci_runner_ecs`,
-  `ci_runner_cdk_deploy`, `ReadOnlyAccess`/`AmazonS3FullAccess` attachment),
+  `aws_iam_role.ci_runner` + inline 정책 5개(`ci_runner_ecr`, `ci_runner_bedrock`,
+  `ci_runner_cloudfront`, `ci_runner_ecs`, `ci_runner_cdk_deploy`) + managed policy
+  attachment 2개(`ReadOnlyAccess`, `AmazonS3FullAccess`),
   그리고 `aws_eks_pod_identity_association.ci_runner` 10개(runner SA당 1개).
   workload 클러스터의 per-AZ `tempo_storage`/`otel_collector_irsa`/`alb`는 이 repo에 남는다.
   `AWS-Demo-Platform`의 `infra/eks-mgmt`는 이 집합의 superset이다(추가로
   `ci_runner_ami_build`를 가진다) — 그래서 이관에 destroy가 없다.
+
+- **곁가지로 고친 것 하나.** `terraform_lock_table` 모듈 default가 단수형
+  `multi-region-mall-terraform-lock`이었고, 실제 테이블과 전 레이어 `backend.tf`는
+  복수형 `-locks`다. CI의 DynamoDB grant가 존재하지 않는 테이블을 가리키고 있었다는
+  뜻이다 — 이 PR이 IAM 정책을 건드리는 김에 같이 고쳤다. 이 ADR의 결정과는 무관한
+  오타 수정이다.
+
+- **`expected_mgmt_vpc_id`로 다른 VPC를 허용하는 것은 VPC peering 전제다.** SG를
+  ingress source로 참조하는 것은 peering된 VPC 사이에서만 되고 Transit Gateway를
+  넘지 못한다. mgmt가 TGW로만 연결된 VPC로 옮겨가면 이 변수로 가드를 풀어도 규칙이
+  동작하지 않는다 — 그때는 CIDR 기반 규칙으로 전환해야 한다.
 
 ## References
 
@@ -120,7 +144,9 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 - `terraform/environments/production/ap-northeast-2/README.md` — 레이어 표, apply 순서,
   Runbooks(break-glass·재생성 절차의 정본)
 - `terraform/modules/security/iam/github-actions.tf` — `describable_cluster_names`,
-  `externally_owned_state_keys`
+  `externally_owned_state_keys`의 Allow/Deny 문장
+- `terraform/modules/security/iam/variables.tf` — 위 두 변수와 `terraform_lock_table`
+  선언
 - `terraform/environments/production/ap-northeast-2/eks-az-a/main.tf`,
   `terraform/environments/production/ap-northeast-2/eks-az-c/main.tf` — live lookup과
   postcondition 3개

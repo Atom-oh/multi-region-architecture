@@ -51,3 +51,12 @@ output "alb_controller_role_arn" {
   value       = module.alb.alb_controller_role_arn
 }
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# mgmt trust boundary
+# ─────────────────────────────────────────────────────────────────────────────
+
+output "mgmt_guards_released" {
+  description = "true when mgmt_cluster_security_group_id was set, meaning the mgmt cluster's VPC/tag/SG guards were skipped for this apply. Persisted in state so an audit can tell a break-glass apply from a normal one after the fact."
+  value       = !local.mgmt_lookup
+}

@@ -65,8 +65,8 @@ data "aws_eks_cluster" "mgmt" {
   # assert the VPC, our provisioning tags, and that the SG actually exists.
   lifecycle {
     postcondition {
-      condition     = self.vpc_config[0].vpc_id == local.expected_mgmt_vpc_id
-      error_message = "${var.mgmt_cluster_name} is in VPC ${self.vpc_config[0].vpc_id}, not ${local.expected_mgmt_vpc_id} — refusing to trust its cluster SG. Set expected_mgmt_vpc_id if the move was intentional."
+      condition     = try(self.vpc_config[0].vpc_id, "") == local.expected_mgmt_vpc_id
+      error_message = "${var.mgmt_cluster_name} is in VPC ${try(self.vpc_config[0].vpc_id, "<none reported>")}, not ${local.expected_mgmt_vpc_id} — refusing to trust its cluster SG. Set expected_mgmt_vpc_id if the move was intentional."
     }
     postcondition {
       condition     = alltrue([for k, v in var.expected_mgmt_tags : try(self.tags[k], "") == v])
@@ -75,9 +75,21 @@ data "aws_eks_cluster" "mgmt" {
     postcondition {
       # Empty means the module below silently drops the cross-cluster ingress
       # rule and ArgoCD's sync fails at runtime instead of at plan time.
-      condition     = self.vpc_config[0].cluster_security_group_id != ""
+      condition     = try(self.vpc_config[0].cluster_security_group_id, "") != ""
       error_message = "${var.mgmt_cluster_name} reported no cluster security group — it is probably still being created. Retry once it is ACTIVE."
     }
+  }
+}
+
+# The break-glass override releases all three guards above at once, and it can be
+# set from CI with nothing but TF_VAR_mgmt_cluster_security_group_id — no code
+# change, no review trace. A check block is the only construct that reports on a
+# plan without failing it, so a released-guards plan says so out loud instead of
+# looking identical to a guarded one.
+check "mgmt_guards_engaged" {
+  assert {
+    condition     = local.mgmt_lookup
+    error_message = "GUARDS RELEASED: mgmt_cluster_security_group_id is set (${coalesce(var.mgmt_cluster_security_group_id, "") == "" ? "empty — ArgoCD ingress rule dropped" : var.mgmt_cluster_security_group_id}), so ${var.mgmt_cluster_name} is not being looked up or verified. Expected only during a mgmt outage — unset it once mgmt is back."
   }
 }
 

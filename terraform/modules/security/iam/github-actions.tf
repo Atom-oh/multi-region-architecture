@@ -102,14 +102,48 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
       # State custody: mgmt's state object lives in this same bucket but is owned
       # and applied by AWS-Demo-Platform. A README warning is not a control — two
       # writers on one state object corrupts it. Deny beats the Allow above.
+      # GetObject is in here too: since the spokes read mgmt live
+      # (data "aws_eks_cluster" "mgmt") this repo has no remaining reason to read
+      # that state, and a state file is the densest secret in the bucket.
       length(var.externally_owned_state_keys) == 0 ? [] : [{
-        Sid    = "DenyWritesToExternallyOwnedState"
+        Sid    = "DenyAccessToExternallyOwnedState"
         Effect = "Deny"
         Action = [
+          "s3:GetObject",
           "s3:PutObject",
           "s3:DeleteObject"
         ]
         Resource = [for key in var.externally_owned_state_keys : "arn:aws:s3:::${var.terraform_state_bucket}/${key}"]
+      }],
+      # Its own concat element rather than a second object in the list above: this
+      # statement carries a Condition and the one above does not, and a tuple of
+      # differently-shaped objects fails the ternary's type unification.
+      #
+      # Denying the object but not its lock row leaves the other half open:
+      # deleting the row while AWS-Demo-Platform holds the lock lets a third
+      # party apply concurrently, which corrupts the object the statement above
+      # protects. LeadingKeys scopes this to those rows — the table is shared with
+      # every layer in this repo, so a table-wide Deny would break all of them.
+      # Terraform's LockID is "<bucket>/<key>", plus a "-md5" digest row.
+      length(var.externally_owned_state_keys) == 0 ? [] : [{
+        Sid    = "DenyExternallyOwnedStateLockRows"
+        Effect = "Deny"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.terraform_lock_table}"
+        Condition = {
+          "ForAnyValue:StringLike" = {
+            "dynamodb:LeadingKeys" = flatten([
+              for key in var.externally_owned_state_keys : [
+                "${var.terraform_state_bucket}/${key}",
+                "${var.terraform_state_bucket}/${key}-md5",
+              ]
+            ])
+          }
+        }
     }])
   })
 }

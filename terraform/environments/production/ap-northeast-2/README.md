@@ -8,14 +8,15 @@ Independent Korean region with multi-AZ architecture. Standalone data stores (no
                     ┌─────────────────────────────────────┐
                     │       ap-northeast-2 (Korea)        │
                     │                                     │
-                    │  ┌───────────┐  ┌───────────────┐   │
-                    │  │  eks-mgmt │  │    shared/     │   │
-                    │  │ (ArgoCD,  │  │  (VPC, Data,   │   │
-                    │  │  Runners, │  │   NLB, IAM)    │   │
-                    │  │  OTel)    │  └───────────────┘   │
-                    │  │ ⚠ owned   │                      │
-                    │  │ elsewhere │                      │
-                    │  └───────────┘                      │
+                    │  . . . . . . .  ┌───────────────┐   │
+                    │  . eks-mgmt   .  │    shared/    │   │
+                    │  . (ArgoCD,   .  │  (VPC, Data,  │   │
+                    │  .  Runners,  .  │   NLB, IAM)   │   │
+                    │  .  OTel)     .  └───────────────┘   │
+                    │  . external:  .                      │
+                    │  . AWS-Demo-  .                      │
+                    │  . Platform   .                      │
+                    │  . . . . . . .                       │
                     │  ┌──────────┐  ┌──────────┐         │
                     │  │ eks-az-a │  │ eks-az-c │         │
                     │  │ (AZ-A    │  │ (AZ-C    │         │
@@ -38,11 +39,13 @@ Terraform lives in the shared platform repo `AWS-Demo-Platform`
 `production/ap-northeast-2/eks-mgmt/terraform.tfstate` in this same bucket.
 Never apply that state from here — split-brain applies on a shared state
 object are how you lose a cluster. Partially enforced: `github-actions-role`
-carries an explicit `s3:PutObject`/`s3:DeleteObject` **Deny** on that key
-(`externally_owned_state_keys` in `shared/main.tf`), which closes the CI path.
-It binds that one principal only — a human with admin credentials, or any other
-role, is still free to write the object, and the DynamoDB lock row and the mgmt
-resources themselves are not covered. Rationale and the full contract:
+carries an explicit **Deny** on that key — `s3:GetObject`/`s3:PutObject`/
+`s3:DeleteObject` on the object, plus `PutItem`/`UpdateItem`/`DeleteItem` on its
+DynamoDB lock rows, scoped with `dynamodb:LeadingKeys`
+(`externally_owned_state_keys` in `shared/main.tf`). That is one principal, not a
+boundary: a human with admin credentials, or any other role, is still free to
+write the object, and nothing here restricts the mgmt resources themselves.
+Rationale and the full contract:
 `docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md`.
 
 ## Deployment Order
@@ -98,6 +101,13 @@ becomes an ingress trust boundary on the workload API servers, so a name-only
 match is not enough. Each guard has a deliberate release: `expected_mgmt_vpc_id`
 for the VPC, `expected_mgmt_tags = {}` for the tags, and
 `mgmt_cluster_security_group_id` to skip the lookup entirely.
+
+That last one releases all three guards at once and needs no code change —
+`TF_VAR_mgmt_cluster_security_group_id` is enough. So it is `validation`-checked
+for the `sg-` format (a typo would otherwise only surface at apply), a
+`check "mgmt_guards_engaged"` block prints `GUARDS RELEASED` on every plan where
+it is set, and `output "mgmt_guards_released"` records the fact in state for
+after-the-fact audit.
 
 ## Runbooks
 
