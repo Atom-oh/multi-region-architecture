@@ -8,10 +8,14 @@ name: AI Code Review
 #   - 매트릭스 fan-out: scripts/pr-review/run-panel.sh(3모델×4lens=12셀) → synthesize.sh
 #   - 인증: EKS Pod Identity(ci-runner) SigV4 + ai-panel-keys(KIRO)
 #   - 리전: us-east-1 (Claude us. geo / codex gpt-5.6-sol bedrock-mantle In-Region)
-#   - fail-closed VERDICT 의 **유일한 예외**: 변경이 전부 git 기준 바이너리이고 필터에
-#     걸려 리뷰할 텍스트가 0줄인 PR 은 패널을 건너뛰고 PASS 한다. 판정은 경로 패턴이
-#     아니라 git 의 바이너리 판정 + 이미지/문서 확장자 allow-list 에 걸려 있다.
+#   - fail-closed VERDICT 의 **유일한 예외**: 변경이 전부 이미지/문서 자산의 **삭제**이고
+#     필터에 걸려 리뷰할 텍스트가 0줄인 PR 은 패널을 건너뛰고 PASS 한다. 판정은 경로
+#     패턴이 아니라 세 조건의 논리곱 — git 의 바이너리 판정 ∧ `deleted file mode`
+#     ∧ 이미지/문서 확장자 allow-list. 삭제 조건이 rename 우회 방어의 핵심이므로
+#     이 요약에서 빠뜨리면 예외 범위를 실제보다 넓게 읽게 된다.
 #     범위·근거: docs/decisions/ADR-004-pr-review-empty-diff-exception.md.
+#   - state/plan 산출물이 diff 에 있으면 무조건 잡 실패(결정론적 deny). 스킵만 하면
+#     혼합 PR 에서 조용히 사라지고, 프롬프트에 실으면 평문 시크릿이 외부 모델로 간다.
 #     필터 목록을 넓히면 이 auto-PASS 범위도 함께 넓어지므로 ADR 을 같이 갱신할 것.
 
 on:
@@ -70,6 +74,22 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           gh pr diff "$PR_NUMBER" > /tmp/pr-diff-raw.txt
+          # State/plan 산출물은 결정론적으로 잡을 죽인다. 스킵만 하는 것은 최악의
+          # 조합이었다: 텍스트가 섞인 PR 에서는 전제조건 검사에 도달하지 않아 조용히
+          # 사라지고(어떤 렌즈도 못 봄), state-only PR 은 새로 영구 머지 불가가 된다.
+          # 프롬프트에 싣는 것도 답이 아니다 — Aurora/DocumentDB master password 가
+          # 평문으로 들어 있고 그게 4모델×4렌즈로 외부 provider 에 나간다. 그래서
+          # 스킵도 리뷰도 아니고, 즉시 실패 + 사람이 커밋을 되돌리는 쪽으로 보낸다.
+          if grep -E '^diff --git a/.*(\.tfstate($|\.|[0-9])|\.tfplan|(^|/)tfplan$|(^|/)plan\.out$|(^|/)terraform\.tfstate\.d/)' \
+               /tmp/pr-diff-raw.txt > /tmp/pr-diff-state-hits.txt; then
+            echo "::error::Terraform state/plan artifacts in this PR. They are not reviewable" \
+                 "(they carry plaintext data-store credentials, so they are never sent to the" \
+                 "panel) and not skippable (a silent drop is worse). Remove them from the" \
+                 "branch — git rm --cached + .gitignore — and rotate anything they exposed:"
+            sed 's|^diff --git a/||; s| b/.*||' /tmp/pr-diff-state-hits.txt | sort -u \
+              | sed 's/^/::error::  /'
+            exit 1
+          fi
           awk '
             # 스킵 목록을 넓히면 auto-PASS 범위도 넓어진다 — 반드시
             # docs/decisions/ADR-004-pr-review-empty-diff-exception.md 를 같이 갱신할 것.
@@ -79,15 +99,14 @@ jobs:
                      (path ~ /(^|\/)pnpm-lock\.yaml$/) ||
                      (path ~ /(^|\/)yarn\.lock$/) ||
                      (path ~ /(^|\/)node_modules\//) ||
-                     (path ~ /\.(pptx|png|jpg|jpeg|gif|pdf|vsix|zip)$/) ||
-                     (path ~ /\.(tfstate|tfstate\.backup|tfplan)$/) ||
+                     (tolower(path) ~ /\.(pptx|png|jpg|jpeg|gif|pdf|vsix|zip)$/) ||
                      (path ~ /(^|\/)(dist|out|build)\//)
               # .terraform.lock.hcl is deliberately NOT skipped: it pins provider
               # versions and integrity hashes, which in an IaC repo is the one
-              # supply-chain surface worth panel attention. (No apostrophes in here:
-            # the awk program is single-quoted, so one would end the quote and the
-            # step would die with a shell syntax error.) It is also plain
+              # supply-chain surface worth panel attention. It is also plain
               # reviewable text, unlike the entries above.
+              # (No apostrophes anywhere in this awk program: it is single-quoted in
+              # the shell, so one would end the quote and kill the step.)
             }
             !skip
           ' /tmp/pr-diff-raw.txt > /tmp/pr-diff.txt
@@ -126,7 +145,7 @@ jobs:
             !($1 in f) { next }
             $2 != 1 { print $1; next }                                  # git 이 텍스트로 봄
             $3 != 1 { print $1; next }                                  # 삭제가 아님(추가·수정·rename)
-            $1 !~ /\.(png|jpg|jpeg|gif|pdf)$/ { print $1 }              # 바이너리지만 자산 아님
+            tolower($1) !~ /\.(png|jpg|jpeg|gif|pdf)$/ { print $1 }     # 바이너리지만 자산 아님
           ' /tmp/pr-diff-filtered-paths.txt /tmp/pr-diff-classified.txt \
             | sort -u > /tmp/pr-diff-unsafe-filtered.txt
 
