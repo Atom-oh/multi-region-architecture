@@ -44,13 +44,17 @@ carries an explicit **Deny** on that key — `s3:GetObject`/`s3:PutObject`/
 DynamoDB lock rows, scoped with `dynamodb:LeadingKeys`
 (`externally_owned_state_keys` in `shared/main.tf`). That is one principal, not a
 boundary: a human with admin credentials, or any other role, is still free to
-write the object, and nothing here restricts the mgmt resources themselves.
+write the object (the lock-row Deny does not follow them either), and nothing
+here restricts the mgmt resources themselves.
 Rationale and the full contract:
 `docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md`.
 
 ## Deployment Order
 
 ```
+mall-apne2-mgmt (external: AWS-Demo-Platform/infra/eks-mgmt)
+        │
+        ▼
 shared/  →  eks-az-a/  (parallel)
          →  eks-az-c/  (parallel)
 ```
@@ -106,8 +110,16 @@ That last one releases all three guards at once and needs no code change —
 `TF_VAR_mgmt_cluster_security_group_id` is enough. So it is `validation`-checked
 for the `sg-` format (a typo would otherwise only surface at apply), a
 `check "mgmt_guards_engaged"` block prints `GUARDS RELEASED` on every plan where
-it is set, and `output "mgmt_guards_released"` records the fact in state for
-after-the-fact audit.
+it is set, and `output "mgmt_guards_released"` records the fact in state. That
+output says whether the guards are released *right now* — the next normal apply
+overwrites it with `false`, so reconstructing a past break-glass needs state
+bucket versioning or CloudTrail.
+
+Releasing the lookup does not mean the value goes unchecked: any non-empty
+override is read back with `data "aws_security_group"` and asserted to live in
+this region's shared VPC. An SG API read answers whether or not mgmt still
+exists, so break-glass still works while `TF_VAR_mgmt_cluster_security_group_id`
+loses the ability to name an arbitrary account SG as an ingress source.
 
 ## Runbooks
 

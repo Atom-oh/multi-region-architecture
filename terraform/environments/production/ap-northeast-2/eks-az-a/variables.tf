@@ -58,7 +58,7 @@ variable "mgmt_cluster_security_group_id" {
   # plan — the value skips the lookup, so nothing else validates it — and only
   # fail at apply when the EKS module hands it to an SG rule.
   validation {
-    condition     = var.mgmt_cluster_security_group_id == null || var.mgmt_cluster_security_group_id == "" || can(regex("^sg-[0-9a-f]{8,}$", var.mgmt_cluster_security_group_id))
+    condition     = var.mgmt_cluster_security_group_id == null || var.mgmt_cluster_security_group_id == "" || can(regex("^sg-([0-9a-f]{8}|[0-9a-f]{17})$", var.mgmt_cluster_security_group_id))
     error_message = "mgmt_cluster_security_group_id must be null (look the cluster up), \"\" (drop the ArgoCD ingress rule), or a security group ID like sg-0123456789abcdef0."
   }
 }

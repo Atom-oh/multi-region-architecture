@@ -47,7 +47,10 @@ locals {
   expected_mgmt_vpc_id = var.expected_mgmt_vpc_id != "" ? var.expected_mgmt_vpc_id : data.terraform_remote_state.shared.outputs.vpc_id
 
   mgmt_lookup = var.mgmt_cluster_security_group_id == null
-  mgmt_sg_id  = local.mgmt_lookup ? data.aws_eks_cluster.mgmt[0].vpc_config[0].cluster_security_group_id : var.mgmt_cluster_security_group_id
+  # The one() indirection is load-bearing: referencing the override data source makes
+  # its VPC precondition a dependency of the value the EKS module consumes. Reading
+  # var directly would let the plan proceed while the assert was still unevaluated.
+  mgmt_sg_id = local.mgmt_lookup ? data.aws_eks_cluster.mgmt[0].vpc_config[0].cluster_security_group_id : try(one(data.aws_security_group.mgmt_override).id, "")
 }
 
 data "aws_eks_cluster" "mgmt" {
@@ -78,6 +81,31 @@ data "aws_eks_cluster" "mgmt" {
       condition     = try(self.vpc_config[0].cluster_security_group_id, "") != ""
       error_message = "${var.mgmt_cluster_name} reported no cluster security group — it is probably still being created. Retry once it is ACTIVE."
     }
+    postcondition {
+      # A DELETING or FAILED cluster still answers DescribeCluster and still has an
+      # SG, so without this the spokes would keep trusting a cluster on its way out.
+      condition     = try(self.status, "") == "ACTIVE"
+      error_message = "${var.mgmt_cluster_name} is ${try(self.status, "in an unknown state")}, not ACTIVE — refusing to trust the SG of a cluster that is being created or torn down."
+    }
+  }
+}
+
+# M-2: the override skips the cluster lookup, but the value still has to name a real
+# SG in this region's shared VPC. That keeps `TF_VAR_mgmt_cluster_security_group_id`
+# from injecting an arbitrary account SG as an ingress source on the workload API
+# servers, and it costs the break-glass path nothing — DescribeSecurityGroups answers
+# whether or not the mgmt cluster still exists, which is the whole point of the
+# override. "" (drop the rule) reads nothing.
+data "aws_security_group" "mgmt_override" {
+  count = !local.mgmt_lookup && var.mgmt_cluster_security_group_id != "" ? 1 : 0
+
+  id = var.mgmt_cluster_security_group_id
+
+  lifecycle {
+    postcondition {
+      condition     = self.vpc_id == data.terraform_remote_state.shared.outputs.vpc_id
+      error_message = "mgmt_cluster_security_group_id=${var.mgmt_cluster_security_group_id} is in VPC ${self.vpc_id}, not this region's shared VPC — an SG from another VPC cannot be an ingress source here anyway. Use \"\" to drop the ArgoCD ingress rule instead."
+    }
   }
 }
 
@@ -88,8 +116,11 @@ data "aws_eks_cluster" "mgmt" {
 # looking identical to a guarded one.
 check "mgmt_guards_engaged" {
   assert {
-    condition     = local.mgmt_lookup
-    error_message = "GUARDS RELEASED: mgmt_cluster_security_group_id is set (${coalesce(var.mgmt_cluster_security_group_id, "") == "" ? "empty — ArgoCD ingress rule dropped" : var.mgmt_cluster_security_group_id}), so ${var.mgmt_cluster_name} is not being looked up or verified. Expected only during a mgmt outage — unset it once mgmt is back."
+    condition = local.mgmt_lookup
+    # No coalesce() here: it skips empty strings as well as nulls and errors when
+    # every argument is empty, which is precisely the `-var ...=''` break-glass
+    # path — the check meant to warn would have hard-failed the plan instead.
+    error_message = "GUARDS RELEASED: mgmt_cluster_security_group_id is set (${var.mgmt_cluster_security_group_id == "" ? "empty — ArgoCD ingress rule dropped" : var.mgmt_cluster_security_group_id}), so ${var.mgmt_cluster_name} is not being looked up or verified. Expected only during a mgmt outage — unset it once mgmt is back."
   }
 }
 

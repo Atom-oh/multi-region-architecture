@@ -375,6 +375,7 @@ graph LR
 | [OTel Tracing Design](docs/otel-tracing-design.md) | 분산 트레이싱 설계 |
 | [Data Architecture](docs/data-architecture.md) | 데이터 아키텍처 및 스키마 |
 | [Network Architecture](docs/network-architecture.md) | 네트워크 토폴로지 및 보안 |
+| [ADR-003: eks-mgmt 소유권 이관](docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md) | mgmt 클러스터는 `AWS-Demo-Platform`이 소유, spoke는 live lookup |
 
 ## License
 

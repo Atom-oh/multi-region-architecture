@@ -51,34 +51,47 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
      `vpc_id`로 계산된다(local). VPC 가드 해제용.
    - `var.expected_mgmt_tags` — 기본값은 위 두 태그. `{}`로 두면 태그 가드 해제.
    - `var.mgmt_cluster_security_group_id` — 기본값 `null`(= live lookup).
-     non-null이면 data source의 `count`가 0이 되어 **API read 자체와 postcondition
-     전체가 사라진다.** 이것이 break-glass의 실제 경로다 — data 블록을 무조건
+     non-null이면 data source의 `count`가 0이 되어 **cluster read 자체와
+     postcondition 전체가 사라진다.** 대신 값이 빈 문자열이 아니면
+     `data "aws_security_group" "mgmt_override"`가 그 SG를 조회해 shared VPC 소속인지
+     assert한다 — SG 조회는 mgmt 클러스터가 죽어도 응답하므로 break-glass 목적을
+     해치지 않으면서, 환경변수 하나로 계정 내 임의 SG를 workload API server의 ingress
+     source로 밀어넣는 경로는 막힌다. 이것이 break-glass의 실제 경로다 — data 블록을 무조건
      선언해두면 인시던트 중 `.tf`를 편집하는 것 외에 방법이 없다.
      가드 전체를 한 번에 무력화하는 값이고 `TF_VAR_*` 환경변수만으로도 설정되므로,
      두 가지를 붙여 흔적을 남긴다: `sg-` 형식 `validation`(오타가 apply까지 가지
      않게), 그리고 `check "mgmt_guards_engaged"` + `output "mgmt_guards_released"` —
      `check`는 plan을 실패시키지 않고 경고만 내는 유일한 구문이라 해제된 plan이
      정상 plan과 똑같이 보이지 않게 하고, output은 그 사실을 state에 남겨 사후
-     감사가 break-glass apply를 구분할 수 있게 한다.
+     감사가 break-glass apply를 구분할 수 있게 한다. 단 이 output은 *현재* state의
+     값이므로 이후 정상 apply가 `false`로 덮어쓴다 — 지나간 break-glass를 되짚으려면
+     state 버킷의 버저닝이나 CloudTrail이 필요하고, output 자체는 "지금 해제 상태인가"
+     신호로 읽어야 한다.
    - `var.mgmt_cluster_name` — 이름 변경 대응. 단 `shared/`의
      `describable_cluster_names`와 짝이라 2단계 절차다(아래 Consequences).
+   - cluster postcondition에는 `status == "ACTIVE"`도 포함한다. `DELETING`/`FAILED`
+     클러스터도 DescribeCluster에 응답하고 SG를 그대로 들고 있어서, 이것 없이는
+     철거 중인 클러스터의 SG를 계속 신뢰한다.
 
 5. **"여기서 apply하지 말 것"을 CI 경로에서는 IAM으로 승격한다.** `github-actions-role`에
-   해당 state key에 대한 `s3:GetObject`/`s3:PutObject`/`s3:DeleteObject` 명시적
+   해당 state key에 대한 `s3:GetObject`/`s3:GetObjectVersion`/`s3:PutObject`/
+   `s3:DeleteObject`/`s3:DeleteObjectVersion` 명시적
    **Deny**를 추가한다 (`externally_owned_state_keys`). read까지 막는 이유는 live
    lookup이 remote state read를 대체해 이 repo에 그 state를 읽을 이유가 남지 않았고,
    state 파일이 버킷에서 가장 밀도 높은 시크릿이기 때문이다. 객체만 막고 lock row를
    두면 절반만 막힌 셈이라 — 외부 repo가 lock을 잡은 동안 row를 지우면 동시 apply가
    가능해져 방금 보호한 객체가 깨진다 — `dynamodb:LeadingKeys`로 그 state의
    lock row(`<bucket>/<key>`와 `-md5` digest row)에만 스코프한 write Deny도 함께
-   건다. lock 테이블은 이 repo의 모든 레이어가 공유하므로 테이블 전체 Deny는 불가. 문서 경고는 통제가 아니다. 같은 정책에
+   건다. Terraform 1.10+의 S3 native locking(`use_lockfile`)으로 넘어가면 lock이
+   DynamoDB row가 아니라 `<key>.tflock` **객체**가 되므로, 그때는
+   `externally_owned_state_keys`의 S3 Deny에 `.tflock` 접미사 리소스를 추가해야
+   한다 — 현재 backend 설정은 DynamoDB 방식이라 아직 해당 없음. lock 테이블은 이 repo의 모든 레이어가 공유하므로 테이블 전체 Deny는 불가. 문서 경고는 통제가 아니다. 같은 정책에
    `ap-northeast-2`의 `mall-apne2-mgmt` ARN으로 스코프한 `eks:DescribeCluster`
    **Allow**를 추가한다 (`describable_cluster_names`) — 이 권한 없이는 spoke의
    *모든* plan이 실패한다. 이 Deny의 한계는 명시해둔다: identity policy이므로
    **그 role 하나에만** 걸린다. 사람이 admin 자격증명으로, 혹은 다른 role로 같은
-   객체를 쓰는 것은 여전히 가능하고, DynamoDB lock row 쓰기와 mgmt 리소스 자체의
-   변경도 막지 않는다. mgmt 리소스 자체의 변경도 막지 않는다. 완전한 차단이
-   필요하면 버킷 정책으로 올려야 한다.
+   객체를 쓰는 것은 여전히 가능하고(그 principal에는 위 lock row Deny도 걸리지
+   않는다), mgmt 리소스 자체의 변경도 막지 않는다. 완전한 차단이 필요하면 버킷 정책으로 올려야 한다.
 
 ## Consequences
 
