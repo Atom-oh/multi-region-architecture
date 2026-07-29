@@ -125,12 +125,15 @@ CHAIR_MAX_TURNS="${CHAIR_MAX_TURNS:-8}"
 # fallback 은 primary 가 캡을 소진해서 불려오는 경우가 가장 흔하다 — 같은 캡을 주면 같은
 # 벽에 부딪히고 양쪽 다 빈 결과를 낸다(PR#34 에서 실제로 그랬다). 조금 더 준다.
 CHAIR_FALLBACK_MAX_TURNS="${CHAIR_FALLBACK_MAX_TURNS:-12}"
-# 의장의 stdin 은 PR 작성자가 통제하는 텍스트이고(diff + 패널 출력), 이 잡은
-# `pull_request_target` 컨텍스트다. 턴 캡은 루프를 묶지만 **무엇을 할 수 있는지**는
-# 묶지 않는다 — 의장이 필요한 건 리포 컨벤션 확인용 read/grep/glob 뿐이므로 거기로
-# 고정한다. Bash·Write·Edit·WebFetch 가 없으면 diff 안의 지시문이 성공해도 할 수 있는
-# 것이 리포 읽기로 끝난다(ADR-002 의 fs-read 잔여 위험과 같은 경계).
-CHAIR_ALLOWED_TOOLS="${CHAIR_ALLOWED_TOOLS:-Read,Grep,Glob}"
+# 툴 제한은 **기본으로 걸지 않는다**(빈 값 = 플래그 미전달). 걸고 싶었지만 러너에서
+# 회귀했다: `--max-turns 8` 만 준 실행(2cab1c6)은 531s 에 10242 바이트로 정상 종합했는데,
+# 거기에 `--allowedTools Read,Grep,Glob` 을 더한 실행(b213da3)은 primary·fallback 둘 다
+# 600s 벽시계를 다 쓰고 16 바이트("Execution error")만 남겼다. 로컬 claude 2.1.220 은
+# 같은 플래그를 정상 처리하므로 러너 이미지의 CLI 판본 차이다(비대화형 `-p` 에서 권한
+# 요청이 프롬프트로 매달리는 것으로 보인다). 이 변수를 비워 두면 이 PR 이전의 동작과
+# 같다 — 즉 새 위험을 들이는 게 아니라 개선을 유보하는 것이다. 러너 이미지의
+# `claude --version` 을 확인한 뒤 값을 넣어 되살린다(ADR-004 References).
+CHAIR_ALLOWED_TOOLS="${CHAIR_ALLOWED_TOOLS:-}"
 
 chair_label() { case "$1" in
   *fable-5*)  echo "Claude Fable 5" ;;
@@ -140,10 +143,23 @@ esac ; }
 
 run_chair() {  # $1=model $2=max-turns → "$OUT" 에 기록(scrub 통과). 실패해도 || true 로 계속.
   # argv(-p) 는 고정 지시문만(작고 상한 없음) — diff+패널(가변, 큼)은 stdin.
+  # 빈 CHAIR_ALLOWED_TOOLS 는 플래그 자체를 안 넘긴다 — `--allowedTools ""` 를 넘기면
+  # "빈 allow-list"로 해석될 수 있어 무제한과 정반대 방향으로 조용히 어긋난다.
+  local extra=()
+  [ -n "$CHAIR_ALLOWED_TOOLS" ] && extra=(--allowedTools "$CHAIR_ALLOWED_TOOLS")
   ANTHROPIC_MODEL="$1" timeout "$CHAIR_TIMEOUT" \
     claude -p "$(cat "$WORK/synth-prompt.txt")" --output-format text \
-    --max-turns "$2" --allowedTools "$CHAIR_ALLOWED_TOOLS" \
+    --max-turns "$2" "${extra[@]+"${extra[@]}"}" \
     < "$WORK/synth-stdin.txt" 2>"$WORK/chair.err" | scrub_secrets > "$OUT" || true
+  # 의장이 저하됐을 때 stderr 를 로그에 남긴다. 이 PR 의 실패가 정확히 이 공백에
+  # 걸렸다: 두 의장 모두 16 바이트를 냈는데 그 이유는 chair.err 에만 있었고 워크플로
+  # 로그에는 없어서, 원인을 실행 이력 대조로 역추적해야 했다. scrub 은 필수 —
+  # stderr 에도 크리덴셜이 섞일 수 있고 이 로그는 리포 접근자 전원이 본다.
+  if [ -s "$WORK/chair.err" ] && chair_degraded; then
+    echo "::group::chair stderr ($(chair_label "$1"))"
+    scrub_secrets < "$WORK/chair.err" | tail -c 4000
+    echo "::endgroup::"
+  fi
 }
 
 # 저하 판정: 빈 응답 | VERDICT 라인 없음. (ConnectionRefused·타임아웃·행 모두
@@ -161,9 +177,26 @@ if chair_degraded && [ "$FALLBACK_MODEL" != "$PRIMARY_MODEL" ]; then
   CHAIR_USED="$FALLBACK_MODEL"
 fi
 
-if [ ! -s "$OUT" ]; then
-  echo "리뷰 생성 실패 — $(chair_label "$PRIMARY_MODEL")·$(chair_label "$FALLBACK_MODEL") 모두 빈 응답." > "$OUT"
-  echo "VERDICT: FAIL" >> "$OUT"
+# 판정 기준을 `[ ! -s ]` 가 아니라 chair_degraded 로 맞춘다. 이전 판은 빈 파일만 봤고,
+# 그래서 CLI 가 `Execution error` 16 바이트를 낸 실행에서는 이 분기가 안 돌아 그 문자열이
+# **그대로 PR 코멘트 본문 전체**로 게시됐다(PR#34) — 게이트는 VERDICT 부재로 옳게 막았지만
+# 읽는 사람에게는 무엇이 실패했는지 아무 정보가 없었다. 저하면 원인을 본문에 쓴다.
+if chair_degraded; then
+  { echo "리뷰 생성 실패 — 의장 $(chair_label "$PRIMARY_MODEL")·$(chair_label "$FALLBACK_MODEL")"
+    echo "모두 VERDICT 를 내지 못했습니다(빈 응답 / 타임아웃 ${CHAIR_TIMEOUT}s / 턴 캡"
+    echo "${CHAIR_MAX_TURNS}·${CHAIR_FALLBACK_MAX_TURNS} 소진). 패널 16셀 응답 여부와 무관하게"
+    echo "fail-closed 입니다. 워크플로 로그의 \`chair stderr\` 그룹에 원인이 있습니다."
+    echo ""
+    if [ -s "$OUT" ]; then
+      echo "의장의 원 출력(앞 500B):"
+      echo '```'
+      head -c 500 "$OUT"
+      echo ""
+      echo '```'
+      echo ""
+    fi
+    echo "VERDICT: FAIL"
+  } > "$OUT.tmp" && mv "$OUT.tmp" "$OUT"
 fi
 
 # 커버리지 저하 가시화 — 모델 하나가 전체 lens 에서 응답 없이 조용히 빠졌으면(run-panel.sh
