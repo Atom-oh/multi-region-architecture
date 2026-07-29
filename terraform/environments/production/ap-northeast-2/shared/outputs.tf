@@ -2,10 +2,16 @@
 # Networking
 #
 # EXTERNAL CONSUMER — AWS-Demo-Platform's infra/eks-mgmt reads this layer's
-# state for `vpc_id`, `private_subnet_ids`,
+# state for six outputs: `vpc_id`, `private_subnet_ids`,
+# `alb_security_group_id`, `nlb_security_group_id`,
 # `internal_observability_nlb_security_group_id` and `kms_key_arns["s3"]`.
-# Renaming or retyping those four breaks that repo's plan; treat them as a
+# Renaming or retyping any of those six breaks that repo's plan; treat them as a
 # frozen contract (docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md).
+#
+# The two ALB/NLB SG entries are the easy ones to miss: nothing in this repo
+# reads them for mgmt anymore — they were arguments to the `module "eks"` call in
+# the deleted eks-mgmt/ layer, which that repo now owns as a superset. Six is a
+# floor, not a census.
 # ─────────────────────────────────────────────────────────────────────────────
 
 output "vpc_id" {
@@ -160,4 +166,13 @@ output "s3_static_assets_bucket_arn" {
 output "s3_static_assets_bucket_domain_name" {
   description = "The bucket domain name of the static assets bucket"
   value       = module.s3.static_assets_bucket_domain_name
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# mgmt trust — break-glass override, read by both eks-az-{a,c}
+# ─────────────────────────────────────────────────────────────────────────────
+
+output "mgmt_cluster_security_group_id_override" {
+  description = "Break-glass mgmt cluster SG for both spokes, or null when they should look it up live. Single-sourced here so an override cannot be applied to one AZ and forgotten in the other."
+  value       = var.mgmt_cluster_security_group_id_override
 }

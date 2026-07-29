@@ -74,20 +74,37 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
      두 가지를 붙여 흔적을 남긴다: `sg-` 형식 `validation`(오타가 apply까지 가지
      않게), 그리고 `check "mgmt_guards_engaged"` + `output "mgmt_guards_released"` —
      `check`는 plan을 실패시키지 않고 경고만 내는 유일한 구문이라 해제된 plan이
-     정상 plan과 똑같이 보이지 않게 한다. `check`와 output은 세 release 변수 **전부**를
-     본다 — `TF_VAR_expected_mgmt_tags='{}'`나 `TF_VAR_expected_mgmt_vpc_id=vpc-...`도
-     같은 trust boundary를 넓히는데, override만 감지하면 그 두 경로의 plan은 정상
-     plan과 완전히 동일하게 보인다. output은 해제된 가드 목록을 state에 남겨 사후
+     정상 plan과 똑같이 보이지 않게 한다. `check`와 output은 네 개의 trust 입력 **전부**를
+     본다 — `TF_VAR_expected_mgmt_tags='{}'`, `TF_VAR_expected_mgmt_vpc_id=vpc-...`,
+     `TF_VAR_mgmt_cluster_name=...`도 같은 trust boundary를 넓히는데, override만
+     감지하면 그 경로들의 plan은 정상 plan과 완전히 동일하게 보인다.
+     `mgmt_cluster_name`이 목록에 있는 이유는 그것이 단순 레이블이 아니라 trust
+     입력이기 때문이다 — override 경로가 SG의 `aws:eks:cluster-name`을 이 값과
+     비교하므로, override와 name을 같이 넘기면 다른 클러스터의 SG가 통과한다. output은 해제된 가드 목록을 state에 남겨 사후
      감사가 break-glass apply를 구분할 수 있게 한다. 단 이 output은 *현재* state의
-     값이므로 이후 정상 apply가 `false`로 덮어쓴다 — 지나간 break-glass를 되짚으려면
+     값이므로 이후 정상 apply가 빈 리스트로 덮어쓴다 — 지나간 break-glass를 되짚으려면
      state 버킷의 버저닝이나 CloudTrail이 필요하고, output 자체는 "지금 해제 상태인가"
      신호로 읽어야 한다(값은 bool이 아니라 해제된 가드 목록이다).
    - `var.mgmt_cluster_name` — 이름 변경 대응. 단 `shared/`의
      `describable_cluster_names`와 짝이라 2단계 절차다(아래 Consequences).
+     이 변수는 위 `check`/output의 감시 대상이기도 하다.
+
+   가드 전체(`data` 2개, postcondition 6개, `check`, `released_guards`)는
+   `terraform/modules/security/mgmt-cluster-trust`에 두고 양 spoke가 호출한다. 두 spoke가
+   문자 단위로 같은 로직을 필요로 하는데, 복제해두면 한쪽만 수정되는 drift가 리뷰에서
+   보이지 않는다 — API server에 누가 닿을 수 있는지를 정하는 코드에는 맞지 않는 실패
+   양식이다.
+
+   break-glass 값은 spoke 변수가 아니라 `shared/`의
+   `mgmt_cluster_security_group_id_override` 하나다. spoke별 변수면 한쪽만 override하고
+   다른 쪽을 잊는 것이 가능한데, 두 클러스터는 같은 weighted NLB 뒤에서 같은
+   Aurora/DocumentDB primary를 공유하므로 ArgoCD 도달성이 갈리면 스키마 마이그레이션이
+   fleet의 절반에만 도달한다. "양쪽에 같은 값을 넣으라"는 문서 문장은 통제가 아니다.
 
 5. **"여기서 apply하지 말 것"을 CI 경로에서는 IAM으로 승격한다.** `github-actions-role`에
    해당 state key에 대한 `s3:GetObject`/`s3:GetObjectVersion`/`s3:PutObject`/
-   `s3:DeleteObject`/`s3:DeleteObjectVersion` 명시적
+   `s3:PutObjectAcl`/`s3:AbortMultipartUpload`/`s3:DeleteObject`/
+   `s3:DeleteObjectVersion` 명시적
    **Deny**를 추가한다 (`externally_owned_state_keys`). read까지 막는 이유는 live
    lookup이 remote state read를 대체해 이 repo에 그 state를 읽을 이유가 남지 않았고,
    state 파일이 버킷에서 가장 밀도 높은 시크릿이기 때문이다. 객체만 막고 lock row를
@@ -109,6 +126,23 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    있어서, mgmt 클러스터의 CI 워크로드 pod는 이 state 버킷 전체를 read/write할 수
    있다. 완전한 차단은 여기서 버킷 정책으로 승격 + 외부 repo에서 그 managed policy
    축소가 함께 필요하고, 둘 다 이 이관의 범위가 아닌 후속 과제다.
+
+### 이 ADR이 닫지 않는 것 (blocking follow-up)
+
+이관 자체와 분리해 추적한다. 둘 다 "문서 경고는 통제가 아니다"라는 이 ADR 자신의
+원칙에 걸리는 항목이므로, 후속으로 남긴다는 사실을 여기 명시한다.
+
+1. **state bucket policy 승격 + 외부 repo의 `AmazonS3FullAccess` 축소.** 새 Deny는
+   identity policy라 `github-actions-role`에만 걸린다. 외부 repo가 소유하는
+   `ci_runner` role은 그 managed policy를 달고 runner SA 10개에 pod identity로 묶여
+   있어, mgmt 클러스터의 CI pod가 이 state 버킷 전체를 read/write할 수 있다 — shared
+   state의 데이터 계층 자격증명 포함. 실질 차단은 버킷 정책(모든 principal 대상) +
+   저쪽 policy 축소가 함께 필요하다.
+2. **stale mgmt SG 감지.** mgmt를 replace하면 ArgoCD → spoke 접근이 조용히 끊기고
+   다음 sync 실패까지 드러나지 않는다. 인시던트 중에는 그 sync가 롤백 채널이다.
+   spoke의 `terraform plan -detailed-exitcode`가 신호를 내지만(SG를 live로 조회하므로
+   교체가 ingress 규칙 diff로 보인다) 정기 실행이 없다. ArgoCD hub의 spoke connection
+   알람 또는 예약된 drift plan 중 하나가 필요하고, 지금은 사람이 보는 것에 의존한다.
 
 ## Consequences
 
@@ -189,7 +223,10 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
   `externally_owned_state_keys`의 Allow/Deny 문장
 - `terraform/modules/security/iam/variables.tf` — 위 두 변수와 `terraform_lock_table`
   선언
+- `terraform/modules/security/mgmt-cluster-trust/` — live lookup, postcondition
+  4개(+override 경로 2개), `check`/`released_guards`. 양 spoke가 공용으로 호출한다
 - `terraform/environments/production/ap-northeast-2/eks-az-a/main.tf`,
-  `terraform/environments/production/ap-northeast-2/eks-az-c/main.tf` — live lookup과
-  postcondition 3개
+  `terraform/environments/production/ap-northeast-2/eks-az-c/main.tf` — 위 모듈 호출
+- `terraform/environments/production/ap-northeast-2/shared/variables.tf` —
+  `mgmt_cluster_security_group_id_override`(break-glass 단일 소스)
 - `terraform/environments/production/ap-northeast-2/shared/main.tf` — `module "iam"` 호출

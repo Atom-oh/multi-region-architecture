@@ -114,35 +114,44 @@ Renaming mgmt is therefore two-phase — add the new name to
 `describable_cluster_names` and apply `shared/` **first**, or the spokes hit
 `AccessDenied` on the lookup before any guard can report anything useful.
 
-Three `postcondition`s guard the lookup: the cluster must sit in this region's
-shared VPC, it must carry this platform's `ManagedBy=terraform` /
-`Project=multi-region-mall` tags, and it must actually report a cluster SG
-(empty would make the EKS module drop the ingress rule silently). That SG
-becomes an ingress trust boundary on the workload API servers, so a name-only
-match is not enough. Four postconditions: the VPC, the provisioning tags, that
-the cluster SG is non-empty, and that the cluster's status is `ACTIVE` or
-`UPDATING` (`UPDATING` is allowed because a control-plane upgrade reports it for
-tens of minutes without changing the SG). The first three have a deliberate
-release — `expected_mgmt_vpc_id`, `expected_mgmt_tags = {}`, and
-`mgmt_cluster_security_group_id` to skip the lookup entirely. The status guard
-has none of its own; skipping the lookup is the only way past it.
+That SG becomes an ingress trust boundary on the workload API servers, so a
+name-only match is not enough. **Four** `postcondition`s guard the lookup: the
+cluster must sit in this region's shared VPC, it must carry this platform's
+`ManagedBy=terraform` / `Project=multi-region-mall` tags, it must actually report
+a cluster SG (empty would make the EKS module drop the ingress rule silently),
+and its status must be `ACTIVE` or `UPDATING` (`UPDATING` is allowed because a
+control-plane upgrade reports it for tens of minutes without changing the SG,
+and rejecting it would fail every plan here during routine external
+maintenance). The override path adds two more of its own, below.
 
-That last one releases the first three at once and needs no code change —
-`TF_VAR_mgmt_cluster_security_group_id` is enough. So it is `validation`-checked
-for the `sg-` format (a typo would otherwise only surface at apply), and
-`check "mgmt_guards_engaged"` prints `GUARDS RELEASED` naming every released
-guard on every plan. The check covers all three release variables, not just the
-override: `TF_VAR_expected_mgmt_tags='{}'` and `TF_VAR_expected_mgmt_vpc_id=...`
-widen the same trust boundary and would otherwise produce a plan indistinguishable
-from a guarded one. `output "mgmt_guards_released"` carries the same list into
-state. It says what is released *right now* — the next normal apply overwrites it
-with an empty list, so reconstructing a past break-glass needs state bucket
-versioning or CloudTrail.
+The first three have a deliberate release — `expected_mgmt_vpc_id`,
+`expected_mgmt_tags = {}`, and the break-glass override to skip the lookup
+entirely. The status guard has none of its own; skipping the lookup is the only
+way past it.
+
+All of it lives in `terraform/modules/security/mgmt-cluster-trust`, called by
+both spokes. It is a module rather than two copies because guard drift between
+the AZs would otherwise be invisible in review — the wrong failure mode for the
+code deciding who may reach an API server.
+
+That last one releases the first three at once and needs no code change. So it
+is `validation`-checked for the `sg-` format (a typo would otherwise only surface
+at apply), and `check "mgmt_guards_engaged"` prints `GUARDS RELEASED` naming
+every released guard on every plan. The check covers **all four** trust inputs,
+not just the override: `expected_mgmt_tags`, `expected_mgmt_vpc_id`, and
+`mgmt_cluster_name` widen the same boundary and would otherwise produce a plan
+indistinguishable from a guarded one. `mgmt_cluster_name` is in there because it
+is a trust input, not just a label — the override asserts the SG carries
+`aws:eks:cluster-name` equal to it, so override + name together would authorize
+some other cluster's SG. `output "mgmt_guards_released"` carries the same list
+into state. It says what is released *right now* — the next normal apply
+overwrites it with an empty list, so reconstructing a past break-glass needs
+state bucket versioning or CloudTrail.
 
 Releasing the lookup does not mean the value goes unchecked: any non-empty
 override is read back with `data "aws_security_group"` and asserted to be in
 `expected_mgmt_vpc_id` (the same relocation switch the lookup path honours) and
-to carry `aws:eks:cluster-name = mall-apne2-mgmt`. The tag matters more than the
+to carry `aws:eks:cluster-name` equal to `mgmt_cluster_name`. The tag matters more than the
 VPC: shared-VPC membership alone would still let the override name any ALB, NLB,
 app, or data-layer SG in the region as an ingress source on the workload API
 servers. EKS attaches that tag to the SG it manages for a cluster, so the assert
@@ -163,22 +172,32 @@ The live lookup makes mgmt a plan-time dependency, so set
 `mgmt_cluster_security_group_id` — any non-null value drops the data source's
 `count` to 0, removing both the API read and its postconditions:
 
-```bash
-# keep the ArgoCD ingress rule, using the SG ID you already know
-terraform apply -var 'mgmt_cluster_security_group_id=sg-0123456789abcdef0'
+The value is set **once, in `shared/`** — `mgmt_cluster_security_group_id_override`
+— and both spokes read it from that layer's state. It is not a per-spoke variable
+on purpose: overriding one AZ and forgetting the other leaves the two clusters
+behind the same weighted NLB, over the same Aurora/DocumentDB primary, with
+different ArgoCD reachability. One syncs, one does not, and a schema migration
+reaches half the fleet. Sequence:
 
-# or drop the rule entirely — the EKS module skips it on ""
-terraform apply -var 'mgmt_cluster_security_group_id='
+```bash
+# 1. shared/ — set it once for both spokes
+cd shared
+# keep the ArgoCD ingress rule, using the SG ID you already know
+terraform apply -var 'mgmt_cluster_security_group_id_override=sg-0123456789abcdef0'
+# ...or drop the rule entirely — the EKS module skips it on ""
+terraform apply -var 'mgmt_cluster_security_group_id_override='
+
+# 2. both spokes pick it up (order does not matter, but do both)
+(cd ../eks-az-a && terraform apply)
+(cd ../eks-az-c && terraform apply)
 ```
 
-Apply the **same value to both spokes**. They are independent variables, so
-overriding one and not the other leaves the two AZs behind the same weighted NLB
-with different ArgoCD reachability — one syncs, one does not, and the drift is
-invisible until a deploy lands unevenly.
-
 A non-empty value is still checked: it must be an SG in `expected_mgmt_vpc_id`
-carrying `aws:eks:cluster-name = mall-apne2-mgmt`. If mgmt was rebuilt in a
-different VPC, pass `expected_mgmt_vpc_id` too.
+carrying `aws:eks:cluster-name` equal to `mgmt_cluster_name`. If mgmt was
+rebuilt in a different VPC, set `expected_mgmt_vpc_id` on both spokes too — and
+note that "reachable by SG reference" means a peering or shared-VPC relationship;
+a TGW-only path cannot use an SG from the other side as an ingress source at all,
+so there the only option is `""` plus a different GitOps route.
 
 Unset it once mgmt is back. Only GitOps reachability is affected — the
 CloudFront → NLB → api-gateway traffic path does not use this SG.
@@ -194,9 +213,12 @@ the IAM grant for the new name before it can read it:
 3. `shared/`: drop the old name from `describable_cluster_names` and apply.
 
 **Detecting a stale mgmt SG.** Nothing here notices on its own — recreation is
-silent until a sync fails. Until there is an alert on the ArgoCD hub's spoke
-connection status, or a scheduled drift `plan` on both spokes, this depends on
-someone looking.
+silent until a sync fails, and during an incident that sync is the rollback
+channel. A `terraform plan -detailed-exitcode` in either spoke surfaces it (the
+SG is resolved live, so a replaced cluster shows as a diff on the API-server
+ingress rule), but nothing runs that on a schedule yet. Until an ArgoCD
+hub-side spoke-connection alert or a scheduled drift plan exists, detection
+depends on someone looking — that gap is tracked as follow-up, not closed here.
 
 ## Remote State Dependencies
 

@@ -57,6 +57,6 @@ output "alb_controller_role_arn" {
 # ─────────────────────────────────────────────────────────────────────────────
 
 output "mgmt_guards_released" {
-  description = "Which mgmt trust guards were released on the last apply, one entry per released guard, empty when all are engaged. Reflects the *current* state — a later normal apply overwrites it, so reconstructing a past break-glass needs state bucket versioning or CloudTrail."
-  value       = local.released_guards
+  description = "Which mgmt trust guards were released on the last apply, one entry per released guard, empty when all are engaged. Set from shared/ so both spokes move together. Reflects the *current* state — a later normal apply overwrites it, so reconstructing a past break-glass needs state bucket versioning or CloudTrail."
+  value       = module.mgmt_trust.released_guards
 }

@@ -101,3 +101,26 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "mgmt_cluster_security_group_id_override" {
+  description = <<-EOT
+    Break-glass override for the mgmt cluster SG that both eks-az-{a,c} trust as
+    their ArgoCD ingress source. null (default) = each spoke looks the cluster up
+    live and applies its guards. Set to an SG ID to keep the ingress rule while
+    mgmt is unreachable, or "" to drop the rule entirely.
+
+    It lives in this layer rather than in each spoke on purpose: a per-spoke
+    variable lets an operator override one AZ and forget the other, and the two
+    clusters sit behind one weighted NLB over one Aurora/DocumentDB primary — so
+    split ArgoCD reachability means a schema migration reaches half the fleet.
+    One apply here moves both. Both spokes still need their own apply to pick the
+    new value up; see the Runbooks in ../README.md.
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.mgmt_cluster_security_group_id_override == null || var.mgmt_cluster_security_group_id_override == "" || can(regex("^sg-([0-9a-f]{8}|[0-9a-f]{17})$", var.mgmt_cluster_security_group_id_override))
+    error_message = "mgmt_cluster_security_group_id_override must be null (look the cluster up), \"\" (drop the ArgoCD ingress rule), or a security group ID like sg-0123456789abcdef0."
+  }
+}

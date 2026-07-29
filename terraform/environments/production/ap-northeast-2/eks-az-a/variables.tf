@@ -42,23 +42,6 @@ variable "expected_mgmt_tags" {
   }
 }
 
-variable "mgmt_cluster_security_group_id" {
-  description = <<-EOT
-    Break-glass override for the mgmt cluster SG. null (default) = look the cluster
-    up live and apply the guards. Any non-null value skips the lookup entirely —
-    which is the point: the data source is only declared when this is null, so
-    `-var mgmt_cluster_security_group_id=sg-...` (or `=""` to drop the cross-cluster
-    ingress rule altogether) makes a plan possible while mgmt is unreachable or has
-    legitimately moved. A commented-out data block is not a procedure.
-  EOT
-  type        = string
-  default     = null
-
-  # A typo like "sg0abc" or a copy-pasted VPC id would otherwise sail through
-  # plan — the value skips the lookup, so nothing else validates it — and only
-  # fail at apply when the EKS module hands it to an SG rule.
-  validation {
-    condition     = var.mgmt_cluster_security_group_id == null || var.mgmt_cluster_security_group_id == "" || can(regex("^sg-([0-9a-f]{8}|[0-9a-f]{17})$", var.mgmt_cluster_security_group_id))
-    error_message = "mgmt_cluster_security_group_id must be null (look the cluster up), \"\" (drop the ArgoCD ingress rule), or a security group ID like sg-0123456789abcdef0."
-  }
-}
+# mgmt_cluster_security_group_id is deliberately NOT a variable here: the
+# break-glass value lives in shared/ so one apply moves both spokes together.
+# See the Runbooks in ../README.md.
