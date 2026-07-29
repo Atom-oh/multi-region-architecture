@@ -112,6 +112,16 @@ PROMPT_EOF
 PRIMARY_MODEL="${CHAIR_PRIMARY_MODEL:-us.anthropic.claude-fable-5}"
 FALLBACK_MODEL="${CHAIR_FALLBACK_MODEL:-us.anthropic.claude-opus-5}"
 CHAIR_TIMEOUT="${CHAIR_TIMEOUT:-600}"
+# 의장은 에이전트라서 툴을 돌릴 수 있고, 턴 상한이 없으면 종합 대신 리포 탐색으로
+# 시간을 다 쓸 수 있다 — 관측된 실패 양식: PR#34(리뷰 워크플로 자체를 바꾸는 diff)에서
+# 16/16 셀이 응답했는데도 primary·fallback 둘 다 600s 벽시계 캡에 걸려 "Execution error"
+# 만 남았다. 로컬에서 재현했더니 CPU ~0%로 매달려 있었고(= 네트워크 장애가 아니라
+# 툴 루프), `--max-turns 8`을 주면 같은 입력이 2분 23초에 VERDICT까지 정상 완료했다.
+# 8턴은 이 repo 컨벤션 확인용 CLAUDE.md/AGENTS.md read + 검증용 grep 몇 번에 충분하고
+# (실제로 최근 통과 리뷰들이 "repo 대조로 반박됨"을 근거로 오탐을 기각한다),
+# 무한 탐색을 막는다. 캡에 걸리면 부분 출력에 VERDICT 라인이 없어 chair_degraded 가
+# 잡고 fallback → 그래도 없으면 fail-closed 로 귀결된다.
+CHAIR_MAX_TURNS="${CHAIR_MAX_TURNS:-8}"
 
 chair_label() { case "$1" in
   *fable-5*)  echo "Claude Fable 5" ;;
@@ -123,6 +133,7 @@ run_chair() {  # $1=model → "$OUT" 에 기록(scrub 통과). claude 실패해�
   # argv(-p) 는 고정 지시문만(작고 상한 없음) — diff+패널(가변, 큼)은 stdin.
   ANTHROPIC_MODEL="$1" timeout "$CHAIR_TIMEOUT" \
     claude -p "$(cat "$WORK/synth-prompt.txt")" --output-format text \
+    --max-turns "$CHAIR_MAX_TURNS" \
     < "$WORK/synth-stdin.txt" 2>"$WORK/chair.err" | scrub_secrets > "$OUT" || true
 }
 

@@ -36,6 +36,9 @@ jobs:
     #   ② 패널 fan-out — 모든 셀이 `&` 병렬 + `wait` 이므로 PANEL_TIMEOUT(300s) ×
     #      PANEL_RETRIES(3) = 최대 900s(15분), 셀 수와 무관.
     #   ③ 의장 — CHAIR_TIMEOUT(600s) × 2(primary + fallback) = 최대 1200s(20분).
+    #      의장은 툴을 쓰는 에이전트라 CHAIR_MAX_TURNS(8) 로 턴도 함께 묶는다 — 벽시계
+    #      캡만 있으면 종합 대신 리포 탐색 루프에 600s 를 다 쓰고 빈 결과를 낼 수 있고,
+    #      실제로 그렇게 됐다(PR#34: 16/16 셀 응답, 양쪽 의장 모두 캡 소진).
     # 합 ≈ 41분 + 무상한 준비 단계 → 45분으로는 정상 실행이 절단될 수 있어 60분으로 잡는다
     # (fail-closed 절단은 retries/fallback 이 흡수하려는 degraded 상황과 정면충돌한다).
     timeout-minutes: 60
