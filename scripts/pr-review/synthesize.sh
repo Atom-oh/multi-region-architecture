@@ -122,6 +122,15 @@ CHAIR_TIMEOUT="${CHAIR_TIMEOUT:-600}"
 # 무한 탐색을 막는다. 캡에 걸리면 부분 출력에 VERDICT 라인이 없어 chair_degraded 가
 # 잡고 fallback → 그래도 없으면 fail-closed 로 귀결된다.
 CHAIR_MAX_TURNS="${CHAIR_MAX_TURNS:-8}"
+# fallback 은 primary 가 캡을 소진해서 불려오는 경우가 가장 흔하다 — 같은 캡을 주면 같은
+# 벽에 부딪히고 양쪽 다 빈 결과를 낸다(PR#34 에서 실제로 그랬다). 조금 더 준다.
+CHAIR_FALLBACK_MAX_TURNS="${CHAIR_FALLBACK_MAX_TURNS:-12}"
+# 의장의 stdin 은 PR 작성자가 통제하는 텍스트이고(diff + 패널 출력), 이 잡은
+# `pull_request_target` 컨텍스트다. 턴 캡은 루프를 묶지만 **무엇을 할 수 있는지**는
+# 묶지 않는다 — 의장이 필요한 건 리포 컨벤션 확인용 read/grep/glob 뿐이므로 거기로
+# 고정한다. Bash·Write·Edit·WebFetch 가 없으면 diff 안의 지시문이 성공해도 할 수 있는
+# 것이 리포 읽기로 끝난다(ADR-002 의 fs-read 잔여 위험과 같은 경계).
+CHAIR_ALLOWED_TOOLS="${CHAIR_ALLOWED_TOOLS:-Read,Grep,Glob}"
 
 chair_label() { case "$1" in
   *fable-5*)  echo "Claude Fable 5" ;;
@@ -129,11 +138,11 @@ chair_label() { case "$1" in
   *)          echo "$1" ;;
 esac ; }
 
-run_chair() {  # $1=model → "$OUT" 에 기록(scrub 통과). claude 실패해도 || true 로 계속.
+run_chair() {  # $1=model $2=max-turns → "$OUT" 에 기록(scrub 통과). 실패해도 || true 로 계속.
   # argv(-p) 는 고정 지시문만(작고 상한 없음) — diff+패널(가변, 큼)은 stdin.
   ANTHROPIC_MODEL="$1" timeout "$CHAIR_TIMEOUT" \
     claude -p "$(cat "$WORK/synth-prompt.txt")" --output-format text \
-    --max-turns "$CHAIR_MAX_TURNS" \
+    --max-turns "$2" --allowedTools "$CHAIR_ALLOWED_TOOLS" \
     < "$WORK/synth-stdin.txt" 2>"$WORK/chair.err" | scrub_secrets > "$OUT" || true
 }
 
@@ -142,13 +151,13 @@ run_chair() {  # $1=model → "$OUT" 에 기록(scrub 통과). claude 실패해�
 # 리뷰 본문이 'connection refused' 등을 언급할 때 오탐이라 쓰지 않는다.)
 chair_degraded() { [ ! -s "$OUT" ] || ! grep -q '^VERDICT:' "$OUT"; }
 
-run_chair "$PRIMARY_MODEL"
+run_chair "$PRIMARY_MODEL" "$CHAIR_MAX_TURNS"
 CHAIR_USED="$PRIMARY_MODEL"
 # PRIMARY/FALLBACK 이 같은 모델로 resolve 되면(둘 다 env 로 같은 값이 주입된 경우) 재시도는
 # 동일 호출의 반복일 뿐이라 의미가 없다 — 건너뛴다.
 if chair_degraded && [ "$FALLBACK_MODEL" != "$PRIMARY_MODEL" ]; then
-  echo "::warning::chair '$(chair_label "$PRIMARY_MODEL")' degraded (connection/timeout/empty, ${CHAIR_TIMEOUT}s cap) — falling back to '$(chair_label "$FALLBACK_MODEL")'"
-  run_chair "$FALLBACK_MODEL"
+  echo "::warning::chair '$(chair_label "$PRIMARY_MODEL")' degraded (connection/timeout/empty, ${CHAIR_TIMEOUT}s wall clock / ${CHAIR_MAX_TURNS} turns) — falling back to '$(chair_label "$FALLBACK_MODEL")' with ${CHAIR_FALLBACK_MAX_TURNS} turns"
+  run_chair "$FALLBACK_MODEL" "$CHAIR_FALLBACK_MAX_TURNS"
   CHAIR_USED="$FALLBACK_MODEL"
 fi
 
