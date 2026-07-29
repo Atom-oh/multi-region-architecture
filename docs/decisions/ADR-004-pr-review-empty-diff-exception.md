@@ -251,30 +251,36 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
   생성된다), "Run panel + synthesize"(전제조건 검사 + auto-PASS)
 - `scripts/pr-review/run-panel.sh` — 빈 diff fail-close 지점(`-s` 기준의 근거)
 - `scripts/pr-review/synthesize.sh` — 의장 실행. `CHAIR_MAX_TURNS`(기본 8,
-  fallback 12)와 `CHAIR_ALLOWED_TOOLS`(**기본 빈 값 = 플래그 미전달**)가 여기 있다. 턴 캡의 근거는
+  fallback 12)와 `CHAIR_ALLOWED_TOOLS`(`Read,Grep,Glob`)가 여기 있다. 턴 캡의 근거는
   PR #34 에서 관측된 실패다: 16/16 셀이 응답했는데도 primary·fallback 둘 다 600s 벽시계
   캡을 종합이 아닌 리포 탐색 루프에 다 쓰고 빈 결과를 냈다. 로컬 재현에서 같은 입력이
   `--max-turns 8` 로 2분 23초에 VERDICT 까지 정상 완료했다. fallback 에 더 큰 예산을 주는
   이유: fallback 은 primary 가 캡을 소진해서 불려오는 경우가 가장 흔하고, 같은 캡이면
   같은 벽에 부딪힌다.
 
-  `--allowedTools` 는 **의도적으로 기본 비활성**이다. 의장의 stdin 은 PR 작성자가 통제하는
-  텍스트이고 이 잡은 `pull_request_target` 컨텍스트라 툴을 read/grep/glob 로 좁히는 게
-  옳은 방향이지만, 러너에서 회귀했다: 같은 PR 에서 `--max-turns 8` 만 준 실행(`2cab1c6`)은
-  531s 에 10242 바이트로 정상 종합했는데, 거기에 `--allowedTools Read,Grep,Glob` 만 더한
-  실행(`b213da3`)은 primary·fallback 둘 다 600s 를 다 쓰고 16 바이트(`Execution error`)를
-  냈다. 로컬 `claude` 2.1.220 은 같은 플래그를 정상 처리하므로 러너 이미지의 CLI 판본
-  차이로 본다(비대화형 `-p` 에서 권한 요청이 매달리는 형태). 기본을 비우면 이 PR 이전과
-  동작이 같으므로 새 위험을 들이는 게 아니라 개선을 유보하는 것이고, 잔여 위험은
-  ADR-002 와 동일하게 `lib.sh::scrub_secrets` 가 마지막 방어선으로 받는다. 러너 이미지의
-  `claude --version` 을 확인한 뒤 `CHAIR_ALLOWED_TOOLS` 를 세팅해 되살린다.
+  `--allowedTools` 를 read/grep/glob 로 고정하는 이유: 의장의 stdin 은 PR 작성자가 통제하는
+  텍스트이고 이 잡은 `pull_request_target` 컨텍스트다 — 턴 캡은 루프를 묶지만 무엇을 할
+  수 있는지는 묶지 않는다. 빈 문자열을 넣으면 플래그 자체를 넘기지 않는다(러너 CLI 판본이
+  이 플래그를 못 받는 것으로 확인될 때의 탈출구).
 
-  같은 실패가 진단 불가였던 것 자체도 고쳤다: 의장의 stderr 는 `chair.err` 에만 있고
-  워크플로 로그에는 없었으며(원인 추적을 실행 이력 대조로 해야 했다), "둘 다 실패"
-  메시지가 `[ ! -s "$OUT" ]` 즉 **빈 파일**만 봤기 때문에 `Execution error` 16 바이트는
-  그 분기를 지나쳐 **PR 코멘트 본문 전체**로 게시됐다. 이제 저하 시 stderr 를
-  `::group::` 으로 스크럽해 남기고, 본문 판정 기준을 `chair_degraded` 로 맞춰 원인과
-  의장의 원 출력 앞 500B 를 코멘트에 쓴다.
+  **여기서 얻은 교훈 하나를 남긴다(경계 조건 8번의 확장):** 이 브랜치의 의장 관련 실패를
+  진단하면서 "브랜치의 어느 커밋이 회귀를 넣었는가"를 실행 이력의 커밋 SHA 로 대조했고,
+  그 추론 전체가 무효였다. `pull_request_target` 은 **base-ref 의 워크플로와 그것이
+  호출하는 base-ref 의 스크립트**를 실행하므로, 브랜치가 `synthesize.sh` 에 무엇을 해도
+  그 PR 의 CI 실행에는 들어가지 않는다. 실행 로그의 경고 문자열이 그 증거였다 —
+  `600s cap` 은 `main` 의 문자열이고 브랜치는 `600s wall clock / 8 turns` 다. 즉 이
+  브랜치가 관측한 의장 실패는 **캡이 없는 `main` 의 의장**이 낸 것이고, 실행마다
+  10242 바이트와 16 바이트 사이를 오간 것은 그 무캡 의장의 편차다. 이 브랜치가 넣은
+  `--max-turns`/`--allowedTools` 의 효과는 **머지 이후에만** 관측 가능하다. 이 종류의
+  로직을 진단할 때는 커밋 SHA 가 아니라 로그에 찍힌 문자열이 어느 ref 의 것인지로
+  판별할 것.
+
+  진단 자체가 불가능했던 두 공백은 고쳤다: 의장의 stderr 는 `chair.err` 에만 있고
+  워크플로 로그에는 없었으며, "둘 다 실패" 메시지가 `[ ! -s "$OUT" ]` 즉 **빈 파일**만
+  봤기 때문에 `Execution error` 16 바이트는 그 분기를 지나쳐 **PR 코멘트 본문 전체**로
+  게시됐다(게이트는 VERDICT 부재로 옳게 막았지만 읽는 사람에게는 정보가 0이었다).
+  이제 저하 시 stderr 를 `::group::` 으로 스크럽해 남기고, 본문 판정 기준을
+  `chair_degraded` 로 맞춰 원인·캡·의장 원 출력 앞 500B 를 코멘트에 쓴다.
 - `docs/decisions/ADR-002-pr-review-kiro-fs-read-risk.md` — 같은 워크플로의 앞선 보안
   트레이드오프 결정(선례). PR head blob 을 가져오지 않는 원칙의 출처. 이 ADR 과의 경계:
   ADR-002 가 금지하는 것은 **PR head 의 blob** 을 읽는 것이다(신뢰되지 않은 코드가 실행·
