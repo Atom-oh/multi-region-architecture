@@ -47,15 +47,26 @@ data "terraform_remote_state" "shared" {
 module "mgmt_trust" {
   source = "../../../../modules/security/mgmt-cluster-trust"
 
-  shared_vpc_id        = data.terraform_remote_state.shared.outputs.vpc_id
-  mgmt_cluster_name    = var.mgmt_cluster_name
-  expected_mgmt_vpc_id = var.expected_mgmt_vpc_id
-  expected_mgmt_tags   = var.expected_mgmt_tags
+  shared_vpc_id = data.terraform_remote_state.shared.outputs.vpc_id
 
-  # Not a per-spoke variable: break-glass has to be the same in both AZs or the
-  # two clusters behind one weighted NLB end up with different ArgoCD
-  # reachability — one syncs, one does not, and a schema migration lands on half
-  # the fleet. Sourcing it from shared/ means one apply there sets both spokes.
+  # All four trust inputs come from shared/, none are per-spoke variables. Each
+  # of them decides who may reach this API server, and each is releasable with a
+  # TF_VAR_*; as spoke variables they could be released on one AZ and forgotten
+  # on the other, leaving the two clusters behind one weighted NLB with different
+  # ArgoCD reachability. try() with the pre-single-sourcing defaults keeps this
+  # plannable against a shared/ state that predates those outputs.
+  mgmt_cluster_name = try(
+    data.terraform_remote_state.shared.outputs.mgmt_cluster_name,
+    "mall-apne2-mgmt"
+  )
+  expected_mgmt_vpc_id = try(
+    data.terraform_remote_state.shared.outputs.expected_mgmt_vpc_id,
+    ""
+  )
+  expected_mgmt_tags = try(
+    data.terraform_remote_state.shared.outputs.expected_mgmt_tags,
+    { ManagedBy = "terraform", Project = "multi-region-mall" }
+  )
   mgmt_cluster_security_group_id = try(
     data.terraform_remote_state.shared.outputs.mgmt_cluster_security_group_id_override,
     null

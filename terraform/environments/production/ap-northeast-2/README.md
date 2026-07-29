@@ -52,12 +52,26 @@ shorter list is a bypassable list. `shared/main.tf` only passes the key list
 That is one principal, not a boundary. A human with admin credentials, or any
 other role, is still free to write the object — the lock-row Deny does not
 follow them either — and nothing here restricts the mgmt resources themselves.
-One such role is concrete and lives next door: the `ci_runner` role that
-`AWS-Demo-Platform` now owns has `AmazonS3FullAccess` attached and is bound by
-pod identity to ten runner service accounts, so any CI workload on the mgmt
-cluster can read and write this whole state bucket. Closing that needs a bucket
-policy here plus a narrower grant there; both are follow-up work, not part of
-this handoff.
+One such role was concrete and lives next door: the `ci_runner` role that
+`AWS-Demo-Platform` now owns has `AmazonS3FullAccess` (and `ReadOnlyAccess`)
+attached and is bound by pod identity to ten runner service accounts — so any CI
+workload on the mgmt cluster could read and write this whole state bucket,
+including the `shared/` state that carries Aurora and DocumentDB master passwords
+in plaintext. Runner pods execute PR code, so that was not a theoretical path.
+
+That one is closed here, with a **bucket policy**:
+`terraform/global/terraform-state`, `state_custody_denials`. A resource-policy
+Deny beats any Allow in any identity policy, so attaching a managed FullAccess
+policy no longer grants it — which is the whole difference between this and a
+README warning. The bucket had no policy at all before (`NoSuchBucketPolicy`).
+Scope is this repo's state keys plus `global/*`, and it denies non-TLS access;
+`ci_runner`'s own layer key is deliberately not denied, because that repo owns and
+applies it. Principals are named directly rather than via `NotPrincipal`, which
+fails open when an assumed-role session ARN does not match the role ARN.
+
+Still outside this: a human with admin credentials, and the managed policy on
+`ci_runner` itself — shrinking that is a change in the other repo, tracked as
+follow-up in the ADR.
 Rationale and the full contract:
 `docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md`.
 
@@ -108,9 +122,8 @@ cluster's EKS-managed SG as an ingress source so mgmt's ArgoCD can reach their
 API servers, and they read it with a live `data "aws_eks_cluster" "mgmt"`
 lookup rather than a cross-repo `terraform_remote_state`. The grant is in
 `shared/main.tf` (`describable_cluster_names`), scoped to that one cluster ARN
-in `ap-northeast-2`. Note the coupling: `mgmt_cluster_name` in a spoke and
-`describable_cluster_names` in `shared/` name the same cluster from two layers.
-Renaming mgmt is therefore two-phase — add the new name to
+in `ap-northeast-2`. Both `mgmt_cluster_name` and `describable_cluster_names` live in `shared/`, so a
+rename touches one file — but it is still two-phase: add the new name to
 `describable_cluster_names` and apply `shared/` **first**, or the spokes hit
 `AccessDenied` on the lookup before any guard can report anything useful.
 
@@ -134,6 +147,26 @@ both spokes. It is a module rather than two copies because guard drift between
 the AZs would otherwise be invisible in review — the wrong failure mode for the
 code deciding who may reach an API server.
 
+**All four trust inputs live in `shared/`**, not in the spokes:
+`mgmt_cluster_name`, `expected_mgmt_vpc_id`, `expected_mgmt_tags`, and the
+break-glass override. Each of them decides who may reach a workload API server
+and each is releasable from the environment with a `TF_VAR_*`; as per-spoke
+variables they shared one failure mode — release the guard on az-a, forget az-c,
+and the two clusters behind one weighted NLB over one Aurora/DocumentDB primary
+end up with different ArgoCD reachability, so a schema migration reaches half the
+fleet.
+
+What that buys is exactly one thing: the two spokes cannot be asked to trust
+*different* values. It does **not** make them converge — each still needs its own
+apply, so a one-sided window exists between the two. `scripts/check-mgmt-guards.sh`
+is what closes it: it fails if either spoke has a released guard, if the two
+spokes' `mgmt_guards_released` differ (= only one was applied), and it runs
+`argocd cluster list` for actual reachability. That script is also the answer to
+"`check` only warns" — a `check` block by definition cannot fail a plan, and this
+turns that warning into an exit code. It is run by hand: there is no terraform CI
+apply path in this repo, and standing scheduled automation against production is
+not something a review finding gets to introduce.
+
 That last one releases the first three at once and needs no code change. So it
 is `validation`-checked for the `sg-` format (a typo would otherwise only surface
 at apply), and `check "mgmt_guards_engaged"` prints `GUARDS RELEASED` naming
@@ -141,22 +174,30 @@ every released guard on every plan. The check covers **all four** trust inputs,
 not just the override: `expected_mgmt_tags`, `expected_mgmt_vpc_id`, and
 `mgmt_cluster_name` widen the same boundary and would otherwise produce a plan
 indistinguishable from a guarded one. `mgmt_cluster_name` is in there because it
-is a trust input, not just a label — the override asserts the SG carries
-`aws:eks:cluster-name` equal to it, so override + name together would authorize
-some other cluster's SG. `output "mgmt_guards_released"` carries the same list
+is a trust input, not just a label — the override asserts the SG carries this
+cluster's ownership tag, so override + name together would authorize some other
+cluster's SG. `output "mgmt_guards_released"` carries the same list
 into state. It says what is released *right now* — the next normal apply
 overwrites it with an empty list, so reconstructing a past break-glass needs
 state bucket versioning or CloudTrail.
 
 Releasing the lookup does not mean the value goes unchecked: any non-empty
 override is read back with `data "aws_security_group"` and asserted to be in
-`expected_mgmt_vpc_id` (the same relocation switch the lookup path honours) and
-to carry `aws:eks:cluster-name` equal to `mgmt_cluster_name`. The tag matters more than the
-VPC: shared-VPC membership alone would still let the override name any ALB, NLB,
-app, or data-layer SG in the region as an ingress source on the workload API
-servers. EKS attaches that tag to the SG it manages for a cluster, so the assert
-costs break-glass nothing — and an SG read answers whether or not the cluster
-itself is still alive, which is the point of the override.
+`expected_mgmt_vpc_id` (the same relocation switch the lookup path honours) and to
+carry `kubernetes.io/cluster/<mgmt_cluster_name> = owned`. The tag matters more
+than the VPC: shared-VPC membership alone would still let the override name any
+ALB, NLB, app, or data-layer SG in the region as an ingress source on the workload
+API servers. EKS attaches that tag to the SG it manages for a cluster, so the
+assert costs break-glass nothing — and an SG read answers whether or not the
+cluster itself is still alive, which is the point of the override.
+
+Not `aws:eks:cluster-name`, which EKS also attaches and which reads better: the
+AWS provider strips `aws:`-prefixed system tags out of every data source's `tags`
+map, so that key is always absent and the assert would fail for *every* SG — i.e.
+the guard would only ever fire during the incident it exists to survive. Measured
+against the live mgmt cluster SG on provider 6.52.0: `DescribeSecurityGroups`
+returns four tags including `aws:eks:cluster-name`, Terraform surfaces three and
+drops exactly that one.
 
 ## Runbooks
 
@@ -166,41 +207,64 @@ GitOps sync breaks, and only at the next sync, so this fails quietly:
 1. `AWS-Demo-Platform` applies `infra/eks-mgmt`.
 2. Here: `terraform apply` in **both** `eks-az-a/` and `eks-az-c/`.
 3. On mgmt: `argocd cluster list` shows both spokes `Successful`.
+4. `bash scripts/check-mgmt-guards.sh` — confirms both spokes converged (their
+   `mgmt_guards_released` match) and no guard is left released.
 
 **mgmt is down / moved / `eks:DescribeCluster` fails and you must apply a spoke.**
 The live lookup makes mgmt a plan-time dependency, so set
-`mgmt_cluster_security_group_id` — any non-null value drops the data source's
-`count` to 0, removing both the API read and its postconditions:
+`mgmt_cluster_security_group_id_override` in **`shared/`** — any non-null value
+drops the spoke data source's `count` to 0, removing both the API read and its
+postconditions. There is no such variable on a spoke root: passing
+`-var mgmt_cluster_security_group_id=...` to `eks-az-a` errors out immediately.
+`shared/` is the single source and both spokes read it from that layer's state,
+because overriding one AZ and forgetting the other leaves the two clusters behind
+the same weighted NLB, over the same Aurora/DocumentDB primary, with different
+ArgoCD reachability — one syncs, one does not, and a schema migration reaches half
+the fleet.
 
-The value is set **once, in `shared/`** — `mgmt_cluster_security_group_id_override`
-— and both spokes read it from that layer's state. It is not a per-spoke variable
-on purpose: overriding one AZ and forgetting the other leaves the two clusters
-behind the same weighted NLB, over the same Aurora/DocumentDB primary, with
-different ArgoCD reachability. One syncs, one does not, and a schema migration
-reaches half the fleet. Sequence:
+Three applies, and the value goes in `terraform.tfvars` rather than on the command
+line: passed with `-var`, the next unrelated `shared/` apply silently reverts it to
+`null` and erases the `released_guards` trace with it — and `shared/` is the
+foundation layer, so that apply is a routine one.
 
 ```bash
-# 1. shared/ — set it once for both spokes
+# 1. shared/ — commit the value, then apply
 cd shared
-# keep the ArgoCD ingress rule, using the SG ID you already know
-terraform apply -var 'mgmt_cluster_security_group_id_override=sg-0123456789abcdef0'
-# ...or drop the rule entirely — the EKS module skips it on ""
-terraform apply -var 'mgmt_cluster_security_group_id_override='
+# keep the ArgoCD ingress rule, using the SG ID you already know:
+#   mgmt_cluster_security_group_id_override = "sg-0123456789abcdef0"
+# ...or drop the rule entirely — the EKS module skips it on "":
+#   mgmt_cluster_security_group_id_override = ""
+$EDITOR terraform.tfvars
+terraform plan    # expect ONE output change and nothing else — this layer holds
+                  # Aurora/DocumentDB/MSK, so read the plan before applying
+terraform apply
 
 # 2. both spokes pick it up (order does not matter, but do both)
 (cd ../eks-az-a && terraform apply)
 (cd ../eks-az-c && terraform apply)
+
+# 3. verify both actually moved
+bash ../../../../../scripts/check-mgmt-guards.sh
 ```
 
-A non-empty value is still checked: it must be an SG in `expected_mgmt_vpc_id`
-carrying `aws:eks:cluster-name` equal to `mgmt_cluster_name`. If mgmt was
-rebuilt in a different VPC, set `expected_mgmt_vpc_id` on both spokes too — and
-note that "reachable by SG reference" means a peering or shared-VPC relationship;
-a TGW-only path cannot use an SG from the other side as an ingress source at all,
-so there the only option is `""` plus a different GitOps route.
+That the break-glass value sits in the foundation layer is a real cost — an
+ArgoCD ingress rule should not need a plan that includes the data stores. It is
+still the lesser failure: a per-spoke variable makes "released on one AZ only"
+reachable, and that one is silent. Mitigation is procedural — read the plan and
+confirm the only change is the output.
 
-Unset it once mgmt is back. Only GitOps reachability is affected — the
-CloudFront → NLB → api-gateway traffic path does not use this SG.
+A non-empty value is still checked: it must be an SG in `expected_mgmt_vpc_id`
+carrying `kubernetes.io/cluster/<mgmt_cluster_name> = owned`. If mgmt was rebuilt
+in a different VPC, set `expected_mgmt_vpc_id` in `shared/` too (one place — both
+spokes read it). Note also that SG-reference ingress needs peering or a shared
+VPC; over Transit Gateway it works only where TGW security group referencing is
+enabled and supported for that attachment pair, so on a plain TGW path the option
+is `""` plus a different GitOps route.
+
+Unset it once mgmt is back, apply all three again, and re-run
+`scripts/check-mgmt-guards.sh` — the guards should report clean. Only GitOps
+reachability is affected throughout; the CloudFront → NLB → api-gateway traffic
+path does not use this SG.
 
 **mgmt cluster was renamed.** Two layers, in this order — the spoke lookup needs
 the IAM grant for the new name before it can read it:
@@ -208,17 +272,21 @@ the IAM grant for the new name before it can read it:
 1. `shared/`: add the new name to `describable_cluster_names` (keep the old one
    for now) and apply. The grant is an ARN-scoped `eks:DescribeCluster`, so
    without this step every spoke plan fails with an access error.
-2. `eks-az-a/` and `eks-az-c/`: set `mgmt_cluster_name` to the new name and
-   apply both.
+2. `shared/`: set `mgmt_cluster_name` to the new name and apply, then apply both
+   `eks-az-a/` and `eks-az-c/` so they pick it up.
 3. `shared/`: drop the old name from `describable_cluster_names` and apply.
 
 **Detecting a stale mgmt SG.** Nothing here notices on its own — recreation is
 silent until a sync fails, and during an incident that sync is the rollback
 channel. A `terraform plan -detailed-exitcode` in either spoke surfaces it (the
 SG is resolved live, so a replaced cluster shows as a diff on the API-server
-ingress rule), but nothing runs that on a schedule yet. Until an ArgoCD
-hub-side spoke-connection alert or a scheduled drift plan exists, detection
-depends on someone looking — that gap is tracked as follow-up, not closed here.
+ingress rule), but nothing runs that on a schedule. `bash scripts/check-mgmt-guards.sh`
+packages the check into one command — guard state on both spokes, whether the two
+converged, and `argocd cluster list` for real reachability — so it is the thing to
+run after any mgmt change and after any break-glass. Continuous detection (an
+ArgoCD hub-side spoke-connection alert or a scheduled drift plan) is still open
+and tracked as follow-up in the ADR; standing production automation is a separate
+decision, not something this handoff introduces.
 
 ## Remote State Dependencies
 

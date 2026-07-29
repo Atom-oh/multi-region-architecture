@@ -1,13 +1,3 @@
-terraform {
-  required_version = ">= 1.9"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 6.0"
-    }
-  }
-}
-
 variable "shared_vpc_id" {
   description = "VPC of the calling layer's region. The default expected home of the mgmt cluster."
   type        = string

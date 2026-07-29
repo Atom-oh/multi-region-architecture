@@ -90,11 +90,21 @@ data "aws_security_group" "mgmt_override" {
       # VPC membership alone is not much of a guard: every ALB/NLB/app/data-layer
       # SG in the region shares that VPC, so without this the override could name
       # any of them as an ingress source on the workload API servers. EKS stamps
-      # this tag on the SG it manages for a cluster, so asserting it narrows the
-      # override to "a security group of the mgmt cluster" at no cost to
-      # break-glass.
-      condition     = try(self.tags["aws:eks:cluster-name"], "") == var.mgmt_cluster_name
-      error_message = "mgmt_cluster_security_group_id=${var.mgmt_cluster_security_group_id} does not carry aws:eks:cluster-name=${var.mgmt_cluster_name} — it is some other SG in the VPC, not ${var.mgmt_cluster_name}'s. Use \"\" to drop the ArgoCD ingress rule instead of naming an unrelated SG."
+      # ownership tags on the SG it manages for a cluster, so asserting one
+      # narrows the override to "a security group of the mgmt cluster" at no cost
+      # to break-glass.
+      #
+      # kubernetes.io/cluster/<name>, NOT aws:eks:cluster-name — which EKS also
+      # stamps and which reads better, but which is unusable here: the AWS
+      # provider strips `aws:`-prefixed system tags out of every data source's
+      # `tags` map, so `self.tags["aws:eks:cluster-name"]` is always absent and
+      # this assert would have failed for *every* SG. Measured against the live
+      # mgmt cluster SG on provider 6.52.0: DescribeSecurityGroups returns four
+      # tags including aws:eks:cluster-name, Terraform surfaces three and drops
+      # exactly that one. So the guard would have fired only in the incident it
+      # exists to survive.
+      condition     = try(self.tags["kubernetes.io/cluster/${var.mgmt_cluster_name}"], "") == "owned"
+      error_message = "mgmt_cluster_security_group_id=${var.mgmt_cluster_security_group_id} does not carry kubernetes.io/cluster/${var.mgmt_cluster_name}=owned — it is some other SG in the VPC, not a security group EKS manages for ${var.mgmt_cluster_name}. Use \"\" to drop the ArgoCD ingress rule instead of naming an unrelated SG."
     }
   }
 }

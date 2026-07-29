@@ -119,7 +119,17 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
           "s3:DeleteObject",
           "s3:DeleteObjectVersion"
         ]
-        Resource = [for key in var.externally_owned_state_keys : "arn:aws:s3:::${var.terraform_state_bucket}/${key}"]
+        # The key *and* everything under its prefix. TF 1.10+ `use_lockfile` puts
+        # the lock in a sibling `<key>.tflock` object and workspaces live under
+        # `env:/<name>/<key>` — an exact-key-only Deny leaves both writable, which
+        # is the same corruption this statement exists to prevent.
+        Resource = flatten([
+          for key in var.externally_owned_state_keys : [
+            "arn:aws:s3:::${var.terraform_state_bucket}/${key}",
+            "arn:aws:s3:::${var.terraform_state_bucket}/${key}*",
+            "arn:aws:s3:::${var.terraform_state_bucket}/${dirname(key)}/*",
+          ]
+        ])
       }],
       # Its own concat element rather than a second object in the list above: this
       # statement carries a Condition and the one above does not, and a tuple of

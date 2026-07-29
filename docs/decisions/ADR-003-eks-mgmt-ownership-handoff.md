@@ -64,10 +64,17 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
      assert한다. 비교 대상은 shared VPC가 아니라 `local.expected_mgmt_vpc_id`다 —
      lookup 경로가 이미 relocation을 허용하는데 override 경로만 shared VPC를 강제하면
      "mgmt가 peered VPC로 정당하게 이사한 뒤 장애"라는, 정확히 break-glass가 필요한
-     상황에서 알려진 SG를 쓸 수 없게 된다. 여기에 `aws:eks:cluster-name` 태그 assert를
-     더한다. VPC 소속만으로는 통제가 약하다 — 같은 VPC에 ALB/NLB/앱/데이터 계층 SG가
-     전부 있으므로 그중 아무 SG나 workload API server ingress source가 될 수 있다.
-     EKS가 클러스터 관리 SG에 자동으로 붙이는 태그라 break-glass 비용은 없다.
+     상황에서 알려진 SG를 쓸 수 없게 된다. 여기에 `kubernetes.io/cluster/<name>=owned`
+     태그 assert를 더한다. VPC 소속만으로는 통제가 약하다 — 같은 VPC에 ALB/NLB/앱/데이터
+     계층 SG가 전부 있으므로 그중 아무 SG나 workload API server ingress source가 될 수
+     있다. EKS가 클러스터 관리 SG에 자동으로 붙이는 태그라 break-glass 비용은 없다.
+     `aws:eks:cluster-name`이 아니다 — EKS가 같이 붙이고 읽기도 더 좋지만 여기서는
+     쓸 수 없다: AWS provider가 data source의 `tags` 맵에서 `aws:` prefix 시스템 태그를
+     걸러내므로 `self.tags["aws:eks:cluster-name"]`은 항상 부재이고, 그러면 이 assert가
+     **모든** SG에 대해 실패한다 — 즉 가드가 존재 이유인 인시던트에서만 발동한다.
+     provider 6.52.0으로 live mgmt 클러스터 SG를 실측: DescribeSecurityGroups는
+     `aws:eks:cluster-name` 포함 4개를 반환하는데 Terraform은 3개만 노출하고 정확히
+     그 하나를 버린다.
      SG 조회는 mgmt 클러스터가 죽어도 응답하므로 override의 목적도 해치지 않는다. 이것이 break-glass의 실제 경로다 — data 블록을 무조건
      선언해두면 인시던트 중 `.tf`를 편집하는 것 외에 방법이 없다.
      앞의 세 가드를 한 번에 무력화하는 값이고 `TF_VAR_*` 환경변수만으로도 설정되므로,
@@ -95,11 +102,28 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    보이지 않는다 — API server에 누가 닿을 수 있는지를 정하는 코드에는 맞지 않는 실패
    양식이다.
 
-   break-glass 값은 spoke 변수가 아니라 `shared/`의
-   `mgmt_cluster_security_group_id_override` 하나다. spoke별 변수면 한쪽만 override하고
-   다른 쪽을 잊는 것이 가능한데, 두 클러스터는 같은 weighted NLB 뒤에서 같은
+   trust 입력 **네 개 전부**(`mgmt_cluster_name`, `expected_mgmt_vpc_id`,
+   `expected_mgmt_tags`, break-glass override)가 spoke 변수가 아니라 `shared/`의
+   변수이고, spoke는 그것을 remote state output으로 읽는다. spoke별 변수면 한쪽만
+   해제하고 다른 쪽을 잊는 것이 가능한데, 두 클러스터는 같은 weighted NLB 뒤에서 같은
    Aurora/DocumentDB primary를 공유하므로 ArgoCD 도달성이 갈리면 스키마 마이그레이션이
-   fleet의 절반에만 도달한다. "양쪽에 같은 값을 넣으라"는 문서 문장은 통제가 아니다.
+   fleet의 절반에만 도달한다. "양쪽에 같은 값을 넣으라"는 문서 문장은 통제가 아니다 —
+   override만 올리고 나머지 셋을 spoke에 두는 것도 같은 이유로 부족하다.
+
+   단 single-sourcing이 보장하는 것은 **값의 단일화**뿐이다: 두 spoke가 서로 다른 것을
+   신뢰하도록 요구받는 경로가 없어진다. 실제 수렴은 보장하지 않는다 — 각 spoke가 자기
+   apply를 해야 새 값을 집어가므로 한쪽만 apply된 창이 존재하고, 그 창은
+   `scripts/check-mgmt-guards.sh`가 두 spoke의 `mgmt_guards_released`를 비교해서만
+   잡힌다. break-glass 값은 `-var`가 아니라 `shared/terraform.tfvars`에 커밋한다:
+   명령줄로 넘기면 이 레이어의 다음 무관한 apply가 조용히 `null`로 되돌리고
+   `released_guards` 흔적까지 지운다.
+
+   `check`는 정의상 plan을 실패시키지 않으므로 가드 해제는 경고로만 남는다. 그 경고를
+   종료 코드로 바꾸는 것이 `scripts/check-mgmt-guards.sh`다 — 두 spoke의
+   `mgmt_guards_released`가 비어 있는지, 그리고 서로 같은지(=양쪽 apply 완료)를 확인하고
+   `argocd cluster list`로 실제 도달성까지 본다. 수동 실행이다: 이 저장소에 terraform
+   apply를 하는 CI 경로 자체가 없고(모든 apply가 사람 손), 리뷰 지적 하나로 프로덕션에
+   무기한 도는 스케줄 자동화를 새로 들이지 않는다.
 
 5. **"여기서 apply하지 말 것"을 CI 경로에서는 IAM으로 승격한다.** `github-actions-role`에
    해당 state key에 대한 `s3:GetObject`/`s3:GetObjectVersion`/`s3:PutObject`/
@@ -121,28 +145,45 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    **그 role 하나에만** 걸린다. 사람이 admin 자격증명으로, 혹은 다른 role로 같은
    객체를 쓰는 것은 여전히 가능하고(그 principal에는 위 lock row Deny도 걸리지
    않는다), mgmt 리소스 자체의 변경도 막지 않는다. 구체적인 우회 경로가 바로 옆에
-   하나 있다: 이 PR이 삭제하고 외부 repo가 superset으로 계속 소유하는 `ci_runner`
-   role은 `AmazonS3FullAccess`가 attach된 채 runner SA 10개에 pod identity로 묶여
-   있어서, mgmt 클러스터의 CI 워크로드 pod는 이 state 버킷 전체를 read/write할 수
-   있다. 완전한 차단은 여기서 버킷 정책으로 승격 + 외부 repo에서 그 managed policy
-   축소가 함께 필요하고, 둘 다 이 이관의 범위가 아닌 후속 과제다.
+   하나 있었다: 이 PR이 삭제하고 외부 repo가 superset으로 계속 소유하는 `ci_runner`
+   role은 `AmazonS3FullAccess`(+`ReadOnlyAccess`)가 attach된 채 runner SA 10개에 pod
+   identity로 묶여 있어서, mgmt 클러스터의 CI 워크로드 pod가 이 state 버킷 전체를
+   read/write할 수 있었다 — shared state의 Aurora/DocumentDB master password 평문 포함.
+   runner pod는 PR 코드를 실행하므로 이건 이론적 경로가 아니다.
+
+   그래서 이 PR에서 **버킷 정책으로 승격한다**(`terraform/global/terraform-state`,
+   `state_custody_denials`). resource policy의 명시적 Deny는 어떤 identity policy의
+   Allow보다도 우선하므로, managed FullAccess를 달아도 더 이상 권한이 생기지 않는다 —
+   문서 경고와 이것의 차이가 정확히 그 지점이고, 그래서 이관과 같은 변경에 들어간다.
+   해당 버킷에는 정책이 없었다(`NoSuchBucketPolicy` 실측). 범위는 이 repo가 소유한 state
+   key들 + `global/*`이고, `ci_runner` 자기 레이어의 key는 뺀다 — 저쪽이 소유하고 apply
+   한다. TLS 강제 Deny도 같이 건다.
+
+   `NotPrincipal`은 쓰지 않는다: assumed-role 세션 ARN과 role ARN이 달라 예외 목록이
+   조용히 fail-open된다. principal을 직접 지정하면 실수는 fail-closed(그 role이 접근을
+   잃는다) 쪽으로 떨어진다. 남는 한계: 이건 계정 내 특정 role 대상이므로, admin
+   자격증명을 든 사람은 여전히 쓸 수 있다. 외부 repo에서 그 managed policy 자체를
+   축소하는 것은 저쪽 repo의 변경이라 여기 범위가 아니다.
 
 ### 이 ADR이 닫지 않는 것 (blocking follow-up)
 
 이관 자체와 분리해 추적한다. 둘 다 "문서 경고는 통제가 아니다"라는 이 ADR 자신의
 원칙에 걸리는 항목이므로, 후속으로 남긴다는 사실을 여기 명시한다.
 
-1. **state bucket policy 승격 + 외부 repo의 `AmazonS3FullAccess` 축소.** 새 Deny는
-   identity policy라 `github-actions-role`에만 걸린다. 외부 repo가 소유하는
-   `ci_runner` role은 그 managed policy를 달고 runner SA 10개에 pod identity로 묶여
-   있어, mgmt 클러스터의 CI pod가 이 state 버킷 전체를 read/write할 수 있다 — shared
-   state의 데이터 계층 자격증명 포함. 실질 차단은 버킷 정책(모든 principal 대상) +
-   저쪽 policy 축소가 함께 필요하다.
+1. **외부 repo의 `AmazonS3FullAccess` 축소.** 버킷 정책 승격은 이 PR에서 했으므로
+   (Decision 5) `ci_runner`가 이 repo의 state에 닿는 경로는 닫혔다. 남은 것은 그 role이
+   *애초에* 버킷 전체 권한을 들고 있을 이유가 없다는 것 — 그건
+   `AWS-Demo-Platform/infra/eks-mgmt`의 변경이라 이 repo에서 할 수 없다. 저쪽에
+   요청으로 추적한다(`iam:PassRole role/*`, `bedrock-agentcore:*`도 같은 대상).
 2. **stale mgmt SG 감지.** mgmt를 replace하면 ArgoCD → spoke 접근이 조용히 끊기고
    다음 sync 실패까지 드러나지 않는다. 인시던트 중에는 그 sync가 롤백 채널이다.
    spoke의 `terraform plan -detailed-exitcode`가 신호를 내지만(SG를 live로 조회하므로
    교체가 ingress 규칙 diff로 보인다) 정기 실행이 없다. ArgoCD hub의 spoke connection
-   알람 또는 예약된 drift plan 중 하나가 필요하고, 지금은 사람이 보는 것에 의존한다.
+   알람 또는 예약된 drift plan 중 하나가 필요하다. `scripts/check-mgmt-guards.sh`가
+   수동 실행으로 그 확인을 한 명령으로 만들었지만(가드 상태 + 두 spoke 수렴 +
+   `argocd cluster list` 도달성), 정기 실행은 아니라 여전히 사람이 돌려야 한다.
+   상시 감지는 이 repo에 프로덕션 대상 스케줄 자동화를 새로 들이는 일이라 별도 결정으로
+   분리한다.
 
 ## Consequences
 
@@ -159,16 +200,27 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 
 - **plan이 mgmt live 존재에 결합된다.** mgmt가 삭제·장애 상태거나
   `eks:DescribeCluster`가 실패하면, 트래픽을 받는 workload 클러스터의 모든 Terraform
-  작업이 막힌다. Break-glass는 `-var mgmt_cluster_security_group_id=...` 한 줄이다
-  (Decision 4). 빈 문자열을 주면 EKS 모듈이 해당 ingress 규칙을 아예 만들지 않는다
+  작업이 막힌다. Break-glass는 **3 apply**다: `shared/terraform.tfvars`에
+  `mgmt_cluster_security_group_id_override`를 커밋해 `shared/` apply → `eks-az-a` apply
+  → `eks-az-c` apply (Decision 4). spoke root에는 그 이름의 변수가 없으므로
+  `-var mgmt_cluster_security_group_id=...`를 spoke에 주면 즉시 에러다 — 값은 `shared/`가
+  단일 소스이고 spoke는 remote state로 읽는다. 빈 문자열을 주면 EKS 모듈이 해당 ingress
+  규칙을 아예 만들지 않는다
   (`count = var.argocd_security_group_id != "" ? 1 : 0`). 워크로드 트래픽 경로
   (CloudFront → NLB → api-gateway)는 이 SG와 무관하므로 영향받지 않는다 — 끊기는 것은
-  GitOps sync뿐이다. 실행 명령은 region README의 Runbooks가 정본이다.
+  GitOps sync뿐이다. 실행 명령은 region README의 Runbooks가 정본이고, 복구 후
+  `scripts/check-mgmt-guards.sh`로 가드 복구와 두 spoke 수렴을 확인한다.
 
-- **mgmt 이름 변경이 2단계 절차가 된다.** `var.mgmt_cluster_name`(spoke)과
-  `describable_cluster_names`(`shared/`)가 같은 클러스터를 두 레이어에서 지칭한다.
-  새 이름을 `shared/`에 먼저 추가해 apply하지 않으면, spoke는 postcondition에
-  도달하기 전에 `AccessDenied`로 죽는다.
+  주의: break-glass 값이 foundation 레이어(`shared/`)에 있으므로 그 apply가 Aurora·
+  DocumentDB·MSK를 포함한 레이어를 통과한다 — ArgoCD ingress 규칙 하나를 위한 blast
+  radius로는 불균형하다. 그럼에도 여기 두는 이유는 spoke별 변수의 실패 양식(한쪽만
+  해제)이 더 나쁘기 때문이고, 인시던트 중에는 `-target=module.mgmt_trust`가 아니라
+  `shared/`의 plan을 읽고 변경이 output 하나뿐임을 확인한 뒤 apply하는 것이 절차다.
+
+- **mgmt 이름 변경이 2단계 절차가 된다.** `mgmt_cluster_name`과
+  `describable_cluster_names`가 같은 클러스터를 지칭한다 — 둘 다 이제 `shared/`에
+  있으므로 한 파일이지만, 여전히 순서가 있다: 새 이름을 `shared/`에 추가해 apply하지
+  않으면 spoke는 postcondition에 도달하기 전에 `AccessDenied`로 죽는다.
 
 - **cold rebuild의 임계 경로에 외부 repo가 들어온다.** 정상 순서는
   `shared/` → mgmt(external) → `eks-az-{a,c}`다. mgmt는 shared state를 읽고

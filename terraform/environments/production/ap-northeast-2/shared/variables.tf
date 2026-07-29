@@ -102,6 +102,41 @@ variable "tags" {
   default     = {}
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# mgmt cluster trust inputs — all four live here, not in the spokes.
+#
+# Every one of them decides who may reach the workload API servers, and every one
+# is releasable from the environment with a TF_VAR_*. As per-spoke variables they
+# shared one failure mode: release the guard on az-a, forget az-c, and the two
+# clusters behind one weighted NLB over one Aurora/DocumentDB primary end up with
+# different ArgoCD reachability — a schema migration reaches half the fleet.
+#
+# Single-sourcing here removes that. It does NOT make the two spokes converge on
+# its own: each still needs its own apply to pick a new value up. What it
+# guarantees is that they cannot be asked to trust *different* things.
+# ─────────────────────────────────────────────────────────────────────────────
+
+variable "mgmt_cluster_name" {
+  description = "Management cluster whose SG both eks-az-{a,c} trust for cross-cluster ArgoCD access. Owned by AWS-Demo-Platform (docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md). Also a trust input on the break-glass path, where the override SG must carry this cluster's ownership tag."
+  type        = string
+  default     = "mall-apne2-mgmt"
+}
+
+variable "expected_mgmt_vpc_id" {
+  description = "VPC the mgmt cluster must be in for its SG to be trusted. Empty (default) means this region's shared VPC. Set explicitly only to deliberately release the guard after the external repo legitimately moves mgmt to another VPC."
+  type        = string
+  default     = ""
+}
+
+variable "expected_mgmt_tags" {
+  description = "Tags the mgmt cluster must carry to be trusted. Set to {} to release the tag guard (the same escape hatch expected_mgmt_vpc_id gives the VPC guard) — e.g. when the external repo stops stamping them."
+  type        = map(string)
+  default = {
+    ManagedBy = "terraform"
+    Project   = "multi-region-mall"
+  }
+}
+
 variable "mgmt_cluster_security_group_id_override" {
   description = <<-EOT
     Break-glass override for the mgmt cluster SG that both eks-az-{a,c} trust as
@@ -109,12 +144,11 @@ variable "mgmt_cluster_security_group_id_override" {
     live and applies its guards. Set to an SG ID to keep the ingress rule while
     mgmt is unreachable, or "" to drop the rule entirely.
 
-    It lives in this layer rather than in each spoke on purpose: a per-spoke
-    variable lets an operator override one AZ and forget the other, and the two
-    clusters sit behind one weighted NLB over one Aurora/DocumentDB primary — so
-    split ArgoCD reachability means a schema migration reaches half the fleet.
-    One apply here moves both. Both spokes still need their own apply to pick the
-    new value up; see the Runbooks in ../README.md.
+    Commit the value to terraform.tfvars rather than passing `-var` during the
+    incident: passed on the command line, the next unrelated `terraform apply` in
+    this layer silently reverts it to null and erases the released_guards trace
+    with it — and this is the foundation layer, so that apply is a routine one.
+    See the Runbooks in ../README.md.
   EOT
   type        = string
   default     = null

@@ -172,7 +172,31 @@ output "s3_static_assets_bucket_domain_name" {
 # mgmt trust — break-glass override, read by both eks-az-{a,c}
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# mgmt cluster trust inputs, consumed by both eks-az-{a,c}.
+#
+# Single-sourced here so the two spokes cannot be asked to trust *different*
+# things. This does not make them converge: each still needs its own apply to
+# pick a new value up (see the Runbooks in ../README.md, which carry the
+# post-apply verification for exactly that reason).
+# ─────────────────────────────────────────────────────────────────────────────
+
+output "mgmt_cluster_name" {
+  description = "Management cluster whose SG both spokes trust for cross-cluster ArgoCD access."
+  value       = var.mgmt_cluster_name
+}
+
+output "expected_mgmt_vpc_id" {
+  description = "VPC the mgmt cluster must be in for its SG to be trusted; empty means this region's shared VPC."
+  value       = var.expected_mgmt_vpc_id
+}
+
+output "expected_mgmt_tags" {
+  description = "Tags the mgmt cluster must carry to be trusted; {} releases the guard."
+  value       = var.expected_mgmt_tags
+}
+
 output "mgmt_cluster_security_group_id_override" {
-  description = "Break-glass mgmt cluster SG for both spokes, or null when they should look it up live. Single-sourced here so an override cannot be applied to one AZ and forgotten in the other."
+  description = "Break-glass mgmt cluster SG for both spokes, or null when they should look it up live."
   value       = var.mgmt_cluster_security_group_id_override
 }
