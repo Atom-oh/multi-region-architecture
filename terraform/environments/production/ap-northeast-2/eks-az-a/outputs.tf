@@ -57,6 +57,6 @@ output "alb_controller_role_arn" {
 # ─────────────────────────────────────────────────────────────────────────────
 
 output "mgmt_guards_released" {
-  description = "true when mgmt_cluster_security_group_id was set, meaning the mgmt cluster's VPC/tag/SG guards were skipped for this apply. Persisted in state so an audit can tell a break-glass apply from a normal one after the fact."
-  value       = !local.mgmt_lookup
+  description = "Which mgmt trust guards were released on the last apply, one entry per released guard, empty when all are engaged. Reflects the *current* state — a later normal apply overwrites it, so reconstructing a past break-glass needs state bucket versioning or CloudTrail."
+  value       = local.released_guards
 }

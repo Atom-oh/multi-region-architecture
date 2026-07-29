@@ -46,10 +46,23 @@ locals {
   # without it the guard below would be an unfixable-from-here plan failure.
   expected_mgmt_vpc_id = var.expected_mgmt_vpc_id != "" ? var.expected_mgmt_vpc_id : data.terraform_remote_state.shared.outputs.vpc_id
 
+  # Duplicated from variables.tf's default so the check block can tell "operator
+  # widened the tag guard" from "operator passed the defaults back in explicitly".
+  default_mgmt_tags = {
+    ManagedBy = "terraform"
+    Project   = "multi-region-mall"
+  }
+
   mgmt_lookup = var.mgmt_cluster_security_group_id == null
+
+  released_guards = compact([
+    local.mgmt_lookup ? "" : "mgmt_cluster_security_group_id=${var.mgmt_cluster_security_group_id == "" ? "\"\" (ArgoCD ingress rule dropped, cluster not looked up or verified)" : var.mgmt_cluster_security_group_id} (cluster lookup and its postconditions skipped)",
+    var.expected_mgmt_vpc_id == "" ? "" : "expected_mgmt_vpc_id=${var.expected_mgmt_vpc_id} (mgmt trusted outside the shared VPC of this region)",
+    var.expected_mgmt_tags == local.default_mgmt_tags ? "" : "expected_mgmt_tags=${jsonencode(var.expected_mgmt_tags)} (provisioning-tag guard widened or dropped)",
+  ])
   # The one() indirection is load-bearing: referencing the override data source makes
-  # its VPC precondition a dependency of the value the EKS module consumes. Reading
-  # var directly would let the plan proceed while the assert was still unevaluated.
+  # its VPC postcondition a dependency of the value the EKS module consumes. Reading
+  # var directly would let the plan proceed while the asserts were still unevaluated.
   mgmt_sg_id = local.mgmt_lookup ? data.aws_eks_cluster.mgmt[0].vpc_config[0].cluster_security_group_id : try(one(data.aws_security_group.mgmt_override).id, "")
 }
 
@@ -84,8 +97,12 @@ data "aws_eks_cluster" "mgmt" {
     postcondition {
       # A DELETING or FAILED cluster still answers DescribeCluster and still has an
       # SG, so without this the spokes would keep trusting a cluster on its way out.
-      condition     = try(self.status, "") == "ACTIVE"
-      error_message = "${var.mgmt_cluster_name} is ${try(self.status, "in an unknown state")}, not ACTIVE — refusing to trust the SG of a cluster that is being created or torn down."
+      # UPDATING is allowed on purpose: a control-plane upgrade reports it for 10-40
+      # minutes and does not change the cluster SG, so rejecting it would fail every
+      # plan here during routine external maintenance and push operators onto the
+      # break-glass path — which would then be noise in mgmt_guards_released.
+      condition     = contains(["ACTIVE", "UPDATING"], try(self.status, ""))
+      error_message = "${var.mgmt_cluster_name} is ${try(self.status, "in an unknown state")}, not ACTIVE or UPDATING — refusing to trust the SG of a cluster that is being created or torn down."
     }
   }
 }
@@ -103,24 +120,38 @@ data "aws_security_group" "mgmt_override" {
 
   lifecycle {
     postcondition {
-      condition     = self.vpc_id == data.terraform_remote_state.shared.outputs.vpc_id
-      error_message = "mgmt_cluster_security_group_id=${var.mgmt_cluster_security_group_id} is in VPC ${self.vpc_id}, not this region's shared VPC — an SG from another VPC cannot be an ingress source here anyway. Use \"\" to drop the ArgoCD ingress rule instead."
+      # local.expected_mgmt_vpc_id, not the shared VPC directly: the lookup path
+      # already allows a relocated mgmt via expected_mgmt_vpc_id, and "mgmt moved
+      # to a peered VPC and then broke" is exactly when break-glass is needed. Two
+      # paths, one release switch.
+      condition     = self.vpc_id == local.expected_mgmt_vpc_id
+      error_message = "mgmt_cluster_security_group_id=${var.mgmt_cluster_security_group_id} is in VPC ${self.vpc_id}, not ${local.expected_mgmt_vpc_id} — an SG from another VPC cannot be an ingress source here anyway. Set expected_mgmt_vpc_id if mgmt legitimately moved, or use \"\" to drop the ArgoCD ingress rule."
+    }
+    postcondition {
+      # VPC membership alone is not much of a guard: every ALB/NLB/app/data-layer SG
+      # in the region shares that VPC, so without this the override could name any
+      # of them as an ingress source on the workload API servers. EKS stamps this tag
+      # on the SG it manages for a cluster, so asserting it narrows the override to
+      # "a security group of the mgmt cluster" at no cost to break-glass.
+      condition     = try(self.tags["aws:eks:cluster-name"], "") == var.mgmt_cluster_name
+      error_message = "mgmt_cluster_security_group_id=${var.mgmt_cluster_security_group_id} does not carry aws:eks:cluster-name=${var.mgmt_cluster_name} — it is some other SG in the VPC, not ${var.mgmt_cluster_name}'s. Use \"\" to drop the ArgoCD ingress rule instead of naming an unrelated SG."
     }
   }
 }
 
-# The break-glass override releases all three guards above at once, and it can be
-# set from CI with nothing but TF_VAR_mgmt_cluster_security_group_id — no code
-# change, no review trace. A check block is the only construct that reports on a
-# plan without failing it, so a released-guards plan says so out loud instead of
-# looking identical to a guarded one.
+# Every guard here has a release, and all of them are reachable from CI with a
+# TF_VAR_* environment variable — no code change, no review trace. A check block is
+# the only construct that reports on a plan without failing it, so a plan with any
+# guard released says so out loud instead of looking identical to a guarded one.
+# All three are in one assert deliberately: the operator needs to know that
+# *something* was released, and the message names which.
 check "mgmt_guards_engaged" {
   assert {
-    condition = local.mgmt_lookup
+    condition = local.mgmt_lookup && var.expected_mgmt_vpc_id == "" && var.expected_mgmt_tags == local.default_mgmt_tags
     # No coalesce() here: it skips empty strings as well as nulls and errors when
     # every argument is empty, which is precisely the `-var ...=''` break-glass
     # path — the check meant to warn would have hard-failed the plan instead.
-    error_message = "GUARDS RELEASED: mgmt_cluster_security_group_id is set (${var.mgmt_cluster_security_group_id == "" ? "empty — ArgoCD ingress rule dropped" : var.mgmt_cluster_security_group_id}), so ${var.mgmt_cluster_name} is not being looked up or verified. Expected only during a mgmt outage — unset it once mgmt is back."
+    error_message = "GUARDS RELEASED for ${var.mgmt_cluster_name}: ${join("; ", local.released_guards)}. Expected only during a mgmt outage or a deliberate mgmt relocation — restore the defaults once it is over."
   }
 }
 

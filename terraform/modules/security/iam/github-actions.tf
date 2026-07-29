@@ -114,6 +114,8 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
           "s3:GetObject",
           "s3:GetObjectVersion",
           "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:AbortMultipartUpload",
           "s3:DeleteObject",
           "s3:DeleteObjectVersion"
         ]
@@ -132,14 +134,19 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
       length(var.externally_owned_state_keys) == 0 ? [] : [{
         Sid    = "DenyExternallyOwnedStateLockRows"
         Effect = "Deny"
-        # Batch/transactional writes reach the same rows through different API
-        # names — a Deny that lists only the single-item actions is bypassable.
+        # Batch and PartiQL writes reach the same rows under different action names,
+        # and LeadingKeys applies to all of them — a Deny listing only the
+        # single-item actions is bypassable. (No TransactWriteItems: there is no
+        # such IAM action; transactional writes authorize as the item-level actions
+        # above, so they are already covered.)
         Action = [
           "dynamodb:PutItem",
           "dynamodb:DeleteItem",
           "dynamodb:UpdateItem",
           "dynamodb:BatchWriteItem",
-          "dynamodb:TransactWriteItems"
+          "dynamodb:PartiQLInsert",
+          "dynamodb:PartiQLUpdate",
+          "dynamodb:PartiQLDelete"
         ]
         Resource = "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.terraform_lock_table}"
         Condition = {
