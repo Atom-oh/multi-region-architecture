@@ -30,6 +30,8 @@
 #   deleted-state.txt     state/plan 삭제 경로 → 통과시키되 내용은 전달하지 않는다
 #   filtered.txt          패널에서 제외된 경로 전부
 #   unsafe-filtered.txt   제외되었지만 auto-PASS 자격을 박탈하는 경로
+#   fatal-oversized.txt   noise 가 아닌데 patch 가 없고 실변경이 있는 경로(= diff 가
+#                         너무 커서 API 가 patch 를 생략한 텍스트 파일) → 잡을 죽인다
 #   all-paths.txt         PR 이 건드린 경로 전부(rename 의 old 경로 포함)
 # 종료 코드: 2 = fatal 있음, 1 = 사용법/입력 오류, 0 = 정상.
 set -uo pipefail
@@ -53,6 +55,14 @@ STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup)?$|(^|/)[^/]*\.tfplan$|(^|/)(t
 # 이 목록을 넓히면 auto-PASS 후보도 함께 넓어진다 — 반드시
 # docs/decisions/ADR-004-pr-review-empty-diff-exception.md 를 같이 갱신할 것.
 # .terraform.lock.hcl 은 의도적으로 제외하지 않는다(ADR-004 §5).
+#
+# is_noise 는 반드시 new path(.filename) 단독으로만 판정한다 — old/new 중 하나만
+# 노이즈여도 제외하면(`any`), `git mv src/frontend/package-lock.json terraform/waf.tf`
+# 처럼 실제 IaC 변경을 노이즈 경로로 rename 해서 패널·게이트 양쪽에서 숨길 수 있다
+# (PR#34 리뷰 L3 CRITICAL — is_asset 이 정확히 반대 이유로 `all` 을 쓰는 것과 대비된다:
+# rename 자격 박탈은 두 경로 모두 요구해야 안전하고, 노이즈 제외는 새 경로 하나만
+# 봐야 안전하다). old path 가 노이즈든 아니든 new path 가 노이즈가 아니면 패널이
+# 반드시 본다.
 NOISE_RE='(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$|(^|/)node_modules/|(^|/)(dist|out|build)/'
 
 # auto-PASS 자격이 있는 이미지/문서 자산 확장자.
@@ -81,20 +91,28 @@ jq -r \
         # (= 진짜 바이너리)은 changes==0 까지 요구한다.
         no_patch: (($e | has("patch")) | not),
         binary:   ((($e | has("patch")) | not) and ((.changes // 0) == 0)),
+        # patch 가 없는데 changes>0 인 경우: git 은 바이너리가 아니라고 보지만(그러면
+        # changes==0 일 것) API 가 diff 크기 때문에 patch 를 생략했다는 뜻 — 즉 패널이
+        # 읽을 텍스트가 있는데 못 받는다. 이전 판은 이걸 "filtered" 로 접어 경고만 내고
+        # 통과시켰다(리뷰 L3/L4 MAJOR — 혼합 PR 에서 큰 .tf/manifest 하나가 리뷰 없이
+        # 사라진 채 PASS). 결정론적으로 잡을 죽인다.
+        is_oversized: ((($e | has("patch")) | not) and ((.changes // 0) != 0)),
         deleted:  (.status == "removed"),
         bad_path: ($p | map(ctl) | any),
         is_state: ($lp | map(test($state_re)) | any),
-        is_noise: ($lp | map(test($noise_re)) | any),
+        # new path(.filename) 단독 — old path 를 보면 rename 으로 우회 가능(위 주석).
+        is_noise: (.filename | ascii_downcase | test($noise_re)),
         # rename 은 두 경로 **모두** 자산이어야 한다. 하나만 보면
         # `asset.png → payload.zip` 이 자격을 얻는다.
         is_asset: ($lp | map(test($asset_re)) | all)
       } ]
   | map(. + {
-      # 분류. 순서가 의미를 갖는다: 경로 위생 → state → 읽을 수 없음/노이즈 → 패널.
+      # 분류. 순서가 의미를 갖는다: 경로 위생 → state → 대형 텍스트 → 읽을 수 없음/노이즈 → 패널.
       klass: (
         if .bad_path                then "badpath"
         elif .is_state and .deleted then "state_deleted"
         elif .is_state              then "state_fatal"
+        elif .is_oversized          then "oversized_fatal"
         elif .no_patch or .is_noise then "filtered"
         else "panel" end)
     })
@@ -121,7 +139,8 @@ jq -r --arg state_re "$STATE_RE" --arg noise_re "$NOISE_RE" '
     | ($p | map(ascii_downcase)) as $lp
     | select(($p | map(ctl) | any) | not)
     | select(($lp | map(test($state_re)) | any) | not)
-    | select(($lp | map(test($noise_re)) | any) | not)
+    # new path 단독 — classified.tsv 의 is_noise 판정과 동일 기준(위 주석 참조).
+    | select((.filename | ascii_downcase | test($noise_re)) | not)
     | select($e | has("patch"))
     | (.previous_filename // .filename) as $old
     | "diff --git a/\($old) b/\(.filename)"
@@ -142,9 +161,10 @@ klass_paths() {  # $1=klass → 그 클래스의 경로(rename 의 old 포함), 
     "$WORK/classified.tsv" | sort -u
 }
 
-klass_paths badpath       > "$WORK/fatal-badpath.txt"
-klass_paths state_fatal   > "$WORK/fatal-state.txt"
-klass_paths state_deleted > "$WORK/deleted-state.txt"
+klass_paths badpath        > "$WORK/fatal-badpath.txt"
+klass_paths state_fatal    > "$WORK/fatal-state.txt"
+klass_paths oversized_fatal > "$WORK/fatal-oversized.txt"
+klass_paths state_deleted  > "$WORK/deleted-state.txt"
 # filtered.txt 는 "패널에 전달되지 않은 경로" 전부다 — state 삭제도 포함한다. state-only
 # 삭제 PR 은 panel.diff 가 비므로 auto-PASS 전제조건 ②(제외 경로가 존재한다)를 지나야
 # 하는데, 여기서 빠지면 그 PR 이 영구 머지 불가로 돌아간다(ADR-004 §9 가 없애려던
@@ -153,24 +173,27 @@ klass_paths state_deleted > "$WORK/deleted-state.txt"
 awk -F'\t' '{ print $2; if ($3 != "") print $3 }' "$WORK/classified.tsv" \
   | sort -u > "$WORK/all-paths.txt"
 
-# auto-PASS 자격 박탈 목록. 제외된 파일 중 "git 기준 바이너리 ∧ 삭제 ∧ 이미지/문서
-# 자산"의 논리곱을 만족하지 않는 것 전부. 세 조건이 각각 다른 구멍을 막는다:
-# 텍스트면 패널이 읽을 수 있으니 읽혀야 하고(lockfile), 삭제가 아니면 rename 으로
-# allow-list 밖 경로를 들여올 수 있고, 자산이 아니면 컨테이너(zip/vsix/pptx)라 안에
-# 무엇이 들었는지 diff 로 알 수 없다.
+# auto-PASS 자격 박탈 목록. filtered klass 로 떨어진 파일 중 "git 기준 바이너리 ∧
+# 삭제 ∧ 이미지/문서 자산"의 논리곱을 만족하지 않는 것 전부. `no_patch ∧ changes>0`
+# (대형 텍스트)는 이미 위에서 oversized_fatal 로 갈라져 나가 잡을 죽이므로, 여기
+# 도달하는 filtered 는 진짜 바이너리(binary=1, patch 없고 changes==0)나 텍스트지만
+# noise 경로(binary=0, patch 있음) 뿐이다 — 후자는 아래 `$5 != "1"` 에서 그대로 걸린다.
+# 남은 두 조건이 각각 다른 구멍을 막는다: 삭제가 아니면 rename 으로 allow-list 밖
+# 경로를 들여올 수 있고, 자산이 아니면 컨테이너(zip/vsix/pptx)라 안에 무엇이 들었는지
+# diff 로 알 수 없다.
 # state 삭제(state_deleted)는 여기 들어가지 않는다 — 내용을 패널에 싣지 않는 대신
 # 통과시키는 것이 base 에 추적된 state 를 지우는 위생 PR 의 유일한 해소 경로다
 # (ADR-004 §9). 리포에 아무것도 들여오지 않으므로 삭제 조건의 근거가 그대로 성립한다.
 awk -F'\t' '
   $1 != "filtered" { next }
-  $5 != "1" { print $2; next }               # git 이 텍스트로 봄(또는 diff 가 너무 큼)
+  $5 != "1" { print $2; next }               # 텍스트(noise 경로) — 패널이 봤어야 했다
   $4 != "removed" { print $2; next }         # 삭제가 아님(추가·수정·rename)
   $6 != "1" { print $2 }                     # 바이너리지만 이미지/문서 자산 아님
 ' "$WORK/classified.tsv" | sort -u > "$WORK/unsafe-filtered.txt"
 
 # `A || B && exit` 는 좌결합이라 의도대로 동작하지만(= `(A||B) && exit`), 그 함정이
 # 이 리포의 ADR 에 이미 한 번 기록된 종류라 조건을 명시적으로 쓴다.
-if [ -s "$WORK/fatal-badpath.txt" ] || [ -s "$WORK/fatal-state.txt" ]; then
+if [ -s "$WORK/fatal-badpath.txt" ] || [ -s "$WORK/fatal-state.txt" ] || [ -s "$WORK/fatal-oversized.txt" ]; then
   exit 2
 fi
 exit 0
