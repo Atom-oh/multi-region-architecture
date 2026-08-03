@@ -74,6 +74,11 @@ resource "aws_docdb_cluster" "this" {
   })
 
   lifecycle {
+    # global_cluster_identifier: a cluster's real global-cluster membership is
+    # changed with the docdb API (add/remove-from-global-cluster), not by this
+    # attribute, and at least one caller's `is_primary` no longer matches the
+    # live topology (Korea — see the note at its module call). Ignoring it keeps
+    # a full apply from trying to detach a live secondary.
     ignore_changes = [
       master_password,
       master_username,

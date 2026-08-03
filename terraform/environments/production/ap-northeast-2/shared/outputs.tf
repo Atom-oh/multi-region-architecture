@@ -46,6 +46,11 @@ output "internal_observability_nlb_security_group_id" {
   value       = module.security_groups.internal_observability_nlb_security_group_id
 }
 
+output "istio_eastwest_security_group_id" {
+  description = "The ID of the Istio ambient east-west gateway security group (az-a <-> az-c cross-cluster mesh)"
+  value       = module.security_groups.istio_eastwest_security_group_id
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Data Store Endpoints
 # ─────────────────────────────────────────────────────────────────────────────

@@ -29,6 +29,7 @@ Platform infrastructure deployed alongside application services: GitOps (ArgoCD)
 | `karpenter-apne2-az-a/` | Karpenter for Korea AZ-A cluster |
 | `karpenter-apne2-az-c/` | Karpenter for Korea AZ-C cluster |
 | `external-secrets/` | External Secrets Operator for AWS Secrets Manager |
+| `istio-eastwest/` | Istio ambient cross-network Gateway CR — Korea az-a/az-c mesh zone failover (see its README.md) |
 | `keda/` | KEDA event-driven autoscaling |
 | `actions-runner/` | GitHub Actions self-hosted runners (ARC v2, x86 + arm64) |
 | `storageclass/` | Storage class definitions (gp3) |

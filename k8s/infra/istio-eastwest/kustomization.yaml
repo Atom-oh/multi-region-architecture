@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Gateway API CRDs (standard channel) — EKS doesn't ship these, and the
+  # ambient east-west gateway below is a gateway.networking.k8s.io resource.
+  - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+  - eastwest-gateway.yaml

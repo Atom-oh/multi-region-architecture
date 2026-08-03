@@ -24,9 +24,9 @@ variable "cluster_name" {
 }
 
 variable "cluster_version" {
-  description = "Kubernetes version for the EKS cluster"
+  description = "Kubernetes version for the EKS cluster. Only read on cluster creation — `version` is in lifecycle.ignore_changes below because EKS clusters get upgraded out-of-band (console/eksctl/auto-upgrade) and can't be downgraded, so letting terraform track it just produces an unresolvable plan diff."
   type        = string
-  default     = "1.35"
+  default     = "1.36"
 }
 
 variable "vpc_id" {
@@ -71,6 +71,12 @@ variable "argocd_security_group_id" {
 
 variable "internal_observability_nlb_security_group_id" {
   description = "Security group ID of the internal observability NLB (ClickHouse, Tempo, Prometheus)"
+  type        = string
+  default     = ""
+}
+
+variable "istio_eastwest_security_group_id" {
+  description = "Security group ID of the Istio ambient east-west gateway (cross-cluster mesh traffic, ports 15008/15012/15017). Leave empty for clusters not participating in the mesh (e.g. mgmt)."
   type        = string
   default     = ""
 }
