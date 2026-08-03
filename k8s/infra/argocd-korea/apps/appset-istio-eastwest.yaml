@@ -11,12 +11,18 @@ spec:
             cluster-name: mall-apne2-az-a
         values:
           network: az-a
+          # terraform output istio_eastwest_security_group_id
+          # (terraform/environments/production/ap-northeast-2/shared) — same
+          # value for both AZs (one shared SG), injected here instead of
+          # literal in eastwest-gateway.yaml so the manifest can't drift from it.
+          eastwestSecurityGroupId: sg-0355c4a665545ff7d
     - clusters:
         selector:
           matchLabels:
             cluster-name: mall-apne2-az-c
         values:
           network: az-c
+          eastwestSecurityGroupId: sg-0355c4a665545ff7d
   template:
     metadata:
       name: 'istio-eastwest-{{name}}'
@@ -39,6 +45,9 @@ spec:
                 - op: replace
                   path: /metadata/labels/topology.istio.io~1network
                   value: '{{values.network}}'
+                - op: replace
+                  path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-security-groups
+                  value: '{{values.eastwestSecurityGroupId}}'
       destination:
         server: '{{server}}'
         namespace: istio-system

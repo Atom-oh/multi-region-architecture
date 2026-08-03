@@ -8,8 +8,11 @@
 # annotations below onto the generated Service — that's how the internal-NLB
 # and Terraform-managed SG settings reach the AWS Load Balancer Controller.
 #
-# topology.istio.io/network is patched per cluster (az-a / az-c) by
-# appset-istio-eastwest.yaml.
+# topology.istio.io/network and the SG annotation are patched per cluster by
+# appset-istio-eastwest.yaml (network differs per AZ; the SG value itself is
+# the same Terraform output for both, but is injected rather than literal here
+# so this base manifest never drifts from `terraform output
+# istio_eastwest_security_group_id` — see the appset for the actual value).
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -22,9 +25,7 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
-    # SG ID from: terraform output istio_eastwest_security_group_id
-    # (terraform/environments/production/ap-northeast-2/shared)
-    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-0355c4a665545ff7d"
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: PATCHED-BY-APPSET
 spec:
   gatewayClassName: istio-east-west
   listeners:

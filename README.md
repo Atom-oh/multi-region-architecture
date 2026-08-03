@@ -314,9 +314,15 @@ aws eks update-kubeconfig --name mall-apne2-az-c --region ap-northeast-2 --alias
 
 ### 5. ArgoCD + App of Apps — root app 하나만 등록하면 전체 배포
 
-ArgoCD는 mgmt 클러스터에서 실행되며 워크로드 클러스터를 원격 관리합니다.
+ArgoCD는 mgmt 클러스터에서 실행되며 워크로드 클러스터를 원격 관리합니다. root app이 Istio ambient mesh(istiod 포함)도 함께 설치하므로, **root app 등록 전에** 공통 root CA를 먼저 만들어야 합니다 — istiod가 기동 시점에 CA를 찾고, 없으면 즉시 자기 서명 CA로 넘어가 버립니다. 그 뒤에 CA를 넣어도 istiod는 재시작 전까지 계속 자기 서명 CA를 씁니다.
 
 ```bash
+# ⓪ 공통 root CA — istiod가 기동하기 전에 반드시 먼저. 없으면 각 클러스터의
+#    istiod가 자기 서명 CA로 기동해 cross-cluster mTLS가 영구히 신뢰되지 않고,
+#    Istio Ambient 파일럿(6번)의 east-west failover가 조용히 동작하지 않게 됨.
+bash scripts/istio-cacerts.sh
+# 출력된 root-key.pem을 Secrets Manager에 저장하고 로컬 사본은 삭제하세요.
+
 # ① ArgoCD 설치 (mgmt) — helmCharts 필드를 쓰므로 kubectl -k가 아니라
 #    standalone kustomize + --enable-helm이 필요
 kustomize build --enable-helm k8s/infra/argocd-korea/ | kubectl apply -f - --context mall-apne2-mgmt
@@ -328,7 +334,8 @@ argocd cluster add mall-apne2-az-c --name mall-apne2-az-c --label cluster-name=m
 argocd cluster add mall-apne2-mgmt --name mall-apne2-mgmt --label cluster-name=mall-apne2-mgmt
 
 # ③ root app 등록 — 이거 하나로 워크로드 20개 서비스 + 인프라(Karpenter,
-#    ALB Controller, External Secrets, Istio ambient mesh 등) 전체가 배포됨
+#    ALB Controller, External Secrets, Istio ambient mesh 등) 전체가 배포됨.
+#    istiod는 ⓪에서 넣은 CA를 이 시점에 읽어 기동함.
 kubectl apply -f k8s/infra/argocd-korea/apps/root-app.yaml --context mall-apne2-mgmt
 ```
 
@@ -336,15 +343,11 @@ kubectl apply -f k8s/infra/argocd-korea/apps/root-app.yaml --context mall-apne2-
 
 > **현재 라이브 데모 계정은 이 모델과 다릅니다**: 운영 중인 환경에서는 플랫폼 계열 ApplicationSet(karpenter, ALB controller, external-secrets 등)의 실제 source of truth가 허브 리포(`AWS-Demo-Platform/argocd-apps/system/`)이고, 이 리포의 해당 파일들은 미러입니다 — 상세는 [`docs/portability-assessment.md`](docs/portability-assessment.md). 위 root-app 방식은 **신규/독립 환경에 이 리포 하나로 배포하는 표준 경로**이며, 두 모델의 통합(허브는 mgmt 전용, 이 리포가 워크로드 클러스터 전체 소유)은 진행 중인 정리 작업입니다.
 
-### 6. (선택) Istio Ambient — AZ 간 zone failover
+### 6. Istio Ambient — AZ 간 zone failover
 
-az-a/az-c 클러스터 간 부분 장애 우회(east-west failover)는 Istio ambient multicluster로 구성됩니다. GitOps로 배포되지 않는 수동 부트스트랩 2단계가 필요합니다 — **순서 중요**:
+az-a/az-c 클러스터 간 부분 장애 우회(east-west failover)는 Istio ambient multicluster로 구성됩니다. root CA는 이미 5번 ⓪에서 넣었으므로, 남은 수동 부트스트랩은 클러스터 간 remote secret 교환뿐입니다(istiod가 기동한 뒤, 즉 5번③ 이후에 실행):
 
 ```bash
-# ① 공통 root CA (istiod 기동 전) — 이거 없으면 cross-cluster mTLS가 신뢰되지 않아 failover가 동작하지 않음
-bash scripts/istio-cacerts.sh
-
-# ② 클러스터 간 remote secret (istiod 기동 후)
 istioctl create-remote-secret --context=mall-apne2-az-a --name=mall-apne2-az-a | kubectl apply -f - --context mall-apne2-az-c
 istioctl create-remote-secret --context=mall-apne2-az-c --name=mall-apne2-az-c | kubectl apply -f - --context mall-apne2-az-a
 ```
