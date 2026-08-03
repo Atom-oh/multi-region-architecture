@@ -112,6 +112,35 @@ PROMPT_EOF
 PRIMARY_MODEL="${CHAIR_PRIMARY_MODEL:-us.anthropic.claude-fable-5}"
 FALLBACK_MODEL="${CHAIR_FALLBACK_MODEL:-us.anthropic.claude-opus-5}"
 CHAIR_TIMEOUT="${CHAIR_TIMEOUT:-600}"
+# 의장은 에이전트라서 툴을 돌릴 수 있고, 턴 상한이 없으면 종합 대신 리포 탐색으로
+# 시간을 다 쓸 수 있다 — 관측된 실패 양식: PR#34(리뷰 워크플로 자체를 바꾸는 diff)에서
+# 16/16 셀이 응답했는데도 primary·fallback 둘 다 600s 벽시계 캡에 걸려 "Execution error"
+# 만 남았다. 로컬에서 재현했더니 CPU ~0%로 매달려 있었고(= 네트워크 장애가 아니라
+# 툴 루프), `--max-turns 8`을 주면 같은 입력이 2분 23초에 VERDICT까지 정상 완료했다.
+# 8턴은 이 repo 컨벤션 확인용 CLAUDE.md/AGENTS.md read + 검증용 grep 몇 번에 충분하고
+# (실제로 최근 통과 리뷰들이 "repo 대조로 반박됨"을 근거로 오탐을 기각한다),
+# 무한 탐색을 막는다. 캡에 걸리면 부분 출력에 VERDICT 라인이 없어 chair_degraded 가
+# 잡고 fallback → 그래도 없으면 fail-closed 로 귀결된다.
+CHAIR_MAX_TURNS="${CHAIR_MAX_TURNS:-8}"
+# fallback 은 primary 가 캡을 소진해서 불려오는 경우가 가장 흔하다 — 같은 캡을 주면 같은
+# 벽에 부딪히고 양쪽 다 빈 결과를 낸다(PR#34 에서 실제로 그랬다). 조금 더 준다.
+CHAIR_FALLBACK_MAX_TURNS="${CHAIR_FALLBACK_MAX_TURNS:-12}"
+# 의장의 stdin 은 PR 작성자가 통제하는 텍스트이고(diff + 패널 출력), 이 잡은
+# `pull_request_target` 컨텍스트다. 턴 캡은 루프를 묶지만 **무엇을 할 수 있는지**는
+# 묶지 않는다 — 의장이 필요한 건 리포 컨벤션 확인용 read/grep/glob 뿐이므로 거기로
+# 고정한다. Bash·Write·Edit·WebFetch 가 없으면 diff 안의 지시문이 성공해도 할 수 있는
+# 것이 리포 읽기로 끝난다(ADR-002 의 fs-read 잔여 위험과 같은 경계).
+# 빈 문자열을 넣으면 플래그 자체를 넘기지 않는다(러너 CLI 판본이 이 플래그를 못 받는
+# 것으로 확인되면 env 로 끌 수 있는 탈출구) — `--allowedTools ""` 로 넘기면 "빈
+# allow-list"로 해석될 수 있어 의도와 정반대로 어긋나므로 조건부 전달이다.
+#
+# 그 탈출구 자체가 fail-open 이었다(리뷰 L3 MAJOR): `CHAIR_ALLOWED_TOOLS=""` 를 주면
+# --allowedTools 가 안 나가 제한이 통째로 사라지고, --disallowedTools 로 병행 방어도
+# 없었다. 이제 --disallowedTools 는 CHAIR_ALLOWED_TOOLS 값과 무관하게 항상 나간다 —
+# 그 CLI 판본이 --allowedTools 를 못 받는 경우에도 최소한 Bash/Write/Edit/WebFetch 는
+# 막힌 채로 남는다(ADR-002 의 fs-read 잔여 위험과 같은 경계를 이중으로 보장).
+CHAIR_ALLOWED_TOOLS="${CHAIR_ALLOWED_TOOLS-Read,Grep,Glob}"
+CHAIR_DISALLOWED_TOOLS="${CHAIR_DISALLOWED_TOOLS-Bash,Write,Edit,WebFetch}"
 
 chair_label() { case "$1" in
   *fable-5*)  echo "Claude Fable 5" ;;
@@ -119,31 +148,80 @@ chair_label() { case "$1" in
   *)          echo "$1" ;;
 esac ; }
 
-run_chair() {  # $1=model → "$OUT" 에 기록(scrub 통과). claude 실패해도 || true 로 계속.
+run_chair() {  # $1=model $2=max-turns $3=out-file → $3 에 기록(scrub 통과). 실패해도 || true 로 계속.
   # argv(-p) 는 고정 지시문만(작고 상한 없음) — diff+패널(가변, 큼)은 stdin.
+  local extra=()
+  [ -n "$CHAIR_ALLOWED_TOOLS" ] && extra=(--allowedTools "$CHAIR_ALLOWED_TOOLS")
+  [ -n "$CHAIR_DISALLOWED_TOOLS" ] && extra+=(--disallowedTools "$CHAIR_DISALLOWED_TOOLS")
   ANTHROPIC_MODEL="$1" timeout "$CHAIR_TIMEOUT" \
     claude -p "$(cat "$WORK/synth-prompt.txt")" --output-format text \
-    < "$WORK/synth-stdin.txt" 2>"$WORK/chair.err" | scrub_secrets > "$OUT" || true
+    --max-turns "$2" "${extra[@]+"${extra[@]}"}" \
+    < "$WORK/synth-stdin.txt" 2>"$WORK/chair.err" | scrub_secrets > "$3" || true
+  # 의장이 저하됐을 때 stderr 를 로그에 남긴다. 이 PR 의 진단이 정확히 이 공백에
+  # 걸렸다: 두 의장 모두 16 바이트("Execution error")를 냈는데 그 이유는 chair.err 에만
+  # 있었고 워크플로 로그에는 없어서, 원인을 실행 이력 대조로 추측해야 했다(그리고
+  # 그 추측은 틀렸다 — `pull_request_target` 은 base-ref 를 실행하므로 브랜치의
+  # 플래그 변경은 애초에 그 실행들에 들어가지도 않았다). scrub 은 필수 — stderr 에도
+  # 크리덴셜이 섞일 수 있고 이 로그는 리포 접근자 전원이 본다.
+  if [ -s "$WORK/chair.err" ] && chair_degraded "$3"; then
+    echo "::group::chair stderr ($(chair_label "$1"))"
+    scrub_secrets < "$WORK/chair.err" | tail -c 4000
+    echo "::endgroup::"
+  fi
 }
 
 # 저하 판정: 빈 응답 | VERDICT 라인 없음. (ConnectionRefused·타임아웃·행 모두
 # VERDICT 없는 출력으로 귀결되므로 이 두 조건이면 충분 — 에러 문자열 grep은
 # 리뷰 본문이 'connection refused' 등을 언급할 때 오탐이라 쓰지 않는다.)
-chair_degraded() { [ ! -s "$OUT" ] || ! grep -q '^VERDICT:' "$OUT"; }
+chair_degraded() { [ ! -s "$1" ] || ! grep -q '^VERDICT:' "$1"; }
 
-run_chair "$PRIMARY_MODEL"
+# 각 시도는 자신만의 파일에 쓴다 — 이전 판은 둘 다 같은 "$OUT" 에 썼는데, `run_chair`
+# 내부의 `> "$OUT"` 이 매 호출마다 파일을 truncate 해서 fallback 이 죽으면(예: 같은
+# 600s 캡에 다시 걸림) primary 가 VERDICT 만 빠진 완전한 리뷰를 냈어도 그 내용이
+# 통째로 사라졌다(리뷰 L4 MAJOR — 이 PR 의 "저하를 진단 가능하게 한다"는 목적과
+# 정면 충돌). 이제 둘 다 남기고, 저하 시 정보량 있는 쪽(VERDICT 있는 쪽, 둘 다
+# 없으면 더 긴 쪽)을 "$OUT" 으로 채택한다.
+OUT_PRIMARY="$WORK/chair.primary.md"
+OUT_FALLBACK="$WORK/chair.fallback.md"
+
+run_chair "$PRIMARY_MODEL" "$CHAIR_MAX_TURNS" "$OUT_PRIMARY"
 CHAIR_USED="$PRIMARY_MODEL"
+cp "$OUT_PRIMARY" "$OUT" 2>/dev/null || : > "$OUT"
 # PRIMARY/FALLBACK 이 같은 모델로 resolve 되면(둘 다 env 로 같은 값이 주입된 경우) 재시도는
 # 동일 호출의 반복일 뿐이라 의미가 없다 — 건너뛴다.
-if chair_degraded && [ "$FALLBACK_MODEL" != "$PRIMARY_MODEL" ]; then
-  echo "::warning::chair '$(chair_label "$PRIMARY_MODEL")' degraded (connection/timeout/empty, ${CHAIR_TIMEOUT}s cap) — falling back to '$(chair_label "$FALLBACK_MODEL")'"
-  run_chair "$FALLBACK_MODEL"
-  CHAIR_USED="$FALLBACK_MODEL"
+if chair_degraded "$OUT_PRIMARY" && [ "$FALLBACK_MODEL" != "$PRIMARY_MODEL" ]; then
+  echo "::warning::chair '$(chair_label "$PRIMARY_MODEL")' degraded (connection/timeout/empty, ${CHAIR_TIMEOUT}s wall clock / ${CHAIR_MAX_TURNS} turns) — falling back to '$(chair_label "$FALLBACK_MODEL")' with ${CHAIR_FALLBACK_MAX_TURNS} turns"
+  run_chair "$FALLBACK_MODEL" "$CHAIR_FALLBACK_MAX_TURNS" "$OUT_FALLBACK"
+  # fallback 이 VERDICT 를 냈으면 그걸 쓴다. 못 냈으면(둘 다 degraded) 더 긴(=더 정보가
+  # 있을 가능성이 높은) 쪽을 유지해 아래 "원 출력 앞 500B" 가 빈 파일 대신 실제 단서를
+  # 보여주게 한다.
+  if ! chair_degraded "$OUT_FALLBACK"; then
+    cp "$OUT_FALLBACK" "$OUT"; CHAIR_USED="$FALLBACK_MODEL"
+  elif [ "$(wc -c < "$OUT_FALLBACK" 2>/dev/null || echo 0)" -gt "$(wc -c < "$OUT_PRIMARY" 2>/dev/null || echo 0)" ]; then
+    cp "$OUT_FALLBACK" "$OUT"; CHAIR_USED="$FALLBACK_MODEL"
+  fi
 fi
 
-if [ ! -s "$OUT" ]; then
-  echo "리뷰 생성 실패 — $(chair_label "$PRIMARY_MODEL")·$(chair_label "$FALLBACK_MODEL") 모두 빈 응답." > "$OUT"
-  echo "VERDICT: FAIL" >> "$OUT"
+# 판정 기준을 `[ ! -s ]` 가 아니라 chair_degraded 로 맞춘다. 이전 판은 빈 파일만 봤고,
+# 그래서 CLI 가 `Execution error` 16 바이트를 낸 실행에서는 이 분기가 안 돌아 그 문자열이
+# **그대로 PR 코멘트 본문 전체**로 게시됐다(PR#34) — 게이트는 VERDICT 부재로 옳게 막았지만
+# 읽는 사람에게는 무엇이 실패했는지 아무 정보가 없었다. 저하면 원인을 본문에 쓴다.
+if chair_degraded "$OUT"; then
+  { echo "리뷰 생성 실패 — 의장 $(chair_label "$PRIMARY_MODEL")·$(chair_label "$FALLBACK_MODEL")"
+    echo "모두 VERDICT 를 내지 못했습니다(빈 응답 / 타임아웃 ${CHAIR_TIMEOUT}s / 턴 캡"
+    echo "${CHAIR_MAX_TURNS}·${CHAIR_FALLBACK_MAX_TURNS} 소진). 패널 16셀 응답 여부와 무관하게"
+    echo "fail-closed 입니다. 워크플로 로그의 \`chair stderr\` 그룹에 원인이 있습니다."
+    echo ""
+    if [ -s "$OUT" ]; then
+      echo "의장의 원 출력(앞 500B):"
+      echo '```'
+      head -c 500 "$OUT"
+      echo ""
+      echo '```'
+      echo ""
+    fi
+    echo "VERDICT: FAIL"
+  } > "$OUT.tmp" && mv "$OUT.tmp" "$OUT"
 fi
 
 # 커버리지 저하 가시화 — 모델 하나가 전체 lens 에서 응답 없이 조용히 빠졌으면(run-panel.sh
