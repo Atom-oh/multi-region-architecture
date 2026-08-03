@@ -160,12 +160,17 @@ What that buys is exactly one thing: the two spokes cannot be asked to trust
 *different* values. It does **not** make them converge — each still needs its own
 apply, so a one-sided window exists between the two. `scripts/check-mgmt-guards.sh`
 is what closes it: it fails if either spoke has a released guard, if the two
-spokes' `mgmt_guards_released` differ (= only one was applied), and it runs
-`argocd cluster list` for actual reachability. That script is also the answer to
-"`check` only warns" — a `check` block by definition cannot fail a plan, and this
-turns that warning into an exit code. It is run by hand: there is no terraform CI
-apply path in this repo, and standing scheduled automation against production is
-not something a review finding gets to introduce.
+spokes' `mgmt_guards_released` differ (= only one was applied), if the two
+spokes' resolved `mgmt_trust_security_group_id` differ (guards can converge to
+`[]` on both sides while the *SG they actually trust* has diverged — e.g. mgmt
+was replaced and only one spoke re-applied), if either spoke is uninitialized,
+and if `argocd cluster list` does not show both spokes `Successful` — a missing
+CLI, a failed command, or a non-`Successful` status all fail the check rather
+than being swallowed. That script is also the answer to "`check` only warns" —
+a `check` block by definition cannot fail a plan, and this turns that warning
+into an exit code. It is run by hand: there is no terraform CI apply path in
+this repo, and standing scheduled automation against production is not
+something a review finding gets to introduce.
 
 That last one releases the first three at once and needs no code change. So it
 is `validation`-checked for the `sg-` format (a typo would otherwise only surface

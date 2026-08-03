@@ -114,6 +114,32 @@ resource "aws_s3_bucket_policy" "terraform_state" {
           Action    = "s3:*"
           Resource  = [for key in keys : "${aws_s3_bucket.terraform_state.arn}/${key}"]
         }
+      ],
+      [
+        # The object-key Deny above is itself removable by a denied principal:
+        # AmazonS3FullAccess grants s3:PutBucketPolicy/DeleteBucketPolicy on the
+        # bucket ARN, which the object-key Resource above doesn't cover (object
+        # Denies don't protect the bucket's own policy document). A principal
+        # blocked from reading shared/'s state could otherwise call
+        # PutBucketPolicy to drop this Deny, then read it. This Deny is scoped
+        # to the bucket ARN and policy/configuration-mutation actions only —
+        # it does not touch the object-level read/write this policy already
+        # governs above, so appliers of this repo's own layers are unaffected.
+        for name, keys in var.state_custody_denials : {
+          Sid       = "Deny${replace(title(replace(name, "-", " ")), " ", "")}BucketPolicyMutation"
+          Effect    = "Deny"
+          Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${name}" }
+          Action = [
+            "s3:PutBucketPolicy",
+            "s3:DeleteBucketPolicy",
+            "s3:PutBucketAcl",
+            "s3:PutBucketPublicAccessBlock",
+            "s3:PutLifecycleConfiguration",
+            "s3:PutBucketVersioning",
+            "s3:PutReplicationConfiguration",
+          ]
+          Resource = aws_s3_bucket.terraform_state.arn
+        }
       ]
     )
   })

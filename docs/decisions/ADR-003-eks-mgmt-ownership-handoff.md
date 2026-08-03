@@ -165,6 +165,16 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    자격증명을 든 사람은 여전히 쓸 수 있다. 외부 repo에서 그 managed policy 자체를
    축소하는 것은 저쪽 repo의 변경이라 여기 범위가 아니다.
 
+   객체 키에 건 Deny 하나만으로는 닫히지 않는 경로가 있었다: `ci_runner`가 든
+   `AmazonS3FullAccess`는 버킷 ARN 자체에 대한 `s3:PutBucketPolicy`/
+   `DeleteBucketPolicy`도 허용하므로, 그 role이 이 정책 문서 자체를 덮어쓰거나 지운
+   뒤 원래 막혀 있던 객체를 읽을 수 있었다 — object-level Deny는 정책 문서를 보호하지
+   않는다. 그래서 같은 `state_custody_denials` 순회에서 버킷 ARN 대상으로
+   `PutBucketPolicy`/`DeleteBucketPolicy`/`PutBucketAcl`/`PutBucketPublicAccessBlock`/
+   `PutLifecycleConfiguration`/`PutBucketVersioning`/`PutReplicationConfiguration`도
+   같은 principal에 Deny한다. 이 저장소 자신의 apply 경로(각 레이어를 소유한
+   principal)는 객체 읽기/쓰기만 하고 버킷 정책 자체를 바꾸지 않으므로 영향 없다.
+
 ### 이 ADR이 닫지 않는 것 (blocking follow-up)
 
 이관 자체와 분리해 추적한다. 둘 다 "문서 경고는 통제가 아니다"라는 이 ADR 자신의
