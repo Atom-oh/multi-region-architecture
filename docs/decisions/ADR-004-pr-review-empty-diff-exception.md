@@ -68,6 +68,30 @@ rename 의 두 경로가 별도 필드. 패널 diff 는 그 목록에서 **고�
 회귀는 브랜치 CI 로 드러나지 않는다(경계 조건 8번과 같은 이유). 이 파일들을 고치면
 그 테스트를 같이 고친다.
 
+**round-8 수정(PR #34 리뷰 L3 CRITICAL): 같은 우회가 noise 필터로 이동했다.** state
+deny 의 rename 우회를 닫은 뒤에도, 노이즈 필터(`NOISE_RE`, lockfile/`node_modules`/
+`dist`)가 여전히 `is_noise: (두 경로 어느 쪽이든 test 통과 → any)` 로 판정하고 있었다.
+`git mv src/frontend/package-lock.json terraform/waf.tf`(+WAF 규칙 실변경)를 하면
+old 경로가 노이즈라 `any` 가 참이 되어, new 경로(`terraform/waf.tf`)의 실제 변경이
+패널·게이트 양쪽에서 사라진다 — 혼합 PR 이면 나머지로 조용히 PASS 된다. `is_asset`
+이 정확히 반대 이유로 `all`(rename 자격 박탈은 두 경로 다 자산이어야 안전)을 쓰는
+것과 대비된다: 노이즈 제외는 **new 경로 하나만** 봐야 안전하다. `is_noise` 를
+`.filename` 단독 판정으로 바꿨다(classified.tsv 와 panel.diff 재구성 두 곳 모두 —
+후자가 L5 가 지적한 "판정이 독립된 두 jq 프로그램에 중복 구현됨"의 실제 사례였다).
+`test-collect-diff.sh` #13 에 두 방향(노이즈에서 나오는 rename / 노이즈로 들어가는
+rename) 모두 케이스로 있다.
+
+**round-8 수정(PR #34 리뷰 L3/L4 MAJOR): `no_patch ∧ changes>0` 이 filtered 로 접혀
+경고만 내고 통과했다.** files API 는 바이너리와 "diff 가 너무 커서 patch 생략" 두
+경우 모두 `patch` 필드를 주지 않는다. 이전 판은 이 둘을 구분하지 않고 둘 다
+`filtered`(→ `unsafe-filtered`+경고)로 묶어, 워크플로는 `::warning::` 만 내고
+계속 진행했다 — 혼합 PR 에서 대형 `.tf`/manifest 하나가 리뷰 없이 사라진 채 나머지가
+PASS 될 수 있었다. `patch` 없음 ∧ `changes==0`(진짜 바이너리)과 `patch` 없음 ∧
+`changes!=0`(읽을 텍스트가 있는데 크기 때문에 못 받음)을 `is_oversized` 로 분리해
+후자를 새 klass `oversized_fatal` → `fatal-oversized.txt` → 잡 종료(exit 2)로
+결정론적 fail-close 했다. 전자는 여전히 `filtered` 로 남아 auto-PASS 경로(D2)를
+막지 않는다. `test-collect-diff.sh` #14 참고.
+
 ### D2. 삭제 전용 PR 의 auto-PASS
 
 **변경 전체가 (a) 패널이 읽을 수 없거나 노이즈여서 필터에 걸리고 (b) **삭제**이며
@@ -281,6 +305,23 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
   게시됐다(게이트는 VERDICT 부재로 옳게 막았지만 읽는 사람에게는 정보가 0이었다).
   이제 저하 시 stderr 를 `::group::` 으로 스크럽해 남기고, 본문 판정 기준을
   `chair_degraded` 로 맞춰 원인·캡·의장 원 출력 앞 500B 를 코멘트에 쓴다.
+
+  **round-8 수정(PR #34 리뷰 L4 MAJOR): failover 가 primary 결과를 파괴했다.**
+  `run_chair` 내부의 `| scrub_secrets > "$OUT"` 이 호출마다 같은 `$OUT` 을
+  truncate 했다 — primary 가 VERDICT 만 빠진, 그 자체로 읽을 만한 리뷰를 냈어도
+  fallback 이 곧이어 죽으면(같은 600s 캡에 다시 걸리는 경우가 가장 흔하다) 그 내용이
+  통째로 사라졌다. 바로 위에서 고친 "원 출력 앞 500B" 도 이 경우 마지막 시도의
+  빈 결과만 보여줄 뿐이라, 저하를 진단 가능하게 한다는 이 라운드 자체의 목적과
+  충돌했다. 두 시도를 `chair.primary.md`/`chair.fallback.md` 로 분리해 받고,
+  VERDICT 를 낸 쪽(둘 다 없으면 더 긴 쪽)을 `$OUT` 으로 채택하도록 고쳤다.
+
+  **round-8 수정(PR #34 리뷰 L3 MAJOR): `CHAIR_ALLOWED_TOOLS=""` 가 제한을
+  통째로 없앴다.** 빈 문자열이면 `--allowedTools` 플래그 자체를 안 넘기는 탈출구가,
+  병행 방어 없이 **유일한** 방어였다 — 그 값을 비우면 의장이 무제한 툴로 실행됐다.
+  `--disallowedTools Bash,Write,Edit,WebFetch` 를 `CHAIR_ALLOWED_TOOLS` 값과
+  무관하게 항상 추가로 넘겨, 한쪽 플래그가 이 러너의 CLI 판본에서 안 먹혀도(또는
+  operator 가 값을 비워도) 다른 쪽이 같은 경계(ADR-002 의 fs-read 잔여 위험과 동일)를
+  지킨다.
 - `docs/decisions/ADR-002-pr-review-kiro-fs-read-risk.md` — 같은 워크플로의 앞선 보안
   트레이드오프 결정(선례). PR head blob 을 가져오지 않는 원칙의 출처. 이 ADR 과의 경계:
   ADR-002 가 금지하는 것은 **PR head 의 blob** 을 읽는 것이다(신뢰되지 않은 코드가 실행·

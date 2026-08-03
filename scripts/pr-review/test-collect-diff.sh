@@ -145,5 +145,47 @@ assert_rc 0
 assert_grep panel.diff '.terraform.lock.hcl'
 assert_empty filtered.txt
 
+# ── 13. rename 으로 노이즈 필터 우회 (PR#34 리뷰 L3 CRITICAL) ────────────────
+# old path 만 노이즈여도 `any` 로 제외하면, 노이즈 경로에서 실제 IaC 로 rename 한
+# 실변경이 패널에서 사라진다. new path(terraform/waf.tf) 는 노이즈가 아니므로 반드시
+# 패널이 봐야 한다.
+run 'rename FROM a noisy lockfile is still reviewed' '[
+  {"filename":"terraform/waf.tf","previous_filename":"package-lock.json",
+   "status":"renamed","changes":3,
+   "patch":"@@ -1 +1 @@\n-old_rule\n+new_waf_rule = \"0.0.0.0/0\""}
+]'
+assert_rc 0
+assert_grep panel.diff 'terraform/waf.tf'
+assert_grep panel.diff 'new_waf_rule'
+assert_empty filtered.txt
+
+# rename TO a noisy path is still excluded — is_noise 는 new path 기준이어야 한다.
+run 'rename TO a noisy lockfile is still filtered' '[
+  {"filename":"package-lock.json","previous_filename":"terraform/waf.tf",
+   "status":"renamed","changes":3,"patch":"@@ -1 +1 @@\n-a\n+b"}
+]'
+assert_rc 0
+assert_has filtered.txt 'package-lock.json'
+assert_empty panel.diff
+
+# ── 14. no_patch ∧ changes>0 은 fail-closed (PR#34 리뷰 L3/L4 MAJOR) ─────────
+# API 가 diff 가 너무 커서 patch 를 생략한 텍스트 파일(진짜 바이너리와 달리 changes>0).
+# 이전 판은 filtered+경고만 내고 통과시켜, 혼합 PR 에서 이 파일만 리뷰 없이 사라진 채
+# 나머지가 PASS 됐다.
+run 'oversized text diff without a patch is fatal, not filtered' '[
+  {"filename":"terraform/huge.tf","status":"modified","changes":50000}
+]'
+assert_rc 2
+assert_has fatal-oversized.txt 'terraform/huge.tf'
+assert_empty filtered.txt
+
+# 진짜 바이너리(changes==0)는 여전히 filtered 로 남아 auto-PASS 경로를 막지 않는다.
+run 'real binary (changes=0, no patch) is still just filtered' '[
+  {"filename":"logo.png","status":"modified","changes":0}
+]'
+assert_rc 0
+assert_has filtered.txt 'logo.png'
+assert_empty fatal-oversized.txt
+
 echo "collect-diff: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

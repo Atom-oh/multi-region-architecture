@@ -137,6 +137,14 @@ jobs:
               echo "::error::Paths containing control characters. Rename them."
               emit_errors < /tmp/pr-review-collect/fatal-badpath.txt
             fi
+            if [ -s /tmp/pr-review-collect/fatal-oversized.txt ]; then
+              echo "::error::These files' diffs are too large for the GitHub files API to" \
+                   "include a patch, but they are real text changes (not binaries) — the" \
+                   "panel would silently never see them while the rest of a mixed PR passes." \
+                   "Split the PR so each file's diff is small enough for the API to return," \
+                   "or split this file's change into smaller commits/PRs."
+              emit_errors < /tmp/pr-review-collect/fatal-oversized.txt
+            fi
             exit 1
           fi
           cp /tmp/pr-review-collect/panel.diff /tmp/pr-diff.txt
