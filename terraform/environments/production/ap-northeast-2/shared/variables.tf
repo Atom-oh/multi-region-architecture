@@ -122,6 +122,24 @@ variable "mgmt_cluster_name" {
   default     = "mall-apne2-mgmt"
 }
 
+variable "default_mgmt_cluster_name" {
+  description = <<-EOT
+    Baseline mgmt_cluster_name is compared against to detect a released name
+    guard (mgmt-cluster-trust module's released_guards). Single-sourced here
+    for the same reason mgmt_cluster_name itself is (round-8 review MAJOR):
+    the module default (also "mall-apne2-mgmt") is what each spoke actually
+    used before this variable existed, and it never changes on its own — so
+    a legitimate rename that updates mgmt_cluster_name but not this baseline
+    leaves the guard permanently "released" forever after, even once both
+    spokes have converged on the new name. Update this alongside
+    mgmt_cluster_name as the LAST step of the rename runbook (README
+    Runbooks), once the new name is fully rolled out and there's nothing left
+    to compare it against.
+  EOT
+  type        = string
+  default     = "mall-apne2-mgmt"
+}
+
 variable "expected_mgmt_vpc_id" {
   description = "VPC the mgmt cluster must be in for its SG to be trusted. Empty (default) means this region's shared VPC. Set explicitly only to deliberately release the guard after the external repo legitimately moves mgmt to another VPC."
   type        = string

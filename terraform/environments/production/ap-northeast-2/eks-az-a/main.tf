@@ -59,6 +59,10 @@ module "mgmt_trust" {
     data.terraform_remote_state.shared.outputs.mgmt_cluster_name,
     "mall-apne2-mgmt"
   )
+  default_mgmt_cluster_name = try(
+    data.terraform_remote_state.shared.outputs.default_mgmt_cluster_name,
+    "mall-apne2-mgmt"
+  )
   expected_mgmt_vpc_id = try(
     data.terraform_remote_state.shared.outputs.expected_mgmt_vpc_id,
     ""

@@ -280,6 +280,15 @@ the IAM grant for the new name before it can read it:
 2. `shared/`: set `mgmt_cluster_name` to the new name and apply, then apply both
    `eks-az-a/` and `eks-az-c/` so they pick it up.
 3. `shared/`: drop the old name from `describable_cluster_names` and apply.
+4. `shared/`: **once both spokes have converged on the new name** (step 2's
+   applies both succeeded), set `default_mgmt_cluster_name` to the same new
+   name and apply, then apply both spokes once more. Skipping this step leaves
+   `mgmt_cluster_name` guard permanently "released" — the module compares the
+   new name against the *old* baseline forever, so `check-mgmt-guards.sh` fails
+   from here on even though nothing is actually released anymore. This must be
+   the last step: doing it before step 2 has fully rolled out to both spokes
+   would make a spoke still on the old name look released instead of the new
+   one.
 
 **Detecting a stale mgmt SG.** Nothing here notices on its own — recreation is
 silent until a sync fails, and during an incident that sync is the rollback

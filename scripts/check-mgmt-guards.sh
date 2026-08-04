@@ -111,31 +111,43 @@ fi
 # ArgoCD 가 실제로 두 클러스터에 도달하는지 — SG 가 맞아도 mgmt 가 재생성됐으면
 # 조용히 죽어 있을 수 있다(ADR-003 의 stale-SG follow-up 이 다루는 실패 양식).
 # 두 spoke 모두 Successful 이어야 통과 — CLI 부재/명령 실패/Unknown 상태는 전부 FAIL.
-# (이전 버전은 `|| echo` 로 이 모든 경우를 흡수해 종료 코드에 반영하지 않았다.)
+#
+# ARGO_RAW 를 구하는 세 경로(주입/CLI 성공/CLI 실패) 모두 검증 루프를 반드시 통과해야
+# 한다. round-8 리뷰가 잡은 버그: `argocd cluster list ... || true` 가 명령 실패(인증
+# 만료 등)를 빈 문자열로 흡수한 뒤, 그 빈 문자열을 `[ -n "$ARGO_RAW" ]` 로만 검사해
+# **루프 전체를 건너뛰어** FAIL 이 전혀 설정되지 않았다 — "CLI 부재/명령 실패/Unknown
+# 전부 FAIL" 이라는 주석의 주장과 실제 코드가 반대였다. 이제 명령의 종료 코드를
+# 직접 검사해 실패를 이 지점에서 즉시 FAIL 로 잡고, 아래 루프는 조건 없이 항상 돈다 —
+# ARGO_RAW 가 진짜로 비어 있어도(등록된 클러스터 0개) 각 AZ 가 "등록 안 됨"으로 FAIL
+# 하도록 만든다.
 if [ -n "${MGMT_ARGOCD_STATUS:-}" ]; then
   ARGO_RAW="$MGMT_ARGOCD_STATUS"
 elif command -v argocd >/dev/null 2>&1; then
-  ARGO_RAW="$(argocd cluster list 2>/dev/null | grep -E "mall-apne2-az-(a|c)" || true)"
+  if ! ARGO_LIST="$(argocd cluster list 2>/dev/null)"; then
+    echo "FAIL argocd cluster list 명령이 실패했다(인증 만료/네트워크 등) — 도달성을 검증할 수 없다."
+    FAIL=1
+    ARGO_RAW=""
+  else
+    ARGO_RAW="$(printf '%s\n' "$ARGO_LIST" | grep -E "mall-apne2-az-(a|c)" || true)"
+  fi
 else
   echo "FAIL argocd CLI 없음 — 도달성을 검증할 수 없다. mgmt 클러스터에서 실행하거나 CLI 를 설치할 것."
   FAIL=1
   ARGO_RAW=""
 fi
 
-if [ -n "$ARGO_RAW" ]; then
-  for AZ in a c; do
-    LINE="$(printf '%s\n' "$ARGO_RAW" | grep "mall-apne2-az-$AZ" || true)"
-    if [ -z "$LINE" ]; then
-      echo "FAIL az-$AZ: argocd cluster list 에 등록되어 있지 않다."
-      FAIL=1
-    elif ! printf '%s' "$LINE" | grep -q "Successful"; then
-      echo "FAIL az-$AZ: argocd 도달 상태가 Successful 이 아니다: $LINE"
-      FAIL=1
-    else
-      echo "OK   az-$AZ: argocd 도달 확인 (Successful)."
-    fi
-  done
-fi
+for AZ in a c; do
+  LINE="$(printf '%s\n' "$ARGO_RAW" | grep "mall-apne2-az-$AZ" || true)"
+  if [ -z "$LINE" ]; then
+    echo "FAIL az-$AZ: argocd cluster list 에 등록되어 있지 않다(또는 위 명령 실패로 목록 자체를 못 받았다)."
+    FAIL=1
+  elif ! printf '%s' "$LINE" | grep -q "Successful"; then
+    echo "FAIL az-$AZ: argocd 도달 상태가 Successful 이 아니다: $LINE"
+    FAIL=1
+  else
+    echo "OK   az-$AZ: argocd 도달 확인 (Successful)."
+  fi
+done
 
 [ "$FAIL" -eq 0 ] && echo "PASS mgmt 신뢰 경계 정상." || echo "FAILED — 위 항목 확인."
 exit "$FAIL"

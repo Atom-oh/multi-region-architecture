@@ -169,10 +169,6 @@ output "s3_static_assets_bucket_domain_name" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# mgmt trust — break-glass override, read by both eks-az-{a,c}
-# ─────────────────────────────────────────────────────────────────────────────
-
-# ─────────────────────────────────────────────────────────────────────────────
 # mgmt cluster trust inputs, consumed by both eks-az-{a,c}.
 #
 # Single-sourced here so the two spokes cannot be asked to trust *different*
@@ -184,6 +180,11 @@ output "s3_static_assets_bucket_domain_name" {
 output "mgmt_cluster_name" {
   description = "Management cluster whose SG both spokes trust for cross-cluster ArgoCD access."
   value       = var.mgmt_cluster_name
+}
+
+output "default_mgmt_cluster_name" {
+  description = "Baseline mgmt_cluster_name compared against to detect a released name guard. See variable description for why this is single-sourced separately from mgmt_cluster_name itself."
+  value       = var.default_mgmt_cluster_name
 }
 
 output "expected_mgmt_vpc_id" {

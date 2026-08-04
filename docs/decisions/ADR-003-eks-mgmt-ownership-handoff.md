@@ -175,6 +175,46 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    같은 principal에 Deny한다. 이 저장소 자신의 apply 경로(각 레이어를 소유한
    principal)는 객체 읽기/쓰기만 하고 버킷 정책 자체를 바꾸지 않으므로 영향 없다.
 
+   **round-8 수정(CRITICAL): Principal을 role ARN 직접 지정 대신 `"*"` +
+   `aws:PrincipalArn` 조건으로 바꿨다.** `Principal = { AWS = "arn:...:role/name" }`
+   는 정책 저장 시점에 AWS 가 그 role 의 **고유 내부 principal ID** 로 고착시킨다.
+   `mall-apne2-mgmt-ci-runner` 는 외부 repo(`AWS-Demo-Platform`)가 소유·재생성할 수
+   있는 role 이므로, 저쪽의 통상적인 role 재생성(공격이 아니라 유지보수) 한 번으로
+   새 role 은 새 principal ID 를 받고 이 Deny 는 더 이상 매치하지 않는다 — custody
+   가 아무 신호 없이 조용히 다시 열린다. `aws:PrincipalArn` 은 assumed-role 세션의
+   role ARN 을 요청 시점에 평가하므로, role 재생성 전후로 같은 ARN 을 유지해 이
+   정책이 막으려는 바로 그 사건을 넘어 fail-closed 상태를 지킨다. 부수 효과로
+   cold-bootstrap 문제도 해결된다: role ARN Principal 은 그 role 이 아직 없으면
+   `PutBucketPolicy` 자체가 "Invalid principal" 로 실패했다.
+
+   **round-8 수정(MAJOR): `check-mgmt-guards.sh` 의 argocd 도달성 검사가 여전히
+   fail-open 이었다.** `argocd cluster list ... || true` 가 명령 실패(인증 만료
+   등)를 빈 문자열로 흡수한 뒤, 그 흡수된 빈 문자열을 `[ -n "$ARGO_RAW" ]` 로만
+   검사해 **검증 루프 전체를 건너뛰었다** — "CLI 부재/명령 실패/Unknown 전부 FAIL"
+   이라는 주석의 주장과 실제 코드가 반대였다. 이제 `argocd cluster list` 의 종료
+   코드를 직접 검사해 명령 실패를 그 자리에서 즉시 FAIL 로 잡고, 검증 루프는 조건
+   없이 항상 돈다.
+
+   **round-8 수정(MAJOR): `env:/` workspace 경로가 세 곳(identity policy Deny,
+   버킷 정책 Deny, DynamoDB LeadingKeys) 모두에서 빠져 있었다.** `${key}` /
+   `${key}*` / `${dirname(key)}/*` 세 패턴은 모두 키 자신의 prefix 에 앵커하는데,
+   TF workspace 의 state 객체는 버킷 **루트**의 `env:/<name>/<key>` prefix 아래에
+   있어 어느 패턴에도 매칭되지 않는다. 세 곳 모두에 `env:/*/<key>` 계열 리소스를
+   추가해, workspace 를 만들어 같은 mgmt 리소스에 두 번째 writer 가 되는 경로를
+   닫았다.
+
+   **round-8 수정(MAJOR): 정당한 mgmt rename 후 name 가드가 영구 해제 상태로
+   남았다.** `released_guards` 는 `mgmt_cluster_name` 을 모듈에 하드코딩된
+   `default_mgmt_cluster_name`(항상 `"mall-apne2-mgmt"`)과 비교하는데, 이 baseline
+   은 spoke 어디서도 override 하지 않아 절대 바뀌지 않았다. rename runbook 을
+   정상적으로 완료해도(양쪽 spoke 가 새 이름에 수렴해도) guard 는 계속 "released"
+   로 남고 `check-mgmt-guards.sh` 는 그 이후 영원히 실패한다 — "해제 신호가
+   노이즈가 되는 것을 막는다"는 이 가드 시스템 자신의 목표와 충돌한다.
+   `default_mgmt_cluster_name` 을 `shared/` 의 신규 변수/output 으로 단일소싱하고,
+   rename runbook 의 마지막 단계로 이 baseline 갱신을 추가했다(양쪽 spoke 가 새
+   이름에 완전히 수렴한 **뒤에만** — 순서를 뒤집으면 아직 옮기지 않은 spoke 가
+   반대로 released 처럼 보인다).
+
 ### 이 ADR이 닫지 않는 것 (blocking follow-up)
 
 이관 자체와 분리해 추적한다. 둘 다 "문서 경고는 통제가 아니다"라는 이 ADR 자신의

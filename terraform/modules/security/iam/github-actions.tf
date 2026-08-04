@@ -123,11 +123,19 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
         # the lock in a sibling `<key>.tflock` object and workspaces live under
         # `env:/<name>/<key>` — an exact-key-only Deny leaves both writable, which
         # is the same corruption this statement exists to prevent.
+        #
+        # `env:/<name>/<key>*` (round-8 review MAJOR, confirmed against diff): the
+        # first three patterns all anchor on the bucket-root key, but a workspace
+        # object lives under the bucket-root `env:/` prefix instead — none of
+        # `${key}`, `${key}*`, `${dirname(key)}/*` match it. Creating a workspace
+        # against this key would make this role a second writer on it with none
+        # of the three patterns catching it.
         Resource = flatten([
           for key in var.externally_owned_state_keys : [
             "arn:aws:s3:::${var.terraform_state_bucket}/${key}",
             "arn:aws:s3:::${var.terraform_state_bucket}/${key}*",
             "arn:aws:s3:::${var.terraform_state_bucket}/${dirname(key)}/*",
+            "arn:aws:s3:::${var.terraform_state_bucket}/env:/*/${key}*",
           ]
         ])
       }],
@@ -161,10 +169,15 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
         Resource = "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.terraform_lock_table}"
         Condition = {
           "ForAnyValue:StringLike" = {
+            # env:/*/<key> rows (round-8 review MAJOR, same workspace gap as the
+            # S3 identity Deny above) — a workspace's lock row has the same
+            # bucket-root env:/ prefix as its state object.
             "dynamodb:LeadingKeys" = flatten([
               for key in var.externally_owned_state_keys : [
                 "${var.terraform_state_bucket}/${key}",
                 "${var.terraform_state_bucket}/${key}-md5",
+                "${var.terraform_state_bucket}/env:/*/${key}",
+                "${var.terraform_state_bucket}/env:/*/${key}-md5",
               ]
             ])
           }

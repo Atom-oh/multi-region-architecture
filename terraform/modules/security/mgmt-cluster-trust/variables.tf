@@ -10,7 +10,7 @@ variable "mgmt_cluster_name" {
 }
 
 variable "default_mgmt_cluster_name" {
-  description = "The name a non-released configuration uses. Compared against mgmt_cluster_name to detect a released name guard; only override in tests."
+  description = "The name a non-released configuration uses. Compared against mgmt_cluster_name to detect a released name guard. Both spokes now single-source this from shared/'s default_mgmt_cluster_name output — update it there as the final step of a rename runbook, not by overriding this module default directly (that would drift the two spokes)."
   type        = string
   default     = "mall-apne2-mgmt"
 }
