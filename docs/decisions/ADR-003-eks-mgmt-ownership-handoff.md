@@ -61,10 +61,17 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
      non-null이면 data source의 `count`가 0이 되어 **cluster read 자체와
      postcondition 전체가 사라진다.** 대신 값이 빈 문자열이 아니면
      `data "aws_security_group" "mgmt_override"`가 그 SG를 조회해 shared VPC 소속인지
-     assert한다. 비교 대상은 shared VPC가 아니라 `local.expected_mgmt_vpc_id`다 —
-     lookup 경로가 이미 relocation을 허용하는데 override 경로만 shared VPC를 강제하면
-     "mgmt가 peered VPC로 정당하게 이사한 뒤 장애"라는, 정확히 break-glass가 필요한
-     상황에서 알려진 SG를 쓸 수 없게 된다. 여기에 `kubernetes.io/cluster/<name>=owned`
+     assert한다. 비교 대상은 `var.shared_vpc_id`다(round-9 review MAJOR 수정 —
+     이전에는 `local.expected_mgmt_vpc_id`였다). `expected_mgmt_vpc_id`와 이 override는
+     둘 다 `shared/`에 살고 둘 다 각자의 `TF_VAR_*`로 독립적으로 해제 가능한 별개의
+     trust 입력인데, override를 *해제 가능한* `expected_mgmt_vpc_id`에 앵커하면
+     `shared/` 한 번의 변경(`expected_mgmt_vpc_id`만 넓히기)으로 override 경로의
+     VPC assert까지 같이 넓어졌다 — 하나의 값 해제가 두 가드를 동시에 무력화하는
+     구조였다. override는 인시던트 중 사람이 수동으로 지정하는 임시값이지 영구
+     relocation 선언이 아니므로, `expected_mgmt_vpc_id`가 해제돼 있어도 이 region의
+     실제 shared VPC로 고정한다. 정당한 영구 relocation은 여전히 live-lookup
+     경로(`expected_mgmt_vpc_id`를 존중하는)로 처리한다 — 이건 override 경로가
+     받아들이는 값만 바꾼다. 여기에 `kubernetes.io/cluster/<name>=owned`
      태그 assert를 더한다. VPC 소속만으로는 통제가 약하다 — 같은 VPC에 ALB/NLB/앱/데이터
      계층 SG가 전부 있으므로 그중 아무 SG나 workload API server ingress source가 될 수
      있다. EKS가 클러스터 관리 SG에 자동으로 붙이는 태그라 break-glass 비용은 없다.
@@ -81,20 +88,30 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
      두 가지를 붙여 흔적을 남긴다: `sg-` 형식 `validation`(오타가 apply까지 가지
      않게), 그리고 `check "mgmt_guards_engaged"` + `output "mgmt_guards_released"` —
      `check`는 plan을 실패시키지 않고 경고만 내는 유일한 구문이라 해제된 plan이
-     정상 plan과 똑같이 보이지 않게 한다. `check`와 output은 네 개의 trust 입력 **전부**를
-     본다 — `TF_VAR_expected_mgmt_tags='{}'`, `TF_VAR_expected_mgmt_vpc_id=vpc-...`,
+     정상 plan과 똑같이 보이지 않게 한다. `check`와 output은 다섯 개의 trust 입력
+     **전부**를 본다 — `TF_VAR_expected_mgmt_tags='{}'`, `TF_VAR_expected_mgmt_vpc_id=vpc-...`,
      `TF_VAR_mgmt_cluster_name=...`도 같은 trust boundary를 넓히는데, override만
      감지하면 그 경로들의 plan은 정상 plan과 완전히 동일하게 보인다.
      `mgmt_cluster_name`이 목록에 있는 이유는 그것이 단순 레이블이 아니라 trust
      입력이기 때문이다 — override 경로가 SG의 `aws:eks:cluster-name`을 이 값과
-     비교하므로, override와 name을 같이 넘기면 다른 클러스터의 SG가 통과한다. output은 해제된 가드 목록을 state에 남겨 사후
+     비교하므로, override와 name을 같이 넘기면 다른 클러스터의 SG가 통과한다.
+     `default_mgmt_cluster_name`도 목록에 있다(round-9 review MAJOR 수정) —
+     `mgmt_cluster_name`을 비교하는 그 baseline 자체가 두 값을 같은 새 이름으로
+     동시에 옮기면(TF_VAR_* 두 개를 같이 설정) `mgmt_cluster_name ==
+     default_mgmt_cluster_name`이 다시 성립해 released_guards가 빈 목록을 낸다 —
+     baseline이 이 모듈의 원래 리뷰된 기본값(`"mall-apne2-mgmt"`)에서 벗어난 것
+     자체를 독립적으로 감지해야, 정당한 rename runbook의 *마지막* 단계로만 이
+     baseline이 움직였는지 아니면 name 가드를 통째로 우회하려고 둘을 같이 옮겼는지
+     구분된다. output은 해제된 가드 목록을 state에 남겨 사후
      감사가 break-glass apply를 구분할 수 있게 한다. 단 이 output은 *현재* state의
      값이므로 이후 정상 apply가 빈 리스트로 덮어쓴다 — 지나간 break-glass를 되짚으려면
      state 버킷의 버저닝이나 CloudTrail이 필요하고, output 자체는 "지금 해제 상태인가"
      신호로 읽어야 한다(값은 bool이 아니라 해제된 가드 목록이다).
-   - `var.mgmt_cluster_name` — 이름 변경 대응. 단 `shared/`의
-     `describable_cluster_names`와 짝이라 2단계 절차다(아래 Consequences).
-     이 변수는 위 `check`/output의 감시 대상이기도 하다.
+   - `var.mgmt_cluster_name` — 이름 변경 대응. `shared/`의 `describable_cluster_names`는
+     이 변수에서 파생된다(`[var.mgmt_cluster_name]`, round-9 review MAJOR 수정 — 이전에는
+     별도 리터럴이라 `mgmt_cluster_name`과 독립적으로 drift할 수 있었다), 그래서 이름
+     변경은 `shared/` 한 번의 apply로 이름 output과 IAM grant가 함께 바뀐다(아래
+     Consequences). 이 변수는 위 `check`/output의 감시 대상이기도 하다.
 
    가드 전체(`data` 2개, postcondition 6개, `check`, `released_guards`)는
    `terraform/modules/security/mgmt-cluster-trust`에 두고 양 spoke가 호출한다. 두 spoke가
@@ -102,9 +119,12 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    보이지 않는다 — API server에 누가 닿을 수 있는지를 정하는 코드에는 맞지 않는 실패
    양식이다.
 
-   trust 입력 **네 개 전부**(`mgmt_cluster_name`, `expected_mgmt_vpc_id`,
-   `expected_mgmt_tags`, break-glass override)가 spoke 변수가 아니라 `shared/`의
-   변수이고, spoke는 그것을 remote state output으로 읽는다. spoke별 변수면 한쪽만
+   trust 입력 **다섯 개 전부**(`mgmt_cluster_name`, `default_mgmt_cluster_name`,
+   `expected_mgmt_vpc_id`, `expected_mgmt_tags`, break-glass override)가 spoke
+   변수가 아니라 `shared/`의 변수이고, spoke는 그것을 remote state output으로 읽는다.
+   `default_mgmt_cluster_name`은 round-8에서 추가된 다섯 번째 입력이다 — `check`의
+   released_guards 비교 기준(baseline) 자체이므로, 이것도 released_guards의 감시
+   대상이다(round-9에서 추가, 아래 released_guards 설명 참조). spoke별 변수면 한쪽만
    해제하고 다른 쪽을 잊는 것이 가능한데, 두 클러스터는 같은 weighted NLB 뒤에서 같은
    Aurora/DocumentDB primary를 공유하므로 ArgoCD 도달성이 갈리면 스키마 마이그레이션이
    fleet의 절반에만 도달한다. "양쪽에 같은 값을 넣으라"는 문서 문장은 통제가 아니다 —
@@ -160,8 +180,10 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    한다. TLS 강제 Deny도 같이 건다.
 
    `NotPrincipal`은 쓰지 않는다: assumed-role 세션 ARN과 role ARN이 달라 예외 목록이
-   조용히 fail-open된다. principal을 직접 지정하면 실수는 fail-closed(그 role이 접근을
-   잃는다) 쪽으로 떨어진다. 남는 한계: 이건 계정 내 특정 role 대상이므로, admin
+   조용히 fail-open된다. 대신 `Principal = "*"` + `aws:PrincipalArn` 조건절에 차단
+   대상 role ARN을 직접 나열한다(Principal 필드 자체에 role ARN을 넣는 것과는 다르다 —
+   그 방식의 문제는 아래 round-8 수정에서 다룬다). 조건절에 대상을 직접 나열하면
+   실수는 fail-closed(그 role이 접근을 잃는다) 쪽으로 떨어진다. 남는 한계: 이건 계정 내 특정 role 대상이므로, admin
    자격증명을 든 사람은 여전히 쓸 수 있다. 외부 repo에서 그 managed policy 자체를
    축소하는 것은 저쪽 repo의 변경이라 여기 범위가 아니다.
 
@@ -220,20 +242,68 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 이관 자체와 분리해 추적한다. 둘 다 "문서 경고는 통제가 아니다"라는 이 ADR 자신의
 원칙에 걸리는 항목이므로, 후속으로 남긴다는 사실을 여기 명시한다.
 
-1. **외부 repo의 `AmazonS3FullAccess` 축소.** 버킷 정책 승격은 이 PR에서 했으므로
-   (Decision 5) `ci_runner`가 이 repo의 state에 닿는 경로는 닫혔다. 남은 것은 그 role이
-   *애초에* 버킷 전체 권한을 들고 있을 이유가 없다는 것 — 그건
-   `AWS-Demo-Platform/infra/eks-mgmt`의 변경이라 이 repo에서 할 수 없다. 저쪽에
-   요청으로 추적한다(`iam:PassRole role/*`, `bedrock-agentcore:*`도 같은 대상).
+1. **외부 repo의 `AmazonS3FullAccess` 축소 — 그리고 role-pivot으로 우회 가능하다는 점을
+   명시.** 버킷 정책 승격(Decision 5)은 `ci_runner`가 **자기 자신의 principal ARN으로**
+   이 state에 닿는 경로만 닫는다. 그 role은 (외부 repo가 소유·유지하는) 삭제된
+   `eks-mgmt/main.tf`에 보이는 인라인 정책으로 `sts:AssumeRole` on `role/cdk-*`와
+   `iam:PassRole` on `role/*`(조건: `ecs-tasks.amazonaws.com`) + `ecs:RunTask`/
+   `RegisterTaskDefinition`(`Resource = "*"`)를 갖고 있다 — 즉 이 role은 **다른
+   principal ARN이 되는 경로를 최소 두 개** 가진다: (a) `cdk-hnb659fds-deploy-role-*`로
+   `AssumeRole`, (b) 계정 내 임의 role을 ECS task role로 `PassRole`한 뒤 그 role로
+   `RunTask`. `aws:PrincipalArn` 조건은 요청 시점의 principal ARN을 평가하므로, 새
+   principal ARN이 되는 이 두 경로에는 버킷 정책의 Deny가 **매치하지 않는다** — 즉
+   "`ci_runner`의 state 접근 경로가 닫혔다"는 것은 *그 role 자신의 ARN으로 직접
+   호출하는 경로*에만 참이고, 이 pivot 경로는 이 PR로 닫히지 않았다. 두 pivot 모두
+   외부 repo(`AWS-Demo-Platform/infra/eks-mgmt`)가 소유한 `ci_runner`의 권한 범위이므로
+   이 repo에서 고칠 수 없다 — 저쪽에 다음을 요청으로 추적한다: `AmazonS3FullAccess`
+   제거, `iam:PassRole`을 `role/*agentcore*`처럼 실제로 필요한 role로 좁히기(현재
+   `role/*` — 임의 role pivot의 근원), `sts:AssumeRole`을 `cdk-*` 중 실제 필요한
+   role ARN으로 좁히기, `ecs:RunTask`/`RegisterTaskDefinition`의 `Resource`를 `"*"`
+   대신 이 클러스터가 실제로 실행하는 task definition ARN으로 좁히기. 이 pivot이
+   막히기 전까지는 버킷 custody를 "완전히 닫힘"이 아니라 "principal ARN 직접 호출을
+   막는 부분 완화"로 취급할 것.
 2. **stale mgmt SG 감지.** mgmt를 replace하면 ArgoCD → spoke 접근이 조용히 끊기고
    다음 sync 실패까지 드러나지 않는다. 인시던트 중에는 그 sync가 롤백 채널이다.
    spoke의 `terraform plan -detailed-exitcode`가 신호를 내지만(SG를 live로 조회하므로
    교체가 ingress 규칙 diff로 보인다) 정기 실행이 없다. ArgoCD hub의 spoke connection
    알람 또는 예약된 drift plan 중 하나가 필요하다. `scripts/check-mgmt-guards.sh`가
    수동 실행으로 그 확인을 한 명령으로 만들었지만(가드 상태 + 두 spoke 수렴 +
-   `argocd cluster list` 도달성), 정기 실행은 아니라 여전히 사람이 돌려야 한다.
+   `argocd cluster list` 도달성, round-9에서 shared/ 의 현재 값과의 3자 비교도
+   추가됐다), 정기 실행은 아니라 여전히 사람이 돌려야 한다.
    상시 감지는 이 repo에 프로덕션 대상 스케줄 자동화를 새로 들이는 일이라 별도 결정으로
    분리한다.
+3. **수렴 창(convergence window)에서의 split-schema write.** (round-9 review L4,
+   4개 독립 모델 확인) mgmt replace 또는 break-glass 후 두 spoke 중 하나만
+   재apply되면, 그 사이 창에서 weighted NLB는 여전히 두 spoke 모두에 트래픽을
+   보내면서 ArgoCD는 한쪽에만 도달한다 — 스키마 마이그레이션을 포함한 GitOps
+   변경이 fleet의 절반에만 반영된 채로 같은 Aurora/DocumentDB primary에 신구
+   스키마가 동시에 write할 수 있다. 이 ADR이 도입한 통제(single-sourcing,
+   `check-mgmt-guards.sh`)는 그 창을 사후에 **감지**하지만 사전에 **막지는**
+   않는다 — 감지는 사람이 수동으로 스크립트를 돌려야 하는 시점에만 일어난다.
+   실질적인 예방에는 (a) 두 spoke의 ArgoCD revision이 갈리면 스키마 마이그레이션을
+   포함한 Application의 auto-sync를 막는 게이트, 또는 (b) 한쪽 spoke의 sync가
+   실패한 상태로 감지되면 그 spoke의 NLB target weight를 0으로 내리는 자동 경로가
+   필요하다. 둘 다 이 repo가 아직 갖지 않은 기능(ArgoCD Application 상태를 읽어
+   NLB 가중치를 바꾸는 자동화, 또는 revision-parity 게이트)이라 별도 설계·구현이
+   필요한 후속 작업으로 남긴다. expand-contract 방식의 스키마 마이그레이션 정책
+   문서화도 같은 후속에 포함한다.
+4. **신뢰 대상이 "ArgoCD"가 아니라 mgmt 클러스터 SG 전체.** (round-9 review L3,
+   확인됨) `argocd_security_group_id`에 들어가는 값은 EKS가 관리하는 **cluster SG**로
+   mgmt의 모든 노드에 붙는다 — 같은 mgmt 클러스터가 PR 코드를 실행하는 self-hosted
+   runner pod 10개도 호스팅하므로, workload API server의 네트워크 계층 ingress
+   trust 대상은 "ArgoCD"가 아니라 "mgmt 클러스터 전체"다. k8s RBAC가 남아 있어
+   즉시 침해는 아니지만, 통제로서는 의도보다 넓다. 실질적인 축소에는 mgmt 쪽에서
+   ArgoCD 전용 SG(또는 pod 단위 SG)를 만들어 그 output만 노출하는 변경이 필요한데,
+   그건 `AWS-Demo-Platform/infra/eks-mgmt`의 변경이라 이 repo에서 할 수 없다 —
+   저쪽에 새 output 하나를 요청으로 추적한다.
+5. **trust 입력 해제에 preventive 통제가 없다.** 다섯 개 trust 입력 모두 `TF_VAR_*`로
+   해제 가능하고 `check` 블록은 정의상 plan을 실패시키지 않으므로, 프로덕션 API
+   server ingress source를 정하는 값에는 사람이 수동으로 돌리는
+   `scripts/check-mgmt-guards.sh` 외의 게이트가 없다. 이 repo에 terraform apply를
+   하는 CI 경로 자체가 없어서(모든 apply가 사람 손) plan-time hard fail을 강제할
+   자리도 없다. CI 없이도 가능한 개선(plan JSON에 대한 OPA/Conftest 검사, 또는
+   `break_glass_confirm` 같은 별도 변수 없이는 release가 실패하는 postcondition)은
+   후속으로 남긴다.
 
 ## Consequences
 
@@ -267,10 +337,22 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
   해제)이 더 나쁘기 때문이고, 인시던트 중에는 `-target=module.mgmt_trust`가 아니라
   `shared/`의 plan을 읽고 변경이 output 하나뿐임을 확인한 뒤 apply하는 것이 절차다.
 
-- **mgmt 이름 변경이 2단계 절차가 된다.** `mgmt_cluster_name`과
-  `describable_cluster_names`가 같은 클러스터를 지칭한다 — 둘 다 이제 `shared/`에
-  있으므로 한 파일이지만, 여전히 순서가 있다: 새 이름을 `shared/`에 추가해 apply하지
-  않으면 spoke는 postcondition에 도달하기 전에 `AccessDenied`로 죽는다.
+- **mgmt 이름 변경은 2단계 절차다.** `describable_cluster_names`는
+  `mgmt_cluster_name`에서 파생되므로(`[var.mgmt_cluster_name]`) 이름 output과
+  `eks:DescribeCluster` IAM grant는 이제 `shared/` 한 번의 apply로 함께 바뀐다 — 둘이
+  독립적으로 drift할 수 없다(round-9 review MAJOR 수정, 이전에는
+  `describable_cluster_names`가 별도 리터럴이었다). 남는 두 단계는 순서가 있는
+  이유가 다르다: (1) `shared/`에서 `mgmt_cluster_name`을 새 이름으로 바꿔 apply하고
+  양 spoke를 apply — 이 시점부터 두 spoke는 새 이름을 신뢰하지만
+  `mgmt_cluster_name != default_mgmt_cluster_name`이라 released_guards가
+  "released"를 보고한다(의도된 것 — rename 진행 중 신호). (2) 양 spoke가 새 이름에
+  완전히 수렴한 **뒤에만** `shared/`에서 `default_mgmt_cluster_name`을 같은 새
+  이름으로 바꿔 apply하고 양 spoke를 다시 apply — 이제 baseline이 새 이름과
+  일치해 released_guards가 다시 빈 목록이 된다. 순서를 뒤집으면(두 변수를 같은
+  apply에서 같이 옮기면) 아직 옮기지 않은 spoke가 오히려 "engaged"로 잘못
+  보인다(위 released_guards의 `default_mgmt_cluster_name` 감시가 이 실수 자체는
+  잡아내지만, 정상적인 rename 순서를 대체하지는 않는다). 상세 절차는
+  region README의 Runbooks가 정본이다.
 
 - **cold rebuild의 임계 경로에 외부 repo가 들어온다.** 정상 순서는
   `shared/` → mgmt(external) → `eks-az-{a,c}`다. mgmt는 shared state를 읽고

@@ -510,7 +510,15 @@ module "iam" {
 
   # mall-apne2-mgmt is created and applied by AWS-Demo-Platform (see
   # docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md). We read it, we never write its state.
-  describable_cluster_names   = ["mall-apne2-mgmt"]
+  #
+  # Derived from var.mgmt_cluster_name, not a second hardcoded literal (round-9
+  # review MAJOR, confirmed against diff): a literal here drifts independently
+  # from mgmt_cluster_name on rename, and a spoke plan whose IAM grant still
+  # names the old cluster ARN dies with AccessDenied on the live lookup before
+  # any trust guard gets a chance to report anything useful. Deriving both from
+  # one variable makes a rename a single shared/ apply instead of the previous
+  # two-phase "add new name, apply, rename, apply, remove old name" runbook.
+  describable_cluster_names   = [var.mgmt_cluster_name]
   externally_owned_state_keys = ["production/ap-northeast-2/eks-mgmt/terraform.tfstate"]
 
   tags = var.tags

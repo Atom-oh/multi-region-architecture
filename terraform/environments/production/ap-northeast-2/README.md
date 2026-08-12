@@ -64,14 +64,22 @@ That one is closed here, with a **bucket policy**:
 Deny beats any Allow in any identity policy, so attaching a managed FullAccess
 policy no longer grants it — which is the whole difference between this and a
 README warning. The bucket had no policy at all before (`NoSuchBucketPolicy`).
-Scope is this repo's state keys plus `global/*`, and it denies non-TLS access;
-`ci_runner`'s own layer key is deliberately not denied, because that repo owns and
-applies it. Principals are named directly rather than via `NotPrincipal`, which
-fails open when an assumed-role session ARN does not match the role ARN.
+Scope is this repo's state keys plus `global/*`, and it denies non-TLS access.
+`Principal = "*"` with an `aws:PrincipalArn` condition naming the denied role
+directly, not `NotPrincipal` (fails open when an assumed-role session ARN
+doesn't match the role ARN) and not `Principal = { AWS = role-arn }` either
+(that form pins to the role's internal principal ID at policy-save time and
+silently fail-opens if the role is ever recreated — see the ADR's round-8
+note). `ci_runner`'s own layer key is deliberately not denied, because that
+repo owns and applies it.
 
-Still outside this: a human with admin credentials, and the managed policy on
-`ci_runner` itself — shrinking that is a change in the other repo, tracked as
-follow-up in the ADR.
+Still outside this: a human with admin credentials, and — concretely, not
+theoretically — the same `ci_runner` role can become a *different* principal
+ARN via its own `sts:AssumeRole role/cdk-*` and `iam:PassRole role/* (ecs-tasks)`
++ `ecs:RunTask` grants (both owned by the other repo), neither of which this
+Deny's `aws:PrincipalArn` condition matches. Custody is closed for calls made
+as `ci_runner` itself; it is not closed against that pivot. See the ADR
+follow-up for what's tracked and where.
 Rationale and the full contract:
 `docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md`.
 
@@ -122,10 +130,12 @@ cluster's EKS-managed SG as an ingress source so mgmt's ArgoCD can reach their
 API servers, and they read it with a live `data "aws_eks_cluster" "mgmt"`
 lookup rather than a cross-repo `terraform_remote_state`. The grant is in
 `shared/main.tf` (`describable_cluster_names`), scoped to that one cluster ARN
-in `ap-northeast-2`. Both `mgmt_cluster_name` and `describable_cluster_names` live in `shared/`, so a
-rename touches one file — but it is still two-phase: add the new name to
-`describable_cluster_names` and apply `shared/` **first**, or the spokes hit
-`AccessDenied` on the lookup before any guard can report anything useful.
+in `ap-northeast-2`. `describable_cluster_names` is derived from
+`mgmt_cluster_name` (`[var.mgmt_cluster_name]`), not a second hardcoded list
+(round-9 fix — it used to be a literal that could drift from `mgmt_cluster_name`
+independently), so a rename's IAM grant and its output value change together in
+the same `shared/` apply. See the rename runbook below for the two-phase
+procedure this is still part of.
 
 That SG becomes an ingress trust boundary on the workload API servers, so a
 name-only match is not enough. **Four** `postcondition`s guard the lookup: the
@@ -147,9 +157,11 @@ both spokes. It is a module rather than two copies because guard drift between
 the AZs would otherwise be invisible in review — the wrong failure mode for the
 code deciding who may reach an API server.
 
-**All four trust inputs live in `shared/`**, not in the spokes:
-`mgmt_cluster_name`, `expected_mgmt_vpc_id`, `expected_mgmt_tags`, and the
-break-glass override. Each of them decides who may reach a workload API server
+**All five trust inputs live in `shared/`**, not in the spokes:
+`mgmt_cluster_name`, `default_mgmt_cluster_name` (the rename baseline
+`mgmt_cluster_name` is compared against — added in round-8, see below),
+`expected_mgmt_vpc_id`, `expected_mgmt_tags`, and the break-glass override.
+Each of them decides who may reach a workload API server
 and each is releasable from the environment with a `TF_VAR_*`; as per-spoke
 variables they shared one failure mode — release the guard on az-a, forget az-c,
 and the two clusters behind one weighted NLB over one Aurora/DocumentDB primary
@@ -175,20 +187,29 @@ something a review finding gets to introduce.
 That last one releases the first three at once and needs no code change. So it
 is `validation`-checked for the `sg-` format (a typo would otherwise only surface
 at apply), and `check "mgmt_guards_engaged"` prints `GUARDS RELEASED` naming
-every released guard on every plan. The check covers **all four** trust inputs,
+every released guard on every plan. The check covers **all five** trust inputs,
 not just the override: `expected_mgmt_tags`, `expected_mgmt_vpc_id`, and
 `mgmt_cluster_name` widen the same boundary and would otherwise produce a plan
 indistinguishable from a guarded one. `mgmt_cluster_name` is in there because it
 is a trust input, not just a label — the override asserts the SG carries this
 cluster's ownership tag, so override + name together would authorize some other
-cluster's SG. `output "mgmt_guards_released"` carries the same list
+cluster's SG. `default_mgmt_cluster_name` — the baseline `mgmt_cluster_name` is
+compared against — is also watched: moving both to the same new name with two
+`TF_VAR_*`s at once would otherwise make `mgmt_cluster_name ==
+default_mgmt_cluster_name` hold again and released_guards report clean even
+though the baseline itself is no longer the reviewed default; it's only
+supposed to move as the *last* step of a completed rename (see the runbook
+below). `output "mgmt_guards_released"` carries the same list
 into state. It says what is released *right now* — the next normal apply
 overwrites it with an empty list, so reconstructing a past break-glass needs
 state bucket versioning or CloudTrail.
 
 Releasing the lookup does not mean the value goes unchecked: any non-empty
 override is read back with `data "aws_security_group"` and asserted to be in
-`expected_mgmt_vpc_id` (the same relocation switch the lookup path honours) and to
+this region's shared VPC — always, regardless of whether `expected_mgmt_vpc_id`
+is released (round-9 fix: anchoring the override to that *releasable* variable
+meant one `shared/` edit widening it would silently widen what the override
+accepts too, defeating both guards with a single flag) — and to
 carry `kubernetes.io/cluster/<mgmt_cluster_name> = owned`. The tag matters more
 than the VPC: shared-VPC membership alone would still let the override name any
 ALB, NLB, app, or data-layer SG in the region as an ingress source on the workload
@@ -249,8 +270,32 @@ terraform apply
 (cd ../eks-az-c && terraform apply)
 
 # 3. verify both actually moved
-bash ../../../../../scripts/check-mgmt-guards.sh
+bash ../../../../../scripts/check-mgmt-guards.sh --expect-released
 ```
+
+Use `--expect-released` here, not the plain form. Plain `check-mgmt-guards.sh`
+FAILs on a released guard and on `argocd cluster list` not showing both spokes
+`Successful` — both of which are *expected* right now (that's the whole point
+of break-glass), so the plain form would exit non-zero on every legitimate
+use of this runbook, training whoever runs it to ignore the exit code
+entirely (round-9 review L4 MAJOR). `--expect-released` prints those two as
+`INFO` instead of `FAIL` and keeps the exit code driven only by what actually
+still matters here: do the two spokes agree with each other (`mgmt_guards_released`,
+`mgmt_trust_security_group_id`) **and** with what `shared/` currently declares —
+i.e. did both spokes actually pick up the value you just committed, not just
+converge on some older one. A non-zero exit from the `--expect-released` run
+means the spokes have not converged on the override; a zero exit does not mean
+mgmt is healthy, only that both spokes are consistently pointed at the value
+you intended.
+
+`""` has a real cost worth calling out explicitly: it does not just release a
+guard, it removes the ArgoCD ingress rule entirely, and that rule is what the
+ADR calls the rollback channel during this exact kind of incident. There is no
+alternate rollback route documented here (bastion `kubectl`/`argocd`, a
+temporary CIDR-based ingress rule) — until one exists, `""` should be treated
+as the last resort after "do we actually know an SG ID" has been ruled out,
+not a default first move, and whoever runs it should have another way to
+reach the API servers already in mind before they do.
 
 That the break-glass value sits in the foundation layer is a real cost — an
 ArgoCD ingress rule should not need a plan that includes the data stores. It is
@@ -258,37 +303,48 @@ still the lesser failure: a per-spoke variable makes "released on one AZ only"
 reachable, and that one is silent. Mitigation is procedural — read the plan and
 confirm the only change is the output.
 
-A non-empty value is still checked: it must be an SG in `expected_mgmt_vpc_id`
-carrying `kubernetes.io/cluster/<mgmt_cluster_name> = owned`. If mgmt was rebuilt
-in a different VPC, set `expected_mgmt_vpc_id` in `shared/` too (one place — both
-spokes read it). Note also that SG-reference ingress needs peering or a shared
-VPC; over Transit Gateway it works only where TGW security group referencing is
-enabled and supported for that attachment pair, so on a plain TGW path the option
-is `""` plus a different GitOps route.
+A non-empty value is still checked: it must be an SG in this region's shared
+VPC (always — the override does not honour `expected_mgmt_vpc_id`, round-9 fix;
+see the override section above) carrying `kubernetes.io/cluster/<mgmt_cluster_name>
+= owned`. If mgmt was permanently rebuilt in a different VPC, that's the
+live-lookup path's job, not the override's: set `expected_mgmt_vpc_id` in
+`shared/` and let the spokes look mgmt up live instead of naming an override SG.
+Note also that SG-reference ingress needs a peering connection or the same VPC —
+it does not work over Transit Gateway at all, regardless of TGW security group
+referencing settings, so if mgmt moves to a VPC reachable only via TGW the
+option is `""` plus a different GitOps route.
 
 Unset it once mgmt is back, apply all three again, and re-run
 `scripts/check-mgmt-guards.sh` — the guards should report clean. Only GitOps
 reachability is affected throughout; the CloudFront → NLB → api-gateway traffic
 path does not use this SG.
 
-**mgmt cluster was renamed.** Two layers, in this order — the spoke lookup needs
-the IAM grant for the new name before it can read it:
+**mgmt cluster was renamed.** Two phases, in this order:
 
-1. `shared/`: add the new name to `describable_cluster_names` (keep the old one
-   for now) and apply. The grant is an ARN-scoped `eks:DescribeCluster`, so
-   without this step every spoke plan fails with an access error.
-2. `shared/`: set `mgmt_cluster_name` to the new name and apply, then apply both
-   `eks-az-a/` and `eks-az-c/` so they pick it up.
-3. `shared/`: drop the old name from `describable_cluster_names` and apply.
-4. `shared/`: **once both spokes have converged on the new name** (step 2's
-   applies both succeeded), set `default_mgmt_cluster_name` to the same new
-   name and apply, then apply both spokes once more. Skipping this step leaves
-   `mgmt_cluster_name` guard permanently "released" — the module compares the
+1. `shared/`: set `mgmt_cluster_name` to the new name and apply. Because
+   `describable_cluster_names` is derived from that same variable, this one
+   apply grants `eks:DescribeCluster` on the new name **and** updates the
+   output both spokes read, atomically — no separate "add the new name first"
+   step is needed anymore (round-9 fix; it used to be a second hardcoded list
+   that had to be edited in its own step, in order, before this one). Apply
+   both `eks-az-a/` and `eks-az-c/` so they pick up the new name. Expect
+   `mgmt_guards_released` to report `mgmt_cluster_name` as released on both
+   spokes at this point — that's correct: it's compared against
+   `default_mgmt_cluster_name`, which hasn't moved yet, so this is the
+   in-progress signal, not a problem.
+2. **Once both spokes have converged on the new name** (both applies in step 1
+   succeeded — confirm with `bash scripts/check-mgmt-guards.sh`, which will
+   currently report the released `mgmt_cluster_name` guard on both, matching):
+   `shared/` sets `default_mgmt_cluster_name` to the same new name and applies,
+   then both spokes apply once more to pick up the new baseline. Skipping this
+   step leaves the `mgmt_cluster_name` guard permanently "released" — the module compares the
    new name against the *old* baseline forever, so `check-mgmt-guards.sh` fails
    from here on even though nothing is actually released anymore. This must be
-   the last step: doing it before step 2 has fully rolled out to both spokes
+   the last step: doing it before step 1 has fully rolled out to both spokes
    would make a spoke still on the old name look released instead of the new
-   one.
+   one — that's exactly what released_guards' own watch on `default_mgmt_cluster_name`
+   (see above) is there to catch if the two steps get run out of order or merged
+   into one.
 
 **Detecting a stale mgmt SG.** Nothing here notices on its own — recreation is
 silent until a sync fails, and during an incident that sync is the rollback

@@ -49,32 +49,25 @@ module "mgmt_trust" {
 
   shared_vpc_id = data.terraform_remote_state.shared.outputs.vpc_id
 
-  # All four trust inputs come from shared/, none are per-spoke variables. Each
+  # All five trust inputs come from shared/, none are per-spoke variables. Each
   # of them decides who may reach this API server, and each is releasable with a
   # TF_VAR_*; as spoke variables they could be released on one AZ and forgotten
   # on the other, leaving the two clusters behind one weighted NLB with different
-  # ArgoCD reachability. try() with the pre-single-sourcing defaults keeps this
-  # plannable against a shared/ state that predates those outputs.
-  mgmt_cluster_name = try(
-    data.terraform_remote_state.shared.outputs.mgmt_cluster_name,
-    "mall-apne2-mgmt"
-  )
-  default_mgmt_cluster_name = try(
-    data.terraform_remote_state.shared.outputs.default_mgmt_cluster_name,
-    "mall-apne2-mgmt"
-  )
-  expected_mgmt_vpc_id = try(
-    data.terraform_remote_state.shared.outputs.expected_mgmt_vpc_id,
-    ""
-  )
-  expected_mgmt_tags = try(
-    data.terraform_remote_state.shared.outputs.expected_mgmt_tags,
-    { ManagedBy = "terraform", Project = "multi-region-mall" }
-  )
-  mgmt_cluster_security_group_id = try(
-    data.terraform_remote_state.shared.outputs.mgmt_cluster_security_group_id_override,
-    null
-  )
+  # ArgoCD reachability.
+  #
+  # No try()/fallback here (round-9 review MAJOR, confirmed against diff): a
+  # hardcoded default silently absorbs a missing/renamed shared/ output instead
+  # of failing the plan, which defeats single-sourcing for exactly the case it
+  # exists to guard — e.g. default_mgmt_cluster_name falling back to the module's
+  # own "mall-apne2-mgmt" literal would resurrect the "rename guard permanently
+  # released" bug round-8 closed. shared/ now ships these outputs unconditionally
+  # (it is applied in the same change), so a missing output means shared/ has not
+  # been applied yet — fail closed on that plan, not silently trust a default.
+  mgmt_cluster_name              = data.terraform_remote_state.shared.outputs.mgmt_cluster_name
+  default_mgmt_cluster_name      = data.terraform_remote_state.shared.outputs.default_mgmt_cluster_name
+  expected_mgmt_vpc_id           = data.terraform_remote_state.shared.outputs.expected_mgmt_vpc_id
+  expected_mgmt_tags             = data.terraform_remote_state.shared.outputs.expected_mgmt_tags
+  mgmt_cluster_security_group_id = data.terraform_remote_state.shared.outputs.mgmt_cluster_security_group_id_override
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

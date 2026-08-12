@@ -29,6 +29,17 @@ locals {
     var.mgmt_cluster_name == var.default_mgmt_cluster_name ? "" : "mgmt_cluster_name=${var.mgmt_cluster_name} (trusting a cluster other than ${var.default_mgmt_cluster_name})",
     var.expected_mgmt_vpc_id == "" ? "" : "expected_mgmt_vpc_id=${var.expected_mgmt_vpc_id} (mgmt trusted outside the shared VPC of this region)",
     var.expected_mgmt_tags == var.default_mgmt_tags ? "" : "expected_mgmt_tags=${jsonencode(var.expected_mgmt_tags)} (provisioning-tag guard widened or dropped)",
+    # default_mgmt_cluster_name is itself a trust input (it's what mgmt_cluster_name
+    # is compared against above), but until now nothing watched IT drifting from
+    # the module's own reviewed default. Round-9 review MAJOR, confirmed: move both
+    # mgmt_cluster_name AND default_mgmt_cluster_name to the same new value with two
+    # TF_VAR_*s (a rename done "in one shot" instead of via the rename runbook's
+    # sequencing) and the check above reads engaged — mgmt_cluster_name matches its
+    # own baseline again — while the baseline itself is no longer the reviewed
+    # "mall-apne2-mgmt" default. This entry catches that: the baseline is only ever
+    # supposed to move as the *last* step of a completed rename runbook, never in
+    # the same change as mgmt_cluster_name.
+    var.default_mgmt_cluster_name == "mall-apne2-mgmt" ? "" : "default_mgmt_cluster_name=${var.default_mgmt_cluster_name} (rename baseline changed from the reviewed default — verify this was the LAST step of a completed rename runbook, applied only after both spokes had already converged on the new name, not alongside mgmt_cluster_name in the same change)",
   ])
 }
 
@@ -79,12 +90,19 @@ data "aws_security_group" "mgmt_override" {
 
   lifecycle {
     postcondition {
-      # local.expected_vpc_id, not shared_vpc_id: the lookup path already allows
-      # a relocated mgmt via expected_mgmt_vpc_id, and "mgmt moved to a peered
-      # VPC and then broke" is exactly when break-glass is needed. Two paths,
-      # one release switch.
-      condition     = self.vpc_id == local.expected_vpc_id
-      error_message = "mgmt_cluster_security_group_id=${var.mgmt_cluster_security_group_id} is in VPC ${self.vpc_id}, not ${local.expected_vpc_id} — an SG from another VPC cannot be an ingress source here anyway. Set expected_mgmt_vpc_id if mgmt legitimately moved, or use \"\" to drop the ArgoCD ingress rule."
+      # shared_vpc_id, NOT local.expected_vpc_id (round-9 review MAJOR, confirmed):
+      # expected_mgmt_vpc_id and this override are two independent trust inputs
+      # that both live in shared/ and are both releasable with their own TF_VAR_*.
+      # Anchoring the override to the *releasable* expected_vpc_id meant a single
+      # shared/ edit that widened expected_mgmt_vpc_id also silently widened what
+      # the override path would accept — one flag defeating both asserts at once.
+      # The override is a temporary, manually-named SG for an active incident, not
+      # a permanent relocation declaration; it stays anchored to this region's real
+      # shared VPC regardless of expected_mgmt_vpc_id. A legitimate permanent
+      # relocation still works via the live-lookup path (which does honour
+      # expected_mgmt_vpc_id) — this only changes what the *override* accepts.
+      condition     = self.vpc_id == var.shared_vpc_id
+      error_message = "mgmt_cluster_security_group_id=${var.mgmt_cluster_security_group_id} is in VPC ${self.vpc_id}, not ${var.shared_vpc_id} — an SG from another VPC cannot be an ingress source here anyway. The override always requires this region's shared VPC, even if expected_mgmt_vpc_id was released for the live-lookup path; use \"\" to drop the ArgoCD ingress rule instead."
     }
     postcondition {
       # VPC membership alone is not much of a guard: every ALB/NLB/app/data-layer
