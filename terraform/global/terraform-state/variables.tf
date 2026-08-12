@@ -33,9 +33,19 @@ variable "state_custody_denials" {
     # + ReadOnlyAccess. Runner pods run PR code, so they must not reach state:
     # shared/ carries Aurora and DocumentDB master passwords in plaintext.
     #
-    # Its *own* layer's key is not denied — that repo owns and applies it.
+    # eks-mgmt's own key is denied too, not exempted (round-10 review MAJOR,
+    # confirmed): the original reasoning for exempting "its own layer" — "that
+    # repo owns and applies it" — conflates repo ownership with *this role's*
+    # authorization. Per the ADR, mall-apne2-mgmt-ci-runner is the self-hosted
+    # GitHub Actions runner role (bound to runner pods that execute PR code);
+    # the actual apply path for infra/eks-mgmt is that repo's Atlantis, a
+    # separate identity. ci_runner has no legitimate reason to read or write
+    # its own layer's state either, so leaving that one key open kept exactly
+    # the "state object with more than one writer" risk this whole bucket
+    # policy exists to close — just narrowed to one key instead of six.
     "mall-apne2-mgmt-ci-runner" = [
       "production/ap-northeast-2/shared/terraform.tfstate",
+      "production/ap-northeast-2/eks-mgmt/terraform.tfstate",
       "production/ap-northeast-2/eks-az-a/terraform.tfstate",
       "production/ap-northeast-2/eks-az-c/terraform.tfstate",
       "production/us-east-1/*",

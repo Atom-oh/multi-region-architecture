@@ -21,6 +21,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LAYERS="$ROOT/terraform/environments/production/ap-northeast-2"
+MGMT_REGION="ap-northeast-2"
 FAIL=0
 
 # --expect-released: break-glass 런북의 "3. 두 spoke 가 실제로 옮겨갔는지 검증" 단계용.
@@ -40,35 +41,44 @@ fi
 # argocd 미도달 / shared 에 이미 적용된 override·name 을 두 spoke 중 하나가 아직 못
 # 집어간 상태 — 를 주입해 종료 코드가 실제로 갈리는지 확인한다. 가드 검사기 자체가
 # 조용히 통과하는 것이 최악의 실패다.
+#
+# ARGOCD 픽스처는 실제 `argocd cluster list` 컬럼 형태(SERVER NAME VERSION STATUS ...)
+# 로 맞춘다 — round-9 의 2컬럼(name-first) 합성 픽스처는 "이름이 두 번째 필드"라는
+# 실제 CLI contract 위반을 구조적으로 잡을 수 없었다(round-10 리뷰 L4 MAJOR, 확인됨).
+run_self_check() {
+  _MGMT_SELF_CHECK=1 \
+  MGMT_GUARDS_A="${1:-}" MGMT_GUARDS_C="${2:-}" \
+  MGMT_SG_A="${3:-sg-mgmt}" MGMT_SG_C="${4:-sg-mgmt}" \
+  MGMT_ARGOCD_STATUS="${5:-https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Successful
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Successful}" \
+  MGMT_SHARED_NAME="${6:-mall-apne2-mgmt}" \
+  MGMT_SHARED_OVERRIDE_SET="${7:-false}" MGMT_SHARED_OVERRIDE_VALUE="${8:-\"\"}" \
+  MGMT_LIVE_SG="${9:-sg-mgmt}" \
+  bash "$0" "${10:-}" >/dev/null 2>&1; echo $?
+}
 if [ "${1:-}" = "--self-check" ]; then
-  run() {
-    _MGMT_SELF_CHECK=1 \
-    MGMT_GUARDS_A="${1:-}" MGMT_GUARDS_C="${2:-}" \
-    MGMT_SG_A="${3:-sg-mgmt}" MGMT_SG_C="${4:-sg-mgmt}" \
-    MGMT_ARGOCD_STATUS="${5:-mall-apne2-az-a Successful
-mall-apne2-az-c Successful}" \
-    MGMT_SHARED_NAME="${6:-mall-apne2-mgmt}" MGMT_SHARED_OVERRIDE="${7:-null}" \
-    MGMT_LIVE_SG="${8:-sg-mgmt}" \
-    bash "$0" "${9:-}" >/dev/null 2>&1; echo $?
-  }
-  [ "$(run '[]' '[]')" = "0" ] || { echo "self-check FAILED: 둘 다 깨끗한데 PASS 아님"; exit 1; }
-  [ "$(run '["x"]' '["x"]')" = "1" ] || { echo "self-check FAILED: 양쪽 가드 해제인데 FAIL 아님"; exit 1; }
-  [ "$(run '[]' '["x"]')" = "1" ] || { echo "self-check FAILED: guards 불일치인데 FAIL 아님"; exit 1; }
-  [ "$(run '[]' '[]' 'sg-old' 'sg-new')" = "1" ] || { echo "self-check FAILED: SG 불일치인데 FAIL 아님"; exit 1; }
-  [ "$(run '' '[]')" = "1" ] || { echo "self-check FAILED: 한쪽 read 실패인데 FAIL 아님"; exit 1; }
-  [ "$(run '[]' '[]' 'sg-mgmt' 'sg-mgmt' 'mall-apne2-az-a Successful
-mall-apne2-az-c Unknown')" = "1" ] || { echo "self-check FAILED: argocd 미도달인데 FAIL 아님"; exit 1; }
+  [ "$(run_self_check '[]' '[]')" = "0" ] || { echo "self-check FAILED: 둘 다 깨끗한데 PASS 아님"; exit 1; }
+  [ "$(run_self_check '["x"]' '["x"]')" = "1" ] || { echo "self-check FAILED: 양쪽 가드 해제인데 FAIL 아님"; exit 1; }
+  [ "$(run_self_check '[]' '["x"]')" = "1" ] || { echo "self-check FAILED: guards 불일치인데 FAIL 아님"; exit 1; }
+  [ "$(run_self_check '[]' '[]' 'sg-old' 'sg-new')" = "1" ] || { echo "self-check FAILED: SG 불일치인데 FAIL 아님"; exit 1; }
+  [ "$(run_self_check '' '[]')" = "1" ] || { echo "self-check FAILED: 한쪽 read 실패인데 FAIL 아님"; exit 1; }
+  [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Successful
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown')" = "1" ] || { echo "self-check FAILED: argocd 미도달인데 FAIL 아님"; exit 1; }
+  # stale 등록 오탐 방지: "mall-apne2-az-a-old" 가 이름 필드(두 번째)에 있어도
+  # "mall-apne2-az-a" 로 오매칭되면 안 된다 — 실제로는 두 az 모두 미등록으로 FAIL.
+  [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a-old v1.30.0 Successful
+https://mgmt-c.example:6443 mall-apne2-az-c-old v1.30.0 Successful')" = "1" ] || { echo "self-check FAILED: stale 등록(az-a-old)이 az-a 로 오매칭됨"; exit 1; }
   # 둘 다 [] 로 수렴해 보이지만 shared/ 에 이미 override 가 적용돼 있고 spoke 는 아직
   # 못 집어간 상태(3자 비교가 잡아야 하는 창).
-  [ "$(run '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' '"sg-newer"')" = "1" ] || { echo "self-check FAILED: shared override 미수렴인데 FAIL 아님"; exit 1; }
+  [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'true' '"sg-newer"')" = "1" ] || { echo "self-check FAILED: shared override 미수렴인데 FAIL 아님"; exit 1; }
   # 같은 창을, override 가 아니라 live lookup 경로(이름 변경)로: shared 는 이미 새
   # 이름으로 렌더된 live SG 를 가리키는데 두 spoke 는 여전히 옛 SG 를 신뢰.
-  [ "$(run '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'null' 'sg-live-new')" = "1" ] || { echo "self-check FAILED: shared live SG 미수렴인데 FAIL 아님"; exit 1; }
+  [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-live-new')" = "1" ] || { echo "self-check FAILED: shared live SG 미수렴인데 FAIL 아님"; exit 1; }
   # --expect-released: released+argocd 미도달은 INFO 로 내려가지만 수렴 실패는 여전히 FAIL.
-  [ "$(run '["x"]' '["x"]' 'sg-mgmt' 'sg-mgmt' 'mall-apne2-az-a Unknown
-mall-apne2-az-c Unknown' 'mall-apne2-mgmt' 'null' 'sg-mgmt' '--expect-released')" = "0" ] || { echo "self-check FAILED: --expect-released 인데 released+argocd-미도달로 FAIL"; exit 1; }
-  [ "$(run '["x"]' '["y"]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'null' 'sg-mgmt' '--expect-released')" = "1" ] || { echo "self-check FAILED: --expect-released 여도 guards 불일치는 FAIL 이어야 함"; exit 1; }
-  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/shared-미수렴×2/expect-released 모두 올바르게 판정)"
+  [ "$(run_self_check '["x"]' '["x"]' 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Unknown
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released')" = "0" ] || { echo "self-check FAILED: --expect-released 인데 released+argocd-미도달로 FAIL"; exit 1; }
+  [ "$(run_self_check '["x"]' '["y"]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released')" = "1" ] || { echo "self-check FAILED: --expect-released 여도 guards 불일치는 FAIL 이어야 함"; exit 1; }
+  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/shared-미수렴×2/expect-released 모두 올바르게 판정)"
   exit 0
 fi
 
@@ -163,27 +173,24 @@ fi
 # 놓친다(round-9 리뷰 L4 MAJOR, 확인됨): 그 창에서는 두 spoke 가 여전히 옛 값에
 # 수렴해 있어 위 비교가 PASS 를 낸다. shared/ 가 지금 무엇을 신뢰하라고 선언 중인지
 # 직접 읽어 비교해야 그 창이 잡힌다.
+#
+# override 는 _set/_value 두 output 으로 읽는다(round-10 리뷰 CRITICAL, 확인됨) —
+# 이전에는 override 하나를 null|""|"sg-..." 로 노출했는데, terraform 은 null 값
+# root output 을 state 의 outputs 맵에 아예 쓰지 않아 "output 이 없다"와 "값이
+# null이다"를 구분할 수 없었다. shared/outputs.tf 의 두 output 설명 참조.
 SHARED_DIR="$LAYERS/shared"
 if [ "${_MGMT_SELF_CHECK:-0}" != "1" ] && [ ! -d "$SHARED_DIR/.terraform" ]; then
   echo "FAIL shared/: not initialized ($SHARED_DIR) — run terraform init. shared/ 의 현재 신뢰 대상을 확인할 수 없다."
   FAIL=1
 elif SHARED_NAME_RAW="$(read_output "$SHARED_DIR" mgmt_cluster_name MGMT_SHARED_NAME)" && [ -n "$SHARED_NAME_RAW" ] \
-  && OVERRIDE_RAW="$(read_output "$SHARED_DIR" mgmt_cluster_security_group_id_override MGMT_SHARED_OVERRIDE)" && [ -n "$OVERRIDE_RAW" ]; then
+  && OVERRIDE_SET_RAW="$(read_output "$SHARED_DIR" mgmt_cluster_security_group_id_override_set MGMT_SHARED_OVERRIDE_SET)" && [ -n "$OVERRIDE_SET_RAW" ] \
+  && OVERRIDE_VALUE_RAW="$(read_output "$SHARED_DIR" mgmt_cluster_security_group_id_override_value MGMT_SHARED_OVERRIDE_VALUE)" && [ -n "$OVERRIDE_VALUE_RAW" ]; then
 
-  # terraform output -json 은 null 을 리터럴 `null` 로, ""는 `""` 로, SG 값은 `"sg-..."`
-  # 로 낸다 — 문자열 비교가 아니라 JSON 파싱으로 셋을 구분해야 한다.
-  EXPECTED_SG="$(printf '%s' "$OVERRIDE_RAW" | python3 -c '
-import json, sys
-v = json.load(sys.stdin)
-print("" if v is None else v)
-' 2>/dev/null || echo "__PARSE_ERROR__")"
-  OVERRIDE_IS_SET="$(printf '%s' "$OVERRIDE_RAW" | python3 -c '
-import json, sys
-print("1" if json.load(sys.stdin) is not None else "0")
-' 2>/dev/null || echo "0")"
+  OVERRIDE_IS_SET="$(printf '%s' "$OVERRIDE_SET_RAW" | python3 -c 'import json,sys; print("1" if json.load(sys.stdin) else "0")' 2>/dev/null || echo "__PARSE_ERROR__")"
+  EXPECTED_SG="$(printf '%s' "$OVERRIDE_VALUE_RAW" | python3 -c 'import json,sys; print(json.load(sys.stdin))' 2>/dev/null || echo "__PARSE_ERROR__")"
 
-  if [ "$EXPECTED_SG" = "__PARSE_ERROR__" ]; then
-    echo "FAIL shared/: mgmt_cluster_security_group_id_override 출력을 파싱할 수 없다(값: $OVERRIDE_RAW)."
+  if [ "$OVERRIDE_IS_SET" = "__PARSE_ERROR__" ] || [ "$EXPECTED_SG" = "__PARSE_ERROR__" ]; then
+    echo "FAIL shared/: mgmt_cluster_security_group_id_override_set/_value 출력을 파싱할 수 없다(값: $OVERRIDE_SET_RAW / $OVERRIDE_VALUE_RAW)."
     FAIL=1
   elif [ "$OVERRIDE_IS_SET" = "1" ]; then
     # break-glass 경로: shared/ 가 이미 override 값을 선언 중이다. 두 spoke 가 그
@@ -201,16 +208,19 @@ print("1" if json.load(sys.stdin) is not None else "0")
     done
   else
     # 정상 경로(override 없음): shared/ 가 지금 가리키는 mgmt_cluster_name 을 live 로
-    # 조회해 그 SG 를 각 spoke 의 SG 와 비교한다. aws CLI 가 없으면 이 창을 검증할
-    # 수단이 없다는 뜻이므로 — 기존 argocd-CLI-부재 처리와 같은 정책으로 — 조용히
-        # 넘기지 않고 FAIL 로 낸다.
+    # 조회해 그 SG 를 각 spoke 의 SG 와 비교한다. mgmt 는 항상 ap-northeast-2 이므로
+    # --region 을 명시한다 — 없으면 셸의 기본 리전(이 저장소의 backend/state 는
+    # us-east-1 이라 그쪽일 확률이 높다)으로 나가 응답이 비어 FAIL 로 오진된다
+    # (round-10 리뷰 MAJOR, 확인됨). aws CLI 가 없으면 이 창을 검증할 수단이 없다는
+    # 뜻이므로 — 기존 argocd-CLI-부재 처리와 같은 정책으로 — 조용히 넘기지 않고
+    # FAIL 로 낸다.
     if [ "${_MGMT_SELF_CHECK:-0}" = "1" ] && [ -n "${MGMT_LIVE_SG:-}" ]; then
       LIVE_SG="$MGMT_LIVE_SG"
     elif command -v aws >/dev/null 2>&1; then
       MGMT_NAME="$(printf '%s' "$SHARED_NAME_RAW" | python3 -c 'import json,sys; print(json.load(sys.stdin))' 2>/dev/null || echo "")"
-      LIVE_SG="$(aws eks describe-cluster --name "$MGMT_NAME" --query 'cluster.resourcesVpcConfig.clusterSecurityGroupId' --output text 2>/dev/null || echo "")"
+      LIVE_SG="$(aws eks describe-cluster --region "$MGMT_REGION" --name "$MGMT_NAME" --query 'cluster.resourcesVpcConfig.clusterSecurityGroupId' --output text 2>/dev/null || echo "")"
       if [ -z "$LIVE_SG" ] || [ "$LIVE_SG" = "None" ]; then
-        echo "FAIL shared/: aws eks describe-cluster $MGMT_NAME 로 live SG 를 확인할 수 없다 — mgmt 도달성 자체를 점검할 것."
+        echo "FAIL shared/: aws eks describe-cluster --region $MGMT_REGION $MGMT_NAME 로 live SG 를 확인할 수 없다 — mgmt 도달성 자체를 점검할 것."
         FAIL=1
         LIVE_SG=""
       fi
@@ -234,7 +244,7 @@ print("1" if json.load(sys.stdin) is not None else "0")
     fi
   fi
 else
-  echo "FAIL shared/: mgmt_cluster_name 또는 mgmt_cluster_security_group_id_override 출력을 읽을 수 없다 — shared/ 가 아직 apply 되지 않았거나 state 를 못 읽는다."
+  echo "FAIL shared/: mgmt_cluster_name 또는 mgmt_cluster_security_group_id_override_set/_value 출력을 읽을 수 없다 — shared/ 가 아직 apply 되지 않았거나 state 를 못 읽는다."
   FAIL=1
 fi
 
@@ -275,9 +285,12 @@ else
 fi
 
 for AZ in a c; do
-  # substring match 가 아니라 정확한 첫 필드 일치 — "mall-apne2-az-a-old" 같은 stale
-  # 등록이 "mall-apne2-az-a" 로 오탐되는 것을 막는다(round-9 리뷰 L4 MINOR, 확인됨).
-  LINE="$(printf '%s\n' "$ARGO_RAW" | awk -v n="mall-apne2-az-$AZ" '$1==n {print; exit}')"
+  # `argocd cluster list` 컬럼은 SERVER NAME VERSION STATUS MESSAGE PROJECT —
+  # 이름은 두 번째 필드, 첫 필드는 API server URL 이다. round-9 의 `$1==n` 은 이
+  # contract 를 거꾸로 가정해 정상 등록된 클러스터도 "미등록"으로 오판했다(round-10
+  # 리뷰 MAJOR, 확인됨 — self-check 픽스처가 2컬럼 name-first 합성값이라 이 회귀를
+  # 구조적으로 잡지 못했다. 위 self-check 는 이제 실제 컬럼 순서로 픽스처를 낸다).
+  LINE="$(printf '%s\n' "$ARGO_RAW" | awk -v n="mall-apne2-az-$AZ" '$2==n {print; exit}')"
   if [ -z "$LINE" ]; then
     argo_report "az-$AZ: argocd cluster list 에 등록되어 있지 않다(또는 위 명령 실패로 목록 자체를 못 받았다)."
   elif ! printf '%s' "$LINE" | grep -q "Successful"; then

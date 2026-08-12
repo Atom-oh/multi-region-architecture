@@ -197,7 +197,30 @@ output "expected_mgmt_tags" {
   value       = var.expected_mgmt_tags
 }
 
-output "mgmt_cluster_security_group_id_override" {
-  description = "Break-glass mgmt cluster SG for both spokes, or null when they should look it up live."
-  value       = var.mgmt_cluster_security_group_id_override
+
+# Split into _set/_value instead of one output carrying the null|""|sg-id
+# tri-state directly (round-10 review CRITICAL, confirmed empirically): a root
+# output whose value is null is not written into the state's outputs map at
+# all — `terraform_remote_state`'s `.outputs` object simply doesn't have that
+# key, so a consumer reading `data.terraform_remote_state.shared.outputs.mgmt_cluster_security_group_id_override`
+# without a try() gets "Unsupported attribute", not a null read. That is the
+# *default* value of this variable, so removing try() (round-9's fail-closed
+# fix) broke every spoke plan in the normal, non-break-glass case — the
+# opposite of "fail closed only during an incident". A bool + a
+# never-null string can't hit this: `_set` is always present (true/false),
+# `_value` is always present (a real SG id, or "" when unused).
+output "mgmt_cluster_security_group_id_override_set" {
+  description = "Whether mgmt_cluster_security_group_id_override is non-null (break-glass engaged). Kept separate from _value so the pair together can represent null without either output itself ever being null — see the comment above."
+  value       = var.mgmt_cluster_security_group_id_override != null
+}
+
+output "mgmt_cluster_security_group_id_override_value" {
+  description = "The override's SG id, or \"\" to drop the ArgoCD ingress rule, when mgmt_cluster_security_group_id_override_set is true. Meaningless (but still a real, non-null \"\") when _set is false — callers must check _set first."
+  # A plain conditional, not coalesce(var..., "") — verified empirically:
+  # coalesce() treats "" as an empty/skippable candidate exactly like null, so
+  # coalesce(null, "") itself errors with "no non-null, non-empty-string
+  # arguments" instead of returning "". That would have broken every plan in
+  # the default (non-break-glass) state, the same failure category as the
+  # null-output bug this whole _set/_value split exists to avoid.
+  value = var.mgmt_cluster_security_group_id_override != null ? var.mgmt_cluster_security_group_id_override : ""
 }

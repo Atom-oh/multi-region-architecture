@@ -88,21 +88,27 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
      두 가지를 붙여 흔적을 남긴다: `sg-` 형식 `validation`(오타가 apply까지 가지
      않게), 그리고 `check "mgmt_guards_engaged"` + `output "mgmt_guards_released"` —
      `check`는 plan을 실패시키지 않고 경고만 내는 유일한 구문이라 해제된 plan이
-     정상 plan과 똑같이 보이지 않게 한다. `check`와 output은 다섯 개의 trust 입력
-     **전부**를 본다 — `TF_VAR_expected_mgmt_tags='{}'`, `TF_VAR_expected_mgmt_vpc_id=vpc-...`,
+     정상 plan과 똑같이 보이지 않게 한다. `check`와 output은 다섯 개 trust 입력 중
+     네 개를 직접 본다 — `TF_VAR_expected_mgmt_tags='{}'`, `TF_VAR_expected_mgmt_vpc_id=vpc-...`,
      `TF_VAR_mgmt_cluster_name=...`도 같은 trust boundary를 넓히는데, override만
      감지하면 그 경로들의 plan은 정상 plan과 완전히 동일하게 보인다.
      `mgmt_cluster_name`이 목록에 있는 이유는 그것이 단순 레이블이 아니라 trust
      입력이기 때문이다 — override 경로가 SG의 `aws:eks:cluster-name`을 이 값과
      비교하므로, override와 name을 같이 넘기면 다른 클러스터의 SG가 통과한다.
-     `default_mgmt_cluster_name`도 목록에 있다(round-9 review MAJOR 수정) —
-     `mgmt_cluster_name`을 비교하는 그 baseline 자체가 두 값을 같은 새 이름으로
-     동시에 옮기면(TF_VAR_* 두 개를 같이 설정) `mgmt_cluster_name ==
-     default_mgmt_cluster_name`이 다시 성립해 released_guards가 빈 목록을 낸다 —
-     baseline이 이 모듈의 원래 리뷰된 기본값(`"mall-apne2-mgmt"`)에서 벗어난 것
-     자체를 독립적으로 감지해야, 정당한 rename runbook의 *마지막* 단계로만 이
-     baseline이 움직였는지 아니면 name 가드를 통째로 우회하려고 둘을 같이 옮겼는지
-     구분된다. output은 해제된 가드 목록을 state에 남겨 사후
+     다섯 번째 입력 `default_mgmt_cluster_name`은 그 `mgmt_cluster_name` 비교의
+     baseline 역할만 하고, **자기 자신의 drift를 감지하는 독립적인 가드는 없다** —
+     round-9에서 한 번 시도했었다(baseline을 모듈에 하드코딩된 `"mall-apne2-mgmt"`
+     리터럴과 비교해, 두 입력을 TF_VAR_* 두 개로 동시에 같은 새 이름으로 옮기는
+     우회를 잡으려 했다). round-10 리뷰에서 그 시도 자체가 버그로 확인돼 제거했다:
+     state만 보고는 "rename runbook을 절차대로(두 번의 apply로) 완료해 baseline이
+     새 이름에 정당하게 도달한 것"과 "두 입력을 한 apply에서 같이 옮겨 name 가드를
+     우회한 것"을 구분할 방법이 없다 — 둘의 최종 state가 완전히 동일하기 때문이다.
+     그 결과 그 가드는 정당한 rename을 완료할 때마다 이후 영원히 "released"로
+     보고했다("해제 신호가 노이즈가 되는 것을 막는다"는 이 가드 시스템 자신의
+     목표와 정면으로 충돌). state 비교로는 원천적으로 풀 수 없는 문제라 판단해
+     복구하기보다 제거했다 — 이 특정 우회(동시 변경)를 잡으려면 state가 아니라
+     감사 기록(shared/ apply에 대한 CloudTrail, 또는 shared/tfvars 변경에 대한
+     필수 리뷰 게이트)이 필요하다. output은 해제된 가드 목록을 state에 남겨 사후
      감사가 break-glass apply를 구분할 수 있게 한다. 단 이 output은 *현재* state의
      값이므로 이후 정상 apply가 빈 리스트로 덮어쓴다 — 지나간 break-glass를 되짚으려면
      state 버킷의 버저닝이나 CloudTrail이 필요하고, output 자체는 "지금 해제 상태인가"
@@ -176,8 +182,14 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    Allow보다도 우선하므로, managed FullAccess를 달아도 더 이상 권한이 생기지 않는다 —
    문서 경고와 이것의 차이가 정확히 그 지점이고, 그래서 이관과 같은 변경에 들어간다.
    해당 버킷에는 정책이 없었다(`NoSuchBucketPolicy` 실측). 범위는 이 repo가 소유한 state
-   key들 + `global/*`이고, `ci_runner` 자기 레이어의 key는 뺀다 — 저쪽이 소유하고 apply
-   한다. TLS 강제 Deny도 같이 건다.
+   key들 + `global/*` + `ci_runner` 자기 레이어(`eks-mgmt`)의 key다. **자기 레이어
+   key도 뺴지 않고 Deny한다**(round-10 리뷰 MAJOR 수정 — 이전에는 "저쪽이 소유하고
+   apply한다"는 근거로 뺐다. 그런데 ADR 자신의 서술대로 `ci_runner`는 PR 코드를
+   실행하는 self-hosted runner role이고, `infra/eks-mgmt`를 실제로 apply하는 건
+   그쪽의 Atlantis — 별개 identity다. repo 소유권과 이 role 자신의 권한 필요성은
+   별개이고, `ci_runner`가 자기 레이어의 state를 읽거나 쓸 정당한 이유도 없다 — 그
+   key 하나를 열어두는 것은 이 버킷 정책 전체가 막으려는 "state 객체당 writer
+   2명 이상" 위험을 범위만 좁혀 그대로 남겨두는 것이었다). TLS 강제 Deny도 같이 건다.
 
    `NotPrincipal`은 쓰지 않는다: assumed-role 세션 ARN과 role ARN이 달라 예외 목록이
    조용히 fail-open된다. 대신 `Principal = "*"` + `aws:PrincipalArn` 조건절에 차단
@@ -345,14 +357,18 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
   이유가 다르다: (1) `shared/`에서 `mgmt_cluster_name`을 새 이름으로 바꿔 apply하고
   양 spoke를 apply — 이 시점부터 두 spoke는 새 이름을 신뢰하지만
   `mgmt_cluster_name != default_mgmt_cluster_name`이라 released_guards가
-  "released"를 보고한다(의도된 것 — rename 진행 중 신호). (2) 양 spoke가 새 이름에
-  완전히 수렴한 **뒤에만** `shared/`에서 `default_mgmt_cluster_name`을 같은 새
-  이름으로 바꿔 apply하고 양 spoke를 다시 apply — 이제 baseline이 새 이름과
-  일치해 released_guards가 다시 빈 목록이 된다. 순서를 뒤집으면(두 변수를 같은
-  apply에서 같이 옮기면) 아직 옮기지 않은 spoke가 오히려 "engaged"로 잘못
-  보인다(위 released_guards의 `default_mgmt_cluster_name` 감시가 이 실수 자체는
-  잡아내지만, 정상적인 rename 순서를 대체하지는 않는다). 상세 절차는
-  region README의 Runbooks가 정본이다.
+  "released"를 보고한다(의도된 것 — rename 진행 중 신호. `check-mgmt-guards.sh`는
+  이 단계에서 `--expect-released`로 실행할 것 — plain 모드는 released guard가
+  있으면 그 이유를 안 따지고 FAIL한다). (2) 양 spoke가 새 이름에 완전히 수렴한
+  **뒤에만** `shared/`에서 `default_mgmt_cluster_name`을 같은 새 이름으로 바꿔
+  apply하고 양 spoke를 다시 apply — 이제 baseline이 새 이름과 일치해
+  released_guards가 다시 빈 목록이 된다. 순서를 뒤집으면(두 변수를 같은 apply에서
+  같이 옮기면) 아직 옮기지 않은 spoke가 오히려 "engaged"로 잘못 보이는데, 이를
+  잡는 자동 가드는 없다 — state만으로는 "두 apply로 절차대로 도달"과 "한 apply로
+  동시에 옮김"을 구분할 수 없어서 시도했던 가드(round-9)를 round-10에서 제거했다
+  (위 Decision 4·released_guards 설명 참조). "두 spoke가 실제로 수렴했는지"는
+  운영자가 절차를 지켜 확인해야 하는 전제이지, 툴링이 강제해주지 않는다. 상세
+  절차는 region README의 Runbooks가 정본이다.
 
 - **cold rebuild의 임계 경로에 외부 repo가 들어온다.** 정상 순서는
   `shared/` → mgmt(external) → `eks-az-{a,c}`다. mgmt는 shared state를 읽고

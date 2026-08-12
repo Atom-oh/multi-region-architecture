@@ -64,14 +64,19 @@ That one is closed here, with a **bucket policy**:
 Deny beats any Allow in any identity policy, so attaching a managed FullAccess
 policy no longer grants it — which is the whole difference between this and a
 README warning. The bucket had no policy at all before (`NoSuchBucketPolicy`).
-Scope is this repo's state keys plus `global/*`, and it denies non-TLS access.
-`Principal = "*"` with an `aws:PrincipalArn` condition naming the denied role
-directly, not `NotPrincipal` (fails open when an assumed-role session ARN
-doesn't match the role ARN) and not `Principal = { AWS = role-arn }` either
-(that form pins to the role's internal principal ID at policy-save time and
-silently fail-opens if the role is ever recreated — see the ADR's round-8
-note). `ci_runner`'s own layer key is deliberately not denied, because that
-repo owns and applies it.
+Scope is this repo's state keys plus `global/*` **and** `ci_runner`'s own
+`eks-mgmt` key, and it denies non-TLS access. `Principal = "*"` with an
+`aws:PrincipalArn` condition naming the denied role directly, not
+`NotPrincipal` (fails open when an assumed-role session ARN doesn't match the
+role ARN) and not `Principal = { AWS = role-arn }` either (that form pins to
+the role's internal principal ID at policy-save time and silently fail-opens
+if the role is ever recreated — see the ADR's round-8 note). `ci_runner`'s own
+layer key is **not** exempted (round-10 fix — it used to be, on the reasoning
+that "that repo owns and applies it"; but per the ADR, `ci_runner` is the
+self-hosted GitHub Actions runner role, not the Atlantis identity that
+actually applies `infra/eks-mgmt` — repo ownership and this role's own
+authorization are different things, and `ci_runner` has no legitimate reason
+to touch that key either).
 
 Still outside this: a human with admin credentials, and — concretely, not
 theoretically — the same `ci_runner` role can become a *different* principal
@@ -187,19 +192,25 @@ something a review finding gets to introduce.
 That last one releases the first three at once and needs no code change. So it
 is `validation`-checked for the `sg-` format (a typo would otherwise only surface
 at apply), and `check "mgmt_guards_engaged"` prints `GUARDS RELEASED` naming
-every released guard on every plan. The check covers **all five** trust inputs,
-not just the override: `expected_mgmt_tags`, `expected_mgmt_vpc_id`, and
-`mgmt_cluster_name` widen the same boundary and would otherwise produce a plan
-indistinguishable from a guarded one. `mgmt_cluster_name` is in there because it
-is a trust input, not just a label — the override asserts the SG carries this
-cluster's ownership tag, so override + name together would authorize some other
-cluster's SG. `default_mgmt_cluster_name` — the baseline `mgmt_cluster_name` is
-compared against — is also watched: moving both to the same new name with two
-`TF_VAR_*`s at once would otherwise make `mgmt_cluster_name ==
-default_mgmt_cluster_name` hold again and released_guards report clean even
-though the baseline itself is no longer the reviewed default; it's only
-supposed to move as the *last* step of a completed rename (see the runbook
-below). `output "mgmt_guards_released"` carries the same list
+every released guard on every plan. The check covers four of the five trust
+inputs directly, not just the override: `expected_mgmt_tags`,
+`expected_mgmt_vpc_id`, and `mgmt_cluster_name` widen the same boundary and
+would otherwise produce a plan indistinguishable from a guarded one.
+`mgmt_cluster_name` is in there because it is a trust input, not just a label —
+the override asserts the SG carries this cluster's ownership tag, so override +
+name together would authorize some other cluster's SG. It's compared against
+the fifth input, `default_mgmt_cluster_name` — but that comparison is the only
+role `default_mgmt_cluster_name` plays here; there is deliberately no separate
+check on it drifting from *its own* reviewed default. An earlier version of
+this guard tried that (comparing it against the module's hardcoded
+`"mall-apne2-mgmt"` literal, to catch someone moving both trust inputs to the
+same new value in one shot instead of via the runbook below) and it made every
+*legitimate* completed rename report permanently "released" from then on —
+state alone can't tell "both values landed on the same name because the
+runbook was followed in two applies" apart from "both landed on the same name
+in one apply", so a check trying to catch the latter necessarily also flags
+the former forever. Removed rather than left broken; see the ADR's
+Consequences for the reasoning. `output "mgmt_guards_released"` carries the same list
 into state. It says what is released *right now* — the next normal apply
 overwrites it with an empty list, so reconstructing a past break-glass needs
 state bucket versioning or CloudTrail.
@@ -333,18 +344,23 @@ path does not use this SG.
    `default_mgmt_cluster_name`, which hasn't moved yet, so this is the
    in-progress signal, not a problem.
 2. **Once both spokes have converged on the new name** (both applies in step 1
-   succeeded — confirm with `bash scripts/check-mgmt-guards.sh`, which will
-   currently report the released `mgmt_cluster_name` guard on both, matching):
+   succeeded — confirm with `bash scripts/check-mgmt-guards.sh --expect-released`,
+   *not* the plain form: the `mgmt_cluster_name` guard is released on both right
+   now by design, and plain mode FAILs on any released guard regardless of
+   whether that's expected — `--expect-released` reports it as INFO instead and
+   still hard-fails on the thing that actually matters here, the two spokes not
+   agreeing with each other):
    `shared/` sets `default_mgmt_cluster_name` to the same new name and applies,
    then both spokes apply once more to pick up the new baseline. Skipping this
    step leaves the `mgmt_cluster_name` guard permanently "released" — the module compares the
    new name against the *old* baseline forever, so `check-mgmt-guards.sh` fails
    from here on even though nothing is actually released anymore. This must be
-   the last step: doing it before step 1 has fully rolled out to both spokes
-   would make a spoke still on the old name look released instead of the new
-   one — that's exactly what released_guards' own watch on `default_mgmt_cluster_name`
-   (see above) is there to catch if the two steps get run out of order or merged
-   into one.
+   the last step, run only once both spokes have actually converged on the new
+   name from step 1 — there is no automated check for doing this out of order
+   (a prior attempt at one turned out to be unfixable from state alone, see the
+   ADR's Consequences), so treat "both spokes converged" as a precondition you
+   confirm yourself before running this step, not something the tooling
+   enforces for you.
 
 **Detecting a stale mgmt SG.** Nothing here notices on its own — recreation is
 silent until a sync fails, and during an incident that sync is the rollback

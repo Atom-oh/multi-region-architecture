@@ -29,18 +29,26 @@ locals {
     var.mgmt_cluster_name == var.default_mgmt_cluster_name ? "" : "mgmt_cluster_name=${var.mgmt_cluster_name} (trusting a cluster other than ${var.default_mgmt_cluster_name})",
     var.expected_mgmt_vpc_id == "" ? "" : "expected_mgmt_vpc_id=${var.expected_mgmt_vpc_id} (mgmt trusted outside the shared VPC of this region)",
     var.expected_mgmt_tags == var.default_mgmt_tags ? "" : "expected_mgmt_tags=${jsonencode(var.expected_mgmt_tags)} (provisioning-tag guard widened or dropped)",
-    # default_mgmt_cluster_name is itself a trust input (it's what mgmt_cluster_name
-    # is compared against above), but until now nothing watched IT drifting from
-    # the module's own reviewed default. Round-9 review MAJOR, confirmed: move both
-    # mgmt_cluster_name AND default_mgmt_cluster_name to the same new value with two
-    # TF_VAR_*s (a rename done "in one shot" instead of via the rename runbook's
-    # sequencing) and the check above reads engaged — mgmt_cluster_name matches its
-    # own baseline again — while the baseline itself is no longer the reviewed
-    # "mall-apne2-mgmt" default. This entry catches that: the baseline is only ever
-    # supposed to move as the *last* step of a completed rename runbook, never in
-    # the same change as mgmt_cluster_name.
-    var.default_mgmt_cluster_name == "mall-apne2-mgmt" ? "" : "default_mgmt_cluster_name=${var.default_mgmt_cluster_name} (rename baseline changed from the reviewed default — verify this was the LAST step of a completed rename runbook, applied only after both spokes had already converged on the new name, not alongside mgmt_cluster_name in the same change)",
   ])
+
+  # round-9 added an entry here comparing default_mgmt_cluster_name against the
+  # module's own hardcoded "mall-apne2-mgmt" literal, meant to catch someone
+  # moving mgmt_cluster_name and default_mgmt_cluster_name to the same new value
+  # in one shot (bypassing the name guard instead of completing a real rename).
+  # round-10 review MAJOR, confirmed: that entry can't tell the two apart,
+  # because after a *legitimate* completed rename (the runbook's step 2) the
+  # state looks identical — both variables permanently equal the new name —
+  # so it flagged every legitimate rename as permanently "released" forever
+  # after, which is strictly worse than not checking at all (an operator
+  # running a supported, documented procedure gets an unrecoverable FAIL from
+  # here on, exactly the "released signal becomes noise" failure this guard
+  # system exists to avoid). There is no state-only fix: distinguishing "both
+  # values were set in the same apply" from "set in two applies per the
+  # runbook" needs an audit trail Terraform state doesn't carry (CloudTrail on
+  # the shared/ apply, or a required-review gate on shared/tfvars changes) —
+  # removed rather than kept broken. mgmt_cluster_name == default_mgmt_cluster_name
+  # (above) is still the guard for the case it can actually detect: one of the
+  # two changed without the other.
 }
 
 data "aws_eks_cluster" "mgmt" {

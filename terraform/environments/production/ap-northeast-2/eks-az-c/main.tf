@@ -63,11 +63,18 @@ module "mgmt_trust" {
   # released" bug round-8 closed. shared/ now ships these outputs unconditionally
   # (it is applied in the same change), so a missing output means shared/ has not
   # been applied yet — fail closed on that plan, not silently trust a default.
-  mgmt_cluster_name              = data.terraform_remote_state.shared.outputs.mgmt_cluster_name
-  default_mgmt_cluster_name      = data.terraform_remote_state.shared.outputs.default_mgmt_cluster_name
-  expected_mgmt_vpc_id           = data.terraform_remote_state.shared.outputs.expected_mgmt_vpc_id
-  expected_mgmt_tags             = data.terraform_remote_state.shared.outputs.expected_mgmt_tags
-  mgmt_cluster_security_group_id = data.terraform_remote_state.shared.outputs.mgmt_cluster_security_group_id_override
+  mgmt_cluster_name         = data.terraform_remote_state.shared.outputs.mgmt_cluster_name
+  default_mgmt_cluster_name = data.terraform_remote_state.shared.outputs.default_mgmt_cluster_name
+  expected_mgmt_vpc_id      = data.terraform_remote_state.shared.outputs.expected_mgmt_vpc_id
+  expected_mgmt_tags        = data.terraform_remote_state.shared.outputs.expected_mgmt_tags
+
+  # Reconstructed from two never-null outputs, not read directly (round-10
+  # review CRITICAL, confirmed): shared/'s override output can't be exposed as
+  # a single nullable value — see the comment on those two outputs in
+  # shared/outputs.tf for why a null root output breaks this exact read.
+  mgmt_cluster_security_group_id = data.terraform_remote_state.shared.outputs.mgmt_cluster_security_group_id_override_set ? (
+    data.terraform_remote_state.shared.outputs.mgmt_cluster_security_group_id_override_value
+  ) : null
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
