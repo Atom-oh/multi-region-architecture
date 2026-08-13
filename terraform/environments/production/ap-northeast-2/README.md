@@ -236,6 +236,20 @@ against the live mgmt cluster SG on provider 6.52.0: `DescribeSecurityGroups`
 returns four tags including `aws:eks:cluster-name`, Terraform surfaces three and
 drops exactly that one.
 
+**Engaging the override requires `break_glass_confirm = true` in the same
+`shared/` change** — a real plan-time hard fail (`terraform_data.break_glass_gate`'s
+`precondition`, not the warn-only `check` block above), added because none of
+the five trust inputs otherwise has any preventive control: `check` never fails
+a plan by definition, and `scripts/check-mgmt-guards.sh` is a manual, post-hoc
+script. Setting `mgmt_cluster_security_group_id_override` (to an SG id or `""`)
+without also setting `break_glass_confirm = true` fails the plan outright, for
+either value — including `""`, which is why this lives on an unconditional
+`terraform_data` resource rather than as a `postcondition` on either of the two
+`data` blocks above (both are declared with `count = 0` when the override is
+`""`, so neither one's postconditions would ever run for that case).
+`break_glass_confirm` is not itself a trust guard — it doesn't change who is
+trusted — so it is not part of `released_guards`.
+
 ## Runbooks
 
 **mgmt cluster was recreated (SG ID changed).** Workloads keep serving — only
@@ -271,8 +285,10 @@ cd shared
 #   mgmt_cluster_security_group_id_override = "sg-0123456789abcdef0"
 # ...or drop the rule entirely — the EKS module skips it on "":
 #   mgmt_cluster_security_group_id_override = ""
+# both require the acknowledgment gate in the SAME change, or the plan hard-fails:
+#   break_glass_confirm = true
 $EDITOR terraform.tfvars
-terraform plan    # expect ONE output change and nothing else — this layer holds
+terraform plan    # expect TWO output changes and nothing else — this layer holds
                   # Aurora/DocumentDB/MSK, so read the plan before applying
 terraform apply
 
@@ -281,23 +297,30 @@ terraform apply
 (cd ../eks-az-c && terraform apply)
 
 # 3. verify both actually moved
-bash ../../../../../scripts/check-mgmt-guards.sh --expect-released
+bash ../../../../../scripts/check-mgmt-guards.sh --expect-released=mgmt_cluster_security_group_id
 ```
 
-Use `--expect-released` here, not the plain form. Plain `check-mgmt-guards.sh`
-FAILs on a released guard and on `argocd cluster list` not showing both spokes
-`Successful` — both of which are *expected* right now (that's the whole point
-of break-glass), so the plain form would exit non-zero on every legitimate
-use of this runbook, training whoever runs it to ignore the exit code
-entirely (round-9 review L4 MAJOR). `--expect-released` prints those two as
-`INFO` instead of `FAIL` and keeps the exit code driven only by what actually
-still matters here: do the two spokes agree with each other (`mgmt_guards_released`,
-`mgmt_trust_security_group_id`) **and** with what `shared/` currently declares —
-i.e. did both spokes actually pick up the value you just committed, not just
-converge on some older one. A non-zero exit from the `--expect-released` run
-means the spokes have not converged on the override; a zero exit does not mean
-mgmt is healthy, only that both spokes are consistently pointed at the value
-you intended.
+Use `--expect-released=mgmt_cluster_security_group_id` here, not the plain
+form. Plain `check-mgmt-guards.sh` FAILs on a released guard and on `argocd
+cluster list` not showing both spokes `Successful` — both of which are
+*expected* right now (that's the whole point of break-glass), so the plain
+form would exit non-zero on every legitimate use of this runbook, training
+whoever runs it to ignore the exit code entirely (round-9 review L4 MAJOR).
+`--expect-released=<prefix>` prints released guards matching that prefix (and,
+only for the `mgmt_cluster_security_group_id` prefix specifically, the argocd
+check) as `INFO` instead of `FAIL`. It does **not** silently accept just any
+released guard — a *different* guard released at the same time (e.g.
+`TF_VAR_expected_mgmt_tags='{}'` slipped in alongside the override) still
+FAILs the run (round-11 review M6: the bare, unscoped `--expect-released` this
+used to be would have swallowed that silently). The exit code is driven by
+what actually still matters here: do the two spokes agree with each other
+(`mgmt_guards_released`, `mgmt_trust_security_group_id`), only the named guard
+released and nothing else, **and** does that match what `shared/` currently
+declares — i.e. did both spokes actually pick up the value you just
+committed, not just converge on some older one. A non-zero exit means the
+spokes have not converged on the override (or something unexpected got
+released alongside it); a zero exit does not mean mgmt is healthy, only that
+both spokes are consistently pointed at the value you intended.
 
 `""` has a real cost worth calling out explicitly: it does not just release a
 guard, it removes the ArgoCD ingress rule entirely, and that rule is what the
@@ -325,10 +348,11 @@ it does not work over Transit Gateway at all, regardless of TGW security group
 referencing settings, so if mgmt moves to a VPC reachable only via TGW the
 option is `""` plus a different GitOps route.
 
-Unset it once mgmt is back, apply all three again, and re-run
-`scripts/check-mgmt-guards.sh` — the guards should report clean. Only GitOps
-reachability is affected throughout; the CloudFront → NLB → api-gateway traffic
-path does not use this SG.
+Unset both `mgmt_cluster_security_group_id_override` and `break_glass_confirm`
+once mgmt is back, apply all three again, and re-run
+`scripts/check-mgmt-guards.sh` (plain form, no `--expect-released` now) — the
+guards should report clean. Only GitOps reachability is affected throughout;
+the CloudFront → NLB → api-gateway traffic path does not use this SG.
 
 **mgmt cluster was renamed.** Two phases, in this order:
 
@@ -344,11 +368,16 @@ path does not use this SG.
    `default_mgmt_cluster_name`, which hasn't moved yet, so this is the
    in-progress signal, not a problem.
 2. **Once both spokes have converged on the new name** (both applies in step 1
-   succeeded — confirm with `bash scripts/check-mgmt-guards.sh --expect-released`,
-   *not* the plain form: the `mgmt_cluster_name` guard is released on both right
-   now by design, and plain mode FAILs on any released guard regardless of
-   whether that's expected — `--expect-released` reports it as INFO instead and
-   still hard-fails on the thing that actually matters here, the two spokes not
+   succeeded — confirm with `bash scripts/check-mgmt-guards.sh --expect-released=mgmt_cluster_name`,
+   *not* the plain form or the break-glass runbook's
+   `--expect-released=mgmt_cluster_security_group_id`: the `mgmt_cluster_name`
+   guard is released on both right now by design, and plain mode FAILs on any
+   released guard regardless of whether that's expected. Use the
+   `mgmt_cluster_name` prefix specifically, not the override one — this mode
+   does *not* downgrade an unreachable ArgoCD to INFO the way the override
+   prefix does, because mgmt is expected to be alive and reachable during a
+   rename; an unreachable ArgoCD here is a real problem, not expected noise.
+   Still hard-fails on the thing that actually matters, the two spokes not
    agreeing with each other):
    `shared/` sets `default_mgmt_cluster_name` to the same new name and applies,
    then both spokes apply once more to pick up the new baseline. Skipping this

@@ -308,14 +308,20 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    ArgoCD 전용 SG(또는 pod 단위 SG)를 만들어 그 output만 노출하는 변경이 필요한데,
    그건 `AWS-Demo-Platform/infra/eks-mgmt`의 변경이라 이 repo에서 할 수 없다 —
    저쪽에 새 output 하나를 요청으로 추적한다.
-5. **trust 입력 해제에 preventive 통제가 없다.** 다섯 개 trust 입력 모두 `TF_VAR_*`로
-   해제 가능하고 `check` 블록은 정의상 plan을 실패시키지 않으므로, 프로덕션 API
-   server ingress source를 정하는 값에는 사람이 수동으로 돌리는
-   `scripts/check-mgmt-guards.sh` 외의 게이트가 없다. 이 repo에 terraform apply를
-   하는 CI 경로 자체가 없어서(모든 apply가 사람 손) plan-time hard fail을 강제할
-   자리도 없다. CI 없이도 가능한 개선(plan JSON에 대한 OPA/Conftest 검사, 또는
-   `break_glass_confirm` 같은 별도 변수 없이는 release가 실패하는 postcondition)은
-   후속으로 남긴다.
+5. **trust 입력 해제에 preventive 통제가 없다 — 단, override 하나는 이제 예외.**
+   (round-11에서 부분 해소) 다섯 개 trust 입력 모두 `TF_VAR_*`로 해제 가능하고
+   `check` 블록은 정의상 plan을 실패시키지 않으므로, 프로덕션 API server ingress
+   source를 정하는 값 대부분에는 사람이 수동으로 돌리는
+   `scripts/check-mgmt-guards.sh` 외의 게이트가 없다. `mgmt_cluster_security_group_id_override`
+   만은 이제 예외다 — `break_glass_confirm` 변수와 `mgmt-cluster-trust` 모듈의
+   `terraform_data.break_glass_gate` `precondition`으로 실제 plan-time hard
+   fail을 건다(review M7 제안, 조건 없이 선언된 `terraform_data`라 override 값이
+   `sg-...`든 `""`든 항상 평가된다 — 두 `data` 블록에 걸었다면 override가 `""`일 때
+   양쪽 모두 `count=0`이라 이 가드 자체가 평가되지 않았을 것). 나머지 네 입력
+   (`mgmt_cluster_name`, `default_mgmt_cluster_name`, `expected_mgmt_vpc_id`,
+   `expected_mgmt_tags`)에는 여전히 이런 게이트가 없다 — CI 없이도 가능한 개선
+   (plan JSON에 대한 OPA/Conftest 검사, 또는 이들에도 비슷한 확인 변수)은 후속으로
+   남긴다.
 
 ## Consequences
 
@@ -358,8 +364,14 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
   양 spoke를 apply — 이 시점부터 두 spoke는 새 이름을 신뢰하지만
   `mgmt_cluster_name != default_mgmt_cluster_name`이라 released_guards가
   "released"를 보고한다(의도된 것 — rename 진행 중 신호. `check-mgmt-guards.sh`는
-  이 단계에서 `--expect-released`로 실행할 것 — plain 모드는 released guard가
-  있으면 그 이유를 안 따지고 FAIL한다). (2) 양 spoke가 새 이름에 완전히 수렴한
+  이 단계에서 `--expect-released=mgmt_cluster_name`으로 실행할 것 — plain 모드는
+  released guard가 있으면 그 이유를 안 따지고 FAIL한다. break-glass 런북의
+  `--expect-released=mgmt_cluster_security_group_id`와 접두사가 다른 이유는
+  round-11 리뷰 M6: 인자 없는 `--expect-released`는 released 가드 전부와 argocd
+  미도달을 무조건 INFO로 낮췄는데, rename 중에는 mgmt가 살아 있는 게 전제라 argocd
+  미도달을 노이즈로 볼 수 없고, break-glass 중에는 override 외의 가드가 같이
+  released 돼도 안 된다 — 두 런북이 서로 다른 "무엇이 released 여도 되는지"를
+  가지므로 접두사로 명시한다). (2) 양 spoke가 새 이름에 완전히 수렴한
   **뒤에만** `shared/`에서 `default_mgmt_cluster_name`을 같은 새 이름으로 바꿔
   apply하고 양 spoke를 다시 apply — 이제 baseline이 새 이름과 일치해
   released_guards가 다시 빈 목록이 된다. 순서를 뒤집으면(두 변수를 같은 apply에서

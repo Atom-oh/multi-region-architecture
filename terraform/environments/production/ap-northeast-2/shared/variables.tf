@@ -176,3 +176,16 @@ variable "mgmt_cluster_security_group_id_override" {
     error_message = "mgmt_cluster_security_group_id_override must be null (look the cluster up), \"\" (drop the ArgoCD ingress rule), or a security group ID like sg-0123456789abcdef0."
   }
 }
+
+variable "break_glass_confirm" {
+  description = <<-EOT
+    Must be set to true in the same shared/terraform.tfvars change as
+    mgmt_cluster_security_group_id_override — the mgmt-cluster-trust module's
+    break_glass_gate precondition fails the plan otherwise. Single-sourced here
+    for the same reason the override itself is: a per-spoke variable could be
+    confirmed on one AZ and forgotten on the other, and this is meant to be a
+    real acknowledgment of the override, not a per-layer formality.
+  EOT
+  type        = bool
+  default     = false
+}

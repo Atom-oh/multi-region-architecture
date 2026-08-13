@@ -224,3 +224,8 @@ output "mgmt_cluster_security_group_id_override_value" {
   # null-output bug this whole _set/_value split exists to avoid.
   value = var.mgmt_cluster_security_group_id_override != null ? var.mgmt_cluster_security_group_id_override : ""
 }
+
+output "break_glass_confirm" {
+  description = "Acknowledgment gate for mgmt_cluster_security_group_id_override — the mgmt-cluster-trust module's break_glass_gate precondition fails the spoke plan if the override is set and this is not true."
+  value       = var.break_glass_confirm
+}

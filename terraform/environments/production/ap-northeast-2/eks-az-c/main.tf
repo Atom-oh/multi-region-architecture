@@ -75,6 +75,7 @@ module "mgmt_trust" {
   mgmt_cluster_security_group_id = data.terraform_remote_state.shared.outputs.mgmt_cluster_security_group_id_override_set ? (
     data.terraform_remote_state.shared.outputs.mgmt_cluster_security_group_id_override_value
   ) : null
+  break_glass_confirm = data.terraform_remote_state.shared.outputs.break_glass_confirm
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

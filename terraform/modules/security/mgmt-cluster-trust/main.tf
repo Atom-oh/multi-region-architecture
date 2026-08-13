@@ -51,6 +51,36 @@ locals {
   # two changed without the other.
 }
 
+# Plan-time hard fail for the break-glass override — not just a warning
+# (round-11 review M7, the single cheapest highest-value gap the review named:
+# all five trust inputs are releasable with a bare TF_VAR_* and the only
+# gate is `check` (definitionally non-failing) or a manual post-hoc script).
+# terraform_data is the builtin no-op resource (needs no provider config,
+# creates nothing real) and, unlike the two `data` blocks below, is declared
+# unconditionally — count-gating a data source based on the override means
+# neither of them evaluates when the override is "" (drop the rule entirely),
+# so a precondition on either one would silently skip exactly that case. This
+# is always evaluated, so it is the one place a hard fail on "override set
+# without break_glass_confirm" can actually fire for every override value,
+# including "".
+resource "terraform_data" "break_glass_gate" {
+  input = var.mgmt_cluster_security_group_id
+
+  lifecycle {
+    precondition {
+      condition = var.mgmt_cluster_security_group_id == null || var.break_glass_confirm
+      # Not a direct ${var.mgmt_cluster_security_group_id} interpolation:
+      # verified empirically that Terraform evaluates a precondition's
+      # error_message template even when the condition passes (and the value
+      # is null in exactly that passing case), so interpolating a possibly-null
+      # value here throws "Invalid template interpolation value" on every
+      # ordinary, non-break-glass plan — not just when this precondition
+      # actually fails.
+      error_message = "mgmt_cluster_security_group_id=${var.mgmt_cluster_security_group_id != null ? var.mgmt_cluster_security_group_id : "(none)"} is set (break-glass engaged) but break_glass_confirm is not true. Set break_glass_confirm = true in the same shared/terraform.tfvars change as the override to acknowledge you intend to change production API-server ingress trust — this is not itself a trust guard, it is confirmation that engaging one was deliberate."
+    }
+  }
+}
+
 data "aws_eks_cluster" "mgmt" {
   # count, not an unconditional lookup: a declared data source is refreshed and
   # its postconditions evaluated on every plan, so with mgmt deleted or moved

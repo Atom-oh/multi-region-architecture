@@ -59,3 +59,20 @@ variable "mgmt_cluster_security_group_id" {
     error_message = "mgmt_cluster_security_group_id must be null (look the cluster up), \"\" (drop the ArgoCD ingress rule), or a security group ID like sg-0123456789abcdef0."
   }
 }
+
+variable "break_glass_confirm" {
+  description = <<-EOT
+    Must be true whenever mgmt_cluster_security_group_id is non-null. Round-11
+    review M7 (suggested as the single highest-value cheap improvement): the
+    five trust inputs have no preventive control today — check "mgmt_guards_engaged"
+    only warns (that's the definition of `check`), and scripts/check-mgmt-guards.sh
+    is a manual, post-hoc script, not a plan-time gate. This is the one guard that
+    can be a real precondition instead of a warning, with no CI apply path
+    required: setting the override without also setting this to true fails the
+    plan outright. Not itself a trust input — it doesn't change who is trusted,
+    only whether engaging the override was an acknowledged, deliberate act — so
+    it is not part of released_guards.
+  EOT
+  type        = bool
+  default     = false
+}

@@ -24,17 +24,43 @@ LAYERS="$ROOT/terraform/environments/production/ap-northeast-2"
 MGMT_REGION="ap-northeast-2"
 FAIL=0
 
-# --expect-released: break-glass 런북의 "3. 두 spoke 가 실제로 옮겨갔는지 검증" 단계용.
-# mgmt 가 죽어 있는 인시던트 중에는 가드가 released 인 것과 argocd 가 도달 불가인 것
-# 자체가 "정상"이다 — 그런데 기본 모드는 그 둘을 그대로 FAIL 로 낸다. 그러면 운영자가
-# "이 스크립트는 인시던트 중엔 항상 FAIL" 이라고 학습해 종료 코드를 무시하게 된다
-# (round-9 리뷰 L4 MAJOR). 이 모드에서는 그 두 가지를 INFO 로 낮추고, 정말 확인해야 할
-# 것 — 두 spoke 가 *같은* released 상태·SG 로 수렴했는지 — 만 종료 코드에 반영한다.
-EXPECT_RELEASED=0
-if [ "${1:-}" = "--expect-released" ]; then
-  EXPECT_RELEASED=1
-  shift
-fi
+# --expect-released=<prefix1,prefix2,...>: 두 런북이 공유하는 모드 — break-glass
+# 런북의 "3. 두 spoke 가 실제로 옮겨갔는지 검증" 단계, 그리고 rename 런북의 "1. 두
+# spoke 가 새 이름에 수렴했는지 확인" 단계. 두 경우 다 특정 가드 하나가 released
+# 상태인 것이 "정상"인데, plain 모드는 released guard 가 있으면 이유를 안 따지고
+# FAIL한다 — 운영자가 "이 스크립트는 이 단계에서 항상 FAIL"이라고 학습해 종료 코드를
+# 무시하게 된다(round-9 리뷰 L4 MAJOR).
+#
+# 인자 없는 `--expect-released`(round-9~10)는 released 인 가드 *전부*를 INFO로
+# 낮췄다 — round-11 리뷰 M6, 확인됨: break-glass 런북이 override 하나만 기대하는데
+# 그 사이 `TF_VAR_expected_mgmt_tags='{}'` 같은 무관한 가드가 같이 released 돼도
+# 이 모드가 그것까지 조용히 삼켰다. 이제 어떤 가드가 released 여도 되는지 접두사로
+# 명시해야 한다 — 그 접두사로 시작하지 *않는* released 항목은 여전히 FAIL이다.
+# rename 런북(mgmt_cluster_name 하나만 기대)과 break-glass 런북(override 하나만
+# 기대)이 서로 다른 접두사를 쓰므로 하드코딩할 수 없다.
+EXPECT_RELEASED_PREFIXES=""
+case "${1:-}" in
+  --expect-released=*)
+    EXPECT_RELEASED_PREFIXES="${1#--expect-released=}"
+    shift
+    ;;
+  --expect-released)
+    echo "usage: $(basename "$0") [--expect-released=<comma-separated guard prefixes>] [--self-check]" >&2
+    echo "  break-glass runbook step 3: --expect-released=mgmt_cluster_security_group_id" >&2
+    echo "  rename runbook step 1:      --expect-released=mgmt_cluster_name" >&2
+    exit 2
+    ;;
+esac
+export EXPECT_RELEASED_PREFIXES
+
+# argocd 도달 불가를 INFO로 낮추는 것은 break-glass(override released)를 기대할
+# 때만이다 — 그때는 mgmt 자체가 죽어 있다고 가정하는 게 이 런북의 전제다. rename은
+# mgmt가 살아 있는 상태에서 진행하므로, rename 중 argocd 가 도달 불가면 그건 예상된
+# 노이즈가 아니라 진짜 문제다.
+EXPECT_MGMT_DOWN=0
+case ",$EXPECT_RELEASED_PREFIXES," in
+  *,mgmt_cluster_security_group_id,*) EXPECT_MGMT_DOWN=1 ;;
+esac
 
 # --self-check: 판정 로직만 검증한다(AWS 접근 없음). 이 스크립트가 잡아야 하는 상태들 —
 # 둘 다 깨끗함 / 한쪽 가드 해제 / guards 값 불일치 / SG 값 불일치 / 한쪽 미초기화 /
@@ -74,11 +100,26 @@ https://mgmt-c.example:6443 mall-apne2-az-c-old v1.30.0 Successful')" = "1" ] ||
   # 같은 창을, override 가 아니라 live lookup 경로(이름 변경)로: shared 는 이미 새
   # 이름으로 렌더된 live SG 를 가리키는데 두 spoke 는 여전히 옛 SG 를 신뢰.
   [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-live-new')" = "1" ] || { echo "self-check FAILED: shared live SG 미수렴인데 FAIL 아님"; exit 1; }
-  # --expect-released: released+argocd 미도달은 INFO 로 내려가지만 수렴 실패는 여전히 FAIL.
-  [ "$(run_self_check '["x"]' '["x"]' 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Unknown
-https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released')" = "0" ] || { echo "self-check FAILED: --expect-released 인데 released+argocd-미도달로 FAIL"; exit 1; }
-  [ "$(run_self_check '["x"]' '["y"]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released')" = "1" ] || { echo "self-check FAILED: --expect-released 여도 guards 불일치는 FAIL 이어야 함"; exit 1; }
-  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/shared-미수렴×2/expect-released 모두 올바르게 판정)"
+  # --expect-released=mgmt_cluster_security_group_id (break-glass): 그 접두사의
+  # released 항목 + argocd 미도달은 INFO 로 내려가지만 수렴 실패는 여전히 FAIL.
+  OVERRIDE_GUARD='["mgmt_cluster_security_group_id=sg-mgmt (cluster lookup and its postconditions skipped)"]'
+  [ "$(run_self_check "$OVERRIDE_GUARD" "$OVERRIDE_GUARD" 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Unknown
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id')" = "0" ] || { echo "self-check FAILED: --expect-released=override 인데 released+argocd-미도달로 FAIL"; exit 1; }
+  [ "$(run_self_check "$OVERRIDE_GUARD" '["mgmt_cluster_security_group_id=sg-other (cluster lookup and its postconditions skipped)"]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id')" = "1" ] || { echo "self-check FAILED: --expect-released 여도 guards 불일치는 FAIL 이어야 함"; exit 1; }
+  # M6: 기대한 접두사 외의 가드가 *같이* released 되면, 기대 범위 안이어도 전체 FAIL —
+  # break-glass가 override 만 기대하는데 무관한 가드(예: expected_mgmt_tags)까지
+  # 조용히 삼키면 안 된다(round-11 리뷰 M6, 확인됨).
+  MIXED_GUARDS='["mgmt_cluster_security_group_id=sg-mgmt (cluster lookup and its postconditions skipped)","expected_mgmt_tags={} (provisioning-tag guard widened or dropped)"]'
+  [ "$(run_self_check "$MIXED_GUARDS" "$MIXED_GUARDS" 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Unknown
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id')" = "1" ] || { echo "self-check FAILED: 기대 밖 가드(expected_mgmt_tags)가 override 와 같이 released 인데 FAIL 아님"; exit 1; }
+  # --expect-released=mgmt_cluster_name (rename runbook step 1): 그 접두사만 INFO.
+  # rename 중에는 mgmt 가 살아 있는 게 전제이므로 argocd 미도달은 여전히 FAIL.
+  NAME_GUARD='["mgmt_cluster_name=mall-apne2-mgmt-v2 (trusting a cluster other than mall-apne2-mgmt)"]'
+  [ "$(run_self_check "$NAME_GUARD" "$NAME_GUARD" 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Successful
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Successful' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_name')" = "0" ] || { echo "self-check FAILED: --expect-released=mgmt_cluster_name 인데 rename 중 정상 argocd 상태로 FAIL"; exit 1; }
+  [ "$(run_self_check "$NAME_GUARD" "$NAME_GUARD" 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Unknown
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_name')" = "1" ] || { echo "self-check FAILED: --expect-released=mgmt_cluster_name 은 argocd 미도달을 INFO 로 내리면 안 됨(rename 중엔 mgmt 가 살아있어야 함)"; exit 1; }
+  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/shared-미수렴×2/expect-released-override/expect-released-mixed/expect-released-name 모두 올바르게 판정)"
   exit 0
 fi
 
@@ -134,10 +175,25 @@ print(len(d))
     continue
   fi
   if [ "$COUNT" -ne 0 ]; then
-    if [ "$EXPECT_RELEASED" = "1" ]; then
-      echo "INFO az-$AZ: 가드 $COUNT 개가 해제된 상태(--expect-released 지정 — break-glass 중이므로 예상됨):"
+    # 기대한 접두사로 시작하지 않는 released 항목이 하나라도 있으면 FAIL — 기대
+    # 범위 밖의 가드까지 --expect-released 가 조용히 삼키면 안 된다(round-11 리뷰
+    # M6, 확인됨). EXPECT_RELEASED_PREFIXES 가 비어 있으면(plain 모드) 전부 "기대
+    # 밖"이라 항상 FAIL — 기존 동작과 동일.
+    UNEXPECTED_COUNT="$(printf '%s' "$RAW" | python3 -c '
+import json, os, sys
+prefixes = [p for p in os.environ.get("EXPECT_RELEASED_PREFIXES", "").split(",") if p]
+guards = json.load(sys.stdin)
+unexpected = [g for g in guards if not any(g.startswith(p + "=") for p in prefixes)]
+print(len(unexpected))
+')"
+    if [ -n "$EXPECT_RELEASED_PREFIXES" ] && [ "$UNEXPECTED_COUNT" -eq 0 ]; then
+      echo "INFO az-$AZ: 가드 $COUNT 개가 해제된 상태(--expect-released=$EXPECT_RELEASED_PREFIXES 지정 — 예상됨):"
     else
-      echo "FAIL az-$AZ: 가드 $COUNT 개가 해제된 상태로 apply 돼 있다:"
+      if [ -n "$EXPECT_RELEASED_PREFIXES" ]; then
+        echo "FAIL az-$AZ: 가드 $COUNT 개 중 $UNEXPECTED_COUNT 개가 --expect-released=$EXPECT_RELEASED_PREFIXES 의 예상 범위 밖이다:"
+      else
+        echo "FAIL az-$AZ: 가드 $COUNT 개가 해제된 상태로 apply 돼 있다:"
+      fi
       FAIL=1
     fi
     printf '%s' "$RAW" | python3 -c 'import json,sys; [print("  - "+g) for g in json.load(sys.stdin)]'
@@ -251,7 +307,9 @@ fi
 # ArgoCD 가 실제로 두 클러스터에 도달하는지 — SG 가 맞아도 mgmt 가 재생성됐으면
 # 조용히 죽어 있을 수 있다(ADR-003 의 stale-SG follow-up 이 다루는 실패 양식).
 # 두 spoke 모두 Successful 이어야 통과 — CLI 부재/명령 실패/Unknown 상태는 전부 FAIL,
-# 단 --expect-released 에서는 INFO(break-glass 중 mgmt 자체가 죽어 있으므로 예상됨).
+# 단 --expect-released=mgmt_cluster_security_group_id 에서는 INFO(break-glass 중
+# mgmt 자체가 죽어 있으므로 예상됨). rename(--expect-released=mgmt_cluster_name)
+# 에서는 mgmt 가 살아 있는 게 전제이므로 이 다운그레이드를 적용하지 않는다.
 #
 # ARGO_RAW 를 구하는 세 경로(주입/CLI 성공/CLI 실패) 모두 검증 루프를 반드시 통과해야
 # 한다. round-8 리뷰가 잡은 버그: `argocd cluster list ... || true` 가 명령 실패(인증
@@ -262,8 +320,8 @@ fi
 # ARGO_RAW 가 진짜로 비어 있어도(등록된 클러스터 0개) 각 AZ 가 "등록 안 됨"으로 FAIL
 # 하도록 만든다.
 argo_report() {  # $1=message
-  if [ "$EXPECT_RELEASED" = "1" ]; then
-    echo "INFO $1 (--expect-released 지정 — mgmt 다운 중이므로 예상됨)"
+  if [ "$EXPECT_MGMT_DOWN" = "1" ]; then
+    echo "INFO $1 (--expect-released=mgmt_cluster_security_group_id 지정 — mgmt 다운 중이므로 예상됨)"
   else
     echo "FAIL $1"
     FAIL=1
