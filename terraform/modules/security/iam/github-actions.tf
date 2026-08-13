@@ -44,7 +44,10 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    # concat, not a single list: an IAM statement with an empty Resource list is
+    # rejected, so the two externally-owned-mgmt statements have to drop out
+    # entirely when their name/key list is empty.
+    Statement = concat([
       {
         Effect   = "Allow"
         Action   = ["ecr:GetAuthorizationToken"]
@@ -85,7 +88,101 @@ resource "aws_iam_role_policy" "github_actions_ecr_terraform" {
         ]
         Resource = "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.terraform_lock_table}"
       }
-    ]
+      ],
+      # The eks-az-{a,c} layers read the mgmt cluster live (data "aws_eks_cluster"
+      # "mgmt") instead of through its remote state, because that state belongs to
+      # AWS-Demo-Platform. That read happens at plan time, so without this grant
+      # every plan in those layers fails — including plans that touch nothing else.
+      length(var.describable_cluster_names) == 0 ? [] : [{
+        Sid      = "DescribeExternallyOwnedMgmtCluster"
+        Effect   = "Allow"
+        Action   = "eks:DescribeCluster"
+        Resource = [for name in var.describable_cluster_names : "arn:aws:eks:${var.region}:${data.aws_caller_identity.current.account_id}:cluster/${name}"]
+      }],
+      # State custody: mgmt's state object lives in this same bucket but is owned
+      # and applied by AWS-Demo-Platform. A README warning is not a control — two
+      # writers on one state object corrupts it. Deny beats the Allow above.
+      # GetObject is in here too: since the spokes read mgmt live
+      # (data "aws_eks_cluster" "mgmt") this repo has no remaining reason to read
+      # that state, and a state file is the densest secret in the bucket.
+      length(var.externally_owned_state_keys) == 0 ? [] : [{
+        Sid    = "DenyAccessToExternallyOwnedState"
+        Effect = "Deny"
+        # Versioned variants are separate actions: the state bucket is versioned,
+        # so without them the object could still be read or removed by version id.
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:AbortMultipartUpload",
+          "s3:DeleteObject",
+          "s3:DeleteObjectVersion"
+        ]
+        # The key *and* everything under its prefix. TF 1.10+ `use_lockfile` puts
+        # the lock in a sibling `<key>.tflock` object and workspaces live under
+        # `env:/<name>/<key>` — an exact-key-only Deny leaves both writable, which
+        # is the same corruption this statement exists to prevent.
+        #
+        # `env:/<name>/<key>*` (round-8 review MAJOR, confirmed against diff): the
+        # first three patterns all anchor on the bucket-root key, but a workspace
+        # object lives under the bucket-root `env:/` prefix instead — none of
+        # `${key}`, `${key}*`, `${dirname(key)}/*` match it. Creating a workspace
+        # against this key would make this role a second writer on it with none
+        # of the three patterns catching it.
+        Resource = flatten([
+          for key in var.externally_owned_state_keys : [
+            "arn:aws:s3:::${var.terraform_state_bucket}/${key}",
+            "arn:aws:s3:::${var.terraform_state_bucket}/${key}*",
+            "arn:aws:s3:::${var.terraform_state_bucket}/${dirname(key)}/*",
+            "arn:aws:s3:::${var.terraform_state_bucket}/env:/*/${key}*",
+          ]
+        ])
+      }],
+      # Its own concat element rather than a second object in the list above: this
+      # statement carries a Condition and the one above does not, and a tuple of
+      # differently-shaped objects fails the ternary's type unification.
+      #
+      # Denying the object but not its lock row leaves the other half open:
+      # deleting the row while AWS-Demo-Platform holds the lock lets a third
+      # party apply concurrently, which corrupts the object the statement above
+      # protects. LeadingKeys scopes this to those rows — the table is shared with
+      # every layer in this repo, so a table-wide Deny would break all of them.
+      # Terraform's LockID is "<bucket>/<key>", plus a "-md5" digest row.
+      length(var.externally_owned_state_keys) == 0 ? [] : [{
+        Sid    = "DenyExternallyOwnedStateLockRows"
+        Effect = "Deny"
+        # Batch and PartiQL writes reach the same rows under different action names,
+        # and LeadingKeys applies to all of them — a Deny listing only the
+        # single-item actions is bypassable. (No TransactWriteItems: there is no
+        # such IAM action; transactional writes authorize as the item-level actions
+        # above, so they are already covered.)
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:BatchWriteItem",
+          "dynamodb:PartiQLInsert",
+          "dynamodb:PartiQLUpdate",
+          "dynamodb:PartiQLDelete"
+        ]
+        Resource = "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.terraform_lock_table}"
+        Condition = {
+          "ForAnyValue:StringLike" = {
+            # env:/*/<key> rows (round-8 review MAJOR, same workspace gap as the
+            # S3 identity Deny above) — a workspace's lock row has the same
+            # bucket-root env:/ prefix as its state object.
+            "dynamodb:LeadingKeys" = flatten([
+              for key in var.externally_owned_state_keys : [
+                "${var.terraform_state_bucket}/${key}",
+                "${var.terraform_state_bucket}/${key}-md5",
+                "${var.terraform_state_bucket}/env:/*/${key}",
+                "${var.terraform_state_bucket}/env:/*/${key}-md5",
+              ]
+            ])
+          }
+        }
+    }])
   })
 }
 
@@ -229,9 +326,9 @@ resource "aws_iam_role_policy" "github_actions_ecs_deploy" {
         Resource = "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:cluster/*"
       },
       {
-        Sid    = "PassRoleToECS"
-        Effect = "Allow"
-        Action = "iam:PassRole"
+        Sid      = "PassRoleToECS"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*"
         Condition = {
           StringEquals = {
@@ -306,9 +403,9 @@ resource "aws_iam_role_policy" "github_actions_bedrock" {
         Resource = "*"
       },
       {
-        Sid    = "PassRoleToAgentCore"
-        Effect = "Allow"
-        Action = "iam:PassRole"
+        Sid      = "PassRoleToAgentCore"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*agentcore*"
         Condition = {
           StringEquals = {

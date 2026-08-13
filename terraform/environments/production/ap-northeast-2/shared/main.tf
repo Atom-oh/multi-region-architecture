@@ -138,18 +138,18 @@ module "elasticache" {
 module "msk" {
   source = "../../../../modules/data/msk"
 
-  environment                = var.environment
-  region                     = var.region
-  vpc_id                     = module.vpc.vpc_id
-  data_subnet_ids            = module.vpc.data_subnet_ids
-  security_group_id          = module.security_groups.msk_security_group_id
-  kms_key_arn                = module.kms.key_arns["msk"]
+  environment            = var.environment
+  region                 = var.region
+  vpc_id                 = module.vpc.vpc_id
+  data_subnet_ids        = module.vpc.data_subnet_ids
+  security_group_id      = module.security_groups.msk_security_group_id
+  kms_key_arn            = module.kms.key_arns["msk"]
   broker_instance_type   = "kafka.t3.small"
   number_of_broker_nodes = 4   # t3 instances do not support broker removal
   ebs_volume_size        = 100 # MSK does not support EBS shrinkage
-  kafka_version              = "3.9.x"
-  enable_replicator          = false
-  tags                       = var.tags
+  kafka_version          = "3.9.x"
+  enable_replicator      = false
+  tags                   = var.tags
 }
 
 # DocumentDB: independent primary cluster for Korean region
@@ -504,10 +504,24 @@ module "iam" {
   create_github_actions_role = true
   github_org                 = "Atom-oh"
   terraform_state_bucket     = "multi-region-mall-terraform-state"
-  terraform_lock_table       = "multi-region-mall-terraform-lock"
+  terraform_lock_table       = "multi-region-mall-terraform-locks"
   bedrock_pr_review_model_id = "anthropic.claude-sonnet-4-6"
   bedrock_source_profile_arn = "arn:aws:bedrock:ap-northeast-2:013503698282:inference-profile/global.anthropic.claude-sonnet-4-6"
-  tags                       = var.tags
+
+  # mall-apne2-mgmt is created and applied by AWS-Demo-Platform (see
+  # docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md). We read it, we never write its state.
+  #
+  # Derived from var.mgmt_cluster_name, not a second hardcoded literal (round-9
+  # review MAJOR, confirmed against diff): a literal here drifts independently
+  # from mgmt_cluster_name on rename, and a spoke plan whose IAM grant still
+  # names the old cluster ARN dies with AccessDenied on the live lookup before
+  # any trust guard gets a chance to report anything useful. Deriving both from
+  # one variable makes a rename a single shared/ apply instead of the previous
+  # two-phase "add new name, apply, rename, apply, remove old name" runbook.
+  describable_cluster_names   = [var.mgmt_cluster_name]
+  externally_owned_state_keys = ["production/ap-northeast-2/eks-mgmt/terraform.tfstate"]
+
+  tags = var.tags
 }
 
 # S3: secondary (no replication source)

@@ -1,5 +1,17 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Networking
+#
+# EXTERNAL CONSUMER — AWS-Demo-Platform's infra/eks-mgmt reads this layer's
+# state for six outputs: `vpc_id`, `private_subnet_ids`,
+# `alb_security_group_id`, `nlb_security_group_id`,
+# `internal_observability_nlb_security_group_id` and `kms_key_arns["s3"]`.
+# Renaming or retyping any of those six breaks that repo's plan; treat them as a
+# frozen contract (docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md).
+#
+# The two ALB/NLB SG entries are the easy ones to miss: nothing in this repo
+# reads them for mgmt anymore — they were arguments to the `module "eks"` call in
+# the deleted eks-mgmt/ layer, which that repo now owns as a superset. Six is a
+# floor, not a census.
 # ─────────────────────────────────────────────────────────────────────────────
 
 output "vpc_id" {
@@ -154,4 +166,66 @@ output "s3_static_assets_bucket_arn" {
 output "s3_static_assets_bucket_domain_name" {
   description = "The bucket domain name of the static assets bucket"
   value       = module.s3.static_assets_bucket_domain_name
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# mgmt cluster trust inputs, consumed by both eks-az-{a,c}.
+#
+# Single-sourced here so the two spokes cannot be asked to trust *different*
+# things. This does not make them converge: each still needs its own apply to
+# pick a new value up (see the Runbooks in ../README.md, which carry the
+# post-apply verification for exactly that reason).
+# ─────────────────────────────────────────────────────────────────────────────
+
+output "mgmt_cluster_name" {
+  description = "Management cluster whose SG both spokes trust for cross-cluster ArgoCD access."
+  value       = var.mgmt_cluster_name
+}
+
+output "default_mgmt_cluster_name" {
+  description = "Baseline mgmt_cluster_name compared against to detect a released name guard. See variable description for why this is single-sourced separately from mgmt_cluster_name itself."
+  value       = var.default_mgmt_cluster_name
+}
+
+output "expected_mgmt_vpc_id" {
+  description = "VPC the mgmt cluster must be in for its SG to be trusted; empty means this region's shared VPC."
+  value       = var.expected_mgmt_vpc_id
+}
+
+output "expected_mgmt_tags" {
+  description = "Tags the mgmt cluster must carry to be trusted; {} releases the guard."
+  value       = var.expected_mgmt_tags
+}
+
+
+# Split into _set/_value instead of one output carrying the null|""|sg-id
+# tri-state directly (round-10 review CRITICAL, confirmed empirically): a root
+# output whose value is null is not written into the state's outputs map at
+# all — `terraform_remote_state`'s `.outputs` object simply doesn't have that
+# key, so a consumer reading `data.terraform_remote_state.shared.outputs.mgmt_cluster_security_group_id_override`
+# without a try() gets "Unsupported attribute", not a null read. That is the
+# *default* value of this variable, so removing try() (round-9's fail-closed
+# fix) broke every spoke plan in the normal, non-break-glass case — the
+# opposite of "fail closed only during an incident". A bool + a
+# never-null string can't hit this: `_set` is always present (true/false),
+# `_value` is always present (a real SG id, or "" when unused).
+output "mgmt_cluster_security_group_id_override_set" {
+  description = "Whether mgmt_cluster_security_group_id_override is non-null (break-glass engaged). Kept separate from _value so the pair together can represent null without either output itself ever being null — see the comment above."
+  value       = var.mgmt_cluster_security_group_id_override != null
+}
+
+output "mgmt_cluster_security_group_id_override_value" {
+  description = "The override's SG id, or \"\" to drop the ArgoCD ingress rule, when mgmt_cluster_security_group_id_override_set is true. Meaningless (but still a real, non-null \"\") when _set is false — callers must check _set first."
+  # A plain conditional, not coalesce(var..., "") — verified empirically:
+  # coalesce() treats "" as an empty/skippable candidate exactly like null, so
+  # coalesce(null, "") itself errors with "no non-null, non-empty-string
+  # arguments" instead of returning "". That would have broken every plan in
+  # the default (non-break-glass) state, the same failure category as the
+  # null-output bug this whole _set/_value split exists to avoid.
+  value = var.mgmt_cluster_security_group_id_override != null ? var.mgmt_cluster_security_group_id_override : ""
+}
+
+output "break_glass_confirm" {
+  description = "Acknowledgment gate for mgmt_cluster_security_group_id_override — the mgmt-cluster-trust module's break_glass_gate precondition fails the spoke plan if the override is set and this is not true."
+  value       = var.break_glass_confirm
 }
