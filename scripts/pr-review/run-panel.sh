@@ -40,7 +40,8 @@ rm -f "$WORK/coverage-severe.flag" "$WORK/kiro-diff-truncated.flag" "$WORK/kiro-
       "$WORK/kiro-diffcap-fired.flag" "$WORK/kiro-argvcap-fired.flag"
 T="${PANEL_TIMEOUT:-300}"
 RETRIES="${PANEL_RETRIES:-3}"
-KIRO_MODELS=("claude-opus-5:kiro-opus" "gpt-5.6-terra:kiro-gpt" "glm-5:kiro-glm")
+# glm-5(kiro-glm) 는 로스터에서 제외 — AWS-Demo-Platform PR#88 리뷰에서 이 모델만 4건의 오탐을 냈다(ADR-015). 되살릴 때는 오탐률을 먼저 재측정할 것.
+KIRO_MODELS=("claude-opus-5:kiro-opus" "gpt-5.6-terra:kiro-gpt")
 
 shopt -s nullglob
 LENS_FILES=("$LENSES_DIR"/*.txt)
@@ -139,7 +140,7 @@ if command -v kiro-cli >/dev/null 2>&1; then
       # 다르게 준다 — leak 은 재시도해도 결론이 바뀔 리 없으니 즉시 fail-closed, 확인
       # 못함은 실 셀의 try_panel/PANEL_RETRIES 와 동일하게 transient 를 흡수할 기회를
       # 준다. 재시도 없이 단발 실패로 바로 skip 하면, gpt-5.6-terra/kiro-cli 류의 흔한 일시
-      # 오류 하나가 canary 에서 터질 때마다 Kiro 12셀 전부가 비어 coverage-severe 로
+      # 오류 하나가 canary 에서 터질 때마다 Kiro 8셀 전부가 비어 coverage-severe 로
       # 리뷰 전체가 강제 FAIL 되는 게이트-비대칭이 생긴다(multi-region-architecture
       # PR#28 리뷰 L4-MAJOR, 2개 벤더 수렴 + chair 코드 대조 확인).
       CANARY_LEAKED=0
@@ -189,7 +190,7 @@ esac
 [ "$KIRO_DIFF_CAP" -gt 0 ] || { echo "run-panel.sh: KIRO_DIFF_CAP must be > 0, got: $KIRO_DIFF_CAP" >&2; exit 1; }
 # KIRO_ARGV_CAP 도 동일하게 검증한다 — 검증 없이 fail-closed 게이트(아래 루프)로 쓰면
 # 비정수/빈값에서 `[ -gt ]` 가 조용히 false 처럼 동작해(이 스크립트는 `set -uo pipefail`,
-# `-e` 없음) 트림을 스킵하고 그대로 exec 해 E2BIG 로 그 lens 의 kiro 3셀이 빈다 — coverage
+# `-e` 없음) 트림을 스킵하고 그대로 exec 해 E2BIG 로 그 lens 의 kiro 2셀이 빈다 — coverage
 # floor 는 모델 row 전체가 비어야 발동해 lens 단위 소실은 무신호로 지나간다.
 KIRO_ARGV_CAP="${KIRO_ARGV_CAP:-125000}"
 case "$KIRO_ARGV_CAP" in
@@ -238,7 +239,7 @@ for lens_file in "${LENS_FILES[@]}"; do
         timeout "$T" codex exec -s read-only --skip-git-repo-check "$LENS_PROMPT" ) &
   else echo "[skip] codex/$lens (binary absent)" >&2; : > "$SLOT/codex-$lens.md"; fi
 
-  # Kiro x3 셀 — model:tag 를 한 배열에서 파생(호출/집계 동기화). Kiro's non-interactive
+  # Kiro x2 셀 — model:tag 를 한 배열에서 파생(호출/집계 동기화). Kiro's non-interactive
   # `chat` reads ONLY the prompt arg — it ignores stdin, so diff 는 argv 에 직접 embed(캡됨,
   # 툴 미부여 — 위 KIRO_DIFF_TEXT/`--trust-tools=` 주석 참조).
   KIRO_INSTRUCTION="$LENS_PROMPT"$'\n\n'"Review ONLY the diff below; do not read or reference any other files:"$'\n\n'"$KIRO_DIFF_TEXT"
@@ -290,7 +291,7 @@ for lens_file in "${LENS_FILES[@]}"; do
 done
 
 # NOTE: Antigravity(agy) 는 제거됨 — OAuth 인터랙티브 로그인 전용(API 키 인증 모드 없음)
-# 이라 헤드리스 CI 에서 인증 불가. 패널 = Codex + Kiro x3 → Claude 의장.
+# 이라 헤드리스 CI 에서 인증 불가. 패널 = Codex + Kiro x2 → Claude 의장.
 wait
 
 # 결과 집계 (KIRO_MODELS·LENS_FILES 와 동일 소스에서 태그 파생 → 하드코딩 불일치 방지)
@@ -306,7 +307,7 @@ echo "Panel responded ($(wc -l < "$RESP") / $(( (${#KIRO_MODELS[@]} + 1) * ${#LE
 # 커버리지 floor — 모델 하나(플래그 무효화/바이너리 부재/전면 인증 실패 등)가 lens 전부에서
 # 응답 없으면, 매트릭스가 조용히 그 모델 없이 축소된 채 VERDICT: PASS 로 이어질 수 있다
 # (예: kiro-cli 신규 플래그(`--mode default --trust-tools=`)가 이 러너에서 무효면 Kiro
-# 12셀 전부 graceful skip → 실질 4셀짜리 리뷰인데 코멘트만 봐선 눈에 안 띌 수 있음).
+# 8셀 전부 graceful skip → 실질 4셀짜리 리뷰인데 코멘트만 봐선 눈에 안 띌 수 있음).
 # 모델별 row 가 완전히 비면 경고 + synthesize.sh 가 리뷰 본문에 명시하도록 파일로 전달.
 TOTAL_MODELS=$(( ${#KIRO_MODELS[@]} + 1 ))
 : > "$WORK/degraded-models.txt"
@@ -329,12 +330,12 @@ done
 # 자체가 lens당 교차확인"이라는 warn-only 의 전제(다른 모델이 여전히 같은 lens 를 본다)가
 # 성립하지 않는다. 이 경우만 severe 로 승격해 synthesize.sh 가 VERDICT 를 강제 FAIL 하도록
 # 신호를 남긴다(모델 1개 탈락은 여전히 warn-only 유지 — 간헐적 rate-limit 로도 흔하고, 남은
-# 3개가 각 lens 를 여전히 교차확인하므로 이 PR 도입 시 설계한 대로 사람이 배너로만 인지해도
-# 된다는 원 판단은 유효). 신규 kiro-cli 플래그가 처음 실전 투입되는 시점(3개 kiro 모델이
+# 2개가 각 lens 를 여전히 교차확인하므로 이 PR 도입 시 설계한 대로 사람이 배너로만 인지해도
+# 된다는 원 판단은 유효). 신규 kiro-cli 플래그가 처음 실전 투입되는 시점(2개 kiro 모델이
 # 동시에 전멸하는 경우가 바로 이 기준을 정확히 친다)이 이 케이트가 노리는 실제 사례다.
 DEGRADED_COUNT=$(wc -l < "$WORK/degraded-models.txt")
 if [ "$DEGRADED_COUNT" -ge "$((TOTAL_MODELS - 1))" ]; then
-  echo "::error::coverage collapsed to ≤1 vendor ($DEGRADED_COUNT/$TOTAL_MODELS models degraded) — forcing VERDICT: FAIL, no cross-model check remains for any lens" >&2
+  echo "::error::coverage collapsed to ≤1 model ($DEGRADED_COUNT/$TOTAL_MODELS models degraded) — forcing VERDICT: FAIL, no cross-model check remains for any lens" >&2
   : > "$WORK/coverage-severe.flag"
 fi
 
