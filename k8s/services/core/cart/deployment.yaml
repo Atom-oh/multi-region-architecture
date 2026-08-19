@@ -28,7 +28,7 @@ spec:
       serviceAccountName: cart
       containers:
         - name: cart
-          image: 180294183052.dkr.ecr.us-east-1.amazonaws.com/shopping-mall/cart:latest
+          image: 180294183052.dkr.ecr.ap-northeast-2.amazonaws.com/shopping-mall/cart:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
