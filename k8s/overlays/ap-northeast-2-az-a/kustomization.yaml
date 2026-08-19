@@ -69,6 +69,20 @@ patches:
         value:
           name: CACHE_PORT
           value: "6379"
+  - target:
+      kind: Deployment
+      name: product-catalog
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: CACHE_HOST
+          value: "master.production-elasticache-ap-northeast-2.wfdxww.apn2.cache.amazonaws.com"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: CACHE_PORT
+          value: "6379"
 
 configMapGenerator:
   - name: region-config

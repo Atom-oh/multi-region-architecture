@@ -2,7 +2,6 @@
 
 import json
 import logging
-import ssl
 from typing import Any
 
 from redis.asyncio.cluster import RedisCluster
@@ -14,13 +13,15 @@ _write_client: RedisCluster | None = None
 
 
 def _make_client(host: str, port: int, use_tls: bool, read_from_replicas: bool) -> RedisCluster:
-    ssl_context = ssl.create_default_context() if use_tls else None
+    # redis-py 5.x's RedisCluster takes ssl/ssl_cert_reqs directly and has no
+    # ssl_context kwarg — passing one raises TypeError before any connection
+    # is attempted, which the broad `except Exception` in every caller's
+    # startup handler silently swallowed as "Valkey unavailable".
     return RedisCluster(
         host=host,
         port=port,
         decode_responses=True,
         ssl=use_tls,
-        ssl_context=ssl_context,
         read_from_replicas=read_from_replicas,
         socket_timeout=3.0,
         socket_connect_timeout=2.0,
