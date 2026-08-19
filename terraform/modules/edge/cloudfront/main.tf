@@ -48,6 +48,12 @@ resource "aws_cloudfront_distribution" "main" {
       https_port             = 443
       origin_protocol_policy = "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
+      # Default keepalive (5s) is shorter than the gap between most API
+      # calls, so CloudFront re-establishes a fresh TCP connection to the
+      # NLB on nearly every request — that connection setup is the ~0.8s
+      # this bumps out of every /api/* request (measured: origin itself
+      # answers in ~10ms once connected). 60s is the CloudFront max.
+      origin_keepalive_timeout = 60
     }
 
   }
