@@ -461,7 +461,7 @@ resource "aws_cloudfront_distribution" "grafana_korea" {
   comment         = "Grafana Korea (grafana-kr.${var.domain_name})"
   price_class     = "PriceClass_200"
   http_version    = "http2and3"
-  aliases         = ["grafana-kr.${var.domain_name}"]
+  aliases         = ["grafana-kr.${var.domain_name}", "grafana.${var.domain_name}"]
 
   origin {
     domain_name = var.grafana_nlb_dns_name
@@ -509,6 +509,25 @@ resource "aws_route53_record" "grafana_kr" {
 
   zone_id = var.route53_zone_id
   name    = "grafana-kr.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.grafana_korea[0].domain_name
+    zone_id                = aws_cloudfront_distribution.grafana_korea[0].hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# grafana.atomai.click → same CloudFront distribution as grafana-kr.
+# US had its own grafana.atomai.click via appset-grafana-nlb.yaml
+# (region: us-east-1 only, k8s/infra/argocd/apps/), but that region's
+# EKS/CloudFront/data-plane is decommissioned — Korea is now the only
+# live Grafana, so the bare alias should point here too.
+resource "aws_route53_record" "grafana" {
+  count = var.grafana_nlb_dns_name != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = "grafana.${var.domain_name}"
   type    = "A"
 
   alias {
