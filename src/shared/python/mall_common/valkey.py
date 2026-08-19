@@ -1,44 +1,49 @@
-"""Valkey (Redis-compatible) cluster client using redis-py."""
+"""Valkey (Redis-compatible) client using redis-py.
+
+production-elasticache-ap-northeast-2 is a standard (non-cluster-mode)
+replication group — `aws elasticache describe-replication-groups` reports
+ClusterEnabled=false and a single "master."-prefixed primary endpoint, no
+configuration endpoint. redis.asyncio.cluster.RedisCluster expects a
+cluster-mode deployment (it issues CLUSTER SLOTS on connect) and simply
+cannot connect to this endpoint. Reader/writer separation here is done at
+the application layer by pointing connect()/connect_writer() at different
+hosts (CACHE_HOST vs CACHE_WRITE_HOST), not via RedisCluster's built-in
+replica routing.
+"""
 
 import json
 import logging
 from typing import Any
 
-from redis.asyncio.cluster import RedisCluster
+from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
-_client: RedisCluster | None = None
-_write_client: RedisCluster | None = None
+_client: Redis | None = None
+_write_client: Redis | None = None
 
 
-def _make_client(host: str, port: int, use_tls: bool, read_from_replicas: bool) -> RedisCluster:
-    # redis-py 5.x's RedisCluster takes ssl/ssl_cert_reqs directly and has no
-    # ssl_context kwarg — passing one raises TypeError before any connection
-    # is attempted, which the broad `except Exception` in every caller's
-    # startup handler silently swallowed as "Valkey unavailable".
-    return RedisCluster(
+def _make_client(host: str, port: int, use_tls: bool) -> Redis:
+    return Redis(
         host=host,
         port=port,
         decode_responses=True,
         ssl=use_tls,
-        read_from_replicas=read_from_replicas,
         socket_timeout=3.0,
         socket_connect_timeout=2.0,
-        retry_on_timeout=True,
     )
 
 
-async def connect(host: str, port: int = 6379, use_tls: bool = True) -> RedisCluster:
+async def connect(host: str, port: int = 6379, use_tls: bool = True) -> Redis:
     global _client
-    _client = _make_client(host, port, use_tls, read_from_replicas=True)
+    _client = _make_client(host, port, use_tls)
     await _client.ping()
     return _client
 
 
-async def connect_writer(host: str, port: int = 6379, use_tls: bool = True) -> RedisCluster:
+async def connect_writer(host: str, port: int = 6379, use_tls: bool = True) -> Redis:
     global _write_client
-    _write_client = _make_client(host, port, use_tls, read_from_replicas=False)
+    _write_client = _make_client(host, port, use_tls)
     await _write_client.ping()
     return _write_client
 
@@ -53,13 +58,13 @@ async def disconnect() -> None:
         _write_client = None
 
 
-def get_client() -> RedisCluster:
+def get_client() -> Redis:
     if _client is None:
         raise RuntimeError("Valkey not connected. Call connect() first.")
     return _client
 
 
-def get_write_client() -> RedisCluster:
+def get_write_client() -> Redis:
     if _write_client is not None:
         return _write_client
     return get_client()
