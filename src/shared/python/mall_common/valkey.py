@@ -11,11 +11,18 @@ hosts (CACHE_HOST vs CACHE_WRITE_HOST), not via RedisCluster's built-in
 replica routing.
 """
 
+import datetime
 import json
 import logging
 from typing import Any
 
 from redis.asyncio import Redis
+
+
+def _json_default(obj: Any) -> Any:
+    if isinstance(obj, (datetime.datetime, datetime.date)):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +90,7 @@ async def set_json(key: str, value: Any, ttl_seconds: int | None = None) -> None
     wc = _write_client or _client
     if wc is None:
         return
-    data = json.dumps(value)
+    data = json.dumps(value, default=_json_default)
     if ttl_seconds:
         await wc.setex(key, ttl_seconds, data)
     else:
