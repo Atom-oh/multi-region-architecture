@@ -43,6 +43,8 @@ async def startup():
         try:
             await connect(config.documentdb_uri, config.db_name or "mall")
             logger.info("Connected to DocumentDB")
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
 

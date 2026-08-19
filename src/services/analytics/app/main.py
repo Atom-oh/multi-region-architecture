@@ -233,6 +233,8 @@ async def startup():
             await connect(config.documentdb_uri, config.db_name or "mall")
             _db_connected = True
             logger.info("Connected to DocumentDB")
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.warning(f"DocumentDB unavailable: {e}, endpoints will return empty data")
 
