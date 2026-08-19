@@ -50,6 +50,8 @@ async def startup():
             if config.documentdb_write_host:
                 await connect_writer(config.documentdb_write_uri, config.db_name or "mall")
                 logger.info("Connected to DocumentDB writer at %s", config.documentdb_write_host)
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.warning(f"DocumentDB unavailable: {e}, using fallback mock data")
     if config.cache_host != "localhost":
