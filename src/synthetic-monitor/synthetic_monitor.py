@@ -55,6 +55,10 @@ class JSONFormatter(logging.Formatter):
             log["trace_id"] = record.trace_id
         return json.dumps(log)
 
+# Set by api() when a step fails; reset by main() before each scenario so a
+# scenario that swallows the error inside api() still counts as failed.
+_scenario_had_failure = False
+
 logger = logging.getLogger("synthetic-monitor")
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
@@ -86,6 +90,7 @@ tracer = trace.get_tracer("synthetic-monitor")
 # ---------------------------------------------------------------------------
 def api(session: requests.Session, method: str, path: str, scenario: str, step: str, run_id: str, body=None):
     """Execute one API call as an independent trace with structured logging."""
+    global _scenario_had_failure
     url = f"{BASE_URL}{path}"
     headers = {"Content-Type": "application/json"}
 
@@ -105,9 +110,15 @@ def api(session: requests.Session, method: str, path: str, scenario: str, step: 
             ctx = span.get_span_context()
             extra = {"scenario": scenario, "step": step, "status_code": resp.status_code, "latency_ms": latency}
             extra["trace_id"] = format(ctx.trace_id, "032x")
-            logger.info(f"{method} {path} -> {resp.status_code}", extra=extra)
+            if resp.status_code >= 500:
+                _scenario_had_failure = True
+                span.set_attribute("error", True)
+                logger.error(f"{method} {path} -> {resp.status_code}", extra=extra)
+            else:
+                logger.info(f"{method} {path} -> {resp.status_code}", extra=extra)
             return resp
         except Exception as e:
+            _scenario_had_failure = True
             latency = round((time.monotonic() - start) * 1000, 1)
             span.set_attribute("http.status_code", 0)
             span.set_attribute("http.latency_ms", latency)
@@ -312,11 +323,16 @@ def main():
     session = requests.Session()
     session.headers.update({"User-Agent": f"SyntheticMonitor/{ORIGIN_LABEL}/{run_id}"})
 
+    global _scenario_had_failure
     passed, failed = 0, 0
     for scenario_fn in SCENARIOS:
+        _scenario_had_failure = False
         try:
             scenario_fn(session, run_id)
-            passed += 1
+            if _scenario_had_failure:
+                failed += 1
+            else:
+                passed += 1
         except Exception as e:
             failed += 1
             logger.error(f"Scenario {scenario_fn.__name__} failed: {e}",
