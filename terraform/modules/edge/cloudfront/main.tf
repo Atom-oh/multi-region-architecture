@@ -26,10 +26,18 @@ resource "aws_cloudfront_distribution" "main" {
   is_ipv6_enabled     = true
   comment             = "${var.environment} CloudFront Distribution"
   default_root_object = "index.html"
-  price_class         = "PriceClass_100"
-  http_version        = "http2and3"
-  web_acl_id          = var.waf_web_acl_id
-  aliases             = ["www.${var.domain_name}", "mall.${var.domain_name}"]
+  # PriceClass_100 excludes Asia Pacific edge locations entirely (it's
+  # US/Canada/Europe only). Since the api-dynamic origin is in
+  # ap-northeast-2, every request — including from real Korea-based
+  # users — was routed through a distant edge (measured: Helsinki,
+  # x-amz-cf-pop HEL51-P3) and paid a ~500ms edge-to-origin round trip on
+  # top of TLS handshake, regardless of how fast the origin itself
+  # responds. PriceClass_All adds Seoul/Tokyo/Osaka edges so APAC traffic
+  # can terminate near the origin instead of halfway around the world.
+  price_class  = "PriceClass_All"
+  http_version = "http2and3"
+  web_acl_id   = var.waf_web_acl_id
+  aliases      = ["www.${var.domain_name}", "mall.${var.domain_name}"]
 
   # S3 Origin for static assets
   origin {
