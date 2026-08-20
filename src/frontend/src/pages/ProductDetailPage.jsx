@@ -263,7 +263,7 @@ export default function ProductDetailPage() {
                     i === activeImage ? 'border-brand-500 shadow-md' : 'border-outline-variant/30 hover:border-outline-variant'
                   }`}
                 >
-                  <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/seed/${product.id}-${i}/100/100`; }} />
                 </button>
               ))}
             </div>
@@ -277,6 +277,10 @@ export default function ProductDetailPage() {
                 src={galleryImages[activeImage]}
                 alt={product.name}
                 className={`w-full h-full object-contain transition-transform duration-300 ${imageZoom ? 'scale-150' : 'group-hover:scale-105'}`}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = `https://picsum.photos/seed/${product.id}/600/600`;
+                }}
               />
               {product.discount > 0 && (
                 <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">
@@ -299,7 +303,7 @@ export default function ProductDetailPage() {
                   i === activeImage ? 'border-brand-500' : 'border-outline-variant/30'
                 }`}
               >
-                <img src={src} alt="" className="w-full h-full object-cover" />
+                <img src={src} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/seed/${product.id}-${i}/100/100`; }} />
               </button>
             ))}
           </div>
@@ -560,7 +564,7 @@ export default function ProductDetailPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {galleryImages.map((src, i) => (
                     <div key={i} className="rounded-xl overflow-hidden bg-surface-container">
-                      <img src={src} alt={`${product.name} - ${i + 1}`} className="w-full h-auto object-contain" loading="lazy" />
+                      <img src={src} alt={`${product.name} - ${i + 1}`} className="w-full h-auto object-contain" loading="lazy" onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/seed/${product.id}-review-${i}/300/300`; }} />
                     </div>
                   ))}
                 </div>
