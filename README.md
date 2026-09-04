@@ -357,7 +357,10 @@ istioctl create-remote-secret --context=mall-apne2-az-c --name=mall-apne2-az-c |
 ### 7. 검증
 
 ```bash
-bash scripts/test-traffic-flow.sh          # DNS → CloudFront → NLB → pod 전체 경로 + SG 감사
+# ⚠ test-traffic-flow.sh 는 아직 Korea 를 검증하지 않는다 — us-east-1/us-west-2 NLB 와
+# 예시 SG ID 하드코딩 상태다(docs/portability-assessment.md §"what the tooling missed").
+# Korea 는 실제 호스트네임으로 end-to-end curl 검증할 것; 스크립트 Korea 대응은 후속 작업.
+bash scripts/test-traffic-flow.sh          # (US 경로 한정) DNS → CloudFront → NLB → pod 전체 경로 + SG 감사
 kubectl get pods -A --context mall-apne2-az-a
 kubectl get applications -n argocd --context mall-apne2-mgmt
 ```

@@ -102,7 +102,10 @@ To rotate later, just re-run both commands — don't hand-edit the secrets.
 
 ## Verification
 
-1. `bash scripts/test-traffic-flow.sh` — north-south path + SG audit intact.
+1. North-south path intact — verify with `curl` against the real Korea hostname
+   end-to-end. (`scripts/test-traffic-flow.sh` does NOT check Korea yet — it is
+   hardcoded to us-east-1/us-west-2 NLBs and sample SG IDs, see
+   docs/portability-assessment.md; making it Korea-aware is a tracked follow-up.)
 2. Components healthy on both clusters:
    ```bash
    kubectl get pods -n istio-system --context mall-apne2-az-a

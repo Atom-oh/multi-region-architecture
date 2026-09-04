@@ -54,8 +54,15 @@ spec:
                 secretKeyRef:
                   name: order-secrets # ExternalSecret <- mall/core/aurora
                   key: DB_PASSWORD
+            # MUST be a WRITABLE cluster endpoint. The ap-northeast-2 DocumentDB
+            # (production-docdb-global-ap-northeast-2.cluster-....ap-northeast-2.
+            # docdb.amazonaws.com) is a READ-ONLY global-cluster secondary — see
+            # docs/portability-assessment.md — so restore.sh's
+            # assert_docdb_writable ABORTS on it by design. Point this at the
+            # us-east-1 primary cluster endpoint, or at the Korea cluster only
+            # AFTER promoting it (aws docdb remove-from-global-cluster).
             - name: DOCUMENTDB_HOST
-              value: "production-docdb-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com"
+              value: "<WRITABLE_DOCUMENTDB_CLUSTER_ENDPOINT>"
             - name: DOCUMENTDB_USER
               valueFrom:
                 secretKeyRef:

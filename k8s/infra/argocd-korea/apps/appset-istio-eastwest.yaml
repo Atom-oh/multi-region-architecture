@@ -11,10 +11,16 @@ spec:
             cluster-name: mall-apne2-az-a
         values:
           network: az-a
-          # terraform output istio_eastwest_security_group_id
-          # (terraform/environments/production/ap-northeast-2/shared) — same
-          # value for both AZs (one shared SG), injected here instead of
-          # literal in eastwest-gateway.yaml so the manifest can't drift from it.
+          # HAND-COPIED from `terraform output istio_eastwest_security_group_id`
+          # (terraform/environments/production/ap-northeast-2/shared) — there is
+          # NO automated terraform→manifest injection (PR#32 review, 3/3 models):
+          # this appset is merely the SINGLE place the literal lives (same value
+          # for both AZs, one shared SG; eastwest-gateway.yaml carries no copy).
+          # If the SG is ever recreated (create_before_destroy) or this is
+          # deployed into a new account, this value MUST be re-pasted or the
+          # east-west NLB silently references a nonexistent SG — a blackhole
+          # that only shows up when failover is needed. Automated injection
+          # (output → ConfigMap → appset) is the tracked follow-up.
           eastwestSecurityGroupId: sg-0355c4a665545ff7d
     - clusters:
         selector:

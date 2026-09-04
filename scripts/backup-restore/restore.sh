@@ -70,6 +70,20 @@ assert_manifest_complete() {
 # exists to prevent. Fail closed: if the topology can't be determined, abort.
 assert_docdb_writable() {
   local host=$1 arns
+  # The cluster id is only derivable from a CLUSTER endpoint
+  # (<cluster-id>.cluster-<hash>....). An INSTANCE endpoint
+  # (<instance-id>.<hash>....) would yield an instance id here, never match any
+  # cluster ARN below, and slide through this guard exactly when it matters —
+  # so refuse anything that is not a cluster endpoint (PR#32 review L4).
+  case "$host" in
+    *.cluster-*) : ;;
+    *)
+      echo "✗ ABORT: '${host}' is not a DocumentDB CLUSTER endpoint (no '.cluster-'"
+      echo "  segment) — the read-only-secondary check needs the cluster id and an"
+      echo "  instance endpoint would bypass it. Use the cluster endpoint."
+      return 1
+      ;;
+  esac
   local cluster_id="${host%%.*}"
   if ! arns=$(aws docdb describe-global-clusters \
       --query 'GlobalClusters[].GlobalClusterMembers[?IsWriter==`false`].DBClusterArn[]' \
@@ -80,10 +94,60 @@ assert_docdb_writable() {
     echo "  rds:DescribeGlobalClusters). Fix credentials/IAM and re-run."
     return 1
   fi
+  # An empty result is NOT proof of writability — it is what a query against the
+  # wrong region/account also returns, i.e. the exact scenario this guard exists
+  # for can come back empty (PR#32 review L4: fail-open on empty). Fail closed
+  # unless the operator asserts the target genuinely has no global cluster.
+  if [ -z "$(echo "${arns}" | tr -d '[:space:]')" ] && [ "${ALLOW_NO_GLOBAL_CLUSTERS:-0}" != "1" ]; then
+    echo "✗ ABORT: describe-global-clusters returned no members — either this"
+    echo "  DocumentDB is genuinely standalone (fresh account), or this query ran"
+    echo "  against the wrong region/account and the target may still be a"
+    echo "  read-only secondary. Set ALLOW_NO_GLOBAL_CLUSTERS=1 only if you have"
+    echo "  verified the target cluster is not part of any global cluster."
+    return 1
+  fi
   if echo "${arns}" | tr '\t' '\n' | grep -q ":cluster:${cluster_id}$"; then
     echo "✗ ABORT: DocumentDB target '${cluster_id}' is a read-only global-cluster"
     echo "  secondary — mongorestore would fail and leave Aurora/DocumentDB inconsistent."
     echo "  Promote it first: aws docdb remove-from-global-cluster ... (then re-run)."
+    return 1
+  fi
+  return 0
+}
+
+# Symmetric guard for Aurora — it runs FIRST in the restore order, so restoring
+# into a read-only Aurora global-cluster secondary used to fail only at
+# pg_restore time, i.e. after nothing (good) but with DocumentDB still pending
+# (PR#32 review L4: "Aurora에는 대칭 guard가 없는데 순서상 Aurora --clean이 먼저").
+assert_aurora_writable() {
+  local host=$1 arns
+  case "$host" in
+    *.cluster-*) : ;;
+    *)
+      echo "✗ ABORT: '${host}' is not an Aurora CLUSTER endpoint (no '.cluster-'"
+      echo "  segment) — the read-only-secondary check needs the cluster id."
+      return 1
+      ;;
+  esac
+  local cluster_id="${host%%.*}"
+  if ! arns=$(aws rds describe-global-clusters \
+      --query 'GlobalClusters[].GlobalClusterMembers[?IsWriter==`false`].DBClusterArn[]' \
+      --output text 2>&1); then
+    echo "✗ ABORT: could not determine Aurora global-cluster topology:"
+    echo "    ${arns}"
+    echo "  Refusing to run a destructive restore blind (needs"
+    echo "  rds:DescribeGlobalClusters). Fix credentials/IAM and re-run."
+    return 1
+  fi
+  if [ -z "$(echo "${arns}" | tr -d '[:space:]')" ] && [ "${ALLOW_NO_GLOBAL_CLUSTERS:-0}" != "1" ]; then
+    echo "✗ ABORT: describe-global-clusters (rds) returned no members — see the"
+    echo "  DocumentDB guard message above; set ALLOW_NO_GLOBAL_CLUSTERS=1 only"
+    echo "  after verifying the target is not part of any global cluster."
+    return 1
+  fi
+  if echo "${arns}" | tr '\t' '\n' | grep -q ":cluster:${cluster_id}$"; then
+    echo "✗ ABORT: Aurora target '${cluster_id}' is a read-only global-cluster"
+    echo "  secondary — pg_restore --clean would fail against it."
     return 1
   fi
   return 0
@@ -173,22 +237,47 @@ if [ -n "${DOCUMENTDB_URI:-}" ]; then
   fi
   assert_docdb_writable "${DOCDB_HOST}" || exit 1
 fi
+if [ -n "${AURORA_ENDPOINT:-}" ]; then
+  assert_aurora_writable "${AURORA_ENDPOINT}" || exit 1
+fi
 
-FAILED=0
+# Destructive steps are fail-FAST (PR#32 review L4, 3/3 models): continuing past
+# a failed pg_restore/mongorestore leaves the two stores at different points in
+# time with only an exit code to show for it. A skipped target is a FAILURE too
+# unless ALLOW_PARTIAL_RESTORE=1 — the manifest gate guarantees the archive has
+# every target, so "endpoint not set" silently restoring a subset is exactly the
+# partial-restore the gate refuses.
+abort_destructive() {  # $1=which step failed
+  echo "✗ ABORT: $1 FAILED mid-restore. THE TARGET MAY NOW BE PARTIALLY RESTORED:"
+  echo "  steps before this one are already applied, steps after it were NOT run."
+  echo "  Fix the cause and re-run the FULL restore from the same archive."
+  exit 1
+}
+skip_target() {  # $1=message
+  if [ "${ALLOW_PARTIAL_RESTORE:-0}" = "1" ]; then
+    echo "⏭ Skipping $1 (ALLOW_PARTIAL_RESTORE=1)"
+  else
+    echo "✗ ABORT: would skip $1 — the archive contains every target (manifest"
+    echo "  gate), so skipping one here is a partial restore. Set the missing"
+    echo "  env var, or set ALLOW_PARTIAL_RESTORE=1 if that is genuinely intended."
+    exit 1
+  fi
+}
 
 # ── Aurora PostgreSQL ────────────────────────────────────────────────────────
 if [ -n "${AURORA_ENDPOINT:-}" ] && [ -f "${WORKDIR}/aurora/aurora.dump" ]; then
   echo "▶ Aurora: pg_restore -> ${AURORA_ENDPOINT}"
+  # --single-transaction: all-or-nothing within Aurora itself — a mid-restore
+  # failure rolls back instead of leaving a half-restored schema.
   if PGSSLMODE=require PGPASSWORD="${AURORA_PASSWORD:-}" pg_restore \
       -h "${AURORA_ENDPOINT}" -U "${AURORA_USER:-mall_admin}" -d "${AURORA_DB:-mall}" \
-      --clean --if-exists --no-owner "${WORKDIR}/aurora/aurora.dump"; then
+      --clean --if-exists --no-owner --single-transaction "${WORKDIR}/aurora/aurora.dump"; then
     echo "✓ Aurora restored"
   else
-    echo "✗ Aurora restore FAILED (continuing)"
-    FAILED=$((FAILED + 1))
+    abort_destructive "Aurora pg_restore"
   fi
 else
-  echo "⏭ Skipping Aurora (AURORA_ENDPOINT not set or no dump in archive)"
+  skip_target "Aurora (AURORA_ENDPOINT not set or no dump in archive)"
 fi
 
 # ── DocumentDB (MongoDB) ─────────────────────────────────────────────────────
@@ -200,11 +289,10 @@ if [ -n "${DOCUMENTDB_URI:-}" ] && [ -f "${WORKDIR}/documentdb/documentdb.archiv
       --archive="${WORKDIR}/documentdb/documentdb.archive.gz" --gzip --drop; then
     echo "✓ DocumentDB restored"
   else
-    echo "✗ DocumentDB restore FAILED (continuing)"
-    FAILED=$((FAILED + 1))
+    abort_destructive "DocumentDB mongorestore"
   fi
 else
-  echo "⏭ Skipping DocumentDB (DOCUMENTDB_URI/DOCUMENTDB_HOST not set or no archive)"
+  skip_target "DocumentDB (DOCUMENTDB_URI/DOCUMENTDB_HOST not set or no archive)"
 fi
 
 # ── S3 static assets (product images) ────────────────────────────────────────
@@ -219,16 +307,13 @@ if [ -n "${STATIC_ASSETS_BUCKET:-}" ] && [ -d "${WORKDIR}/s3-static-assets" ]; t
       --delete --exclude "backups/*" --only-show-errors; then
     echo "✓ S3 uploaded"
   else
-    echo "✗ S3 upload FAILED (continuing)"
-    FAILED=$((FAILED + 1))
+    abort_destructive "S3 static-assets sync"
   fi
 else
-  echo "⏭ Skipping S3 (STATIC_ASSETS_BUCKET not set or no images in archive)"
+  skip_target "S3 (STATIC_ASSETS_BUCKET not set or no images in archive)"
 fi
 
 echo "============================================"
-echo " Restore complete. Failed steps: ${FAILED}"
+echo " Restore complete (all targets)."
 echo " Next: re-seed Valkey/MSK/OpenSearch via scripts/seed-data/"
 echo "============================================"
-
-[ "$FAILED" -eq 0 ]

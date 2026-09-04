@@ -487,14 +487,20 @@ kubectl get pods -n istio-system --context mall-apne2-az-c
 ### 검증 (정상적으로 우회되는지 확인)
 
 ```bash
-# az-a의 api-gateway가 실제로 payment의 원격(az-c) 엔드포인트를 보고 있는지 확인
-istioctl proxy-config endpoints <api-gateway-pod> -n platform \
-  --context mall-apne2-az-a | grep payment
+# az-a 워크로드가 실제로 payment의 원격(az-c) 엔드포인트를 보고 있는지 확인.
+# ambient 모드에는 pod 사이드카 프록시가 없으므로 `istioctl proxy-config`(사이드카
+# 모델 명령)는 쓸 수 없다 — ztunnel 의 워크로드 뷰를 본다:
+istioctl ztunnel-config workloads --context mall-apne2-az-a | grep payment
 
-# az-a 쪽 payment를 의도적으로 내리고 결제 플로우가 계속 성공하는지 확인
+# az-a 쪽 payment를 의도적으로 내리고 결제 플로우가 계속 성공하는지 확인.
+# /health 호출이 아니라 실제 결제 경로여야 한다(/health 는 payment 서비스를 아예
+# 거치지 않을 수 있다 — k8s/infra/istio-eastwest/README.md 의 동일 경고 참조):
 kubectl scale deployment/payment -n core-services --replicas=0 \
   --context mall-apne2-az-a
-curl -s https://mall-kr.atomai.click/api/v1/orders/health
+# 실제 주문→결제 플로우 (예: 데모 계정으로 카트→주문 생성 API 호출)
+curl -s -X POST https://mall-kr.atomai.click/api/v1/orders \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id":"<demo-user>","items":[{"product_id":"PROD-0001","quantity":1}]}
 
 # 트레이스에서 실제로 az-c로 넘어갔는지 확인 (Grafana/ClickHouse)
 # availability_zone=ap-northeast-2c 인데 진입 지점은 az-a였던 요청을 찾음

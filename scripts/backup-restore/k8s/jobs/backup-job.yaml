@@ -46,6 +46,11 @@ spec:
               value: "production-aurora-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.rds.amazonaws.com"
             - name: AURORA_USER
               value: "mall_admin"
+            # PREREQUISITE: the order-secrets ExternalSecret materializes ONLY if
+            # the Secrets Manager entry mall/core/aurora exists — as of this PR it
+            # does NOT in the live account (docs/portability-assessment.md), so
+            # this Job would sit in CreateContainerConfigError. Create it first —
+            # see scripts/backup-restore/README.md "Prerequisites".
             - name: AURORA_PASSWORD
               valueFrom:
                 secretKeyRef:
