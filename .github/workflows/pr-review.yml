@@ -22,7 +22,8 @@ name: AI Code Review
 #   - state/plan 산출물이 **추가·수정·rename** 되면 무조건 잡 실패(결정론적 deny).
 #     스킵만 하면 혼합 PR 에서 조용히 사라지고, 프롬프트에 실으면 평문 시크릿이 외부
 #     모델로 간다. **삭제**는 통과시킨다 — base 에 추적된 state 를 지우는 유일한 해소
-#     경로이고, 그 내용은 panel.diff 에 아예 실리지 않으므로 유출 경로가 없다.
+#     경로이고, 그 내용은 panel.diff 에 실리지 않으며 raw API JSON 도 분류 직후
+#     삭제된다(그 삭제까지가 "유출 경로 없음" 보장의 일부다 — round-3 리뷰 M-L3).
 #     필터 목록을 넓히면 이 auto-PASS 범위도 함께 넓어지므로 ADR 을 같이 갱신할 것.
 
 on:
@@ -102,22 +103,33 @@ jobs:
           # cancel-in-progress 가 새 push 에서 이 실행을 취소하긴 하지만 취소는 즉각적이지
           # 않다 — 대조 불일치는 결정론적으로 fail-close 한다(취소가 이기든 이 에러가
           # 이기든 결과는 같다: 이 스냅샷으로는 판정하지 않는다).
-          HEAD_SHA_BEFORE="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)" || {
-            echo "::error::cannot read the PR head SHA before collection — failing closed."; exit 1; }
+          # base 축도 함께 고정한다 (round-3 리뷰 M-L4, 3/3 수렴): pulls/{n}/files 는
+          # merge-base 기준 3-dot diff 라 base 가 전진해도 head 불변인 채 페이지가
+          # 어긋날 수 있고, base push 는 cancel-in-progress 를 발동시키지 않아 head
+          # 축과 달리 완화 요인이 없다. 이벤트의 head.sha 와도 대조해 게이트 상태가
+          # 귀속되는 스냅샷과 수집 스냅샷을 일치시킨다.
+          SHAS_BEFORE="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha + " " + .base.sha')" || {
+            echo "::error::cannot read the PR head/base SHA before collection — failing closed."; exit 1; }
+          HEAD_SHA_BEFORE="${SHAS_BEFORE%% *}"
+          if [ "$HEAD_SHA_BEFORE" != "${{ github.event.pull_request.head.sha }}" ]; then
+            echo "::error::PR head ($HEAD_SHA_BEFORE) is already ahead of the event snapshot" \
+                 "(${{ github.event.pull_request.head.sha }}) — the run for the new head supersedes this one."
+            exit 1
+          fi
           gh api --paginate --slurp \
             "repos/$REPO/pulls/$PR_NUMBER/files?per_page=100" > /tmp/pr-files-pages.json || {
             echo "::error::pulls/$PR_NUMBER/files fetch failed — failing closed."; exit 1; }
           [ -s /tmp/pr-files-pages.json ] || {
             echo "::error::pulls/$PR_NUMBER/files returned nothing — failing closed."; exit 1; }
-          HEAD_SHA_AFTER="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)" || {
-            echo "::error::cannot read the PR head SHA after collection — failing closed."; exit 1; }
-          if [ -z "$HEAD_SHA_BEFORE" ] || [ "$HEAD_SHA_BEFORE" != "$HEAD_SHA_AFTER" ]; then
-            echo "::error::PR head moved during file collection ($HEAD_SHA_BEFORE -> $HEAD_SHA_AFTER) —" \
+          SHAS_AFTER="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha + " " + .base.sha')" || {
+            echo "::error::cannot read the PR head/base SHA after collection — failing closed."; exit 1; }
+          if [ -z "$SHAS_BEFORE" ] || [ "$SHAS_BEFORE" != "$SHAS_AFTER" ]; then
+            echo "::error::PR head or base moved during file collection ($SHAS_BEFORE -> $SHAS_AFTER) —" \
                  "the paginated file list may be internally inconsistent (missed files fail open)." \
-                 "Failing closed; the run for the new head supersedes this one."
+                 "Failing closed; re-run (a head push supersedes this run automatically)."
             exit 1
           fi
-          echo "Reviewing PR #$PR_NUMBER at head $HEAD_SHA_AFTER"
+          echo "Reviewing PR #$PR_NUMBER at head ${SHAS_AFTER%% *} (base ${SHAS_AFTER##* })"
           jq 'flatten' /tmp/pr-files-pages.json > /tmp/pr-files.json || {
             echo "::error::pulls/$PR_NUMBER/files is not the expected shape — failing closed."; exit 1; }
           # `-ge` 는 비수치 인자에 에러를 내고, `set -e` 가 없는 이 스텝에서 `if` 안의
@@ -132,8 +144,19 @@ jobs:
                  "go undetected). Split this PR."
             exit 1
           fi
-          bash scripts/pr-review/collect-diff.sh /tmp/pr-files.json /tmp/pr-review-collect
-          RC=$?
+          # `|| RC=$?` 필수 (round-3 리뷰 M-L3, 의장 직접 검증): 이 워크플로는
+          # `defaults.run.shell` 오버라이드가 없어 기본 셸이 `bash -e {0}` 이고,
+          # `set -uo pipefail` 은 `-e` 를 끄지 않는다 — 맨 호출이면 exit 2 에서
+          # 스텝이 그 줄에서 즉사해 아래의 ::error:: 안내 전체(자격증명 회전 지시
+          # 포함)가 dead code 였다. 방향은 fail-closed 였지만 사람에게 가는 유일한
+          # 신호가 사라졌다.
+          RC=0
+          bash scripts/pr-review/collect-diff.sh /tmp/pr-files.json /tmp/pr-review-collect || RC=$?
+          # 분류가 끝났으면 raw API JSON 은 즉시 지운다 (round-3 리뷰 M-L3, 3/3 수렴):
+          # 삭제된 state 의 평문 patch 가 이 두 파일에 그대로 남아 의장 실행 시점까지
+          # 디스크에 있었고, 의장의 Read 는 경로 제한이 없다 — "내용은 어떤 출력
+          # 파일에도 실리지 않는다"는 보장은 이 원본을 지워야 성립한다.
+          rm -f /tmp/pr-files-pages.json /tmp/pr-files.json
           # 경로 목록을 `::error::` 로 내보낼 때: `%` 를 먼저 `%25` 로 escape 하고(안 하면
           # 파일명 안의 `%0A` 같은 문자열이 GitHub 쪽에서 개행으로 디코드돼 새 줄을 만든다),
           # 각 줄 앞에 두 칸 들여쓰기를 붙인다. GitHub 의 워크플로 커맨드는 줄 **머리**의

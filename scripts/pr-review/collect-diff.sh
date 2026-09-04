@@ -76,6 +76,9 @@ STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup|\.json)?$|(^|/)[^/]*\.tfplan(\
 NOISE_RE='(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$|(^|/)node_modules/|(^|/)(dist|out|build)/'
 
 # auto-PASS 자격이 있는 이미지/문서 자산 확장자.
+# ⚠ 이 목록을 넓히는 것은 auto-PASS 범위를 직접 넓히는 것이고, D2 전제조건 ③ 은
+# 새 바이너리 확장자를 걸러주지 **못한다**(ADR-004 §7 이 지목한 가장 위험한 갱신
+# 지점). 항목을 추가하면 ADR-004 와 test-collect-diff.sh 를 반드시 같이 갱신할 것.
 ASSET_RE='\.(png|jpg|jpeg|gif|pdf)$'
 
 jq -r \
@@ -112,7 +115,11 @@ jq -r \
         # 읽을 텍스트가 있는데 못 받는다. 이전 판은 이걸 "filtered" 로 접어 경고만 내고
         # 통과시켰다(리뷰 L3/L4 MAJOR — 혼합 PR 에서 큰 .tf/manifest 하나가 리뷰 없이
         # 사라진 채 PASS). 결정론적으로 잡을 죽인다.
-        is_oversized: ((($e | has("patch")) | not) and ((.changes // 0) != 0)),
+        # 삭제는 예외 (round-3 리뷰 M-L4): 대형 텍스트 파일의 *삭제*도 patch 생략 ∧
+        # changes>0 인데, 삭제는 쪼갤 수 없어 fatal 로 두면 "지적 없이 영구 머지
+        # 불가"(ADR-004 §9 가 없애려던 실패 모드)가 새 klass 로 재생산된다. 삭제는
+        # filtered 로 접되 binary=0 이므로 unsafe-filtered 에 올라 auto-PASS 는 막는다.
+        is_oversized: ((($e | has("patch")) | not) and ((.changes // 0) != 0) and (.status != "removed")),
         deleted:  (.status == "removed"),
         bad_path: ($p | map(ctl) | any),
         is_state: ($lp | map(test($state_re)) | any),
@@ -128,8 +135,10 @@ jq -r \
         if .bad_path                then "badpath"
         elif .is_state and .deleted then "state_deleted"
         elif .is_state              then "state_fatal"
-        elif .is_oversized          then "oversized_fatal"
+        # noise 를 oversized 보다 먼저 본다 (round-3 리뷰 m-L2): patch 가 생략될
+        # 만큼 큰 lockfile 은 어떤 렌즈도 읽지 않을 파일인데 잡 전체를 죽였다.
         elif .is_noise              then "filtered"
+        elif .is_oversized          then "oversized_fatal"
         elif .pure_rename           then "panel"
         elif .no_patch              then "filtered"
         else "panel" end)
@@ -151,7 +160,12 @@ jq -r \
 jq -r --arg state_re "$STATE_RE" --arg noise_re "$NOISE_RE" '
   def ctl: test("[\\x00-\\x1f]");
   def paths: [.filename, (.previous_filename // empty)];
-  [ .[]
+  # .terraform.lock.hcl 을 **맨 뒤로** 정렬한다 (round-3 리뷰 M-L2, 3/3 수렴):
+  # panel.diff 는 뒤가 잘리는 전역 절단(head -3000)을 지나는데, provider 범프
+  # fan-out 에서는 lockfile 해시 수백 줄 × 리전 수가 사전순으로 .tf 실변경보다
+  # 앞에 놓여 예산을 먼저 소비했다 — 리전 간 parity 검증(L2 의 핵심)이 사실상
+  # 결정론적으로 침식된다. 잘려야 한다면 해시가 먼저 잘리는 게 맞다.
+  [ (sort_by([(if (.filename | test("(^|/)\\.terraform\\.lock\\.hcl$")) then 1 else 0 end), .filename]) | .[])
     | . as $e
     | (paths) as $p
     | ($p | map(ascii_downcase)) as $lp

@@ -250,5 +250,39 @@ assert_rc 0
 assert_has deleted-state.txt 'terraform/prod.tfstate'
 assert_grep panel.diff 'notes/archive.txt'   # 문서화된 한계 — 패널이 보긴 한다(사람 눈)
 
+# ── 18. round-3 리뷰: oversized 의 삭제 예외 + noise 우선 + lockfile 후순위 ───
+# 대형 텍스트 파일의 삭제는 쪼갤 수 없으므로 fatal 이 아니라 filtered + auto-PASS
+# 자격 박탈이다.
+run 'oversized DELETION is not fatal but revokes auto-PASS' '[
+  {"filename":"generated/huge-manifest.yaml","status":"removed","changes":50000}
+]'
+assert_rc 0
+assert_empty fatal-oversized.txt
+assert_has filtered.txt 'generated/huge-manifest.yaml'
+assert_has unsafe-filtered.txt 'generated/huge-manifest.yaml'
+
+# patch 가 생략될 만큼 큰 lockfile 은 어떤 렌즈도 안 읽을 파일 — 잡을 죽이면 안 된다.
+run 'oversized lockfile is noise, not fatal' '[
+  {"filename":"src/frontend/package-lock.json","status":"modified","changes":50000},
+  {"filename":"main.tf","status":"modified","changes":2,"patch":"@@ -1 +1 @@\n-a\n+b"}
+]'
+assert_rc 0
+assert_empty fatal-oversized.txt
+assert_has filtered.txt 'src/frontend/package-lock.json'
+assert_grep panel.diff 'main.tf'
+
+# .terraform.lock.hcl 은 panel.diff 의 맨 뒤로 정렬된다 — 전역 절단(head -3000)이
+# .tf 실변경보다 해시를 먼저 잘라내도록.
+run 'lockfile hunks sort to the END of panel.diff' '[
+  {"filename":"terraform/environments/production/us-east-1/.terraform.lock.hcl",
+   "status":"modified","changes":6,"patch":"@@ -1 +1 @@\n-h1:old\n+h1:new"},
+  {"filename":"terraform/environments/production/us-west-2/main.tf",
+   "status":"modified","changes":2,"patch":"@@ -1 +1 @@\n-a\n+b_westtf_change"}
+]'
+assert_rc 0
+TF_LINE="$(grep -n 'b_westtf_change' "$OUT/panel.diff" | cut -d: -f1)"
+LOCK_LINE="$(grep -n 'h1:new' "$OUT/panel.diff" | cut -d: -f1)"
+if [ -n "$TF_LINE" ] && [ -n "$LOCK_LINE" ] && [ "$TF_LINE" -lt "$LOCK_LINE" ]; then ok; else no "lockfile hunk not sorted after .tf hunk (tf=$TF_LINE lock=$LOCK_LINE)"; fi
+
 echo "collect-diff: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

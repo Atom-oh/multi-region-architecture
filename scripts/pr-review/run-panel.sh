@@ -228,9 +228,23 @@ fi
 # 달리 토큰 예산이 싸므로 상시 첨부한다 — 잘린 경우 렌즈가 최소한 어떤 파일이 있는지는
 # 안다. 경로에 개행·제어문자가 있으면 collect-diff.sh 가 이미 fail-close 했으므로 이
 # 목록은 줄 단위로 안전하다.
+# 매니페스트에도 캡을 건다 (round-3 리뷰 M-L4, 2/3 수렴): 워크플로는 2999개
+# 파일까지 허용하는데 이 문자열은 codex 셀의 **단일 argv 인자**(LENS_PROMPT)에
+# 합쳐진다 — 무캡이면 큰 PR 에서 exec 자체가 128KiB(MAX_ARG_STRLEN) 한계로 실패해,
+# synthesize.sh 가 문서화해 둔 "ARG_MAX → 빈 응답 → fail-closed 역설"을 패널 쪽에
+# 재생산한다. 줄 경계로 자르고 생략 수를 명시한다.
+PATHS_MANIFEST_CAP="${PATHS_MANIFEST_CAP:-16384}"
 PATHS_PREAMBLE=""
 if [ -n "$PATHS_MANIFEST" ] && [ -s "$PATHS_MANIFEST" ]; then
-  PATHS_PREAMBLE=$'\n\nComplete list of paths this PR touches (the diff below may be truncated or capped; a path listed here but absent from the diff means its content was withheld or cut, NOT that it is unchanged):\n'"$(cat "$PATHS_MANIFEST")"
+  TOTAL_PATHS="$(wc -l < "$PATHS_MANIFEST")"
+  MANIFEST_TEXT="$(head -c "$PATHS_MANIFEST_CAP" "$PATHS_MANIFEST")"
+  if [ "$(wc -c < "$PATHS_MANIFEST")" -gt "$PATHS_MANIFEST_CAP" ]; then
+    # 마지막 완전한 줄까지만 — 경로 하나가 중간에서 잘려 다른 경로처럼 읽히지 않게.
+    MANIFEST_TEXT="${MANIFEST_TEXT%$'\n'*}"
+    SHOWN_PATHS="$(printf '%s\n' "$MANIFEST_TEXT" | wc -l)"
+    MANIFEST_TEXT+=$'\n('"$(( TOTAL_PATHS - SHOWN_PATHS ))"' more paths omitted — manifest capped at '"$PATHS_MANIFEST_CAP"'B)'
+  fi
+  PATHS_PREAMBLE=$'\n\nComplete list of paths this PR touches (the diff below may be truncated or capped; a path listed here but absent from the diff means its content was withheld or cut, NOT that it is unchanged):\n'"$MANIFEST_TEXT"
 fi
 
 for lens_file in "${LENS_FILES[@]}"; do

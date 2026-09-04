@@ -46,7 +46,7 @@ PASS 한다 — fail-closed 정책의 **유일한** 예외. **(D3)** Terraform s
 - **rename**: `git mv a.tfstate y.txt` → `diff --git a/a.tfstate b/y.txt`. old 경로 뒤에
   오는 것은 줄끝이 아니라 **공백**이라 `\.tfstate($|\.|[0-9])` 의 세 분기 전부 실패하고,
   new 경로는 `.txt` 라 애초에 안 걸린다. state deny 가 조용히 통과하고 헝크(= 평문
-  자격증명)가 16셀 전부로 나간다.
+  자격증명)가 패널 전 셀(현재 3모델×4렌즈=12)로 나간다.
 - **인용 경로**: git 은 비-ASCII·공백 경로를 `diff --git "a/..." "b/..."` 로 인용한다.
   `^diff --git a/` 앵커가 `"a/` 에 매치되지 않아 그 경로는 **모든** 검사에서 투명해진다.
 
@@ -78,13 +78,16 @@ deny 의 rename 우회를 닫은 뒤에도, 노이즈 필터(`NOISE_RE`, lockfil
 `dist`)가 여전히 `is_noise: (두 경로 어느 쪽이든 test 통과 → any)` 로 판정하고 있었다.
 `git mv src/frontend/package-lock.json terraform/waf.tf`(+WAF 규칙 실변경)를 하면
 old 경로가 노이즈라 `any` 가 참이 되어, new 경로(`terraform/waf.tf`)의 실제 변경이
-패널·게이트 양쪽에서 사라진다 — 혼합 PR 이면 나머지로 조용히 PASS 된다. `is_asset`
-이 정확히 반대 이유로 `all`(rename 자격 박탈은 두 경로 다 자산이어야 안전)을 쓰는
-것과 대비된다: 노이즈 제외는 **new 경로 하나만** 봐야 안전하다. `is_noise` 를
-`.filename` 단독 판정으로 바꿨다(classified.tsv 와 panel.diff 재구성 두 곳 모두 —
-후자가 L5 가 지적한 "판정이 독립된 두 jq 프로그램에 중복 구현됨"의 실제 사례였다).
-`test-collect-diff.sh` #13 에 두 방향(노이즈에서 나오는 rename / 노이즈로 들어가는
-rename) 모두 케이스로 있다.
+패널·게이트 양쪽에서 사라진다 — 혼합 PR 이면 나머지로 조용히 PASS 된다. 처음에는 `.filename`(new 경로) 단독 판정으로 바꿨으나, round-2 리뷰 M-L4-1 이
+그 거울상을 확인했다: `git mv terraform/route53.tf build/package-lock.json`(+수정)
+— 실제 IaC 를 노이즈 경로**로** rename — 이 경고 하나만 남기고 사라진다. **현행
+규범은 `all` 이다**: rename 은 두 경로 **모두** 노이즈일 때만 제외한다(`is_asset`
+과 같은 방향 — 어느 한쪽이라도 노이즈가 아니면 패널이 본다). 단독-경로 판정은
+어느 쪽을 보든 반대 방향 우회를 남기므로 이 규칙을 다시 좁히지 말 것.
+(classified.tsv 와 panel.diff 재구성 두 곳 모두 동일 기준 — 후자가 L5 가 지적한
+"판정이 독립된 두 jq 프로그램에 중복 구현됨"의 실제 사례였다.)
+`test-collect-diff.sh` #13 에 세 방향(노이즈에서 나오는 rename / 노이즈로 들어가는
+rename / 노이즈↔노이즈) 모두 케이스로 있다.
 
 **round-8 수정(PR #34 리뷰 L3/L4 MAJOR): `no_patch ∧ changes>0` 이 filtered 로 접혀
 경고만 내고 통과했다.** files API 는 바이너리와 "diff 가 너무 커서 patch 생략" 두
@@ -220,14 +223,16 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
      이 ADR 이 없애려던 실패 모드가 재생성된다.
 
    프롬프트에 싣는 것도 답이 아니다: Aurora/DocumentDB master password 가 평문으로
-   들어 있고, 그게 4모델×4렌즈로 외부 provider 에 나간다.
+   들어 있고, 그게 3모델×4렌즈(12셀)로 외부 provider 에 나간다.
 
    그래서 **추가·수정·rename** 은 `::error::` + `exit 1` 이다. 검출은 diff 구성과
    무관하다 — files API 의 `filename` 과 `previous_filename` 을 각각 검사하므로
-   (D1) rename 도 인용 경로도 우회가 아니다. 패턴은 `*.tfstate`, `*.tfstate.<n>`,
-   `*.tfstate.backup`, `*.tfplan`, 확장자 없는 `tfplan`/`plan.out`,
-   `terraform.tfstate.d/`, 그리고 `plan.json`/`tfplan.json`(`terraform show -json`
-   산출물 — state 와 같은 평문 자격증명을 담는다) 을 덮는다. `\.tfplan` 은 경로
+   (D1) rename 도 인용 경로도 우회가 아니다. 패턴은 D3 의 열거와 동일하다 —
+   `*.tfstate`/`*.tfstate.<n>`/`*.tfstate.backup`/`*.tfstate.json`,
+   `*.tfplan`/`*.tfplan.json`, 확장자 없는 `tfplan`/`plan.out`,
+   `terraform.tfstate.d/`, `plan.json`/`*-plan.json`/`*.plan`, `state.json`
+   (`terraform show -json`/`state pull` 산출물 — state 와 같은 평문 자격증명을
+   담는다). `\.tfplan` 은 경로
    세그먼트에 앵커한다 — 무앵커였을 때 `docs/notes.tfplan.md` 같은 **문서**가 잡을
    죽였다. 해소 경로는 브랜치에서 그 커밋을 되돌리는 것이며(그리고 노출된 자격증명
    회전), 에러 메시지가 그 절차를 지시한다.
@@ -240,7 +245,11 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
    실으면 이 deny 가 막으려던 바로 그것(평문 자격증명의 외부 모델 전송)이 일어난다.
    `collect-diff.sh` 는 그 파일의 `patch` 를 `panel.diff` 에 **아예 넣지 않는다** —
    패널 diff 는 헝크를 걷어내는 게 아니라 고른 파일로 재구성되는 것이므로(D1), 경로만
-   남고 내용은 어떤 출력 파일에도 실리지 않는다. 워크플로는 `::warning::` 으로 삭제된
+   남고 내용은 collect-diff 의 어떤 출력 파일에도 실리지 않는다. 단 이 보장은 files
+   API 의 **raw JSON 원본**(`/tmp/pr-files*.json` — 삭제 diff 의 평문 patch 를 그대로
+   담는다)을 분류 직후 지우는 것까지 포함해서만 성립한다(round-3 리뷰 M-L3: 원본이
+   의장 실행 시점까지 디스크에 남았고, 의장의 Read 는 경로 제한이 없다 — M-L3-2 의
+   잔여 위험과 교차하는 실제 결함이었다). 워크플로가 분류 직후 두 파일을 삭제한다. 워크플로는 `::warning::` 으로 삭제된
    경로를 나열하고 자격증명 회전을 지시한다. 삭제만 있는 PR 은 `panel.diff` 가 비므로
    D2 의 auto-PASS 로 흘러간다 — `filtered.txt` 에 그 경로들이 올라 전제조건 ② 를
    만족하고, `unsafe-filtered.txt` 에는 들어가지 않는다(리포에 아무것도 들여오지
@@ -278,6 +287,15 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
 - state/plan 의 **추가·수정·rename** 은 패널·의장·예외 판정 이전에 잡을 죽인다. 브랜치에서
   커밋을 되돌리는 것 외에 통과 경로가 없다 — admin merge 로도 게이트 실패는 남는다.
   이건 의도된 것이다.
+- 이 ADR 은 **영구 머지 불가 부류를 두 개 새로 만든다** (round-3 리뷰 M-L5): ①
+  `oversized_fatal` — noise 가 아닌 텍스트 파일의 diff 가 API patch 캡을 넘는 추가·
+  수정(해소: 커밋/PR 분할; **삭제는 예외** — 쪼갤 수 없으므로 filtered+auto-PASS
+  박탈로 접는다), ② 3000-파일 API 캡 초과 PR(해소: PR 분할). 둘 다 fail-closed 가
+  의도이며, 해소 절차는 각 ::error:: 메시지가 지시한다.
+- 무변경 rename(`pure_rename`)은 filtered 가 아니라 **panel** 로 분류되어 header-only
+  헝크로 렌즈에 보인다 — D2 의 auto-PASS 논증에서 "filtered 에 남는 것"은 진짜
+  바이너리와 노이즈 경로뿐이라는 전제가 이 klass 추가로 유지된다(rename 은 auto-PASS
+  자격을 얻는 경로가 아예 아니게 됐다).
 - **provider 범프 PR 이 절단될 수 있다.** `.terraform.lock.hcl` 승격 × 리전 수만큼의
   fan-out 이면 lock 파일 해시 수백 줄이 `head -3000` 예산을 잠식해 뒤따르는 `.tf` 변경이
   절단될 수 있다. 절단 자체는 이전에도 있던 동작이고 절단 사실은 코멘트에 배너로
