@@ -58,6 +58,10 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
      `vpc_id`로 계산된다(local). VPC 가드 해제용.
    - `var.expected_mgmt_tags` — 기본값은 위 두 태그. `{}`로 두면 태그 가드 해제.
    - `var.mgmt_cluster_security_group_id` — 기본값 `null`(= live lookup).
+     표기 주의(한 값에 표기가 두 가지다): `shared/`의 변수와 output은
+     `mgmt_cluster_security_group_id_override`(`_override` 접미사)이고, 모듈 변수와
+     guard label은 접미사 없는 `mgmt_cluster_security_group_id`다 — tfvars에 적는
+     이름은 전자다.
      non-null이면 data source의 `count`가 0이 되어 **cluster read 자체와
      postcondition 전체가 사라진다.** 대신 값이 빈 문자열이 아니면
      `data "aws_security_group" "mgmt_override"`가 그 SG를 조회해 shared VPC 소속인지
@@ -113,13 +117,24 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
      값이므로 이후 정상 apply가 빈 리스트로 덮어쓴다 — 지나간 break-glass를 되짚으려면
      state 버킷의 버저닝이나 CloudTrail이 필요하고, output 자체는 "지금 해제 상태인가"
      신호로 읽어야 한다(값은 bool이 아니라 해제된 가드 목록이다).
+   - `var.break_glass_confirm` — escape hatch가 아니라 그 사용의 **acknowledgment
+     gate**다(기본값 `false`, trust 입력 아님 — 누가 신뢰되는지를 바꾸지 않으므로
+     released_guards에는 없다). override가 non-null인데 이것이 true가 아니면
+     `terraform_data.break_glass_gate`의 precondition이 plan을 hard fail시킨다 —
+     `shared/` root와 모듈 양쪽에 동일하게 있어, override를 선언하는 `shared/`
+     plan부터 막힌다. override와 같은 `shared/terraform.tfvars` 변경에 함께
+     넣는다. 복구 후 override를 unset하며 이것만 true로 남기면 다음 override가
+     gate 없이 통과하므로, `scripts/check-mgmt-guards.sh`가 "confirm true인데
+     override unset"을 FAIL로 낸다.
    - `var.mgmt_cluster_name` — 이름 변경 대응. `shared/`의 `describable_cluster_names`는
      이 변수에서 파생된다(`[var.mgmt_cluster_name]`, round-9 review MAJOR 수정 — 이전에는
      별도 리터럴이라 `mgmt_cluster_name`과 독립적으로 drift할 수 있었다), 그래서 이름
      변경은 `shared/` 한 번의 apply로 이름 output과 IAM grant가 함께 바뀐다(아래
      Consequences). 이 변수는 위 `check`/output의 감시 대상이기도 하다.
 
-   가드 전체(`data` 2개, postcondition 6개, `check`, `released_guards`)는
+   가드 전체(`data` 2개, postcondition 6개, `check`, `released_guards`, 그리고
+   plan-time hard fail인 `terraform_data.break_glass_gate` — 동일 precondition이
+   `shared/` root에도 복제되어 override를 선언하는 그 layer의 plan부터 막는다)는
    `terraform/modules/security/mgmt-cluster-trust`에 두고 양 spoke가 호출한다. 두 spoke가
    문자 단위로 같은 로직을 필요로 하는데, 복제해두면 한쪽만 수정되는 drift가 리뷰에서
    보이지 않는다 — API server에 누가 닿을 수 있는지를 정하는 코드에는 맞지 않는 실패
@@ -129,8 +144,12 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    `expected_mgmt_vpc_id`, `expected_mgmt_tags`, break-glass override)가 spoke
    변수가 아니라 `shared/`의 변수이고, spoke는 그것을 remote state output으로 읽는다.
    `default_mgmt_cluster_name`은 round-8에서 추가된 다섯 번째 입력이다 — `check`의
-   released_guards 비교 기준(baseline) 자체이므로, 이것도 released_guards의 감시
-   대상이다(round-9에서 추가, 아래 released_guards 설명 참조). spoke별 변수면 한쪽만
+   released_guards 비교 기준(baseline) 자체다. 단 이 변수 **자신의** drift를 감시하는
+   released_guards 항목은 없다: round-9에서 추가했다가 round-10에서 제거했다(위
+   released_guards 설명 참조 — 정당한 rename 완료 후의 state와 우회의 state를 구분할
+   수 없어 모든 정상 rename을 영구 "released"로 오보했다). 대신 shared↔spoke의
+   `mgmt_trust_fingerprint` 비교(`scripts/check-mgmt-guards.sh`)가 이 값의 미수렴
+   창을 다른 네 입력과 함께 잡는다. spoke별 변수면 한쪽만
    해제하고 다른 쪽을 잊는 것이 가능한데, 두 클러스터는 같은 weighted NLB 뒤에서 같은
    Aurora/DocumentDB primary를 공유하므로 ArgoCD 도달성이 갈리면 스키마 마이그레이션이
    fleet의 절반에만 도달한다. "양쪽에 같은 값을 넣으라"는 문서 문장은 통제가 아니다 —
@@ -194,8 +213,14 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    `NotPrincipal`은 쓰지 않는다: assumed-role 세션 ARN과 role ARN이 달라 예외 목록이
    조용히 fail-open된다. 대신 `Principal = "*"` + `aws:PrincipalArn` 조건절에 차단
    대상 role ARN을 직접 나열한다(Principal 필드 자체에 role ARN을 넣는 것과는 다르다 —
-   그 방식의 문제는 아래 round-8 수정에서 다룬다). 조건절에 대상을 직접 나열하면
-   실수는 fail-closed(그 role이 접근을 잃는다) 쪽으로 떨어진다. 남는 한계: 이건 계정 내 특정 role 대상이므로, admin
+   그 방식의 문제는 아래 round-8 수정에서 다룬다). 단, 이 나열 방식의 실패 양식은
+   정확히 알아둘 것(round-12 리뷰 M3-2, 확인됨): `Principal="*"` + Deny 조건절에서
+   ARN을 잘못 적으면 그 Deny는 **아무에게도 적용되지 않고** `PutBucketPolicy`는
+   성공한다 — 신호 없는 fail-open이다. 목록에 없는 principal(신규 role, admin 세션,
+   `ci_runner`가 자기 `sts:AssumeRole`/`iam:PassRole` 권한으로 pivot한 세션) 전체에
+   대해서도 마찬가지로 열려 있다. 즉 이 denylist는 나열된 role의 직접 호출 경로에
+   대한 표적 완화이지 custody boundary가 아니다(아래 "이 ADR이 닫지 않는 것" 1 —
+   allowlist 전환 — 이 그 boundary가 되는 경로다). 남는 한계: 이건 계정 내 특정 role 대상이므로, admin
    자격증명을 든 사람은 여전히 쓸 수 있다. 외부 repo에서 그 managed policy 자체를
    축소하는 것은 저쪽 repo의 변경이라 여기 범위가 아니다.
 
@@ -339,7 +364,8 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 - **plan이 mgmt live 존재에 결합된다.** mgmt가 삭제·장애 상태거나
   `eks:DescribeCluster`가 실패하면, 트래픽을 받는 workload 클러스터의 모든 Terraform
   작업이 막힌다. Break-glass는 **3 apply**다: `shared/terraform.tfvars`에
-  `mgmt_cluster_security_group_id_override`를 커밋해 `shared/` apply → `eks-az-a` apply
+  `mgmt_cluster_security_group_id_override`와 `break_glass_confirm = true`를 **같은
+  변경으로** 커밋해 `shared/` apply → `eks-az-a` apply
   → `eks-az-c` apply (Decision 4). spoke root에는 그 이름의 변수가 없으므로
   `-var mgmt_cluster_security_group_id=...`를 spoke에 주면 즉시 에러다 — 값은 `shared/`가
   단일 소스이고 spoke는 remote state로 읽는다. 빈 문자열을 주면 EKS 모듈이 해당 ingress
@@ -353,7 +379,12 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
   DocumentDB·MSK를 포함한 레이어를 통과한다 — ArgoCD ingress 규칙 하나를 위한 blast
   radius로는 불균형하다. 그럼에도 여기 두는 이유는 spoke별 변수의 실패 양식(한쪽만
   해제)이 더 나쁘기 때문이고, 인시던트 중에는 `-target=module.mgmt_trust`가 아니라
-  `shared/`의 plan을 읽고 변경이 output 하나뿐임을 확인한 뒤 apply하는 것이 절차다.
+  `shared/`의 plan을 읽고 바뀌는 것이 정확히 output 네 개 —
+  `mgmt_cluster_security_group_id_override_set`(false→true),
+  `mgmt_cluster_security_group_id_override_value`(""→값),
+  `break_glass_confirm`(false→true), `mgmt_trust_fingerprint`(재계산) — 뿐임을
+  확인한 뒤 apply하는 것이 절차다(개수만 세지 말고 이름을 대조할 것 — 이 확인이
+  Aurora/DocumentDB/MSK를 포함한 layer의 blast radius 통제다).
 
 - **mgmt 이름 변경은 2단계 절차다.** `describable_cluster_names`는
   `mgmt_cluster_name`에서 파생되므로(`[var.mgmt_cluster_name]`) 이름 output과
@@ -436,9 +467,13 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 - `terraform/modules/security/iam/variables.tf` — 위 두 변수와 `terraform_lock_table`
   선언
 - `terraform/modules/security/mgmt-cluster-trust/` — live lookup, postcondition
-  4개(+override 경로 2개), `check`/`released_guards`. 양 spoke가 공용으로 호출한다
+  4개(+override 경로 2개), `check`/`released_guards`,
+  `terraform_data.break_glass_gate`, `mgmt_trust_fingerprint`/`break_glass_confirm_engaged`
+  output. 양 spoke가 공용으로 호출한다
 - `terraform/environments/production/ap-northeast-2/eks-az-a/main.tf`,
   `terraform/environments/production/ap-northeast-2/eks-az-c/main.tf` — 위 모듈 호출
 - `terraform/environments/production/ap-northeast-2/shared/variables.tf` —
-  `mgmt_cluster_security_group_id_override`(break-glass 단일 소스)
+  `mgmt_cluster_security_group_id_override`(break-glass 단일 소스)와
+  `break_glass_confirm`(그 acknowledgment gate, `shared/` root와 모듈 양쪽의
+  `terraform_data.break_glass_gate` precondition이 소비)
 - `terraform/environments/production/ap-northeast-2/shared/main.tf` — `module "iam"` 호출

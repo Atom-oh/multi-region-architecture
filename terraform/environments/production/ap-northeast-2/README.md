@@ -238,8 +238,12 @@ drops exactly that one.
 
 **Engaging the override requires `break_glass_confirm = true` in the same
 `shared/` change** — a real plan-time hard fail (`terraform_data.break_glass_gate`'s
-`precondition`, not the warn-only `check` block above), added because none of
-the five trust inputs otherwise has any preventive control: `check` never fails
+`precondition`, not the warn-only `check` block above), declared in **both**
+the `shared/` root and the mgmt-cluster-trust module (round-12 review M5-2:
+with the module's copy alone, `shared/` — where both variables actually live —
+applied cleanly without the confirm and only the *next spoke plan* failed,
+leaving the foundation layer in a state no spoke could consume). It exists
+because none of the five trust inputs otherwise has any preventive control: `check` never fails
 a plan by definition, and `scripts/check-mgmt-guards.sh` is a manual, post-hoc
 script. Setting `mgmt_cluster_security_group_id_override` (to an SG id or `""`)
 without also setting `break_glass_confirm = true` fails the plan outright, for
@@ -288,7 +292,12 @@ cd shared
 # both require the acknowledgment gate in the SAME change, or the plan hard-fails:
 #   break_glass_confirm = true
 $EDITOR terraform.tfvars
-terraform plan    # expect TWO output changes and nothing else — this layer holds
+terraform plan    # expect exactly FOUR output changes and nothing else:
+                  #   mgmt_cluster_security_group_id_override_set   false -> true
+                  #   mgmt_cluster_security_group_id_override_value ""    -> the value
+                  #   break_glass_confirm                           false -> true
+                  #   mgmt_trust_fingerprint                        (recomputed)
+                  # match the NAMES, not just the count — this layer holds
                   # Aurora/DocumentDB/MSK, so read the plan before applying
 terraform apply
 
@@ -297,18 +306,27 @@ terraform apply
 (cd ../eks-az-c && terraform apply)
 
 # 3. verify both actually moved
-bash ../../../../../scripts/check-mgmt-guards.sh --expect-released=mgmt_cluster_security_group_id
+bash ../../../../../scripts/check-mgmt-guards.sh --expect-released=mgmt_cluster_security_group_id --mgmt-down
 ```
 
 Use `--expect-released=mgmt_cluster_security_group_id` here, not the plain
-form. Plain `check-mgmt-guards.sh` FAILs on a released guard and on `argocd
-cluster list` not showing both spokes `Successful` — both of which are
+form. Plain `check-mgmt-guards.sh` FAILs on a released guard — which is
 *expected* right now (that's the whole point of break-glass), so the plain
 form would exit non-zero on every legitimate use of this runbook, training
 whoever runs it to ignore the exit code entirely (round-9 review L4 MAJOR).
-`--expect-released=<prefix>` prints released guards matching that prefix (and,
-only for the `mgmt_cluster_security_group_id` prefix specifically, the argocd
-check) as `INFO` instead of `FAIL`. It does **not** silently accept just any
+`--expect-released=<guard-name>` prints released guards whose **exact guard
+name** matches (a comma-separated list of the real guard names; the `_override`
+suffix from the `shared/` variable name is accepted and normalized, and any
+other unknown name is a usage error rather than a silent everything-FAILs) as
+`INFO` instead of `FAIL`.
+
+Add `--mgmt-down` **only when mgmt itself is actually down** — it is what
+downgrades the argocd reachability check to `INFO`, and it is a separate flag
+rather than implied by `--expect-released=mgmt_cluster_security_group_id`
+(round-12 review M4-1): one of the three documented override triggers is
+"`eks:DescribeCluster` fails", where mgmt and ArgoCD are alive and reachable —
+in that case run WITHOUT `--mgmt-down`, so a genuinely broken rollback channel
+during the incident still FAILs instead of being swallowed as expected noise. It does **not** silently accept just any
 released guard — a *different* guard released at the same time (e.g.
 `TF_VAR_expected_mgmt_tags='{}'` slipped in alongside the override) still
 FAILs the run (round-11 review M6: the bare, unscoped `--expect-released` this
@@ -351,7 +369,10 @@ option is `""` plus a different GitOps route.
 Unset both `mgmt_cluster_security_group_id_override` and `break_glass_confirm`
 once mgmt is back, apply all three again, and re-run
 `scripts/check-mgmt-guards.sh` (plain form, no `--expect-released` now) — the
-guards should report clean. Only GitOps reachability is affected throughout;
+guards should report clean. The script also FAILs on a `break_glass_confirm`
+left `true` after the override is unset (round-12 review M2-2): confirm is not
+a trust input, so it appears in no guard reporting, and a stale `true` would
+silently pre-disarm the break-glass gate for the next override. Only GitOps reachability is affected throughout;
 the CloudFront → NLB → api-gateway traffic path does not use this SG.
 
 **mgmt cluster was renamed.** Two phases, in this order:

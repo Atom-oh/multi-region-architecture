@@ -569,6 +569,25 @@ module "iam" {
   tags = var.tags
 }
 
+# Same break-glass acknowledgment gate the mgmt-cluster-trust module carries,
+# duplicated at this root deliberately (round-12 review M5-2, confirmed): the
+# module's gate only runs in the *spoke* plans, so with it alone an operator
+# could apply the override to shared/ without break_glass_confirm, leave this
+# foundation layer in a state no spoke can consume, and only find out one plan
+# later. Both variables live here, so the plan that introduces the override is
+# the plan that must fail — the runbook's "or the plan hard-fails" promise is
+# about THIS layer's plan.
+resource "terraform_data" "break_glass_gate" {
+  input = var.mgmt_cluster_security_group_id_override
+
+  lifecycle {
+    precondition {
+      condition     = var.mgmt_cluster_security_group_id_override == null || var.break_glass_confirm
+      error_message = "mgmt_cluster_security_group_id_override=${var.mgmt_cluster_security_group_id_override != null ? var.mgmt_cluster_security_group_id_override : "(none)"} is set (break-glass engaged) but break_glass_confirm is not true. Set break_glass_confirm = true in the same shared/terraform.tfvars change as the override to acknowledge you intend to change production API-server ingress trust."
+    }
+  }
+}
+
 # S3: secondary (no replication source)
 module "s3" {
   source = "../../../../modules/data/s3"

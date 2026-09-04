@@ -105,8 +105,16 @@ resource "aws_s3_bucket_policy" "terraform_state" {
         # NotPrincipal is deliberately not used: it is famously easy to get
         # wrong (a role's assumed-role session ARN differs from the role ARN,
         # so an exception list silently fails open). Naming the denied
-        # principals directly means a mistake here fails closed — that role
-        # loses access — rather than granting the world.
+        # principals directly avoids the NotPrincipal trap, but be precise
+        # about the failure mode it keeps (round-12 review M3-2, confirmed):
+        # a mistyped ARN in this Deny condition matches NOBODY — PutBucketPolicy
+        # still succeeds and the intended target keeps access with no signal —
+        # and principals that are simply not on the list (a new role, an admin
+        # session, a session ci_runner pivots into via its sts:AssumeRole/
+        # iam:PassRole grants) were never covered at all. A denylist like this
+        # is fail-open toward anything unlisted; it is a targeted mitigation
+        # for the named roles' direct-call paths, not a custody boundary
+        # (ADR-003 follow-up 1 tracks the allowlist inversion that would be).
         #
         # Principal is "*" with an aws:PrincipalArn condition, not
         # `Principal = { AWS = "arn:...:role/name" }` (round-8 review CRITICAL,

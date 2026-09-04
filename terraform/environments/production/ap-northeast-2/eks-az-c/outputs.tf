@@ -65,3 +65,13 @@ output "mgmt_trust_security_group_id" {
   description = "The mgmt cluster SG this spoke actually resolved and trusts for ArgoCD ingress. Compared between spokes by scripts/check-mgmt-guards.sh — released_guards alone can read [] on both sides (converged) while the *resolved SG ID itself* diverges, e.g. after an mgmt replace where one spoke hasn't re-applied yet."
   value       = module.mgmt_trust.security_group_id
 }
+
+output "break_glass_confirm_engaged" {
+  description = "Whether break_glass_confirm was true on this spoke's last apply. Reported so a confirm left true after recovery (which would silently pre-disarm the break-glass gate for the next override) is visible — scripts/check-mgmt-guards.sh FAILs on confirm-true-without-override."
+  value       = module.mgmt_trust.break_glass_confirm_engaged
+}
+
+output "mgmt_trust_fingerprint" {
+  description = "sha256 over all five mgmt trust inputs as this spoke last applied them. Compared 3-way (shared/, az-a, az-c) by scripts/check-mgmt-guards.sh — a mismatch against shared/'s mgmt_trust_fingerprint means this spoke has not re-applied since the last shared/ trust-input change, for ANY of the five inputs (not just the name/override pair the script also checks individually)."
+  value       = module.mgmt_trust.mgmt_trust_fingerprint
+}

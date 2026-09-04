@@ -226,6 +226,26 @@ output "mgmt_cluster_security_group_id_override_value" {
 }
 
 output "break_glass_confirm" {
-  description = "Acknowledgment gate for mgmt_cluster_security_group_id_override — the mgmt-cluster-trust module's break_glass_gate precondition fails the spoke plan if the override is set and this is not true."
+  description = "Acknowledgment gate for mgmt_cluster_security_group_id_override — the break_glass_gate preconditions (this root and the mgmt-cluster-trust module) fail the plan if the override is set and this is not true. scripts/check-mgmt-guards.sh FAILs on the inverse (true with no override): a stale true silently pre-disarms the gate for the next override."
   value       = var.break_glass_confirm
+}
+
+# One value covering ALL FIVE trust inputs, computed identically here and in the
+# mgmt-cluster-trust module (round-12 review M2-1, confirmed): the script's
+# 3-way shared↔az-a↔az-c comparison used to read only mgmt_cluster_name and the
+# override pair, so a shared/ apply that changed expected_mgmt_tags,
+# expected_mgmt_vpc_id or default_mgmt_cluster_name before either spoke
+# re-applied still compared as converged. Comparing one fingerprint closes that
+# for every current input and for any input added later — extending this list
+# (in BOTH places, identically) is the whole maintenance burden.
+output "mgmt_trust_fingerprint" {
+  description = "sha256 over all five mgmt trust inputs as shared/ currently declares them. Compare against each spoke's mgmt_trust_fingerprint (scripts/check-mgmt-guards.sh does): a mismatch means that spoke has not re-applied since the last shared/ trust-input change."
+  value = sha256(jsonencode({
+    mgmt_cluster_name         = var.mgmt_cluster_name
+    default_mgmt_cluster_name = var.default_mgmt_cluster_name
+    expected_mgmt_vpc_id      = var.expected_mgmt_vpc_id
+    expected_mgmt_tags        = var.expected_mgmt_tags
+    override_set              = var.mgmt_cluster_security_group_id_override != null
+    override_value            = var.mgmt_cluster_security_group_id_override != null ? var.mgmt_cluster_security_group_id_override : ""
+  }))
 }

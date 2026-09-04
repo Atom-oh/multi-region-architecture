@@ -39,28 +39,53 @@ FAIL=0
 # rename 런북(mgmt_cluster_name 하나만 기대)과 break-glass 런북(override 하나만
 # 기대)이 서로 다른 접두사를 쓰므로 하드코딩할 수 없다.
 EXPECT_RELEASED_PREFIXES=""
-case "${1:-}" in
-  --expect-released=*)
-    EXPECT_RELEASED_PREFIXES="${1#--expect-released=}"
-    shift
-    ;;
-  --expect-released)
-    echo "usage: $(basename "$0") [--expect-released=<comma-separated guard prefixes>] [--self-check]" >&2
-    echo "  break-glass runbook step 3: --expect-released=mgmt_cluster_security_group_id" >&2
-    echo "  rename runbook step 1:      --expect-released=mgmt_cluster_name" >&2
-    exit 2
-    ;;
-esac
+EXPECT_MGMT_DOWN=0
+SELF_CHECK=0
+usage() {
+  echo "usage: $(basename "$0") [--expect-released=<comma-separated guard names>] [--mgmt-down] [--self-check]" >&2
+  echo "  known guard names: mgmt_cluster_security_group_id mgmt_cluster_name expected_mgmt_vpc_id expected_mgmt_tags" >&2
+  echo "  break-glass runbook step 3: --expect-released=mgmt_cluster_security_group_id --mgmt-down" >&2
+  echo "  rename runbook step 1:      --expect-released=mgmt_cluster_name" >&2
+  exit 2
+}
+# --expect-released 값은 실제 guard 이름만 받는다(round-12 리뷰 m4-3, 확인됨):
+# 운영자가 방금 편집한 shared/ 변수명(mgmt_cluster_security_group_id_override)을
+# 그대로 넣으면 매칭 실패로 released 항목이 전부 "기대 밖" FAIL이 됐다 — 결과는
+# fail-closed지만 "이 단계는 항상 FAIL"이라는 학습을 만든다. `_override` 접미사는
+# 정규화하고, 그 외 알 수 없는 이름은 조용히 아무것도 매칭하지 않는 대신 usage
+# 에러로 즉시 거부한다.
+KNOWN_GUARD_NAMES=" mgmt_cluster_security_group_id mgmt_cluster_name expected_mgmt_vpc_id expected_mgmt_tags "
+for ARG in "$@"; do
+  case "$ARG" in
+    --expect-released=?*)
+      RAW_LIST="${ARG#--expect-released=}"
+      NORMALIZED=""
+      OLD_IFS="$IFS"; IFS=','
+      for NAME in $RAW_LIST; do
+        NAME="${NAME%_override}"
+        case "$KNOWN_GUARD_NAMES" in
+          *" $NAME "*) NORMALIZED="${NORMALIZED:+$NORMALIZED,}$NAME" ;;
+          *) IFS="$OLD_IFS"; echo "unknown guard name in --expect-released: '$NAME'" >&2; usage ;;
+        esac
+      done
+      IFS="$OLD_IFS"
+      EXPECT_RELEASED_PREFIXES="$NORMALIZED"
+      ;;
+    --mgmt-down) EXPECT_MGMT_DOWN=1 ;;
+    --self-check) SELF_CHECK=1 ;;
+    *) echo "unknown argument: '$ARG'" >&2; usage ;;
+  esac
+done
 export EXPECT_RELEASED_PREFIXES
 
-# argocd 도달 불가를 INFO로 낮추는 것은 break-glass(override released)를 기대할
-# 때만이다 — 그때는 mgmt 자체가 죽어 있다고 가정하는 게 이 런북의 전제다. rename은
-# mgmt가 살아 있는 상태에서 진행하므로, rename 중 argocd 가 도달 불가면 그건 예상된
-# 노이즈가 아니라 진짜 문제다.
-EXPECT_MGMT_DOWN=0
-case ",$EXPECT_RELEASED_PREFIXES," in
-  *,mgmt_cluster_security_group_id,*) EXPECT_MGMT_DOWN=1 ;;
-esac
+# argocd 도달 불가를 INFO로 낮추는 것은 --mgmt-down 을 명시했을 때만이다 —
+# --expect-released=mgmt_cluster_security_group_id 에서 자동 유도하지 않는다
+# (round-12 리뷰 M4-1, 확인됨): override 가 필요한 트리거 셋(mgmt 삭제 / 장애 /
+# eks:DescribeCluster 실패) 중 세 번째는 mgmt 와 ArgoCD 가 멀쩡히 살아 있는
+# 상황이라, 그때 argocd 미도달을 "예상됨"으로 삼키면 인시던트 중 롤백 채널이
+# 실제로 끊긴 상태가 INFO 로 통과한다. mgmt 가 정말 죽어 있다고 아는 운영자만
+# --mgmt-down 을 같이 명시한다. rename 은 mgmt 가 살아 있는 상태에서 진행하므로
+# 이 플래그 없이 실행한다.
 
 # --self-check: 판정 로직만 검증한다(AWS 접근 없음). 이 스크립트가 잡아야 하는 상태들 —
 # 둘 다 깨끗함 / 한쪽 가드 해제 / guards 값 불일치 / SG 값 불일치 / 한쪽 미초기화 /
@@ -80,9 +105,11 @@ https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Successful}" \
   MGMT_SHARED_NAME="${6:-mall-apne2-mgmt}" \
   MGMT_SHARED_OVERRIDE_SET="${7:-false}" MGMT_SHARED_OVERRIDE_VALUE="${8:-\"\"}" \
   MGMT_LIVE_SG="${9:-sg-mgmt}" \
-  bash "$0" "${10:-}" >/dev/null 2>&1; echo $?
+  MGMT_SHARED_CONFIRM="${11:-false}" \
+  MGMT_FP_A="${12:-\"fp\"}" MGMT_FP_C="${13:-\"fp\"}" MGMT_SHARED_FP="${14:-\"fp\"}" \
+  bash "$0" ${10:-} >/dev/null 2>&1; echo $?
 }
-if [ "${1:-}" = "--self-check" ]; then
+if [ "$SELF_CHECK" = "1" ]; then
   [ "$(run_self_check '[]' '[]')" = "0" ] || { echo "self-check FAILED: 둘 다 깨끗한데 PASS 아님"; exit 1; }
   [ "$(run_self_check '["x"]' '["x"]')" = "1" ] || { echo "self-check FAILED: 양쪽 가드 해제인데 FAIL 아님"; exit 1; }
   [ "$(run_self_check '[]' '["x"]')" = "1" ] || { echo "self-check FAILED: guards 불일치인데 FAIL 아님"; exit 1; }
@@ -104,14 +131,14 @@ https://mgmt-c.example:6443 mall-apne2-az-c-old v1.30.0 Successful')" = "1" ] ||
   # released 항목 + argocd 미도달은 INFO 로 내려가지만 수렴 실패는 여전히 FAIL.
   OVERRIDE_GUARD='["mgmt_cluster_security_group_id=sg-mgmt (cluster lookup and its postconditions skipped)"]'
   [ "$(run_self_check "$OVERRIDE_GUARD" "$OVERRIDE_GUARD" 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Unknown
-https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id')" = "0" ] || { echo "self-check FAILED: --expect-released=override 인데 released+argocd-미도달로 FAIL"; exit 1; }
-  [ "$(run_self_check "$OVERRIDE_GUARD" '["mgmt_cluster_security_group_id=sg-other (cluster lookup and its postconditions skipped)"]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id')" = "1" ] || { echo "self-check FAILED: --expect-released 여도 guards 불일치는 FAIL 이어야 함"; exit 1; }
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id --mgmt-down')" = "0" ] || { echo "self-check FAILED: --expect-released=override 인데 released+argocd-미도달로 FAIL"; exit 1; }
+  [ "$(run_self_check "$OVERRIDE_GUARD" '["mgmt_cluster_security_group_id=sg-other (cluster lookup and its postconditions skipped)"]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id --mgmt-down')" = "1" ] || { echo "self-check FAILED: --expect-released 여도 guards 불일치는 FAIL 이어야 함"; exit 1; }
   # M6: 기대한 접두사 외의 가드가 *같이* released 되면, 기대 범위 안이어도 전체 FAIL —
   # break-glass가 override 만 기대하는데 무관한 가드(예: expected_mgmt_tags)까지
   # 조용히 삼키면 안 된다(round-11 리뷰 M6, 확인됨).
   MIXED_GUARDS='["mgmt_cluster_security_group_id=sg-mgmt (cluster lookup and its postconditions skipped)","expected_mgmt_tags={} (provisioning-tag guard widened or dropped)"]'
   [ "$(run_self_check "$MIXED_GUARDS" "$MIXED_GUARDS" 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Unknown
-https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id')" = "1" ] || { echo "self-check FAILED: 기대 밖 가드(expected_mgmt_tags)가 override 와 같이 released 인데 FAIL 아님"; exit 1; }
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id --mgmt-down')" = "1" ] || { echo "self-check FAILED: 기대 밖 가드(expected_mgmt_tags)가 override 와 같이 released 인데 FAIL 아님"; exit 1; }
   # --expect-released=mgmt_cluster_name (rename runbook step 1): 그 접두사만 INFO.
   # rename 중에는 mgmt 가 살아 있는 게 전제이므로 argocd 미도달은 여전히 FAIL.
   NAME_GUARD='["mgmt_cluster_name=mall-apne2-mgmt-v2 (trusting a cluster other than mall-apne2-mgmt)"]'
@@ -119,7 +146,22 @@ https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' '
 https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Successful' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_name')" = "0" ] || { echo "self-check FAILED: --expect-released=mgmt_cluster_name 인데 rename 중 정상 argocd 상태로 FAIL"; exit 1; }
   [ "$(run_self_check "$NAME_GUARD" "$NAME_GUARD" 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Unknown
 https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_name')" = "1" ] || { echo "self-check FAILED: --expect-released=mgmt_cluster_name 은 argocd 미도달을 INFO 로 내리면 안 됨(rename 중엔 mgmt 가 살아있어야 함)"; exit 1; }
-  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/shared-미수렴×2/expect-released-override/expect-released-mixed/expect-released-name 모두 올바르게 판정)"
+  # round-12 M4-1: --expect-released=override 만으로는 argocd 미도달이 더 이상
+  # INFO 로 내려가지 않는다 — --mgmt-down 을 명시해야 한다.
+  [ "$(run_self_check "$OVERRIDE_GUARD" "$OVERRIDE_GUARD" 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Unknown
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id')" = "1" ] || { echo "self-check FAILED: --mgmt-down 없이 argocd 미도달이 INFO 로 내려감(M4-1)"; exit 1; }
+  # round-12 m4-3: shared/ 변수명 그대로(_override 접미사)도 guard 이름으로 정규화된다.
+  [ "$(run_self_check "$OVERRIDE_GUARD" "$OVERRIDE_GUARD" 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Successful
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Successful' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id_override')" = "0" ] || { echo "self-check FAILED: _override 접미사가 guard 이름으로 정규화되지 않음"; exit 1; }
+  # round-12 m4-3: 알 수 없는 guard 이름은 조용한 전체-FAIL 대신 usage 에러(2)다.
+  [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=bogus_guard')" = "2" ] || { echo "self-check FAILED: 알 수 없는 --expect-released 이름이 usage 에러(2)가 아님"; exit 1; }
+  # round-12 M2-2: override 는 unset 인데 break_glass_confirm 만 true 로 남은 상태
+  # (stale confirm — 다음 override 가 hard fail 없이 통과하게 되는 사전 disarm) 는 FAIL.
+  [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '' 'true')" = "1" ] || { echo "self-check FAILED: stale break_glass_confirm=true 인데 FAIL 아님(M2-2)"; exit 1; }
+  # round-12 M2-1: 5개 trust 입력 전체를 덮는 fingerprint 가 shared↔spoke 에서
+  # 갈리면(예: expected_mgmt_tags 만 shared 에 apply 되고 spoke 는 아직) FAIL.
+  [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '' 'false' '"fp-stale"')" = "1" ] || { echo "self-check FAILED: fingerprint 미수렴(az-a stale)인데 FAIL 아님(M2-1)"; exit 1; }
+  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/shared-미수렴×2/expect-released-override/expect-released-mixed/expect-released-name/mgmt-down-분리/override-접미사-정규화/unknown-prefix-usage/stale-confirm/fingerprint-미수렴 모두 올바르게 판정)"
   exit 0
 fi
 
@@ -202,6 +244,16 @@ print(len(unexpected))
   fi
   eval "GUARDS_$AZ=\$RAW"
   eval "SG_$AZ=\$SG_RAW"
+
+  # round-12 M2-1: 5개 trust 입력 전체를 덮는 fingerprint. 아래 3자 비교가 이것으로
+  # name/override 밖의 나머지 입력(expected_mgmt_tags/vpc_id, default_mgmt_cluster_name)
+  # 의 미수렴 창까지 잡는다.
+  if FP_RAW="$(read_output "$DIR" mgmt_trust_fingerprint "MGMT_FP_${AZ^^}")" && [ -n "$FP_RAW" ]; then
+    eval "FP_$AZ=\$FP_RAW"
+  else
+    echo "FAIL az-$AZ: mgmt_trust_fingerprint 출력을 읽을 수 없음 — 이 레이어를 이 output 이 추가된 변경 이후로 아직 apply 하지 않았다."
+    FAIL=1
+  fi
 done
 
 # 수렴 확인 — 값이 다르면 한쪽만 apply 됐다는 뜻이다(shared/ 는 이미 단일 소스라
@@ -304,6 +356,42 @@ else
   FAIL=1
 fi
 
+# round-12 M2-2: break_glass_confirm 은 released_guards 대상이 아니라서(trust 입력이
+# 아니다) 어떤 가드 리포팅에도 안 나타났다 — override 를 unset 하며 confirm 만 true 로
+# 남기면 다음 override 설정이 hard fail 없이 통과한다(preventive gate 의 사전 disarm).
+# 그 상태를 여기서 FAIL 로 낸다.
+if CONFIRM_RAW="$(read_output "$SHARED_DIR" break_glass_confirm MGMT_SHARED_CONFIRM)" && [ -n "$CONFIRM_RAW" ]; then
+  CONFIRM_IS_TRUE="$(printf '%s' "$CONFIRM_RAW" | python3 -c 'import json,sys; print("1" if json.load(sys.stdin) else "0")' 2>/dev/null || echo "__PARSE_ERROR__")"
+  if [ "$CONFIRM_IS_TRUE" = "__PARSE_ERROR__" ]; then
+    echo "FAIL shared/: break_glass_confirm 출력을 파싱할 수 없다(값: $CONFIRM_RAW)."
+    FAIL=1
+  elif [ "$CONFIRM_IS_TRUE" = "1" ] && [ "${OVERRIDE_IS_SET:-}" = "0" ]; then
+    echo "FAIL shared/: break_glass_confirm=true 인데 override 는 unset — stale confirm 이다. 이대로 두면 다음 override 설정이 break_glass_gate 를 hard fail 없이 통과한다. shared/terraform.tfvars 에서 break_glass_confirm 을 제거(또는 false)하고 apply 할 것."
+    FAIL=1
+  fi
+else
+  echo "FAIL shared/: break_glass_confirm 출력을 읽을 수 없다 — shared/ 를 이 output 이 추가된 변경 이후로 아직 apply 하지 않았거나 state 를 못 읽는다."
+  FAIL=1
+fi
+
+# round-12 M2-1: shared↔az-a↔az-c 의 5-입력 fingerprint 3자 비교. 위의 name/override
+# 비교는 유지한다(어느 값이 왜 갈렸는지 메시지가 구체적이다) — 이 비교는 그 둘이
+# 못 보는 나머지 입력의 미수렴 창을 닫는 포괄 검사다. 입력이 늘어도(모듈과 shared/
+# 의 fingerprint output 두 곳만 같이 늘리면) 이 스크립트는 수정이 필요 없다.
+if FP_SHARED_RAW="$(read_output "$SHARED_DIR" mgmt_trust_fingerprint MGMT_SHARED_FP)" && [ -n "$FP_SHARED_RAW" ]; then
+  for AZ in a c; do
+    FP_VAR="FP_$AZ"
+    FP_VAL="${!FP_VAR:-}"
+    if [ -n "$FP_VAL" ] && [ "$FP_VAL" != "$FP_SHARED_RAW" ]; then
+      echo "FAIL az-$AZ: mgmt trust fingerprint 가 shared/ 와 다르다 — 5개 trust 입력 중 무언가(expected_mgmt_tags/expected_mgmt_vpc_id/default_mgmt_cluster_name 포함)가 shared/ 에 apply 된 뒤 이 spoke 가 아직 재apply 되지 않았다."
+      FAIL=1
+    fi
+  done
+else
+  echo "FAIL shared/: mgmt_trust_fingerprint 출력을 읽을 수 없다 — shared/ 를 이 output 이 추가된 변경 이후로 아직 apply 하지 않았거나 state 를 못 읽는다."
+  FAIL=1
+fi
+
 # ArgoCD 가 실제로 두 클러스터에 도달하는지 — SG 가 맞아도 mgmt 가 재생성됐으면
 # 조용히 죽어 있을 수 있다(ADR-003 의 stale-SG follow-up 이 다루는 실패 양식).
 # 두 spoke 모두 Successful 이어야 통과 — CLI 부재/명령 실패/Unknown 상태는 전부 FAIL,
@@ -321,7 +409,7 @@ fi
 # 하도록 만든다.
 argo_report() {  # $1=message
   if [ "$EXPECT_MGMT_DOWN" = "1" ]; then
-    echo "INFO $1 (--expect-released=mgmt_cluster_security_group_id 지정 — mgmt 다운 중이므로 예상됨)"
+    echo "INFO $1 (--mgmt-down 지정 — mgmt 다운 중이므로 예상됨)"
   else
     echo "FAIL $1"
     FAIL=1
