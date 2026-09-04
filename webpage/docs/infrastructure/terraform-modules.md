@@ -113,15 +113,19 @@ module "eks" {
   source = "../../../modules/compute/eks"
 
   cluster_name       = "multi-region-mall"
-  cluster_version    = "1.29"
+  cluster_version    = "1.36"
   region             = var.region
   vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
 }
 ```
 
+:::info version은 신규 생성 시에만 적용
+`aws_eks_cluster.main`의 `version`은 `lifecycle.ignore_changes`에 포함되어 있습니다. EKS는 콘솔/eksctl로 무중단 업그레이드가 가능하지만 다운그레이드는 불가능하므로, terraform이 `version`을 계속 추적하면 실제 클러스터 버전이 올라간 뒤 영원히 적용 불가능한 plan diff만 남습니다. `cluster_version`은 신규 클러스터를 만들 때만 의미가 있고, 기존 클러스터 업그레이드는 terraform 밖에서 수행합니다.
+:::
+
 **주요 기능:**
-- EKS 클러스터 (Kubernetes 1.29)
+- EKS 클러스터 (Kubernetes 1.36)
 - OIDC Provider (IRSA용)
 - 관리형 애드온: vpc-cni, coredns, kube-proxy, aws-ebs-csi-driver, aws-efs-csi-driver
 - 서비스별 IRSA 역할 (20개 마이크로서비스)
