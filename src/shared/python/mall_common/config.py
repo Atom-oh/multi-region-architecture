@@ -41,26 +41,39 @@ class ServiceConfig(BaseSettings):
 
     @property
     def documentdb_uri(self) -> str:
-        if self.db_password:
-            return (
-                f"mongodb://{self.db_user}:{self.db_password}"
-                f"@{self.documentdb_host}:{self.documentdb_port}"
-                f"/{self.db_name}?tls=true&tlsAllowInvalidCertificates=true&retryWrites=false"
-                f"&readPreference=secondaryPreferred"
+        # DocumentDB only accepts TLS connections. Never drop `tls=true` just
+        # because credentials are missing — a plaintext URI doesn't fail fast,
+        # it hangs for serverSelectionTimeoutMS while the TLS handshake never
+        # completes. Fail fast instead, so a missing ExternalSecret shows up
+        # as an immediate startup error instead of a 20-30s request timeout.
+        if not self.db_password:
+            raise RuntimeError(
+                "DocumentDB credentials missing (DB_PASSWORD unset) — refusing to build "
+                "a connection URI. Check that this service's ExternalSecret has synced "
+                "(kubectl get externalsecrets -A) before retrying."
             )
-        return f"mongodb://{self.documentdb_host}:{self.documentdb_port}/{self.db_name}"
+        return (
+            f"mongodb://{self.db_user}:{self.db_password}"
+            f"@{self.documentdb_host}:{self.documentdb_port}"
+            f"/{self.db_name}?tls=true&tlsAllowInvalidCertificates=true&retryWrites=false"
+            f"&readPreference=secondaryPreferred"
+        )
 
     @property
     def documentdb_write_uri(self) -> str:
         host = self.documentdb_write_host or self.documentdb_host
-        if self.db_password:
-            return (
-                f"mongodb://{self.db_user}:{self.db_password}"
-                f"@{host}:{self.documentdb_port}"
-                f"/{self.db_name}?tls=true&tlsAllowInvalidCertificates=true&retryWrites=false"
-                f"&directConnection=true"
+        if not self.db_password:
+            raise RuntimeError(
+                "DocumentDB credentials missing (DB_PASSWORD unset) — refusing to build "
+                "a connection URI. Check that this service's ExternalSecret has synced "
+                "(kubectl get externalsecrets -A) before retrying."
             )
-        return f"mongodb://{host}:{self.documentdb_port}/{self.db_name}"
+        return (
+            f"mongodb://{self.db_user}:{self.db_password}"
+            f"@{host}:{self.documentdb_port}"
+            f"/{self.db_name}?tls=true&tlsAllowInvalidCertificates=true&retryWrites=false"
+            f"&directConnection=true"
+        )
 
     @property
     def aurora_dsn(self) -> str:

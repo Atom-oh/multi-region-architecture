@@ -134,7 +134,7 @@ export default function HomePage() {
                   className="aspect-square bg-surface-container overflow-hidden rounded-lg"
                 >
                   {p.imageUrl ? (
-                    <img src={p.imageUrl} alt={p.name || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={p.imageUrl} alt={p.name || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/seed/${p.id}/600/600`; }} />
                   ) : (
                     <div className="w-full h-full bg-surface-high animate-pulse" />
                   )}
@@ -148,7 +148,7 @@ export default function HomePage() {
             <Link to={bentoData.fashion[0] ? `/products/${bentoData.fashion[0].id}` : '/products?category=fashion'} className="block h-full">
               <div className="relative h-full min-h-[320px]">
                 {bentoData.fashion[0]?.imageUrl ? (
-                  <img src={bentoData.fashion[0].imageUrl} alt={bentoData.fashion[0].name || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <img src={bentoData.fashion[0].imageUrl} alt={bentoData.fashion[0].name || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/seed/${bentoData.fashion[0].id}/600/600`; }} />
                 ) : (
                   <div className="w-full h-full bg-surface-high animate-pulse" />
                 )}
@@ -184,7 +184,7 @@ export default function HomePage() {
                   className="aspect-square bg-surface-container overflow-hidden rounded-lg"
                 >
                   {p.imageUrl ? (
-                    <img src={p.imageUrl} alt={p.name || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={p.imageUrl} alt={p.name || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/seed/${p.id}/600/600`; }} />
                   ) : (
                     <div className="w-full h-full bg-surface-high animate-pulse" />
                   )}
@@ -239,6 +239,7 @@ export default function HomePage() {
                   <div className="aspect-[3/4] bg-surface-container rounded-xl overflow-hidden mb-4">
                     <img
                       src={product.imageUrl || `https://picsum.photos/seed/${product.id}/600/800`}
+                      onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/seed/${product.id}/600/800`; }}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
