@@ -9,6 +9,7 @@ import uuid
 
 import requests
 from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -55,8 +56,10 @@ class JSONFormatter(logging.Formatter):
             log["trace_id"] = record.trace_id
         return json.dumps(log)
 
-# Set by api() when a step fails; reset by main() before each scenario so a
-# scenario that swallows the error inside api() still counts as failed.
+# Set by api() when a step fails — an unexpected HTTP status (default: anything
+# outside 2xx/3xx) or a request exception. Reset by main() before each scenario
+# so a scenario that swallows the error inside api() still counts as failed.
+# NOTE: module-level global — scenarios must run sequentially (they do, in main()).
 _scenario_had_failure = False
 
 logger = logging.getLogger("synthetic-monitor")
@@ -88,8 +91,16 @@ tracer = trace.get_tracer("synthetic-monitor")
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def api(session: requests.Session, method: str, path: str, scenario: str, step: str, run_id: str, body=None):
-    """Execute one API call as an independent trace with structured logging."""
+def api(session: requests.Session, method: str, path: str, scenario: str, step: str, run_id: str, body=None, expected=None):
+    """Execute one API call as an independent trace with structured logging.
+
+    A response with an unexpected status (default: anything outside 2xx/3xx —
+    including WAF 403 blocks, auth 401s, and stale-read 404s), or a request
+    exception, marks the step's span as ERROR and sets the module-level
+    `_scenario_had_failure` flag so main() counts the scenario as failed.
+    Pass `expected` (an iterable of status codes) for steps where a specific
+    non-2xx status is a legitimate outcome.
+    """
     global _scenario_had_failure
     url = f"{BASE_URL}{path}"
     headers = {"Content-Type": "application/json"}
@@ -110,9 +121,11 @@ def api(session: requests.Session, method: str, path: str, scenario: str, step: 
             ctx = span.get_span_context()
             extra = {"scenario": scenario, "step": step, "status_code": resp.status_code, "latency_ms": latency}
             extra["trace_id"] = format(ctx.trace_id, "032x")
-            if resp.status_code >= 500:
+            ok = (resp.status_code in expected) if expected is not None else (200 <= resp.status_code < 400)
+            if not ok:
                 _scenario_had_failure = True
                 span.set_attribute("error", True)
+                span.set_status(Status(StatusCode.ERROR, f"unexpected status {resp.status_code}"))
                 logger.error(f"{method} {path} -> {resp.status_code}", extra=extra)
             else:
                 logger.info(f"{method} {path} -> {resp.status_code}", extra=extra)
@@ -124,6 +137,7 @@ def api(session: requests.Session, method: str, path: str, scenario: str, step: 
             span.set_attribute("http.latency_ms", latency)
             span.set_attribute("error", True)
             span.set_attribute("error.message", str(e))
+            span.set_status(Status(StatusCode.ERROR, str(e)))
             extra = {"scenario": scenario, "step": step, "status_code": 0, "latency_ms": latency}
             logger.error(f"{method} {path} -> ERROR: {e}", extra=extra)
             return None
@@ -252,9 +266,10 @@ def s5_seller_and_warehouse(session: requests.Session, run_id: str):
     api(session, "POST", "/api/v1/sellers/register", name, "register_seller", run_id,
         {"name": "Synthetic Seller", "email": f"seller-{new_seller_id[:8]}@test.mall"})
     delay()
-    api(session, "GET", f"/api/v1/sellers/{new_seller_id}", name, "get_seller", run_id)
+    # new_seller_id is a client-side UUID, not the server-assigned seller id — 404 is a legitimate outcome
+    api(session, "GET", f"/api/v1/sellers/{new_seller_id}", name, "get_seller", run_id, expected=(200, 404))
     delay()
-    api(session, "GET", f"/api/v1/sellers/{new_seller_id}/products", name, "get_seller_products", run_id)
+    api(session, "GET", f"/api/v1/sellers/{new_seller_id}/products", name, "get_seller_products", run_id, expected=(200, 404))
     delay()
     api(session, "GET", "/api/v1/warehouses", name, "list_warehouses", run_id)
     delay()
@@ -278,7 +293,8 @@ def s6_post_purchase(session: requests.Session, run_id: str):
     api(session, "POST", "/api/v1/returns", name, "create_return", run_id,
         {"order_id": random.choice(ORDER_IDS), "reason": "synthetic_test", "items": [product_id]})
     delay()
-    api(session, "GET", f"/api/v1/returns/{return_id}", name, "get_return", run_id)
+    # return_id is a client-side UUID unrelated to the created return — 404 is a legitimate outcome
+    api(session, "GET", f"/api/v1/returns/{return_id}", name, "get_return", run_id, expected=(200, 404))
     delay()
     api(session, "POST", "/api/v1/notifications", name, "send_notification", run_id,
         {"user_id": user_id, "type": "order_update", "title": "Test", "message": "Synthetic test notification"})
