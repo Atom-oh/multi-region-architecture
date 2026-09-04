@@ -44,9 +44,17 @@ mkdir -p "$WORK" || { echo "collect-diff.sh: cannot create $WORK" >&2; exit 1; }
 
 # state/plan 패턴. 전부 경로 세그먼트에 앵커한다 — 이전 판의 `\.tfplan` 은 앵커가 없어서
 # `docs/notes.tfplan.md` 같은 **문서**가 잡을 죽였다. `.tfstate.backup`, `.tfstate.1`,
-# 확장자 없는 `tfplan`/`plan.out`, `terraform.tfstate.d/`, 그리고 `plan.json`/`tfplan.json`
-# (`terraform show -json` 산출물 — state 와 같은 평문 자격증명을 담는다) 을 덮는다.
-STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup)?$|(^|/)[^/]*\.tfplan$|(^|/)(tf)?plan\.json$|(^|/)tfplan$|(^|/)plan\.out$|(^|/)terraform\.tfstate\.d/'
+# `.tfstate.json`(`terraform state pull > x.tfstate.json`), 확장자 없는 `tfplan`/`plan.out`,
+# `terraform.tfstate.d/`, `plan.json`/`tfplan.json`/`*.tfplan.json`(`terraform show -json`
+# 산출물 — state 와 같은 평문 자격증명을 담는다), `state.json`(`state pull` 의 흔한
+# 리다이렉트 이름), 그리고 `-out=` 임의 이름의 흔한 변형(`*-plan.json`, `*.plan`) 을 덮는다.
+#
+# 이 deny 는 **열거 기반이고 완전하지 않다** (round-2 리뷰 M-L2-1) — `-out=creds.bin`
+# 같은 임의 이름은 경로 패턴으로 원리적으로 못 잡는다. 여기 걸리지 않은 state/plan 은
+# 텍스트인 한 패널 전 셀(외부 모델 포함)에 전문이 전달되므로, 패턴을 넓힐 이유가 생기면
+# 주저 없이 넓히고 ADR-004 를 같이 갱신할 것. 내용 기반(시크릿 스캐너) 검사는 ADR-004
+# 의 후속 항목이다.
+STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup|\.json)?$|(^|/)[^/]*\.tfplan(\.json)?$|(^|/)[^/]*[-.]plan\.json$|(^|/)(tf)?plan\.json$|(^|/)tfplan$|(^|/)plan\.out$|(^|/)[^/]*\.plan$|(^|/)state\.json$|(^|/)terraform\.tfstate\.d/'
 
 # 패널이 읽어도 의미가 없는 노이즈. 확장자 allow-list 는 여기 **없다** — 이전 판은
 # `\.(png|pdf|zip|...)$` 로 경로를 걸러서, 같은 확장자를 가진 *텍스트* 파일이 혼합 PR
@@ -56,13 +64,15 @@ STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup)?$|(^|/)[^/]*\.tfplan$|(^|/)(t
 # docs/decisions/ADR-004-pr-review-empty-diff-exception.md 를 같이 갱신할 것.
 # .terraform.lock.hcl 은 의도적으로 제외하지 않는다(ADR-004 §5).
 #
-# is_noise 는 반드시 new path(.filename) 단독으로만 판정한다 — old/new 중 하나만
-# 노이즈여도 제외하면(`any`), `git mv src/frontend/package-lock.json terraform/waf.tf`
-# 처럼 실제 IaC 변경을 노이즈 경로로 rename 해서 패널·게이트 양쪽에서 숨길 수 있다
-# (PR#34 리뷰 L3 CRITICAL — is_asset 이 정확히 반대 이유로 `all` 을 쓰는 것과 대비된다:
-# rename 자격 박탈은 두 경로 모두 요구해야 안전하고, 노이즈 제외는 새 경로 하나만
-# 봐야 안전하다). old path 가 노이즈든 아니든 new path 가 노이즈가 아니면 패널이
-# 반드시 본다.
+# is_noise 는 rename 의 **두 경로 모두** 노이즈일 때만 제외한다(`all` — is_asset 과
+# 같은 방향). 한쪽만 보면 어느 쪽을 보든 거울상 우회가 생긴다:
+#   - old 만 노이즈여도 제외(`any`): `git mv package-lock.json terraform/waf.tf` 로
+#     실제 IaC 변경이 사라진다 (PR#34 리뷰 L3 CRITICAL — round-8 이 닫은 방향).
+#   - new 단독 판정: `git mv terraform/route53.tf build/package-lock.json`(+수정) 로
+#     실제 IaC 변경이 unsafe-filtered 경고 하나만 남기고 사라진다 (round-2 리뷰
+#     M-L4-1 — round-8 수정의 거울상).
+# `all` 은 두 방향을 다 닫는다: rename 의 어느 한쪽이라도 노이즈가 아니면 패널이
+# 반드시 본다. rename 이 아닌 파일은 경로가 하나라 기존과 동일하게 동작한다.
 NOISE_RE='(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$|(^|/)node_modules/|(^|/)(dist|out|build)/'
 
 # auto-PASS 자격이 있는 이미지/문서 자산 확장자.
@@ -90,7 +100,13 @@ jq -r \
         # 패널이 읽을 텍스트가 없다는 점에서 둘 다 제외 대상이지만, auto-PASS 자격
         # (= 진짜 바이너리)은 changes==0 까지 요구한다.
         no_patch: (($e | has("patch")) | not),
-        binary:   ((($e | has("patch")) | not) and ((.changes // 0) == 0)),
+        # 무변경 rename(patch 없음 ∧ changes==0 ∧ status==renamed)은 바이너리가
+        # 아니라 "내용 0줄의 텍스트 변경"이다 (round-2 리뷰 M-L4-2): Terraform 모듈
+        # 디렉터리의 git mv 는 state address 이동(= destroy/recreate 경로)이라 이
+        # repo 에서 실질 위험인데, binary 로 접으면 어떤 렌즈에도 안 보였다. panel 로
+        # 분류하고 panel.diff 에 rename from/to 헤더 전용 헝크를 넣는다.
+        pure_rename: ((($e | has("patch")) | not) and ((.changes // 0) == 0) and (.status == "renamed")),
+        binary:   ((($e | has("patch")) | not) and ((.changes // 0) == 0) and (.status != "renamed")),
         # patch 가 없는데 changes>0 인 경우: git 은 바이너리가 아니라고 보지만(그러면
         # changes==0 일 것) API 가 diff 크기 때문에 patch 를 생략했다는 뜻 — 즉 패널이
         # 읽을 텍스트가 있는데 못 받는다. 이전 판은 이걸 "filtered" 로 접어 경고만 내고
@@ -100,8 +116,8 @@ jq -r \
         deleted:  (.status == "removed"),
         bad_path: ($p | map(ctl) | any),
         is_state: ($lp | map(test($state_re)) | any),
-        # new path(.filename) 단독 — old path 를 보면 rename 으로 우회 가능(위 주석).
-        is_noise: (.filename | ascii_downcase | test($noise_re)),
+        # 두 경로 모두 노이즈일 때만(all) — 한쪽만 보면 rename 우회가 생긴다(위 주석).
+        is_noise: ($lp | map(test($noise_re)) | all),
         # rename 은 두 경로 **모두** 자산이어야 한다. 하나만 보면
         # `asset.png → payload.zip` 이 자격을 얻는다.
         is_asset: ($lp | map(test($asset_re)) | all)
@@ -113,7 +129,9 @@ jq -r \
         elif .is_state and .deleted then "state_deleted"
         elif .is_state              then "state_fatal"
         elif .is_oversized          then "oversized_fatal"
-        elif .no_patch or .is_noise then "filtered"
+        elif .is_noise              then "filtered"
+        elif .pure_rename           then "panel"
+        elif .no_patch              then "filtered"
         else "panel" end)
     })
   | .[]
@@ -139,15 +157,19 @@ jq -r --arg state_re "$STATE_RE" --arg noise_re "$NOISE_RE" '
     | ($p | map(ascii_downcase)) as $lp
     | select(($p | map(ctl) | any) | not)
     | select(($lp | map(test($state_re)) | any) | not)
-    # new path 단독 — classified.tsv 의 is_noise 판정과 동일 기준(위 주석 참조).
-    | select((.filename | ascii_downcase | test($noise_re)) | not)
-    | select($e | has("patch"))
+    # 두 경로 모두 노이즈일 때만 제외 — classified.tsv 의 is_noise 와 동일 기준(위 주석).
+    | select(($lp | map(test($noise_re)) | all) | not)
+    # patch 가 있는 파일, 또는 무변경 rename(헤더 전용 헝크로 가시화 — classified 의
+    # pure_rename 과 동일 기준). 그 외 no-patch(진짜 바이너리/oversized)는 여기 못 온다.
+    | select(($e | has("patch")) or ((.status == "renamed") and ((.changes // 0) == 0)))
     | (.previous_filename // .filename) as $old
     | "diff --git a/\($old) b/\(.filename)"
       + (if (.previous_filename // "") != "" then "\nrename from \(.previous_filename)\nrename to \(.filename)" else "" end)
-      + "\n--- " + (if .status == "added" then "/dev/null" else "a/\($old)" end)
-      + "\n+++ " + (if .status == "removed" then "/dev/null" else "b/\(.filename)" end)
-      + "\n" + .patch ]
+      + (if ($e | has("patch"))
+         then "\n--- " + (if .status == "added" then "/dev/null" else "a/\($old)" end)
+              + "\n+++ " + (if .status == "removed" then "/dev/null" else "b/\(.filename)" end)
+              + "\n" + .patch
+         else "" end) ]
   | join("\n")
   | if . == "" then empty else . end
 ' "$FILES_JSON" > "$WORK/panel.diff" || {

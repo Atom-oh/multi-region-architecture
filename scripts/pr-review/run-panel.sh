@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lens×모델 매트릭스 병렬 fan-out. 인자: <diff> <lenses_dir> <workdir>
+# lens×모델 매트릭스 병렬 fan-out. 인자: <diff> <lenses_dir> <workdir> [paths-manifest]
 # lenses_dir 안의 각 *.txt 가 lens 하나(파일명 stem = lens 태그, 예: L2/L3/L4/L5) —
 # 그 lens 전용 리뷰 프롬프트(자체 완결형: "이 lens만 봐"). 각 lens × 각 모델이
 # 독립 에이전트 셀 하나(design: oh-my-cloud-skills 원본 설계 문서 — 이 repo엔 없음, 그 repo의
@@ -13,7 +13,7 @@
 set -uo pipefail
 DIFF="$(realpath "$1" 2>/dev/null)" \
   || { echo "run-panel.sh: realpath failed to resolve diff path: $1" >&2; exit 1; }
-LENSES_DIR="$2"; WORK="$3"
+LENSES_DIR="$2"; WORK="$3"; PATHS_MANIFEST="${4:-}"
 # precheck.sh 와 같은 원칙 — $WORK 가 비면 ensure_slots 의 `rm -rf "$1/slot"` 가
 # `rm -rf /slot`(파일시스템 루트 하위) 이 되는 파괴적 경로가 생긴다. $LENSES_DIR 빈 값은
 # 파괴적이진 않지만(글롭이 매치 없이 조용히 0셀로 끝남) 인자 오설정을 조용히 넘기지 않고
@@ -222,9 +222,20 @@ if [ "$DIFF_BYTES" -gt "$KIRO_DIFF_CAP" ]; then
   : > "$WORK/kiro-diffcap-fired.flag"
 fi
 
+# 경로 매니페스트(collect-diff.sh 의 all-paths.txt)를 모든 lens 프롬프트에 첨부한다
+# (round-2 리뷰 M-L4-4): diff 는 3000 파일 API 캡·Kiro diff 캡으로 잘릴 수 있고, 그때
+# 렌즈는 "한 리전만 변경됨"과 "잘려서 안 보임"을 구별할 수 없다. 경로 **목록**은 내용과
+# 달리 토큰 예산이 싸므로 상시 첨부한다 — 잘린 경우 렌즈가 최소한 어떤 파일이 있는지는
+# 안다. 경로에 개행·제어문자가 있으면 collect-diff.sh 가 이미 fail-close 했으므로 이
+# 목록은 줄 단위로 안전하다.
+PATHS_PREAMBLE=""
+if [ -n "$PATHS_MANIFEST" ] && [ -s "$PATHS_MANIFEST" ]; then
+  PATHS_PREAMBLE=$'\n\nComplete list of paths this PR touches (the diff below may be truncated or capped; a path listed here but absent from the diff means its content was withheld or cut, NOT that it is unchanged):\n'"$(cat "$PATHS_MANIFEST")"
+fi
+
 for lens_file in "${LENS_FILES[@]}"; do
   lens="$(basename "$lens_file" .txt)"
-  LENS_PROMPT="$(cat "$lens_file")"
+  LENS_PROMPT="$(cat "$lens_file")$PATHS_PREAMBLE"
 
   # Codex 셀 (Bedrock, config.toml — 모델 문자열은 이 repo 코드가 아니라 러너 이미지의
   # ~/.codex/config.toml 이 결정하며, 그 값이 gpt-5.6-sol; KIRO_MODELS 의 gpt-5.6-terra 와는

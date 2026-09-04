@@ -1,0 +1,32 @@
+name: pr-review spec
+
+# collect-diff.sh 의 실행 가능한 스펙(test-collect-diff.sh)을 실제로 실행하는 잡
+# (round-2 리뷰 M-L5-1): pr-review.yml 은 `pull_request_target` 이라 **base-ref** 를
+# 실행한다 — 분류 로직을 바꾸는 PR 의 회귀는 그 브랜치 CI 어디에서도 드러나지 않았고,
+# "아무도 안 돌리는 스펙" 이 안전 논증의 공백이었다. 이 잡은 평범한 `pull_request`
+# (= PR head 실행, 시크릿·쓰기권한 없음, 신뢰 불필요 — 순수 bash+jq 단위 테스트) 로
+# 그 공백을 메운다.
+on:
+  pull_request:
+    paths:
+      - 'scripts/pr-review/**'
+      - '.github/workflows/pr-review-spec.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/pr-review/**'
+
+permissions:
+  contents: read
+
+jobs:
+  spec:
+    name: collect-diff spec
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run collect-diff executable spec
+        run: bash scripts/pr-review/test-collect-diff.sh

@@ -14,7 +14,7 @@ RESP="$(tr '\n' ',' < "$WORK/responded.txt" 2>/dev/null | sed 's/,$//')" || true
 
 # 패널 출력 합본. 파일명 컨벤션 = <모델>-<lens>.md (예: kiro-opus-L3.md) — 체어가
 # 그 태그로 lens별 그룹핑/합의-이견 판정을 하도록 헤더에 그대로 노출.
-# 셀당 바이트 캡(belt-and-braces) — 매트릭스가 4→16 출력으로 늘어난 뒤에도 체어 입력을
+# 셀당 바이트 캡(belt-and-braces) — 매트릭스가 4→12 출력으로 늘어난 뒤에도 체어 입력을
 # 유한하게 유지(폭주한 셀 하나가 체어 컨텍스트/처리시간을 지배하지 않도록).
 PANEL_CELL_CAP="${PANEL_CELL_CAP:-20000}"
 PANEL=""
@@ -50,7 +50,7 @@ rm -f "$SCRUB_TMP"
 
 # 지시문(고정, argv 로 전달 — 아래 run_chair 참조)은 diff/패널 내용을 절대 포함하지 않는다.
 # diff+패널은 stdin 파일로 별도 전달(§ 아래) — argv 에 실으면 Linux 의 단일 인자
-# 128KiB 하드 리밋(ARG_MAX 의 일부, exec 시 즉시 실패)에 걸릴 수 있다. 매트릭스(4→16
+# 128KiB 하드 리밋(ARG_MAX 의 일부, exec 시 즉시 실패)에 걸릴 수 있다. 매트릭스(4→12
 # 출력)에서는 셀당 평균 ~8KB 만 넘어도 초과한다 — 리뷰가 상세할수록(=출력이 길수록) exec
 # 자체가 실패해 "빈 응답"으로 귀결되고 fail-closed 로 PR이 차단되는 역설을 방지한다.
 cat > "$WORK/synth-prompt.txt" <<PROMPT_EOF
@@ -103,7 +103,7 @@ PROMPT_EOF
 #
 # CHAIR_TIMEOUT 600s (oh-my-cloud-skills #105 실측 근거 재사용): 같은 러너 이미지/서비스
 # 어카운트를 쓰는 ttobak 에서, 타임아웃 없는 구(4-패널) 버전 스크립트가 357줄 diff 종합에
-# 286초를 정상적으로 썼다. 매트릭스(4→16 패널 출력)는 체어 입력이 더 커 286s 실측조차
+# 286초를 정상적으로 썼다. 매트릭스(4→12 패널 출력)는 체어 입력이 더 커 286s 실측조차
 # 밑돎 — job timeout-minutes 여유를 반영해 600s로 상향.
 # 의도적으로 job 전역 ANTHROPIC_MODEL 을 참조하지 않는다 — 그 값은 job 의 다른
 # step/용도에도 쓰이고 이 repo 에서는 이미 fable-5 로 고정돼 있어, 그대로 재사용하면
@@ -130,17 +130,23 @@ CHAIR_FALLBACK_MAX_TURNS="${CHAIR_FALLBACK_MAX_TURNS:-12}"
 # 묶지 않는다 — 의장이 필요한 건 리포 컨벤션 확인용 read/grep/glob 뿐이므로 거기로
 # 고정한다. Bash·Write·Edit·WebFetch 가 없으면 diff 안의 지시문이 성공해도 할 수 있는
 # 것이 리포 읽기로 끝난다(ADR-002 의 fs-read 잔여 위험과 같은 경계).
-# 빈 문자열을 넣으면 플래그 자체를 넘기지 않는다(러너 CLI 판본이 이 플래그를 못 받는
-# 것으로 확인되면 env 로 끌 수 있는 탈출구) — `--allowedTools ""` 로 넘기면 "빈
-# allow-list"로 해석될 수 있어 의도와 정반대로 어긋나므로 조건부 전달이다.
+# allow 쪽만 조건부다: 빈 CHAIR_ALLOWED_TOOLS 는 --allowedTools 플래그를 생략한다
+# (러너 CLI 판본이 이 플래그를 못 받는 것으로 확인되면 env 로 끌 수 있는 탈출구 —
+# `--allowedTools ""` 로 넘기면 "빈 allow-list"로 해석될 수 있어 조건부 전달).
 #
-# 그 탈출구 자체가 fail-open 이었다(리뷰 L3 MAJOR): `CHAIR_ALLOWED_TOOLS=""` 를 주면
-# --allowedTools 가 안 나가 제한이 통째로 사라지고, --disallowedTools 로 병행 방어도
-# 없었다. 이제 --disallowedTools 는 CHAIR_ALLOWED_TOOLS 값과 무관하게 항상 나간다 —
-# 그 CLI 판본이 --allowedTools 를 못 받는 경우에도 최소한 Bash/Write/Edit/WebFetch 는
-# 막힌 채로 남는다(ADR-002 의 fs-read 잔여 위험과 같은 경계를 이중으로 보장).
+# deny 쪽은 **무조건 나가고 env 로 끌 수 없다** (round-2 리뷰 M-L3-1, 5셀 수렴):
+# 이전 판은 `[ -n "$CHAIR_DISALLOWED_TOOLS" ] &&` 게이트라 두 env 를 모두 비우면 두
+# 플래그가 모두 생략돼 의장이 무제한 툴로 실행됐다 — "disallow 는 항상 나간다"는
+# 문서와 정반대의 fail-open. env 는 baseline 에 **추가**만 할 수 있다(아래 병합).
+# baseline 에 Task(서브에이전트 스폰 — allow-list 를 우회해 임의 툴에 도달하는 경로),
+# NotebookEdit(Write/Edit 의 우회 표기), WebSearch/WebFetch(잠재 exfil 채널) 포함.
 CHAIR_ALLOWED_TOOLS="${CHAIR_ALLOWED_TOOLS-Read,Grep,Glob}"
-CHAIR_DISALLOWED_TOOLS="${CHAIR_DISALLOWED_TOOLS-Bash,Write,Edit,WebFetch}"
+CHAIR_DISALLOWED_BASELINE="Bash,Write,Edit,NotebookEdit,WebFetch,WebSearch,Task"
+if [ -n "${CHAIR_DISALLOWED_TOOLS:-}" ]; then
+  CHAIR_DISALLOWED_TOOLS="$CHAIR_DISALLOWED_BASELINE,$CHAIR_DISALLOWED_TOOLS"
+else
+  CHAIR_DISALLOWED_TOOLS="$CHAIR_DISALLOWED_BASELINE"
+fi
 
 chair_label() { case "$1" in
   *fable-5*)  echo "Claude Fable 5" ;;
@@ -152,7 +158,8 @@ run_chair() {  # $1=model $2=max-turns $3=out-file → $3 에 기록(scrub 통�
   # argv(-p) 는 고정 지시문만(작고 상한 없음) — diff+패널(가변, 큼)은 stdin.
   local extra=()
   [ -n "$CHAIR_ALLOWED_TOOLS" ] && extra=(--allowedTools "$CHAIR_ALLOWED_TOOLS")
-  [ -n "$CHAIR_DISALLOWED_TOOLS" ] && extra+=(--disallowedTools "$CHAIR_DISALLOWED_TOOLS")
+  # 무조건 — 위 병합 로직이 baseline 을 항상 포함시키므로 여기는 비어 있을 수 없다.
+  extra+=(--disallowedTools "$CHAIR_DISALLOWED_TOOLS")
   ANTHROPIC_MODEL="$1" timeout "$CHAIR_TIMEOUT" \
     claude -p "$(cat "$WORK/synth-prompt.txt")" --output-format text \
     --max-turns "$2" "${extra[@]+"${extra[@]}"}" \
@@ -209,7 +216,7 @@ fi
 if chair_degraded "$OUT"; then
   { echo "리뷰 생성 실패 — 의장 $(chair_label "$PRIMARY_MODEL")·$(chair_label "$FALLBACK_MODEL")"
     echo "모두 VERDICT 를 내지 못했습니다(빈 응답 / 타임아웃 ${CHAIR_TIMEOUT}s / 턴 캡"
-    echo "${CHAIR_MAX_TURNS}·${CHAIR_FALLBACK_MAX_TURNS} 소진). 패널 16셀 응답 여부와 무관하게"
+    echo "${CHAIR_MAX_TURNS}·${CHAIR_FALLBACK_MAX_TURNS} 소진). 패널 12셀 응답 여부와 무관하게"
     echo "fail-closed 입니다. 워크플로 로그의 \`chair stderr\` 그룹에 원인이 있습니다."
     echo ""
     if [ -s "$OUT" ]; then

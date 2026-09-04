@@ -88,7 +88,7 @@ jobs:
           # `gh pr diff` 텍스트가 아니라 `pulls/{n}/files` 의 **JSON** 을 받는다.
           # 이유는 collect-diff.sh 파일 상단에 있다(요약: diff 헤더에서 경로를 파싱하면
           # rename 과 인용 경로에서 fail-open 이 생긴다 — state deny 가 조용히 통과하고
-          # 평문 자격증명이 16셀로 나간다). API 는 경로를 JSON 값으로, rename 의 두 경로를
+          # 평문 자격증명이 패널 전 셀로 나간다). API 는 경로를 JSON 값으로, rename 의 두 경로를
           # 별도 필드로 준다.
           # --paginate: 기본 페이지는 30개뿐이라 그것만 보면 31번째 파일의 state 가
           # 검출되지 않는다(fail-open). --slurp 로 페이지 배열들을 모아 flatten 한다.
@@ -96,11 +96,28 @@ jobs:
           # `--slurp` 는 `--jq` 와 같이 못 쓰므로(gh 가 거부한다) flatten 은 별도 jq 단계다.
           # 파이프가 아니라 두 단계로 나눈 이유: 한 파이프라인이면 gh 가 죽어도 jq 가 빈
           # 입력에서 성공할 수 있어(또는 pipefail 상태가 섞여) "파일 0개" 로 조용히 접힌다.
+          # head SHA 를 수집 전후로 대조한다 (round-2 리뷰 M-L4-3): --paginate 는 offset
+          # 기반이라 수집 도중 push 가 끼어들면 페이지 사이가 어긋나 파일이 **누락**될
+          # 수 있고(state 미검출 포함), 누락 방향은 fail-open 이다. concurrency 의
+          # cancel-in-progress 가 새 push 에서 이 실행을 취소하긴 하지만 취소는 즉각적이지
+          # 않다 — 대조 불일치는 결정론적으로 fail-close 한다(취소가 이기든 이 에러가
+          # 이기든 결과는 같다: 이 스냅샷으로는 판정하지 않는다).
+          HEAD_SHA_BEFORE="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)" || {
+            echo "::error::cannot read the PR head SHA before collection — failing closed."; exit 1; }
           gh api --paginate --slurp \
             "repos/$REPO/pulls/$PR_NUMBER/files?per_page=100" > /tmp/pr-files-pages.json || {
             echo "::error::pulls/$PR_NUMBER/files fetch failed — failing closed."; exit 1; }
           [ -s /tmp/pr-files-pages.json ] || {
             echo "::error::pulls/$PR_NUMBER/files returned nothing — failing closed."; exit 1; }
+          HEAD_SHA_AFTER="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)" || {
+            echo "::error::cannot read the PR head SHA after collection — failing closed."; exit 1; }
+          if [ -z "$HEAD_SHA_BEFORE" ] || [ "$HEAD_SHA_BEFORE" != "$HEAD_SHA_AFTER" ]; then
+            echo "::error::PR head moved during file collection ($HEAD_SHA_BEFORE -> $HEAD_SHA_AFTER) —" \
+                 "the paginated file list may be internally inconsistent (missed files fail open)." \
+                 "Failing closed; the run for the new head supersedes this one."
+            exit 1
+          fi
+          echo "Reviewing PR #$PR_NUMBER at head $HEAD_SHA_AFTER"
           jq 'flatten' /tmp/pr-files-pages.json > /tmp/pr-files.json || {
             echo "::error::pulls/$PR_NUMBER/files is not the expected shape — failing closed."; exit 1; }
           # `-ge` 는 비수치 인자에 에러를 내고, `set -e` 가 없는 이 스텝에서 `if` 안의
@@ -303,7 +320,9 @@ jobs:
                  "$(paste -sd' ' < /tmp/pr-review-collect/unsafe-filtered.txt)"
             echo "::error::Failing closed — 패널을 실행한다."
           fi
-          bash scripts/pr-review/run-panel.sh /tmp/pr-diff-truncated.txt /tmp/pr-review/lenses /tmp/pr-review
+          # 4번째 인자: 경로 매니페스트 — diff 가 캡·절단으로 잘려도 렌즈가 전체 경로
+          # 목록은 항상 본다 (round-2 리뷰 M-L4-4).
+          bash scripts/pr-review/run-panel.sh /tmp/pr-diff-truncated.txt /tmp/pr-review/lenses /tmp/pr-review /tmp/pr-review-collect/all-paths.txt
           bash scripts/pr-review/synthesize.sh /tmp/pr-diff-truncated.txt /tmp/pr-review \
             "$PR_NUMBER" "$PR_TITLE" /tmp/review.md
           echo "panel_responded=$(tr '\n' ' ' < /tmp/pr-review/responded.txt 2>/dev/null)" >> "$GITHUB_ENV"

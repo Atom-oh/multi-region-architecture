@@ -109,12 +109,16 @@ assert_empty panel.diff
 assert_has filtered.txt 'qa/shot1.PNG'
 assert_empty unsafe-filtered.txt
 
-# ── 8. rename 은 두 경로 모두 자산이어야 한다 ────────────────────────────────
-run 'asset.png -> payload.zip rename loses eligibility' '[
+# ── 8. rename 은 auto-PASS 자격을 얻지 못한다 ────────────────────────────────
+# 무변경 rename 은 이제 header-only 헝크로 패널에 보인다(M-L4-2) — filtered 로 접히지
+# 않으므로 unsafe-filtered 가 아니라 panel.diff 비어있지 않음이 auto-PASS 를 막는다.
+run 'asset.png -> payload.zip rename is visible to the panel, not auto-PASS' '[
   {"filename":"payload.zip","previous_filename":"asset.png","status":"renamed","changes":0}
 ]'
 assert_rc 0
-assert_has unsafe-filtered.txt 'payload.zip'   # 삭제가 아니므로 자격 박탈
+assert_grep panel.diff 'rename from asset.png'
+assert_grep panel.diff 'rename to payload.zip'
+assert_empty filtered.txt
 
 # ── 9. lockfile-only PR 은 무심사 통과하지 못한다 (ADR-004 §5) ───────────────
 run 'npm lockfile-only PR is not auto-PASS' '[
@@ -159,13 +163,24 @@ assert_grep panel.diff 'terraform/waf.tf'
 assert_grep panel.diff 'new_waf_rule'
 assert_empty filtered.txt
 
-# rename TO a noisy path is still excluded — is_noise 는 new path 기준이어야 한다.
-run 'rename TO a noisy lockfile is still filtered' '[
+# rename TO a noisy path is ALSO reviewed (round-2 리뷰 M-L4-1 — round-8 수정의
+# 거울상): 실제 IaC 파일을 노이즈 경로로 rename 하면 경고 하나만 남기고 변경이
+# 사라졌다. is_noise 는 두 경로 **모두** 노이즈일 때만 제외한다.
+run 'rename TO a noisy lockfile is still reviewed' '[
   {"filename":"package-lock.json","previous_filename":"terraform/waf.tf",
    "status":"renamed","changes":3,"patch":"@@ -1 +1 @@\n-a\n+b"}
 ]'
 assert_rc 0
-assert_has filtered.txt 'package-lock.json'
+assert_grep panel.diff 'terraform/waf.tf'
+assert_empty filtered.txt
+
+# 두 경로 모두 노이즈인 rename 만 제외된다.
+run 'noise-to-noise rename is filtered' '[
+  {"filename":"pnpm-lock.yaml","previous_filename":"yarn.lock",
+   "status":"renamed","changes":3,"patch":"@@ -1 +1 @@\n-a\n+b"}
+]'
+assert_rc 0
+assert_has filtered.txt 'pnpm-lock.yaml'
 assert_empty panel.diff
 
 # ── 14. no_patch ∧ changes>0 은 fail-closed (PR#34 리뷰 L3/L4 MAJOR) ─────────
@@ -186,6 +201,54 @@ run 'real binary (changes=0, no patch) is still just filtered' '[
 assert_rc 0
 assert_has filtered.txt 'logo.png'
 assert_empty fatal-oversized.txt
+
+# ── 15. STATE_RE 변형 커버리지 (round-2 리뷰 M-L2-1) ─────────────────────────
+# `terraform state pull`/`show -json`/`-out=` 의 흔한 산출물 이름들이 어느 분기에도
+# 안 걸려 텍스트 전문이 패널 전 셀로 나갔다.
+for f in 'terraform.tfstate.json' 'envs/prod/state.json' 'prod-plan.json' 'prod.plan' 'prod.tfplan.json'; do
+  run "state/plan variant $f is denied" '[
+    {"filename":"'"$f"'","status":"added","changes":1,"patch":"@@ -0,0 +1 @@\n+{\"master_password\":\"hunter2\"}"}
+  ]'
+  assert_rc 2
+  assert_has fatal-state.txt "$f"
+  assert_nogrep panel.diff 'hunter2'
+done
+# 과차단 회귀 방지: 계획/상태와 무관한 흔한 이름은 여전히 리뷰된다.
+run 'app deployment-plan.md is not a terraform plan' '[
+  {"filename":"docs/deployment-plan.md","status":"modified","changes":2,"patch":"@@ -1 +1 @@\n-a\n+b"}
+]'
+assert_rc 0
+assert_empty fatal-state.txt
+assert_grep panel.diff 'docs/deployment-plan.md'
+
+# ── 16. 무변경 rename 가시화 (round-2 리뷰 M-L4-2) ───────────────────────────
+# Terraform 모듈 디렉터리 git mv = state address 이동(destroy/recreate 경로)인데,
+# patch 없음 ∧ changes==0 을 "binary" 로 접으면 어떤 렌즈에도 안 보였다.
+run 'zero-change terraform rename reaches the panel as a header-only hunk' '[
+  {"filename":"terraform/modules/vpc-v2/main.tf","previous_filename":"terraform/modules/vpc/main.tf",
+   "status":"renamed","changes":0}
+]'
+assert_rc 0
+assert_grep panel.diff 'rename from terraform/modules/vpc/main.tf'
+assert_grep panel.diff 'rename to terraform/modules/vpc-v2/main.tf'
+assert_empty filtered.txt
+
+# ── 17. 알려진 한계의 기록: removed+added 분해 (round-2 리뷰 M-L3-3) ─────────
+# rename status 는 GitHub 의 유사도 탐지가 결정한다 — state 파일을 크게 수정하며
+# 이동하면 API 는 removed(옛 state 이름) + added(비-state 새 이름, patch 전문) 두
+# 엔트리로 보고하고, added 쪽은 STATE_RE 를 지나 패널로 간다. 경로 기반 deny 는 임의
+# 파일명에 내용을 붙여넣는 경우를 원리적으로 못 잡는다(ADR-004 의 시크릿 스캐너
+# 후속이 다루는 축). 이 테스트는 그 한계가 "여기까지"임을 고정한다: removed 쪽은
+# 여전히 state_deleted 로 잡히고, 한계가 조용히 넓어지면(removed 쪽마저 새면) 깨진다.
+run 'KNOWN LIMIT: state moved via removed+added — added side reaches the panel' '[
+  {"filename":"terraform/prod.tfstate","status":"removed","changes":900,
+   "patch":"@@ -1,3 +0,0 @@\n-{\n-  \"master_password\": \"hunter2\"\n-}"},
+  {"filename":"notes/archive.txt","status":"added","changes":900,
+   "patch":"@@ -0,0 +1,3 @@\n+{\n+  \"master_password\": \"hunter2\"\n+}"}
+]'
+assert_rc 0
+assert_has deleted-state.txt 'terraform/prod.tfstate'
+assert_grep panel.diff 'notes/archive.txt'   # 문서화된 한계 — 패널이 보긴 한다(사람 눈)
 
 echo "collect-diff: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

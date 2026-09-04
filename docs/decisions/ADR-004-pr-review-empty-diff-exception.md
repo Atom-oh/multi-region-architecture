@@ -63,10 +63,15 @@ rename 의 두 경로가 별도 필드. 패널 diff 는 그 목록에서 **고�
 31번째 파일의 state 가 검출되지 않고, files API 자체가 PR 당 3000 파일에서 잘리므로
 파일 수가 3000 이상이면 분류가 완전할 수 없어 잡을 죽인다.
 
-각 우회와 각 경계 조건은 `scripts/pr-review/test-collect-diff.sh` 에 실행 가능한
-케이스로 있다 — `pull_request_target` 은 base-ref 의 워크플로를 실행하므로 이 로직의
-회귀는 브랜치 CI 로 드러나지 않는다(경계 조건 8번과 같은 이유). 이 파일들을 고치면
-그 테스트를 같이 고친다.
+`collect-diff.sh` 의 **분류 로직**에 대한 각 우회와 각 경계 조건은
+`scripts/pr-review/test-collect-diff.sh` 에 실행 가능한 케이스로 있고,
+`.github/workflows/pr-review-spec.yml`(평범한 `pull_request` — PR head 실행, 시크릿
+불필요)이 그 스펙을 실제로 실행한다 — `pull_request_target` 은 base-ref 의 워크플로를
+실행하므로 이 로직의 회귀는 리뷰 잡 자신으로는 드러나지 않는다(경계 조건 8번과 같은
+이유), 그래서 별도 잡이 필요했다(round-2 리뷰 M-L5-1: "아무도 안 돌리는 스펙"은 안전
+논증이 아니다). 스펙의 범위도 정확히 그만큼이다: 워크플로 YAML 쪽 로직(경계 조건 4·6,
+D2 전제조건 ①②③)은 이 스펙이 검증하지 **않는다**. 이 파일들을 고치면 그 테스트를
+같이 고친다.
 
 **round-8 수정(PR #34 리뷰 L3 CRITICAL): 같은 우회가 noise 필터로 이동했다.** state
 deny 의 rename 우회를 닫은 뒤에도, 노이즈 필터(`NOISE_RE`, lockfile/`node_modules`/
@@ -145,6 +150,20 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
 
 **추가·수정·rename 은 결정론적으로 잡을 죽인다. 삭제는 통과시키되 그 내용은 패널에
 전달하지 않는다.** 상세와 기각한 대안은 아래 9번.
+
+이 deny 의 "결정론"은 **경로 패턴이 매치되는 범위 안에서만** 성립한다 — 두 한계를
+명시한다(round-2 리뷰 M-L2-1·M-L3-3):
+
+- **열거 기반이다.** `STATE_RE` 는 알려진 이름 관행(`*.tfstate*`, `*.tfplan*`,
+  `plan.json`/`*-plan.json`/`*.plan`, `state.json`, `terraform.tfstate.d/`)을 열거한다.
+  `terraform plan -out=` 과 `state pull` 리다이렉트는 임의 이름을 허용하므로 완전한
+  열거는 원리적으로 불가능하다 — 패턴 밖 이름의 state/plan 은 텍스트인 한 패널 전
+  셀로 나간다. 내용 기반(시크릿 스캐너) 검사가 이 축의 실제 마감이며 후속으로 남긴다.
+- **removed+added 분해를 못 잡는다.** rename status 는 GitHub 의 유사도 탐지가
+  결정한다. state 파일을 크게 수정하며 이동하면 API 는 `removed`(옛 이름 — 여전히
+  state_deleted 로 잡혀 내용은 실리지 않는다) + `added`(패턴 밖 새 이름, patch 전문)
+  로 보고하고, added 쪽은 이 deny 를 지나 패널로 간다. `test-collect-diff.sh` #17 이
+  이 한계를 그대로 고정한다(한계가 조용히 넓어지면 깨지도록).
 
 경계 조건:
 
@@ -270,9 +289,11 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
   정규식(`STATE_RE`/`NOISE_RE`/`ASSET_RE`)과 분류 순서가 여기 한 곳에 있다.
 - `scripts/pr-review/test-collect-diff.sh` — 위 파일의 실행 가능한 스펙. rename·인용
   경로·자산 확장자 텍스트 파일·base-추적 state 삭제 등 각 우회가 케이스로 있다.
-- `.github/workflows/pr-review.yml` — "Get PR diff"(files API 페치 + collect-diff 호출 +
-  state 삭제 경고), "Build lens prompts"(`head -3000` 절단 — 판정 대상 파일이 여기서
-  생성된다), "Run panel + synthesize"(전제조건 검사 + auto-PASS)
+- `.github/workflows/pr-review.yml` — "Get PR diff"(head SHA 대조 + files API 페치 +
+  collect-diff 호출 + state 삭제 경고), "Build lens prompts"(`head -3000` 절단 — 판정
+  대상 파일이 여기서 생성된다), "Run panel + synthesize"(전제조건 검사 + auto-PASS)
+- `.github/workflows/pr-review-spec.yml` — `test-collect-diff.sh` 를 PR head 에서
+  실행하는 잡(위 D1 말미 참조)
 - `scripts/pr-review/run-panel.sh` — 빈 diff fail-close 지점(`-s` 기준의 근거)
 - `scripts/pr-review/synthesize.sh` — 의장 실행. `CHAIR_MAX_TURNS`(기본 8,
   fallback 12)와 `CHAIR_ALLOWED_TOOLS`(`Read,Grep,Glob`)가 여기 있다. 턴 캡의 근거는
@@ -318,10 +339,28 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
   **round-8 수정(PR #34 리뷰 L3 MAJOR): `CHAIR_ALLOWED_TOOLS=""` 가 제한을
   통째로 없앴다.** 빈 문자열이면 `--allowedTools` 플래그 자체를 안 넘기는 탈출구가,
   병행 방어 없이 **유일한** 방어였다 — 그 값을 비우면 의장이 무제한 툴로 실행됐다.
-  `--disallowedTools Bash,Write,Edit,WebFetch` 를 `CHAIR_ALLOWED_TOOLS` 값과
-  무관하게 항상 추가로 넘겨, 한쪽 플래그가 이 러너의 CLI 판본에서 안 먹혀도(또는
-  operator 가 값을 비워도) 다른 쪽이 같은 경계(ADR-002 의 fs-read 잔여 위험과 동일)를
-  지킨다.
+
+  **round-2(재리뷰) 수정(M-L3-1): 그 round-8 수정 자체가 같은 모양의 fail-open 을
+  남겼다.** `--disallowedTools` 도 `[ -n ... ]` 게이트 뒤에 있어
+  `CHAIR_DISALLOWED_TOOLS=""` 를 같이 주면 두 플래그가 모두 생략됐다 — "항상
+  나간다"는 이 문서의 이전 서술과 코드가 달랐다. 이제 deny 는 **끌 수 없다**:
+  하드코딩 baseline(`Bash,Write,Edit,NotebookEdit,WebFetch,WebSearch,Task` —
+  `Task` 는 서브에이전트 스폰으로 allow-list 를 우회하는 경로라 baseline 에 필수)에
+  env 값은 **추가**만 되며, `--disallowedTools` 는 무조건 전달된다. env 로 끌 수
+  있는 것은 `--allowedTools` 쪽뿐이고, 그 경우에도 deny baseline 이 같은 경계를
+  지킨다. 완화 요인이자 한계: 이 env 들은 base-ref 워크플로가 설정하므로 PR 작성자
+  공격 표면이 아니라 operator footgun 이었다 — 그래서 이 수정은 방어 복원이지
+  신규 방어가 아니다.
+
+  **명시적 잔여 위험(round-2 리뷰 M-L3-2, 3/3 모델 수렴 — 승격 기록):** 의장의
+  `Read/Grep/Glob` 에는 **경로 제한이 없다.** `pull_request_target` 러너에서 의장이
+  읽을 수 있는 것은 base-ref 워킹트리에 국한되지 않고 러너 파일시스템 전체이며
+  (k8s SA 토큰·세션 자격증명 등), `scrub_secrets` 의 패턴 목록은 그런 값들을
+  일반적으로 덮지 못한다 — 리뷰 코멘트 자체가 exfil 채널이 될 수 있다. diff 안의
+  지시문이 의장을 그 방향으로 유도하는 시나리오는 ADR-002 의 fs-read 잔여 위험과
+  같은 축으로, allow-list 는 이를 **좁히지만 닫지 못한다**. read 의 경로 스코프
+  (또는 필요한 컨벤션 파일의 사전 수집 후 stdin 제공)가 실제 마감이며 후속으로
+  남긴다.
 - `docs/decisions/ADR-002-pr-review-kiro-fs-read-risk.md` — 같은 워크플로의 앞선 보안
   트레이드오프 결정(선례). PR head blob 을 가져오지 않는 원칙의 출처. 이 ADR 과의 경계:
   ADR-002 가 금지하는 것은 **PR head 의 blob** 을 읽는 것이다(신뢰되지 않은 코드가 실행·
