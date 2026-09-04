@@ -549,10 +549,48 @@ module "iam" {
   create_github_actions_role = true
   github_org                 = "Atom-oh"
   terraform_state_bucket     = "multi-region-mall-terraform-state"
-  terraform_lock_table       = "multi-region-mall-terraform-lock"
+  terraform_lock_table       = "multi-region-mall-terraform-locks"
   bedrock_pr_review_model_id = "anthropic.claude-sonnet-4-6"
   bedrock_source_profile_arn = "arn:aws:bedrock:ap-northeast-2:013503698282:inference-profile/global.anthropic.claude-sonnet-4-6"
-  tags                       = var.tags
+
+  # mall-apne2-mgmt is created and applied by AWS-Demo-Platform (see
+  # docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md). We read it, we never write its state.
+  #
+  # Derived from var.mgmt_cluster_name, not a second hardcoded literal (round-9
+  # review MAJOR, confirmed against diff): a literal here drifts independently
+  # from mgmt_cluster_name on rename, and a spoke plan whose IAM grant still
+  # names the old cluster ARN dies with AccessDenied on the live lookup before
+  # any trust guard gets a chance to report anything useful. Deriving both from
+  # one variable makes a rename a single shared/ apply instead of the previous
+  # two-phase "add new name, apply, rename, apply, remove old name" runbook.
+  describable_cluster_names   = [var.mgmt_cluster_name]
+  externally_owned_state_keys = ["production/ap-northeast-2/eks-mgmt/terraform.tfstate"]
+
+  tags = var.tags
+}
+
+# Same break-glass acknowledgment gate the mgmt-cluster-trust module carries,
+# duplicated at this root deliberately (round-12 review M5-2, confirmed): the
+# module's gate only runs in the *spoke* plans, so with it alone an operator
+# could apply the override to shared/ without break_glass_confirm, leave this
+# foundation layer in a state no spoke can consume, and only find out one plan
+# later. Both variables live here, so the plan that introduces the override is
+# the plan that must fail — the runbook's "or the plan hard-fails" promise is
+# about THIS layer's plan.
+resource "terraform_data" "break_glass_gate" {
+  # No `input` on purpose (round-13 review M-L2/M-L5): with
+  # input = the override value, engaging break-glass showed a terraform_data
+  # replace in the plan, contradicting the runbook's "expect ONLY these output
+  # changes" blast-radius instruction — an operator following the procedure
+  # precisely would read a normal break-glass plan as anomalous. The
+  # precondition below references the variables directly and is evaluated on
+  # every plan regardless of input.
+  lifecycle {
+    precondition {
+      condition     = var.mgmt_cluster_security_group_id_override == null || var.break_glass_confirm
+      error_message = "mgmt_cluster_security_group_id_override=${var.mgmt_cluster_security_group_id_override != null ? var.mgmt_cluster_security_group_id_override : "(none)"} is set (break-glass engaged) but break_glass_confirm is not true. Set break_glass_confirm = true in the same shared/terraform.tfvars change as the override to acknowledge you intend to change production API-server ingress trust."
+    }
+  }
 }
 
 # S3: secondary (no replication source)
