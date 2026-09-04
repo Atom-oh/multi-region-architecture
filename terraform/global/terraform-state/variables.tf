@@ -19,7 +19,7 @@ variable "lock_table_name" {
 variable "state_custody_denials" {
   description = <<-EOT
     Bucket-policy Deny map: IAM role name (in this account) -> state object keys
-    that role must not touch. Empty (default) creates no bucket policy at all.
+    that role must not touch. The default is the production deny map below; set to {} explicitly to create no bucket policy at all.
 
     Use this for principals whose permissions are granted by a repo other than
     this one, where an identity-policy Deny cannot reach them — the mgmt cluster's

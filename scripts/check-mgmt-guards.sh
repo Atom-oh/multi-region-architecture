@@ -158,20 +158,28 @@ https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Successful' 'mall-apne2-mgmt
   # round-12 M2-2: override 는 unset 인데 break_glass_confirm 만 true 로 남은 상태
   # (stale confirm — 다음 override 가 hard fail 없이 통과하게 되는 사전 disarm) 는 FAIL.
   [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '' 'true')" = "1" ] || { echo "self-check FAILED: stale break_glass_confirm=true 인데 FAIL 아님(M2-2)"; exit 1; }
+  # round-13 M-L4: --mgmt-down 에서도 **비대칭** 미도달(az-a Successful / az-c
+  # Unknown)은 mgmt 다운으로 설명되지 않는 half-fleet 신호이므로 FAIL 이어야 한다.
+  [ "$(run_self_check "$OVERRIDE_GUARD" "$OVERRIDE_GUARD" 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Successful
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '--expect-released=mgmt_cluster_security_group_id --mgmt-down')" = "1" ] || { echo "self-check FAILED: --mgmt-down 인데 비대칭 argocd 미도달이 FAIL 아님(round-13 M-L4)"; exit 1; }
   # round-12 M2-1: 5개 trust 입력 전체를 덮는 fingerprint 가 shared↔spoke 에서
   # 갈리면(예: expected_mgmt_tags 만 shared 에 apply 되고 spoke 는 아직) FAIL.
   [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '' 'false' '"fp-stale"')" = "1" ] || { echo "self-check FAILED: fingerprint 미수렴(az-a stale)인데 FAIL 아님(M2-1)"; exit 1; }
-  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/shared-미수렴×2/expect-released-override/expect-released-mixed/expect-released-name/mgmt-down-분리/override-접미사-정규화/unknown-prefix-usage/stale-confirm/fingerprint-미수렴 모두 올바르게 판정)"
+  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/shared-미수렴×2/expect-released-override/expect-released-mixed/expect-released-name/mgmt-down-분리/override-접미사-정규화/unknown-prefix-usage/stale-confirm/fingerprint-미수렴/mgmt-down-비대칭 모두 올바르게 판정)"
   exit 0
 fi
 
-# MGMT_GUARDS_{A,C}/MGMT_SG_{A,C}/MGMT_ARGOCD_STATUS/MGMT_SHARED_*/MGMT_LIVE_SG 는
-# _MGMT_SELF_CHECK=1 일 때만 읽는다 — 이 게이팅이 없으면 이 스크립트가 유일하게
-# `check` 블록의 경고를 종료 코드로 바꾸는 지점인데, 호출 환경에 이 이름의 변수가
-# (의도든 우연이든) 설정돼 있으면 실제 terraform/argocd/aws 를 전혀 건드리지 않고
-# PASS 를 조작할 수 있었다(round-9 리뷰 L3 MAJOR, 확인됨). `--self-check` 재귀 호출만
-# 이 채널을 쓰므로 그 경로에서만 sentinel 을 세팅한다 — 일반 실행 경로에서는 항상
-# 비어 있고 항상 실물을 읽는다.
+# MGMT_GUARDS_{A,C}/MGMT_SG_{A,C}/MGMT_ARGOCD_STATUS/MGMT_SHARED_*/MGMT_LIVE_SG/
+# MGMT_FP_*는 _MGMT_SELF_CHECK=1 일 때만 읽는다. 이 게이팅이 막는 것은 **우연한
+# 충돌**뿐이다(호출 환경에 같은 이름의 변수가 어쩌다 설정돼 있어도 일반 실행이
+# 실물 대신 그 값을 읽지 않게 — round-9 리뷰 L3 MAJOR 의 실제 해소 범위). 의도적
+# 위조는 막지 못하고 막을 수 없다(round-13 리뷰 M-L3, 확인됨): `_MGMT_SELF_CHECK=1
+# MGMT_GUARDS_A='[]' … bash check-mgmt-guards.sh` 로 여전히 실물 없이 PASS 를 만들
+# 수 있다. 이 스크립트는 운영자가 자기 셸에서 돌리는 수동 검사기라 그 사이에 넘을
+# privilege boundary 가 없으므로 — 스크립트를 조작할 수 있는 주체는 애초에 안
+# 돌리면 된다 — 여기서 그 이상을 방어한다고 주장하지 않는다. CI 게이트로 승격하는
+# 날에는 fixture 주입을 명시적 `--fixture <file>` 인자로 옮겨 env 채널 자체를
+# 없앨 것.
 read_output() {  # $1=layer-dir $2=output-name $3=env-var-name
   local dir="$1" name="$2" var="$3"
   if [ "${_MGMT_SELF_CHECK:-0}" = "1" ] && [ -n "${!var:-}" ]; then printf '%s' "${!var}"; return 0; fi
@@ -407,26 +415,32 @@ fi
 # 직접 검사해 실패를 이 지점에서 즉시 FAIL 로 잡고, 아래 루프는 조건 없이 항상 돈다 —
 # ARGO_RAW 가 진짜로 비어 있어도(등록된 클러스터 0개) 각 AZ 가 "등록 안 됨"으로 FAIL
 # 하도록 만든다.
-argo_report() {  # $1=message
-  if [ "$EXPECT_MGMT_DOWN" = "1" ]; then
-    echo "INFO $1 (--mgmt-down 지정 — mgmt 다운 중이므로 예상됨)"
-  else
-    echo "FAIL $1"
-    FAIL=1
-  fi
+# --mgmt-down 의 다운그레이드는 **집계**로 판정한다 (round-13 리뷰 M-L4, 확인됨):
+# mgmt 다운은 "양쪽 spoke 가 동시에 미도달"을 예측하는 가정이다. az-a=Successful /
+# az-c=Unknown 같은 **비대칭**은 mgmt 다운으로 설명되지 않는 half-fleet 신호 —
+# 이 저장소가 막으려는 바로 그 상태 — 이므로 --mgmt-down 이어도 FAIL 이다.
+# per-AZ 즉시 보고 대신 상태를 모아 아래에서 한 번에 판정한다.
+ARGO_UNREACH=0
+ARGO_MSGS=""
+argo_note() {  # $1=message — 미도달 1건 기록(판정은 집계에서)
+  ARGO_UNREACH=$((ARGO_UNREACH + 1))
+  ARGO_MSGS="${ARGO_MSGS}${ARGO_MSGS:+\n}$1"
 }
 
+ARGO_LIST_BROKEN=0
 if [ "${_MGMT_SELF_CHECK:-0}" = "1" ] && [ -n "${MGMT_ARGOCD_STATUS:-}" ]; then
   ARGO_RAW="$MGMT_ARGOCD_STATUS"
 elif command -v argocd >/dev/null 2>&1; then
   if ! ARGO_LIST="$(argocd cluster list 2>/dev/null)"; then
-    argo_report "argocd cluster list 명령이 실패했다(인증 만료/네트워크 등) — 도달성을 검증할 수 없다."
+    ARGO_LIST_BROKEN=1
+    argo_note "argocd cluster list 명령이 실패했다(인증 만료/네트워크 등) — 도달성을 검증할 수 없다."
     ARGO_RAW=""
   else
     ARGO_RAW="$(printf '%s\n' "$ARGO_LIST" | grep -E "mall-apne2-az-(a|c)" || true)"
   fi
 else
-  argo_report "argocd CLI 없음 — 도달성을 검증할 수 없다. mgmt 클러스터에서 실행하거나 CLI 를 설치할 것."
+  ARGO_LIST_BROKEN=1
+  argo_note "argocd CLI 없음 — 도달성을 검증할 수 없다. mgmt 클러스터에서 실행하거나 CLI 를 설치할 것."
   ARGO_RAW=""
 fi
 
@@ -438,13 +452,35 @@ for AZ in a c; do
   # 구조적으로 잡지 못했다. 위 self-check 는 이제 실제 컬럼 순서로 픽스처를 낸다).
   LINE="$(printf '%s\n' "$ARGO_RAW" | awk -v n="mall-apne2-az-$AZ" '$2==n {print; exit}')"
   if [ -z "$LINE" ]; then
-    argo_report "az-$AZ: argocd cluster list 에 등록되어 있지 않다(또는 위 명령 실패로 목록 자체를 못 받았다)."
+    argo_note "az-$AZ: argocd cluster list 에 등록되어 있지 않다(또는 위 명령 실패로 목록 자체를 못 받았다)."
   elif ! printf '%s' "$LINE" | grep -q "Successful"; then
-    argo_report "az-$AZ: argocd 도달 상태가 Successful 이 아니다: $LINE"
+    argo_note "az-$AZ: argocd 도달 상태가 Successful 이 아니다: $LINE"
   else
     echo "OK   az-$AZ: argocd 도달 확인 (Successful)."
   fi
 done
+
+# 집계 판정: 미도달 0 → OK(위에서 출력됨). --mgmt-down 에서 "목록 실패/CLI 부재 +
+# 양쪽 미등록"(= 3건) 또는 "양쪽만 미도달"(= 2건)은 예상됨(INFO). 그 외 — plain 모드의
+# 모든 미도달, --mgmt-down 의 비대칭(1건) — 는 FAIL.
+if [ "$ARGO_UNREACH" -gt 0 ]; then
+  ARGO_EXPECTED_DOWN=0
+  if [ "$EXPECT_MGMT_DOWN" = "1" ]; then
+    if [ "$ARGO_LIST_BROKEN" = "1" ] || [ "$ARGO_UNREACH" -ge 2 ]; then
+      ARGO_EXPECTED_DOWN=1
+    fi
+  fi
+  if [ "$ARGO_EXPECTED_DOWN" = "1" ]; then
+    printf 'INFO %b\n' "$ARGO_MSGS" | sed '2,$s/^/INFO /'
+    echo "INFO (--mgmt-down 지정 — mgmt 다운 중 양쪽 동시 미도달은 예상됨)"
+  else
+    printf 'FAIL %b\n' "$ARGO_MSGS" | sed '2,$s/^/FAIL /'
+    if [ "$EXPECT_MGMT_DOWN" = "1" ]; then
+      echo "FAIL --mgmt-down 인데 한쪽 spoke 만 미도달 — mgmt 다운으로 설명되지 않는 비대칭(half-fleet 신호)이다."
+    fi
+    FAIL=1
+  fi
+fi
 
 [ "$FAIL" -eq 0 ] && echo "PASS mgmt 신뢰 경계 정상." || echo "FAILED — 위 항목 확인."
 exit "$FAIL"

@@ -276,8 +276,23 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 
 ### 이 ADR이 닫지 않는 것 (blocking follow-up)
 
-이관 자체와 분리해 추적한다. 둘 다 "문서 경고는 통제가 아니다"라는 이 ADR 자신의
+이관 자체와 분리해 추적한다. 전부 "문서 경고는 통제가 아니다"라는 이 ADR 자신의
 원칙에 걸리는 항목이므로, 후속으로 남긴다는 사실을 여기 명시한다.
+
+0. **노출됐던 Aurora/DocumentDB master password 의 rotation + `manage_master_user_password`
+   전환.** (round-13 리뷰 M-L3) 이 문서 자신이 "2026-06-24부터 runner pod 가 평문
+   password 포함 state 를 read 할 수 있었다"고 서술한다 — 경로를 닫는 것(아래 1)은
+   사후 대응의 절반이고, 이미 노출 창을 지난 자격증명은 rotation 이 나머지 절반이다.
+   `manage_master_user_password = true`(Secrets Manager 관리) 전환은 평문이 state 에
+   아예 들어가지 않게 해 이 클래스 전체를 없앤다. 그리고 **근본 custody 해법**으로
+   eks-mgmt state key 자체를 AWS-Demo-Platform 소유 버킷으로 이관(`terraform init
+   -migrate-state`)하는 안을 함께 추적한다 — 성사되면 `externally_owned_state_keys`/
+   `state_custody_denials`/`env:/` 변형 전부가 불필요해진다. denylist→allowlist
+   (`aws:PrincipalArn` `StringNotLike` + 승인 applier 목록) 반전은 pivot 세션까지
+   닫는 이 repo 범위의 해법이지만(round-13 리뷰 CRITICAL 의 직접 해법), **모든
+   레이어 + `global/terraform-state` 의 실제 applier ARN(SSO `aws-reserved/...`
+   경로 포함) 열거가 선행돼야** 한다 — 목록 누락 = 전 레이어 self-lockout 이므로
+   사람이 계정에서 확정한 뒤에만 적용한다.
 
 1. **외부 repo의 `AmazonS3FullAccess` 축소 — 그리고 role-pivot으로 우회 가능하다는 점을
    명시.** 버킷 정책 승격(Decision 5)은 `ci_runner`가 **자기 자신의 principal ARN으로**
@@ -379,12 +394,15 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
   DocumentDB·MSK를 포함한 레이어를 통과한다 — ArgoCD ingress 규칙 하나를 위한 blast
   radius로는 불균형하다. 그럼에도 여기 두는 이유는 spoke별 변수의 실패 양식(한쪽만
   해제)이 더 나쁘기 때문이고, 인시던트 중에는 `-target=module.mgmt_trust`가 아니라
-  `shared/`의 plan을 읽고 바뀌는 것이 정확히 output 네 개 —
+  `shared/`의 plan을 읽고 바뀌는 것이 정확히 다음 output 들 —
   `mgmt_cluster_security_group_id_override_set`(false→true),
-  `mgmt_cluster_security_group_id_override_value`(""→값),
-  `break_glass_confirm`(false→true), `mgmt_trust_fingerprint`(재계산) — 뿐임을
-  확인한 뒤 apply하는 것이 절차다(개수만 세지 말고 이름을 대조할 것 — 이 확인이
-  Aurora/DocumentDB/MSK를 포함한 layer의 blast radius 통제다).
+  `break_glass_confirm`(false→true), `mgmt_trust_fingerprint`(재계산), 그리고
+  SG id 를 넣는 경우에만 `mgmt_cluster_security_group_id_override_value`(""→값;
+  `""` override 는 ""→"" 로 불변이라 **나타나지 않는다** — 즉 SG id 면 4개,
+  `""` 면 3개) — 뿐이고 리소스 변경이 **없음**을 확인한 뒤 apply하는 것이
+  절차다(`break_glass_gate` 는 값 추적 input 이 없어 diff 를 만들지 않는다.
+  개수만 세지 말고 이름을 대조할 것 — 이 확인이 Aurora/DocumentDB/MSK를 포함한
+  layer의 blast radius 통제다).
 
 - **mgmt 이름 변경은 2단계 절차다.** `describable_cluster_names`는
   `mgmt_cluster_name`에서 파생되므로(`[var.mgmt_cluster_name]`) 이름 output과
@@ -396,13 +414,17 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
   `mgmt_cluster_name != default_mgmt_cluster_name`이라 released_guards가
   "released"를 보고한다(의도된 것 — rename 진행 중 신호. `check-mgmt-guards.sh`는
   이 단계에서 `--expect-released=mgmt_cluster_name`으로 실행할 것 — plain 모드는
-  released guard가 있으면 그 이유를 안 따지고 FAIL한다. break-glass 런북의
-  `--expect-released=mgmt_cluster_security_group_id`와 접두사가 다른 이유는
-  round-11 리뷰 M6: 인자 없는 `--expect-released`는 released 가드 전부와 argocd
-  미도달을 무조건 INFO로 낮췄는데, rename 중에는 mgmt가 살아 있는 게 전제라 argocd
-  미도달을 노이즈로 볼 수 없고, break-glass 중에는 override 외의 가드가 같이
-  released 돼도 안 된다 — 두 런북이 서로 다른 "무엇이 released 여도 되는지"를
-  가지므로 접두사로 명시한다). (2) 양 spoke가 새 이름에 완전히 수렴한
+  released guard가 있으면 그 이유를 안 따지고 FAIL한다. break-glass 런북 step 3는
+  `--expect-released=mgmt_cluster_security_group_id`에 **`--mgmt-down`을 더해**
+  실행한다 — round-12 리뷰 M4-1 이후 argocd 미도달의 INFO 다운그레이드는
+  `--expect-released` 값에서 유도되지 않고 `--mgmt-down` 플래그 전용이며, 그
+  플래그도 **양쪽 spoke 동시 미도달**만 예상으로 삼킨다(비대칭 미도달은 half-fleet
+  신호라 여전히 FAIL — round-13 리뷰 M-L4). rename 은 mgmt 가 살아 있는 상태에서
+  진행하므로 `--mgmt-down` 없이 실행하고, 그때 argocd 미도달은 전부 FAIL 이다.
+  guard 이름을 명시하는 이유는 round-11 리뷰 M6: 인자 없는 `--expect-released`는
+  released 가드 전부를 무조건 INFO로 낮췄는데, break-glass 중에도 override 외의
+  가드가 같이 released 돼선 안 된다 — 두 런북이 서로 다른 "무엇이 released 여도
+  되는지"를 가지므로 이름으로 명시한다). (2) 양 spoke가 새 이름에 완전히 수렴한
   **뒤에만** `shared/`에서 `default_mgmt_cluster_name`을 같은 새 이름으로 바꿔
   apply하고 양 spoke를 다시 apply — 이제 baseline이 새 이름과 일치해
   released_guards가 다시 빈 목록이 된다. 순서를 뒤집으면(두 변수를 같은 apply에서

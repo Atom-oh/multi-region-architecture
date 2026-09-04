@@ -578,8 +578,13 @@ module "iam" {
 # the plan that must fail — the runbook's "or the plan hard-fails" promise is
 # about THIS layer's plan.
 resource "terraform_data" "break_glass_gate" {
-  input = var.mgmt_cluster_security_group_id_override
-
+  # No `input` on purpose (round-13 review M-L2/M-L5): with
+  # input = the override value, engaging break-glass showed a terraform_data
+  # replace in the plan, contradicting the runbook's "expect ONLY these output
+  # changes" blast-radius instruction — an operator following the procedure
+  # precisely would read a normal break-glass plan as anomalous. The
+  # precondition below references the variables directly and is evaluated on
+  # every plan regardless of input.
   lifecycle {
     precondition {
       condition     = var.mgmt_cluster_security_group_id_override == null || var.break_glass_confirm

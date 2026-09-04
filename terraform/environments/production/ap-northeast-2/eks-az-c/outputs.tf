@@ -57,7 +57,7 @@ output "alb_controller_role_arn" {
 # ─────────────────────────────────────────────────────────────────────────────
 
 output "mgmt_guards_released" {
-  description = "Which mgmt trust guards were released on the last apply, one entry per released guard, empty when all are engaged. All four inputs come from shared/, so the two spokes are always asked to trust the same thing — but each still needs its own apply, so this output can legitimately differ between them until both have run. Compare them (../README.md Runbooks). Reflects the *current* state — a later normal apply overwrites it, so reconstructing a past break-glass needs state bucket versioning or CloudTrail."
+  description = "Which mgmt trust guards were released on the last apply, one entry per released guard, empty when all are engaged. All five trust inputs (incl. default_mgmt_cluster_name) come from shared/, so the two spokes are always asked to trust the same thing — but each still needs its own apply, so this output can legitimately differ between them until both have run. Compare them (../README.md Runbooks). Reflects the *current* state — a later normal apply overwrites it, so reconstructing a past break-glass needs state bucket versioning or CloudTrail."
   value       = module.mgmt_trust.released_guards
 }
 

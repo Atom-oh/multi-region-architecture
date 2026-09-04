@@ -64,8 +64,10 @@ locals {
 # without break_glass_confirm" can actually fire for every override value,
 # including "".
 resource "terraform_data" "break_glass_gate" {
-  input = var.mgmt_cluster_security_group_id
-
+  # No `input` — see the identical gate in shared/main.tf for why (a
+  # value-tracking input made every break-glass plan carry a terraform_data
+  # replace, breaking the runbook's expected-diff check). The precondition is
+  # evaluated on every plan without it.
   lifecycle {
     precondition {
       condition = var.mgmt_cluster_security_group_id == null || var.break_glass_confirm

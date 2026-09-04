@@ -176,7 +176,9 @@ fleet.
 What that buys is exactly one thing: the two spokes cannot be asked to trust
 *different* values. It does **not** make them converge — each still needs its own
 apply, so a one-sided window exists between the two. `scripts/check-mgmt-guards.sh`
-is what closes it: it fails if either spoke has a released guard, if the two
+is what DETECTS it — a manual, after-the-fact check, not an automatic blocking
+control (preventing writes inside the window is ADR-003 follow-up 3): it fails
+if either spoke has a released guard, if the two
 spokes' `mgmt_guards_released` differ (= only one was applied), if the two
 spokes' resolved `mgmt_trust_security_group_id` differ (guards can converge to
 `[]` on both sides while the *SG they actually trust* has diverged — e.g. mgmt
@@ -292,11 +294,15 @@ cd shared
 # both require the acknowledgment gate in the SAME change, or the plan hard-fails:
 #   break_glass_confirm = true
 $EDITOR terraform.tfvars
-terraform plan    # expect exactly FOUR output changes and nothing else:
+terraform plan    # expected output changes, and NOTHING else:
                   #   mgmt_cluster_security_group_id_override_set   false -> true
-                  #   mgmt_cluster_security_group_id_override_value ""    -> the value
                   #   break_glass_confirm                           false -> true
                   #   mgmt_trust_fingerprint                        (recomputed)
+                  #   mgmt_cluster_security_group_id_override_value ""    -> the SG id
+                  #     (with an SG id — FOUR changes; with override = "" this
+                  #     output stays "" -> "" and does NOT appear: THREE changes)
+                  # no resource changes at all — break_glass_gate carries no
+                  # value-tracking input, so it never shows a diff here.
                   # match the NAMES, not just the count — this layer holds
                   # Aurora/DocumentDB/MSK, so read the plan before applying
 terraform apply
