@@ -39,12 +39,12 @@ patches:
         path: /spec/template/spec/containers/0/env/-
         value:
           name: DOCUMENTDB_HOST
-          value: "production-docdb-global-ap-northeast-2-2.ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com"
+          value: "production-docdb-korea-2.ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
           name: DOCUMENTDB_WRITE_HOST
-          value: "production-docdb-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com"
+          value: "production-docdb-korea.cluster-ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
@@ -53,6 +53,20 @@ patches:
   - target:
       kind: Deployment
       name: cart
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: CACHE_HOST
+          value: "master.production-elasticache-ap-northeast-2.wfdxww.apn2.cache.amazonaws.com"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: CACHE_PORT
+          value: "6379"
+  - target:
+      kind: Deployment
+      name: product-catalog
     patch: |-
       - op: add
         path: /spec/template/spec/containers/0/env/-
@@ -82,8 +96,8 @@ configMapGenerator:
       - AVAILABILITY_ZONE=ap-northeast-2c
       - AURORA_WRITER_ENDPOINT=production-aurora-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.rds.amazonaws.com
       - AURORA_READER_LOCAL_ENDPOINT=reader-2c.cluster-custom-ch0io48c0dqx.ap-northeast-2.rds.amazonaws.com
-      - DOCUMENTDB_READER_ENDPOINT=production-docdb-global-ap-northeast-2-2.ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com
-      - DOCUMENTDB_WRITER_ENDPOINT=production-docdb-global-ap-northeast-2.cluster-ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com
+      - DOCUMENTDB_READER_ENDPOINT=production-docdb-korea-2.ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com
+      - DOCUMENTDB_WRITER_ENDPOINT=production-docdb-korea.cluster-ch0io48c0dqx.ap-northeast-2.docdb.amazonaws.com
       - VALKEY_ENDPOINT=master.production-elasticache-ap-northeast-2.wfdxww.apn2.cache.amazonaws.com
       - MSK_BROKERS=b-2.productionmskapno.v9ccd7.c3.kafka.ap-northeast-2.amazonaws.com:9096,b-3.productionmskapno.v9ccd7.c3.kafka.ap-northeast-2.amazonaws.com:9096,b-4.productionmskapno.v9ccd7.c3.kafka.ap-northeast-2.amazonaws.com:9096
       - OPENSEARCH_ENDPOINT=https://vpc-production-os-apne2-w3yhkzkr2hmskdngwdkqqe3vli.ap-northeast-2.es.amazonaws.com

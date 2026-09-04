@@ -132,6 +132,32 @@ module "elasticache" {
   tags                        = var.tags
 }
 
+# module.security_groups only wires elasticache_ingress_eks from its own
+# Terraform-managed eks_node SG, which is not the SG Karpenter-provisioned
+# workload nodes on az-a/az-c actually run with — those get each cluster's
+# own EKS-managed cluster security group. DocumentDB's SG already allows
+# all three (apparently added out-of-band, not through this module), which
+# is why product-catalog could always reach DocumentDB but never Valkey.
+resource "aws_security_group_rule" "elasticache_ingress_eks_az_a" {
+  type                     = "ingress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  source_security_group_id = data.aws_eks_cluster.az_a.vpc_config[0].cluster_security_group_id
+  security_group_id        = module.security_groups.elasticache_security_group_id
+  description              = "Redis from mall-apne2-az-a workload nodes"
+}
+
+resource "aws_security_group_rule" "elasticache_ingress_eks_az_c" {
+  type                     = "ingress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  source_security_group_id = data.aws_eks_cluster.az_c.vpc_config[0].cluster_security_group_id
+  security_group_id        = module.security_groups.elasticache_security_group_id
+  description              = "Redis from mall-apne2-az-c workload nodes"
+}
+
 # MSK: independent cluster for Korean region
 # NOTE: server_properties (including replica.selector.class) is hardcoded in
 # the MSK module — update the module if RackAwareReplicaSelector is needed.
@@ -455,7 +481,7 @@ resource "aws_cloudfront_distribution" "grafana_korea" {
   comment         = "Grafana Korea (grafana-kr.${var.domain_name})"
   price_class     = "PriceClass_200"
   http_version    = "http2and3"
-  aliases         = ["grafana-kr.${var.domain_name}"]
+  aliases         = ["grafana-kr.${var.domain_name}", "grafana.${var.domain_name}"]
 
   origin {
     domain_name = var.grafana_nlb_dns_name
@@ -503,6 +529,25 @@ resource "aws_route53_record" "grafana_kr" {
 
   zone_id = var.route53_zone_id
   name    = "grafana-kr.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.grafana_korea[0].domain_name
+    zone_id                = aws_cloudfront_distribution.grafana_korea[0].hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# grafana.atomai.click → same CloudFront distribution as grafana-kr.
+# US had its own grafana.atomai.click via appset-grafana-nlb.yaml
+# (region: us-east-1 only, k8s/infra/argocd/apps/), but that region's
+# EKS/CloudFront/data-plane is decommissioned — Korea is now the only
+# live Grafana, so the bare alias should point here too.
+resource "aws_route53_record" "grafana" {
+  count = var.grafana_nlb_dns_name != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = "grafana.${var.domain_name}"
   type    = "A"
 
   alias {
@@ -595,8 +640,11 @@ resource "aws_iam_role_policy" "external_secrets_read" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = "secretsmanager:GetSecretValue"
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+        ]
         Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:mall/*"
       }
     ]

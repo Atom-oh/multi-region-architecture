@@ -65,7 +65,7 @@ L2=IaC/멀티리전 정확성, L3=보안, L4=복원력/데이터 정합성, L5=�
 Synthesize ONE final review, grouped by lens (L2/L3/L4/L5):
 1. **Summary** (2-3 sentences in Korean)
 2. **Issues per lens** — CRITICAL/MAJOR/MINOR. 같은 lens 를 본 여러 모델 간 합의/이견을 표시
-   (예: "3/4 모델 CRITICAL 지적, 1/4 미언급"). 서로 다른 모델이 독립적으로 같은 finding에
+   (예: "2/3 모델 CRITICAL 지적, 1/3 미언급"). 서로 다른 모델이 독립적으로 같은 finding에
    도달했으면 신호가 강하다고 명시하되, 합의 자체를 증거로 취급하지 말고 diff와 대조해 확인하라
    (공유 학습 편향으로 여러 모델이 같은 오탐에 도달할 수 있음).
 3. **Suggestions**
@@ -105,13 +105,17 @@ PROMPT_EOF
 # 어카운트를 쓰는 ttobak 에서, 타임아웃 없는 구(4-패널) 버전 스크립트가 357줄 diff 종합에
 # 286초를 정상적으로 썼다. 매트릭스(4→16 패널 출력)는 체어 입력이 더 커 286s 실측조차
 # 밑돎 — job timeout-minutes 여유를 반영해 600s로 상향.
-PRIMARY_MODEL="${ANTHROPIC_MODEL:-us.anthropic.claude-opus-4-8}"
-FALLBACK_MODEL="${CHAIR_FALLBACK_MODEL:-us.anthropic.claude-fable-5}"
+# 의도적으로 job 전역 ANTHROPIC_MODEL 을 참조하지 않는다 — 그 값은 job 의 다른
+# step/용도에도 쓰이고 이 repo 에서는 이미 fable-5 로 고정돼 있어, 그대로 재사용하면
+# PRIMARY==FALLBACK(둘 다 fable-5)으로 붕괴해 fallback 자체가 무력화된다. chair 전용
+# CHAIR_PRIMARY_MODEL 로 완전히 분리한다(다른 pr-review 리포와 동일 패턴).
+PRIMARY_MODEL="${CHAIR_PRIMARY_MODEL:-us.anthropic.claude-fable-5}"
+FALLBACK_MODEL="${CHAIR_FALLBACK_MODEL:-us.anthropic.claude-opus-5}"
 CHAIR_TIMEOUT="${CHAIR_TIMEOUT:-600}"
 
 chair_label() { case "$1" in
   *fable-5*)  echo "Claude Fable 5" ;;
-  *opus-4-8*) echo "Claude Opus 4.8" ;;
+  *opus-5*)   echo "Claude Opus 5" ;;
   *)          echo "$1" ;;
 esac ; }
 
@@ -129,7 +133,9 @@ chair_degraded() { [ ! -s "$OUT" ] || ! grep -q '^VERDICT:' "$OUT"; }
 
 run_chair "$PRIMARY_MODEL"
 CHAIR_USED="$PRIMARY_MODEL"
-if chair_degraded; then
+# PRIMARY/FALLBACK 이 같은 모델로 resolve 되면(둘 다 env 로 같은 값이 주입된 경우) 재시도는
+# 동일 호출의 반복일 뿐이라 의미가 없다 — 건너뛴다.
+if chair_degraded && [ "$FALLBACK_MODEL" != "$PRIMARY_MODEL" ]; then
   echo "::warning::chair '$(chair_label "$PRIMARY_MODEL")' degraded (connection/timeout/empty, ${CHAIR_TIMEOUT}s cap) — falling back to '$(chair_label "$FALLBACK_MODEL")'"
   run_chair "$FALLBACK_MODEL"
   CHAIR_USED="$FALLBACK_MODEL"

@@ -14,6 +14,6 @@ output "distribution_domain_name" {
 }
 
 output "distribution_hosted_zone_id" {
-  description = "The hosted zone ID of the CloudFront distribution"
+  description = "The CloudFront Route53 hosted zone ID, for alias records pointing at this distribution"
   value       = aws_cloudfront_distribution.main.hosted_zone_id
 }

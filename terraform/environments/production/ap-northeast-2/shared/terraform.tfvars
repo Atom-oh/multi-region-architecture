@@ -17,7 +17,7 @@ eks_az_c_cluster_name = "mall-apne2-az-c"
 acm_certificate_arn            = "arn:aws:acm:ap-northeast-2:180294183052:certificate/d5f951df-418a-4124-8d06-e55a2079bd26"
 cloudfront_acm_certificate_arn = "arn:aws:acm:us-east-1:180294183052:certificate/f6b6907a-5747-4039-967a-a8c7c73116a7"
 
-grafana_nlb_dns_name = "k8s-monitori-grafanan-e4bd2ff4ba-389a84ff5b796d58.elb.ap-northeast-2.amazonaws.com"
+grafana_nlb_dns_name = "k8s-monitori-grafanan-d44949e443-b8d2a8301c40fef3.elb.ap-northeast-2.amazonaws.com"
 grafana_nlb_zone_id  = "ZIBE1TIR4HY56"
 
 argocd_nlb_dns_name = "k8s-argocd-argocdse-fe9eaff2f7-171f383396f46d49.elb.ap-northeast-2.amazonaws.com"
