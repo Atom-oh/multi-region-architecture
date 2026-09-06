@@ -205,7 +205,10 @@ assert_empty fatal-oversized.txt
 # ── 15. STATE_RE 변형 커버리지 (round-2 리뷰 M-L2-1) ─────────────────────────
 # `terraform state pull`/`show -json`/`-out=` 의 흔한 산출물 이름들이 어느 분기에도
 # 안 걸려 텍스트 전문이 패널 전 셀로 나갔다.
-for f in 'terraform.tfstate.json' 'envs/prod/state.json' 'prod-plan.json' 'prod.plan' 'prod.tfplan.json'; do
+# 이름만으로 terraform 인 것(`.tfstate*`/`.tfplan*`/`tfplan`)은 경로 무관 deny. 이름이
+# generic 한 것(`state.json`/`*-plan.json`/`*.plan`/`plan.out`)은 **terraform 앵커**(경로의
+# `terraform` 또는 `/tf/`·`.tf.` 토큰)가 있을 때만 deny 다 (round-4 L2 MAJOR, 아래 16b).
+for f in 'terraform.tfstate.json' 'prod.tfplan.json' 'terraform/envs/prod/state.json' 'terraform/prod-plan.json' 'terraform/prod.plan' 'infra/tf/plan.out' 'envs/prod.tf.plan'; do
   run "state/plan variant $f is denied" '[
     {"filename":"'"$f"'","status":"added","changes":1,"patch":"@@ -0,0 +1 @@\n+{\"master_password\":\"hunter2\"}"}
   ]'
@@ -220,6 +223,39 @@ run 'app deployment-plan.md is not a terraform plan' '[
 assert_rc 0
 assert_empty fatal-state.txt
 assert_grep panel.diff 'docs/deployment-plan.md'
+
+# ── 16b. generic 이름의 앱/문서 파일은 terraform 앵커 없이는 state 가 아니다 ─────
+# (round-4 리뷰 L2 MAJOR — codex·kiro-opus 가 반대 방향에서 수렴, 의장 정규식 검증)
+# 이전 판은 `state.json`/`*-plan.json`/`*.plan` 을 무앵커로 걸어 `webpage/**/state.json`,
+# `docs/capacity-plan.json` 을 삼켰다. 수정이면 state_fatal(잡 즉사 + "자격증명 회전"
+# 오안내), 삭제면 state_deleted(auto-PASS 범위 확대). 15번의 `.md` 케이스는 이 구멍을
+# 비껴갔다 — 여기서 정확히 그 이름들로 고정한다. `platform-plan.json` 의 `tf` 는 토큰이
+# 아니라(pla**tf**orm) 앵커가 아니다.
+for f in 'webpage/src/state.json' 'docs/capacity-plan.json' 'src/scheduler/release.plan' 'platform-plan.json' 'ops/plan.out'; do
+  run "generic-named app file $f is reviewed, not denied" '[
+    {"filename":"'"$f"'","status":"modified","changes":2,"patch":"@@ -1 +1 @@\n-a\n+b"}
+  ]'
+  assert_rc 0
+  assert_empty fatal-state.txt
+  assert_grep panel.diff "$f"
+done
+# 삭제 방향: generic 이름의 앱 파일 삭제는 state_deleted 로 접혀 auto-PASS 자격을 얻으면 안 된다.
+run 'deleting an app state.json is a normal reviewed deletion, not a state deletion' '[
+  {"filename":"webpage/src/state.json","status":"removed","changes":3,
+   "patch":"@@ -1,3 +0,0 @@\n-a\n-b\n-c"}
+]'
+assert_rc 0
+assert_empty deleted-state.txt
+assert_empty filtered.txt
+assert_grep panel.diff 'webpage/src/state.json'
+# 반대로 terraform 앵커가 붙은 generic 이름의 삭제는 여전히 state_deleted(내용 보류).
+run 'deleting terraform/…/state.json is still a withheld state deletion' '[
+  {"filename":"terraform/envs/prod/state.json","status":"removed","changes":3,
+   "patch":"@@ -1,3 +0,0 @@\n-{\n-  \"master_password\": \"hunter2\"\n-}"}
+]'
+assert_rc 0
+assert_has deleted-state.txt 'terraform/envs/prod/state.json'
+assert_nogrep panel.diff 'hunter2'
 
 # ── 16. 무변경 rename 가시화 (round-2 리뷰 M-L4-2) ───────────────────────────
 # Terraform 모듈 디렉터리 git mv = state address 이동(destroy/recreate 경로)인데,
@@ -250,16 +286,42 @@ assert_rc 0
 assert_has deleted-state.txt 'terraform/prod.tfstate'
 assert_grep panel.diff 'notes/archive.txt'   # 문서화된 한계 — 패널이 보긴 한다(사람 눈)
 
-# ── 18. round-3 리뷰: oversized 의 삭제 예외 + noise 우선 + lockfile 후순위 ───
-# 대형 텍스트 파일의 삭제는 쪼갤 수 없으므로 fatal 이 아니라 filtered + auto-PASS
-# 자격 박탈이다.
-run 'oversized DELETION is not fatal but revokes auto-PASS' '[
+# ── 18. round-3/4 리뷰: oversized 의 삭제 처리 + noise 우선 + lockfile 후순위 ──
+# 대형 텍스트 파일의 삭제는 쪼갤 수 없으므로 fatal 이 아니다. round-3 은 filtered +
+# auto-PASS 박탈로 접었는데 (a) 삭제 단독 PR 은 빈 diff 로 fail-close → 영구 차단,
+# (b) 혼합 PR 에선 어떤 렌즈도 삭제를 못 봤다 (round-4 L4 MAJOR ×2). 이제 **내용 없는
+# 헤더 전용 헝크**로 panel.diff 에 실린다 — 렌즈가 삭제를 보고 판정에 넣을 수 있고,
+# 내용은 실리지 않는다(API 가 patch 를 주지 않았으니 실을 것 자체가 없다).
+run 'oversized DELETION reaches the panel as a content-less header (not fatal, not filtered)' '[
   {"filename":"generated/huge-manifest.yaml","status":"removed","changes":50000}
 ]'
 assert_rc 0
 assert_empty fatal-oversized.txt
-assert_has filtered.txt 'generated/huge-manifest.yaml'
-assert_has unsafe-filtered.txt 'generated/huge-manifest.yaml'
+assert_empty filtered.txt
+assert_empty unsafe-filtered.txt
+assert_grep panel.diff 'diff --git a/generated/huge-manifest.yaml b/generated/huge-manifest.yaml'
+assert_grep panel.diff 'deleted file (oversized: 50000 changed lines'
+
+# 혼합 PR: 대형 삭제가 다른 헝크 옆에 보여야 한다 — 이전엔 워크플로 로그 경고 하나만
+# 남아 대형 IAM policy/WAF ruleset 삭제가 렌즈 판정에 실리지 않은 채 나머지로 PASS 됐다.
+run 'oversized deletion in a mixed PR is visible next to the other hunks' '[
+  {"filename":"terraform/modules/waf/rules.tf","status":"removed","changes":8000},
+  {"filename":"main.tf","status":"modified","changes":2,"patch":"@@ -1 +1 @@\n-a\n+b"}
+]'
+assert_rc 0
+assert_grep panel.diff 'deleted file (oversized: 8000 changed lines'
+assert_grep panel.diff 'terraform/modules/waf/rules.tf'
+assert_grep panel.diff 'main.tf'
+assert_empty filtered.txt
+assert_empty unsafe-filtered.txt
+
+# state 인 대형 삭제는 여전히 state_deleted 가 이긴다(분류 순서) — 헤더조차 싣지 않는다.
+run 'oversized deletion of a state file is still state_deleted, no header' '[
+  {"filename":"terraform/huge.tfstate","status":"removed","changes":50000}
+]'
+assert_rc 0
+assert_has deleted-state.txt 'terraform/huge.tfstate'
+assert_empty panel.diff
 
 # patch 가 생략될 만큼 큰 lockfile 은 어떤 렌즈도 안 읽을 파일 — 잡을 죽이면 안 된다.
 run 'oversized lockfile is noise, not fatal' '[

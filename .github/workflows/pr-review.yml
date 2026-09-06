@@ -108,6 +108,15 @@ jobs:
           # 어긋날 수 있고, base push 는 cancel-in-progress 를 발동시키지 않아 head
           # 축과 달리 완화 요인이 없다. 이벤트의 head.sha 와도 대조해 게이트 상태가
           # 귀속되는 스냅샷과 수집 스냅샷을 일치시킨다.
+          # raw files API JSON 은 이 스텝을 **어떤 경로로** 떠나든 지운다 (round-4 리뷰 L3
+          # MAJOR, 의장 직접 검증): 아래쪽의 `rm -f` 는 collect-diff 직후 직선 경로에만
+          # 있어서, 그보다 앞의 조기 종료 — SHA 대조 불일치·jq flatten 실패·FILE_COUNT 캡
+          # — 는 전부 페치 **이후**라 삭제된 state 의 평문 patch 를 담은 파일이 디스크에
+          # 남았다. 러너가 ephemeral 이 아니면 다음 실행의 의장(경로 무제한 Read)이 읽을
+          # 수 있어, ADR-004 §9 의 "유출 경로 없음 보장" 과 코드가 어긋났다. EXIT trap 은
+          # `exit 1` 경로까지 덮는다. 직선 경로의 명시적 rm 은 그대로 둔다 — "의장 실행
+          # **전에** 지워야 한다"는 시점 요구는 trap 만으로는 표현되지 않는다.
+          trap 'rm -f /tmp/pr-files-pages.json /tmp/pr-files.json' EXIT
           SHAS_BEFORE="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha + " " + .base.sha')" || {
             echo "::error::cannot read the PR head/base SHA before collection — failing closed."; exit 1; }
           HEAD_SHA_BEFORE="${SHAS_BEFORE%% *}"

@@ -31,7 +31,9 @@
 #   filtered.txt          패널에서 제외된 경로 전부
 #   unsafe-filtered.txt   제외되었지만 auto-PASS 자격을 박탈하는 경로
 #   fatal-oversized.txt   noise 가 아닌데 patch 가 없고 실변경이 있는 경로(= diff 가
-#                         너무 커서 API 가 patch 를 생략한 텍스트 파일) → 잡을 죽인다
+#                         너무 커서 API 가 patch 를 생략한 텍스트 파일) → 잡을 죽인다.
+#                         단 **삭제**는 여기 오지 않는다 — 내용 없는 헤더 전용 헝크로
+#                         panel.diff 에 실려 렌즈가 "대형 파일이 삭제됨"을 본다(아래).
 #   all-paths.txt         PR 이 건드린 경로 전부(rename 의 old 경로 포함)
 # 종료 코드: 2 = fatal 있음, 1 = 사용법/입력 오류, 0 = 정상.
 set -uo pipefail
@@ -43,18 +45,35 @@ FILES_JSON="${1:-}"; WORK="${2:-}"
 mkdir -p "$WORK" || { echo "collect-diff.sh: cannot create $WORK" >&2; exit 1; }
 
 # state/plan 패턴. 전부 경로 세그먼트에 앵커한다 — 이전 판의 `\.tfplan` 은 앵커가 없어서
-# `docs/notes.tfplan.md` 같은 **문서**가 잡을 죽였다. `.tfstate.backup`, `.tfstate.1`,
-# `.tfstate.json`(`terraform state pull > x.tfstate.json`), 확장자 없는 `tfplan`/`plan.out`,
-# `terraform.tfstate.d/`, `plan.json`/`tfplan.json`/`*.tfplan.json`(`terraform show -json`
-# 산출물 — state 와 같은 평문 자격증명을 담는다), `state.json`(`state pull` 의 흔한
-# 리다이렉트 이름), 그리고 `-out=` 임의 이름의 흔한 변형(`*-plan.json`, `*.plan`) 을 덮는다.
+# `docs/notes.tfplan.md` 같은 **문서**가 잡을 죽였다. 두 그룹으로 나눈다 (round-4 리뷰
+# L2 MAJOR — codex 와 kiro-opus 가 서로 **반대 방향**에서 같은 결함에 수렴, 의장 확인):
+#
+#   STATE_RE          이름 자체가 terraform 산출물임을 말하는 패턴. 경로 어디에 있든 deny.
+#                     `.tfstate` / `.tfstate.backup` / `.tfstate.1` / `.tfstate.json`
+#                     (`terraform state pull > x.tfstate.json`), `.tfplan` / `.tfplan.json`
+#                     (`terraform show -json`), 확장자 없는 `tfplan`, `terraform.tfstate.d/`.
+#   STATE_GENERIC_RE  `-out=`/리다이렉트 임의 이름의 흔한 변형인데 **이름만으로는 terraform
+#                     인지 알 수 없는** 패턴: `state.json`, `plan.json`, `*-plan.json`,
+#                     `*.plan.json`, `*.plan`, `plan.out`. 이전 판은 이 셋을 무앵커로 걸어서
+#                     `webpage/**/state.json`, `docs/capacity-plan.json` 같은 앱/문서 파일을
+#                     삼켰다 — 양방향으로 나쁘다: **수정**이면 state_fatal → 잡 즉사 + "자격
+#                     증명 회전" 오안내(해소책이 rename 뿐), **삭제**면 state_deleted 로
+#                     오분류되어 내용이 보류되고 deletion-only 면 auto-PASS — 무심사 통과
+#                     범위가 의도(terraform 산출물)보다 넓어진다. 그래서 이 그룹은
+#                     STATE_TF_ANCHOR_RE 와 **AND** 로만 걸린다.
+#   STATE_TF_ANCHOR_RE 경로에 `terraform` 이 있거나(디렉터리든 파일명이든), `tf` 가
+#                     `/ . - _` 로 구분된 **토큰**으로 있을 때(`infra/tf/`, `prod.tf.plan`).
+#                     `platform-plan.json` 의 `tf` 는 토큰이 아니라 걸리지 않는다.
 #
 # 이 deny 는 **열거 기반이고 완전하지 않다** (round-2 리뷰 M-L2-1) — `-out=creds.bin`
 # 같은 임의 이름은 경로 패턴으로 원리적으로 못 잡는다. 여기 걸리지 않은 state/plan 은
 # 텍스트인 한 패널 전 셀(외부 모델 포함)에 전문이 전달되므로, 패턴을 넓힐 이유가 생기면
 # 주저 없이 넓히고 ADR-004 를 같이 갱신할 것. 내용 기반(시크릿 스캐너) 검사는 ADR-004
-# 의 후속 항목이다.
-STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup|\.json)?$|(^|/)[^/]*\.tfplan(\.json)?$|(^|/)[^/]*[-.]plan\.json$|(^|/)(tf)?plan\.json$|(^|/)tfplan$|(^|/)plan\.out$|(^|/)[^/]*\.plan$|(^|/)state\.json$|(^|/)terraform\.tfstate\.d/'
+# 의 후속 항목이다. 세 정규식은 아래 두 jq 프로그램의 `is_state_path` 한 정의로만 조합된다
+# — 분류와 panel.diff 재구성이 다른 기준을 쓰면 "분류는 state 인데 헝크는 실린다"가 생긴다.
+STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup|\.json)?$|(^|/)[^/]*\.tfplan(\.json)?$|(^|/)tfplan(\.json)?$|(^|/)terraform\.tfstate\.d/'
+STATE_GENERIC_RE='(^|/)[^/]*[-.]plan\.json$|(^|/)plan\.json$|(^|/)plan\.out$|(^|/)[^/]*\.plan$|(^|/)state\.json$'
+STATE_TF_ANCHOR_RE='terraform|(^|[/._-])tf([/._-]|$)'
 
 # 패널이 읽어도 의미가 없는 노이즈. 확장자 allow-list 는 여기 **없다** — 이전 판은
 # `\.(png|pdf|zip|...)$` 로 경로를 걸러서, 같은 확장자를 가진 *텍스트* 파일이 혼합 PR
@@ -83,12 +102,16 @@ ASSET_RE='\.(png|jpg|jpeg|gif|pdf)$'
 
 jq -r \
   --arg state_re "$STATE_RE" \
+  --arg state_generic_re "$STATE_GENERIC_RE" \
+  --arg state_tf_anchor_re "$STATE_TF_ANCHOR_RE" \
   --arg noise_re "$NOISE_RE" \
   --arg asset_re "$ASSET_RE" '
   # 경로에 개행/제어문자가 있으면 재구성 diff 와 TSV 의 줄 구조를 깨뜨린다. git 은
   # 그런 경로를 허용하므로 무시하지 말고 fail-closed 로 잡는다.
   def ctl: test("[\\x00-\\x1f]");
   def paths: [.filename, (.previous_filename // empty)];
+  # state/plan 판정의 단일 정의 — 아래 panel.diff 재구성도 같은 정의를 쓴다.
+  def is_state_path: test($state_re) or (test($state_generic_re) and test($state_tf_anchor_re));
 
   [ .[]
     | . as $e
@@ -117,12 +140,25 @@ jq -r \
         # 사라진 채 PASS). 결정론적으로 잡을 죽인다.
         # 삭제는 예외 (round-3 리뷰 M-L4): 대형 텍스트 파일의 *삭제*도 patch 생략 ∧
         # changes>0 인데, 삭제는 쪼갤 수 없어 fatal 로 두면 "지적 없이 영구 머지
-        # 불가"(ADR-004 §9 가 없애려던 실패 모드)가 새 klass 로 재생산된다. 삭제는
-        # filtered 로 접되 binary=0 이므로 unsafe-filtered 에 올라 auto-PASS 는 막는다.
+        # 불가"(ADR-004 §9 가 없애려던 실패 모드)가 새 klass 로 재생산된다.
         is_oversized: ((($e | has("patch")) | not) and ((.changes // 0) != 0) and (.status != "removed")),
+        # round-3 은 대형 삭제를 filtered + unsafe-filtered 로 접었는데 두 방향 모두
+        # 틀렸다 (round-4 리뷰 L4 MAJOR ×2, codex·kiro-opas 2모델 3셀 수렴, 의장 확인):
+        #   - 혼합 PR: `::warning::` 이 워크플로 로그에만 남고 매니페스트에는 status 가
+        #     없어 렌즈는 "삭제됨"인지 "절단됨"인지 모른다 — 대형 IAM policy/WAF ruleset/
+        #     리전 manifest 의 삭제가 어떤 렌즈의 판정에도 실리지 않은 채 나머지로 PASS.
+        #   - 삭제 단독 PR: unsafe-filtered 가 비어 있지 않아 auto-PASS 전제조건 ③ 이
+        #     깨지고 → 빈 diff 로 run-panel fail-close → VERDICT 부재 → **영구 차단**.
+        #     표준 해소책("PR 분할")은 단일 파일 삭제에 적용 불가 — ADR-004 §9 가 없애려던
+        #     실패 모드의 재생산.
+        # pure_rename 과 같은 방식으로 푼다: **내용 없는 헤더 전용 헝크**를 panel.diff 에
+        # 넣는다. 렌즈는 "X 가 삭제됨(N 줄, 내용은 API 가 생략)"을 보고 판정에 실을 수
+        # 있고, 삭제된 내용은 어떤 출력 파일에도 실리지 않으므로(patch 자체가 없다)
+        # 자격증명 노출은 없다. panel.diff 가 비지 않으니 영구 차단도 사라진다.
+        oversized_deleted: ((($e | has("patch")) | not) and ((.changes // 0) != 0) and (.status == "removed")),
         deleted:  (.status == "removed"),
         bad_path: ($p | map(ctl) | any),
-        is_state: ($lp | map(test($state_re)) | any),
+        is_state: ($lp | map(is_state_path) | any),
         # 두 경로 모두 노이즈일 때만(all) — 한쪽만 보면 rename 우회가 생긴다(위 주석).
         is_noise: ($lp | map(test($noise_re)) | all),
         # rename 은 두 경로 **모두** 자산이어야 한다. 하나만 보면
@@ -138,6 +174,9 @@ jq -r \
         # noise 를 oversized 보다 먼저 본다 (round-3 리뷰 m-L2): patch 가 생략될
         # 만큼 큰 lockfile 은 어떤 렌즈도 읽지 않을 파일인데 잡 전체를 죽였다.
         elif .is_noise              then "filtered"
+        # 대형 삭제는 패널로 (헤더 전용 헝크, 위 주석) — oversized_fatal 보다 먼저 봐야
+        # 하지만 is_oversized 가 이미 status!=removed 라 순서 무관; 명시적으로 앞에 둔다.
+        elif .oversized_deleted     then "panel"
         elif .is_oversized          then "oversized_fatal"
         elif .pure_rename           then "panel"
         elif .no_patch              then "filtered"
@@ -157,9 +196,15 @@ jq -r \
 # patch 는 헝크만 담고 `diff --git` 헤더가 없으므로 헤더를 붙여 재구성한다. 여기서
 # 만드는 헤더는 **다시 파싱되지 않는다** — 렌즈가 읽는 사람용 텍스트일 뿐이고, 판정은
 # 전부 위의 JSON 필드로 이미 끝났다.
-jq -r --arg state_re "$STATE_RE" --arg noise_re "$NOISE_RE" '
+jq -r \
+  --arg state_re "$STATE_RE" \
+  --arg state_generic_re "$STATE_GENERIC_RE" \
+  --arg state_tf_anchor_re "$STATE_TF_ANCHOR_RE" \
+  --arg noise_re "$NOISE_RE" '
   def ctl: test("[\\x00-\\x1f]");
   def paths: [.filename, (.previous_filename // empty)];
+  # classified.tsv 의 is_state 와 동일 정의 — 기준이 갈리면 state 헝크가 새어나간다.
+  def is_state_path: test($state_re) or (test($state_generic_re) and test($state_tf_anchor_re));
   # .terraform.lock.hcl 을 **맨 뒤로** 정렬한다 (round-3 리뷰 M-L2, 3/3 수렴):
   # panel.diff 는 뒤가 잘리는 전역 절단(head -3000)을 지나는데, provider 범프
   # fan-out 에서는 lockfile 해시 수백 줄 × 리전 수가 사전순으로 .tf 실변경보다
@@ -170,15 +215,23 @@ jq -r --arg state_re "$STATE_RE" --arg noise_re "$NOISE_RE" '
     | (paths) as $p
     | ($p | map(ascii_downcase)) as $lp
     | select(($p | map(ctl) | any) | not)
-    | select(($lp | map(test($state_re)) | any) | not)
+    | select(($lp | map(is_state_path) | any) | not)
     # 두 경로 모두 노이즈일 때만 제외 — classified.tsv 의 is_noise 와 동일 기준(위 주석).
     | select(($lp | map(test($noise_re)) | all) | not)
-    # patch 가 있는 파일, 또는 무변경 rename(헤더 전용 헝크로 가시화 — classified 의
-    # pure_rename 과 동일 기준). 그 외 no-patch(진짜 바이너리/oversized)는 여기 못 온다.
-    | select(($e | has("patch")) or ((.status == "renamed") and ((.changes // 0) == 0)))
+    # patch 가 있는 파일, 무변경 rename(헤더 전용 헝크 — classified 의 pure_rename 과
+    # 동일 기준), 또는 **대형 삭제**(patch 없음 ∧ changes>0 ∧ removed — classified 의
+    # oversized_deleted 와 동일 기준, 헤더 전용 헝크). 그 외 no-patch(진짜 바이너리,
+    # 수정/추가 oversized)는 여기 못 온다.
+    | select(($e | has("patch"))
+             or ((.status == "renamed") and ((.changes // 0) == 0))
+             or ((.status == "removed") and ((.changes // 0) != 0)))
     | (.previous_filename // .filename) as $old
     | "diff --git a/\($old) b/\(.filename)"
       + (if (.previous_filename // "") != "" then "\nrename from \(.previous_filename)\nrename to \(.filename)" else "" end)
+      # 대형 삭제 헤더 — 내용은 없다(API 가 patch 를 주지 않았으므로 실을 것 자체가 없다).
+      + (if ((.status == "removed") and (($e | has("patch")) | not) and ((.changes // 0) != 0))
+         then "\ndeleted file (oversized: \(.changes // 0) changed lines, content withheld — the files API omits the patch above its size cap; the panel sees the deletion, not its contents)"
+         else "" end)
       + (if ($e | has("patch"))
          then "\n--- " + (if .status == "added" then "/dev/null" else "a/\($old)" end)
               + "\n+++ " + (if .status == "removed" then "/dev/null" else "b/\(.filename)" end)
