@@ -61,9 +61,13 @@ mkdir -p "$WORK" || { echo "collect-diff.sh: cannot create $WORK" >&2; exit 1; }
 #                     오분류되어 내용이 보류되고 deletion-only 면 auto-PASS — 무심사 통과
 #                     범위가 의도(terraform 산출물)보다 넓어진다. 그래서 이 그룹은
 #                     STATE_TF_ANCHOR_RE 와 **AND** 로만 걸린다.
-#   STATE_TF_ANCHOR_RE 경로에 `terraform` 이 있거나(디렉터리든 파일명이든), `tf` 가
-#                     `/ . - _` 로 구분된 **토큰**으로 있을 때(`infra/tf/`, `prod.tf.plan`).
-#                     `platform-plan.json` 의 `tf` 는 토큰이 아니라 걸리지 않는다.
+#   STATE_TF_ANCHOR_RE 경로에 `terraform` **디렉터리 세그먼트**가 있거나(`terraform/…`,
+#                     `…/terraform/…`), `tf` 가 `/ . - _` 로 구분된 **토큰**으로 있을 때
+#                     (`infra/tf/`, `prod.tf.plan`). substring 이 아니다 (round-5 리뷰
+#                     L2 MINOR): `docs/terraform-migration/capacity-plan.json` 의
+#                     `terraform-migration` 은 앵커가 아니고, `platform-plan.json` 의
+#                     `tf` 도 토큰이 아니라 걸리지 않는다. 파일명이 `terraform.` 으로
+#                     시작하는 실제 산출물(`terraform.tfstate*`)은 이미 STATE_RE 다.
 #
 # 이 deny 는 **열거 기반이고 완전하지 않다** (round-2 리뷰 M-L2-1) — `-out=creds.bin`
 # 같은 임의 이름은 경로 패턴으로 원리적으로 못 잡는다. 여기 걸리지 않은 state/plan 은
@@ -73,7 +77,7 @@ mkdir -p "$WORK" || { echo "collect-diff.sh: cannot create $WORK" >&2; exit 1; }
 # — 분류와 panel.diff 재구성이 다른 기준을 쓰면 "분류는 state 인데 헝크는 실린다"가 생긴다.
 STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup|\.json)?$|(^|/)[^/]*\.tfplan(\.json)?$|(^|/)tfplan(\.json)?$|(^|/)terraform\.tfstate\.d/'
 STATE_GENERIC_RE='(^|/)[^/]*[-.]plan\.json$|(^|/)plan\.json$|(^|/)plan\.out$|(^|/)[^/]*\.plan$|(^|/)state\.json$'
-STATE_TF_ANCHOR_RE='terraform|(^|[/._-])tf([/._-]|$)'
+STATE_TF_ANCHOR_RE='(^|/)terraform/|(^|[/._-])tf([/._-]|$)'
 
 # 패널이 읽어도 의미가 없는 노이즈. 확장자 allow-list 는 여기 **없다** — 이전 판은
 # `\.(png|pdf|zip|...)$` 로 경로를 걸러서, 같은 확장자를 가진 *텍스트* 파일이 혼합 PR

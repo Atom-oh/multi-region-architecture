@@ -230,8 +230,10 @@ assert_grep panel.diff 'docs/deployment-plan.md'
 # `docs/capacity-plan.json` 을 삼켰다. 수정이면 state_fatal(잡 즉사 + "자격증명 회전"
 # 오안내), 삭제면 state_deleted(auto-PASS 범위 확대). 15번의 `.md` 케이스는 이 구멍을
 # 비껴갔다 — 여기서 정확히 그 이름들로 고정한다. `platform-plan.json` 의 `tf` 는 토큰이
-# 아니라(pla**tf**orm) 앵커가 아니다.
-for f in 'webpage/src/state.json' 'docs/capacity-plan.json' 'src/scheduler/release.plan' 'platform-plan.json' 'ops/plan.out'; do
+# 아니라(pla**tf**orm) 앵커가 아니고, `docs/terraform-migration/capacity-plan.json` 의
+# `terraform-migration` 은 `terraform/` 세그먼트가 아니라 앵커가 아니다(round-5 L2 MINOR:
+# substring 앵커였을 때 이 문서가 state 로 오분류됐다).
+for f in 'webpage/src/state.json' 'docs/capacity-plan.json' 'src/scheduler/release.plan' 'platform-plan.json' 'ops/plan.out' 'docs/terraform-migration/capacity-plan.json' 'notes/terraform-plan.md'; do
   run "generic-named app file $f is reviewed, not denied" '[
     {"filename":"'"$f"'","status":"modified","changes":2,"patch":"@@ -1 +1 @@\n-a\n+b"}
   ]'

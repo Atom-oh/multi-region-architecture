@@ -157,11 +157,19 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
 이 deny 의 "결정론"은 **경로 패턴이 매치되는 범위 안에서만** 성립한다 — 두 한계를
 명시한다(round-2 리뷰 M-L2-1·M-L3-3):
 
-- **열거 기반이다.** `STATE_RE` 는 알려진 이름 관행(`*.tfstate*`, `*.tfplan*`,
-  `plan.json`/`*-plan.json`/`*.plan`, `state.json`, `terraform.tfstate.d/`)을 열거한다.
-  `terraform plan -out=` 과 `state pull` 리다이렉트는 임의 이름을 허용하므로 완전한
-  열거는 원리적으로 불가능하다 — 패턴 밖 이름의 state/plan 은 텍스트인 한 패널 전
-  셀로 나간다. 내용 기반(시크릿 스캐너) 검사가 이 축의 실제 마감이며 후속으로 남긴다.
+- **열거 기반이다 — 그리고 두 그룹이다.** 이름 자체가 terraform 산출물인 패턴
+  (`STATE_RE`: `*.tfstate*`, `*.tfplan*`, 확장자 없는 `tfplan`, `terraform.tfstate.d/`)은
+  경로 어디에 있든 deny 다. 이름이 generic 한 `-out=`/리다이렉트 관행(`STATE_GENERIC_RE`:
+  `plan.json`/`*-plan.json`/`*.plan.json`/`*.plan`/`plan.out`, `state.json`)은
+  **`STATE_TF_ANCHOR_RE` 와 AND 로만** deny 다 — 경로에 `terraform/` 디렉터리 세그먼트가
+  있거나 `tf` 가 `/ . - _` 로 구분된 토큰으로 있을 때(round-4 리뷰 L2 MAJOR: 무앵커
+  였을 때 `webpage/**/state.json`, `docs/capacity-plan.json` 같은 앱/문서 파일이 state
+  로 오분류되어 수정이면 잡 즉사, 삭제면 auto-PASS 범위가 넓어졌다). **따라서 앵커
+  없는 경로의 generic 이름 산출물 — `terraform state pull > scripts/state.json` — 은 이
+  deny 에 걸리지 않고** 텍스트인 한 패널 전 셀로 나간다. 이건 의도된 trade-off 다:
+  앵커 없이 걸면 앱 파일을 삼키고, 걸지 않으면 이 구멍이 남는다. `terraform plan -out=`
+  과 `state pull` 리다이렉트는 애초에 임의 이름을 허용하므로 완전한 열거는 원리적으로
+  불가능하다. 내용 기반(시크릿 스캐너) 검사가 이 축의 실제 마감이며 후속으로 남긴다.
 - **removed+added 분해를 못 잡는다.** rename status 는 GitHub 의 유사도 탐지가
   결정한다. state 파일을 크게 수정하며 이동하면 API 는 `removed`(옛 이름 — 여전히
   state_deleted 로 잡혀 내용은 실리지 않는다) + `added`(패턴 밖 새 이름, patch 전문)
@@ -228,11 +236,12 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
    그래서 **추가·수정·rename** 은 `::error::` + `exit 1` 이다. 검출은 diff 구성과
    무관하다 — files API 의 `filename` 과 `previous_filename` 을 각각 검사하므로
    (D1) rename 도 인용 경로도 우회가 아니다. 패턴은 D3 의 열거와 동일하다 —
-   `*.tfstate`/`*.tfstate.<n>`/`*.tfstate.backup`/`*.tfstate.json`,
-   `*.tfplan`/`*.tfplan.json`, 확장자 없는 `tfplan`/`plan.out`,
-   `terraform.tfstate.d/`, `plan.json`/`*-plan.json`/`*.plan`, `state.json`
+   무조건 deny 인 `*.tfstate`/`*.tfstate.<n>`/`*.tfstate.backup`/`*.tfstate.json`,
+   `*.tfplan`/`*.tfplan.json`, 확장자 없는 `tfplan`, `terraform.tfstate.d/`, 그리고
+   **terraform 앵커(`terraform/` 세그먼트 또는 `tf` 토큰)가 경로에 있을 때만** deny 인
+   `plan.json`/`*-plan.json`/`*.plan.json`/`*.plan`/`plan.out`/`state.json`
    (`terraform show -json`/`state pull` 산출물 — state 와 같은 평문 자격증명을
-   담는다). `\.tfplan` 은 경로
+   담는다; 앵커 조건의 근거와 그로 인한 구멍은 D3 참조). 모든 패턴은 경로
    세그먼트에 앵커한다 — 무앵커였을 때 `docs/notes.tfplan.md` 같은 **문서**가 잡을
    죽였다. 해소 경로는 브랜치에서 그 커밋을 되돌리는 것이며(그리고 노출된 자격증명
    회전), 에러 메시지가 그 절차를 지시한다.
@@ -289,9 +298,18 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
   이건 의도된 것이다.
 - 이 ADR 은 **영구 머지 불가 부류를 두 개 새로 만든다** (round-3 리뷰 M-L5): ①
   `oversized_fatal` — noise 가 아닌 텍스트 파일의 diff 가 API patch 캡을 넘는 추가·
-  수정(해소: 커밋/PR 분할; **삭제는 예외** — 쪼갤 수 없으므로 filtered+auto-PASS
-  박탈로 접는다), ② 3000-파일 API 캡 초과 PR(해소: PR 분할). 둘 다 fail-closed 가
-  의도이며, 해소 절차는 각 ::error:: 메시지가 지시한다.
+  수정(해소: 커밋/PR 분할), ② 3000-파일 API 캡 초과 PR(해소: PR 분할). 둘 다
+  fail-closed 가 의도이며, 해소 절차는 각 ::error:: 메시지가 지시한다.
+- **대형 파일의 삭제는 위 ①의 예외이고, filtered 도 아니다** (round-4 리뷰 L4 MAJOR
+  ×2 — round-3 의 "filtered+auto-PASS 박탈" 은 혼합 PR 에서 어떤 렌즈도 삭제를 못
+  보게 했고, 삭제 단독 PR 에서는 빈 diff → fail-close → 해소책 없는 영구 차단을
+  만들었다). 이제 `oversized_deleted` 는 무변경 rename 과 같은 방식으로 **panel** 로
+  분류되어 내용 없는 헤더 전용 헝크(`deleted file (oversized: N changed lines, content
+  withheld …)`)로 렌즈에 보인다. 렌즈는 삭제 사실을 판정에 실을 수 있고, 내용은 어떤
+  산출물에도 실리지 않으며(API 가 patch 를 주지 않았으니 실을 것 자체가 없다),
+  `unsafe-filtered` 에 오르지 않으므로 auto-PASS 박탈도 없다 — 삭제는 리포에 아무것도
+  들여오지 않는다는 D2 의 논증이 그대로 적용된다. state 인 대형 삭제는 분류 순서상
+  여전히 `state_deleted` 가 이겨 헤더조차 싣지 않는다.
 - 무변경 rename(`pure_rename`)은 filtered 가 아니라 **panel** 로 분류되어 header-only
   헝크로 렌즈에 보인다 — D2 의 auto-PASS 논증에서 "filtered 에 남는 것"은 진짜
   바이너리와 노이즈 경로뿐이라는 전제가 이 klass 추가로 유지된다(rename 은 auto-PASS
