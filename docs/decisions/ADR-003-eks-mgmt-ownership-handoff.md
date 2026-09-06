@@ -197,7 +197,9 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    runner pod는 PR 코드를 실행하므로 이건 이론적 경로가 아니다.
 
    그래서 이 PR에서 **버킷 정책으로 승격한다**(`terraform/global/terraform-state`,
-   `state_custody_denials`). resource policy의 명시적 Deny는 어떤 identity policy의
+   `protected_state_keys` + `state_custody_appliers` — round-15 에서 denylist 에서
+   allowlist 로 반전됨, 아래 round-15 수정 참조; 이 단락부터 round-8 수정까지는 그
+   이전 판의 기록이다). resource policy의 명시적 Deny는 어떤 identity policy의
    Allow보다도 우선하므로, managed FullAccess를 달아도 더 이상 권한이 생기지 않는다 —
    문서 경고와 이것의 차이가 정확히 그 지점이고, 그래서 이관과 같은 변경에 들어간다.
    해당 버킷에는 정책이 없었다(`NoSuchBucketPolicy` 실측). 범위는 이 repo가 소유한 state
@@ -219,8 +221,8 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    성공한다 — 신호 없는 fail-open이다. 목록에 없는 principal(신규 role, admin 세션,
    `ci_runner`가 자기 `sts:AssumeRole`/`iam:PassRole` 권한으로 pivot한 세션) 전체에
    대해서도 마찬가지로 열려 있다. 즉 이 denylist는 나열된 role의 직접 호출 경로에
-   대한 표적 완화이지 custody boundary가 아니다(아래 "이 ADR이 닫지 않는 것" 1 —
-   allowlist 전환 — 이 그 boundary가 되는 경로다). 남는 한계: 이건 계정 내 특정 role 대상이므로, admin
+   대한 표적 완화이지 custody boundary가 아니다 — 이 한계는 round-15 의 allowlist
+   반전(아래)으로 닫았다. 남는 한계: 이건 계정 내 특정 role 대상이므로, admin
    자격증명을 든 사람은 여전히 쓸 수 있다. 외부 repo에서 그 managed policy 자체를
    축소하는 것은 저쪽 repo의 변경이라 여기 범위가 아니다.
 
@@ -228,7 +230,7 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    `AmazonS3FullAccess`는 버킷 ARN 자체에 대한 `s3:PutBucketPolicy`/
    `DeleteBucketPolicy`도 허용하므로, 그 role이 이 정책 문서 자체를 덮어쓰거나 지운
    뒤 원래 막혀 있던 객체를 읽을 수 있었다 — object-level Deny는 정책 문서를 보호하지
-   않는다. 그래서 같은 `state_custody_denials` 순회에서 버킷 ARN 대상으로
+   않는다. 그래서 같은 정책에서(round-15 이후에는 같은 `state_custody_appliers` 조건으로) 버킷 ARN 대상으로
    `PutBucketPolicy`/`DeleteBucketPolicy`/`PutBucketAcl`/`PutBucketPublicAccessBlock`/
    `PutLifecycleConfiguration`/`PutBucketVersioning`/`PutReplicationConfiguration`도
    같은 principal에 Deny한다. 이 저장소 자신의 apply 경로(각 레이어를 소유한
@@ -274,29 +276,61 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    이름에 완전히 수렴한 **뒤에만** — 순서를 뒤집으면 아직 옮기지 않은 spoke 가
    반대로 released 처럼 보인다).
 
+   **round-15 수정(CRITICAL-2): 버킷 정책을 denylist 에서 allowlist 로 반전했다.**
+   round-13/14 리뷰가 3/3 모델 수렴으로 지적한 대로, `aws:PrincipalArn` 에 차단 대상
+   role 을 나열하는 denylist 는 `ci_runner` 가 `sts:AssumeRole role/cdk-*` /
+   `iam:PassRole` + `ecs:RunTask` 로 **다른 principal ARN 이 되는 경로**를 구조적으로
+   열어 두었다 — 그 세션은 목록에 없으니 Deny 가 매치하지 않는다. 이제 정책은
+   `protected_state_keys`(이 repo 의 모든 레이어 + `global/*` + eks-mgmt key, `env:/`
+   변형 자동 포함)에 대해 `aws:PrincipalArn` `StringNotLike` **승인 applier 목록**
+   (`state_custody_appliers`) 이외의 **모든** principal 을 Deny 한다. 버킷 정책 문서
+   자체의 변경(`PutBucketPolicy`/`DeleteBucketPolicy`/ACL/PAB/lifecycle/versioning/
+   replication/encryption/notification/`DeleteBucket`)도 같은 조건으로 Deny 한다.
+   pivot 세션은 정의상 목록에 없으므로 닫힌다 — 이것이 이전 판이 "부분 완화"라고
+   부르던 것과 custody boundary 의 차이다.
+
+   applier 목록은 계정에 실존하는 role 로 채웠다(이 devbox 의 `mgmt-vpc-VSCode-Role`
+   / `VSCodeAdminRole`, 이 repo CI 의 `github-actions-role`, 외부 repo 의
+   `AtlantisIRSARole` / `DemoPlatformTerraformer`, 사람 break-glass 인 IAM Identity
+   Center `aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_AdministratorAccess_*`
+   — permission set 재프로비저닝으로 접미 해시가 바뀌므로 와일드카드). 이 계정에
+   CloudTrail S3 데이터 이벤트가 없어 접근 로그로 applier 를 확정할 수는 없었다 —
+   그래서 **적용 전 사람이 목록을 확정**해야 한다는 이 ADR 의 원칙은 그대로다:
+   누락 = 그 레이어의 다음 plan/apply 가 state 접근에서 막힌다(복구는 root 의
+   `PutBucketPolicy` 로 항상 가능하지만 수동). 실패 방향은 denylist 의 거울상이다 —
+   오타는 조용히 열리는 대신 **크게 닫힌다**. 빈 allowlist 는 리소스의
+   `precondition` 이 거부한다(전원 lockout 정책을 만들지 않는다). `ci_runner` 는
+   의도적으로 목록에 없다. 이 반전으로 아래 follow-up 1 의 "pivot 경로 미차단"
+   서술은 **이 버킷에 대해서는** 해소됐다(외부 repo 권한 축소 요청은 defense-in-depth
+   로 유지).
+
 ### 이 ADR이 닫지 않는 것 (blocking follow-up)
 
 이관 자체와 분리해 추적한다. 전부 "문서 경고는 통제가 아니다"라는 이 ADR 자신의
 원칙에 걸리는 항목이므로, 후속으로 남긴다는 사실을 여기 명시한다.
 
-0. **노출됐던 Aurora/DocumentDB master password 의 rotation + `manage_master_user_password`
-   전환.** (round-13 리뷰 M-L3) 이 문서 자신이 "2026-06-24부터 runner pod 가 평문
-   password 포함 state 를 read 할 수 있었다"고 서술한다 — 경로를 닫는 것(아래 1)은
-   사후 대응의 절반이고, 이미 노출 창을 지난 자격증명은 rotation 이 나머지 절반이다.
-   `manage_master_user_password = true`(Secrets Manager 관리) 전환은 평문이 state 에
-   아예 들어가지 않게 해 이 클래스 전체를 없앤다. 그리고 **근본 custody 해법**으로
-   eks-mgmt state key 자체를 AWS-Demo-Platform 소유 버킷으로 이관(`terraform init
-   -migrate-state`)하는 안을 함께 추적한다 — 성사되면 `externally_owned_state_keys`/
-   `state_custody_denials`/`env:/` 변형 전부가 불필요해진다. denylist→allowlist
-   (`aws:PrincipalArn` `StringNotLike` + 승인 applier 목록) 반전은 pivot 세션까지
-   닫는 이 repo 범위의 해법이지만(round-13 리뷰 CRITICAL 의 직접 해법), **모든
-   레이어 + `global/terraform-state` 의 실제 applier ARN(SSO `aws-reserved/...`
-   경로 포함) 열거가 선행돼야** 한다 — 목록 누락 = 전 레이어 self-lockout 이므로
-   사람이 계정에서 확정한 뒤에만 적용한다.
+0. **노출됐던 Aurora/DocumentDB master password 의 rotation — 완료(2026-08-19,
+   이 PR 밖에서 out-of-band).** (round-13 리뷰 M-L3 가 요구한 것) Korea Aurora
+   (`production-aurora-global-ap-northeast-2`) master password 를 `modify-db-cluster`
+   로 로테이션했다. Korea DocumentDB 는 문서와 달리 실제로는 us-east-1 global
+   cluster 의 read-only secondary 여서 로컬 로테이션이 거부되어(`Cannot modify the
+   master password for secondary clusters`), 스냅샷으로 독립 클러스터
+   (`production-docdb-korea`)를 신설·로테이션한 뒤 구 secondary 와 us-east-1
+   primary/global cluster wrapper 를 삭제했다. MSK 는 associated SCRAM secret 이
+   0개(SASL 인증 자체가 불가능한 상태)였던 것을 신규 발급·연결했다. 신규 값은
+   Secrets Manager `mall/*` 에만 존재한다. **남은 것 두 가지**: (a) `manage_master_user_password
+   = true`(Secrets Manager 관리) 전환 — 평문이 state 에 아예 들어가지 않게 해 이
+   클래스 전체를 없앤다; (b) **근본 custody 해법**으로 eks-mgmt state key 자체를
+   AWS-Demo-Platform 소유 버킷으로 이관(`terraform init -migrate-state`) — 성사되면
+   `externally_owned_state_keys` 와 `protected_state_keys` 의 eks-mgmt 등재, `env:/`
+   변형이 불필요해진다. denylist→allowlist 반전은 round-15 에서 **이 PR 안으로
+   들어왔다**(위 round-15 수정): applier 열거는 코드(`state_custody_appliers`)에 있고,
+   "적용 전 사람이 계정에서 확정" 원칙은 그대로 유지한다.
 
-1. **외부 repo의 `AmazonS3FullAccess` 축소 — 그리고 role-pivot으로 우회 가능하다는 점을
-   명시.** 버킷 정책 승격(Decision 5)은 `ci_runner`가 **자기 자신의 principal ARN으로**
-   이 state에 닿는 경로만 닫는다. 그 role은 (외부 repo가 소유·유지하는) 삭제된
+1. **외부 repo의 `AmazonS3FullAccess` 축소 — role-pivot 경로의 기록.** round-14
+   까지의 버킷 정책(denylist)은 `ci_runner`가 **자기 자신의 principal ARN으로**
+   이 state에 닿는 경로만 닫았다(round-15 의 allowlist 반전이 이를 닫았다 — 이 항목
+   마지막 문단 참조). 그 role은 (외부 repo가 소유·유지하는) 삭제된
    `eks-mgmt/main.tf`에 보이는 인라인 정책으로 `sts:AssumeRole` on `role/cdk-*`와
    `iam:PassRole` on `role/*`(조건: `ecs-tasks.amazonaws.com`) + `ecs:RunTask`/
    `RegisterTaskDefinition`(`Resource = "*"`)를 갖고 있다 — 즉 이 role은 **다른
@@ -311,9 +345,12 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    제거, `iam:PassRole`을 `role/*agentcore*`처럼 실제로 필요한 role로 좁히기(현재
    `role/*` — 임의 role pivot의 근원), `sts:AssumeRole`을 `cdk-*` 중 실제 필요한
    role ARN으로 좁히기, `ecs:RunTask`/`RegisterTaskDefinition`의 `Resource`를 `"*"`
-   대신 이 클러스터가 실제로 실행하는 task definition ARN으로 좁히기. 이 pivot이
-   막히기 전까지는 버킷 custody를 "완전히 닫힘"이 아니라 "principal ARN 직접 호출을
-   막는 부분 완화"로 취급할 것.
+   대신 이 클러스터가 실제로 실행하는 task definition ARN으로 좁히기. **round-15
+   이후**: allowlist 반전으로 **이 버킷에 대해서는** pivot 세션도 닫혔다 — 목록에
+   없는 principal 은 pivot 여부와 무관하게 전부 Deny 다. 위 외부 repo 요청은 그래도
+   유효하다: `ci_runner` 의 과도한 pivot 권한은 이 버킷 **밖**의 계정 자원에 대한
+   문제로 남는다(defense-in-depth). 이 repo 가 서술할 수 있는 custody 범위는 이
+   버킷의 protected key 까지다.
 2. **stale mgmt SG 감지.** mgmt를 replace하면 ArgoCD → spoke 접근이 조용히 끊기고
    다음 sync 실패까지 드러나지 않는다. 인시던트 중에는 그 sync가 롤백 채널이다.
    spoke의 `terraform plan -detailed-exitcode`가 신호를 내지만(SG를 live로 조회하므로

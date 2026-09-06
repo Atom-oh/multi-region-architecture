@@ -59,32 +59,39 @@ workload on the mgmt cluster could read and write this whole state bucket,
 including the `shared/` state that carries Aurora and DocumentDB master passwords
 in plaintext. Runner pods execute PR code, so that was not a theoretical path.
 
-That one is closed here, with a **bucket policy**:
-`terraform/global/terraform-state`, `state_custody_denials`. A resource-policy
-Deny beats any Allow in any identity policy, so attaching a managed FullAccess
-policy no longer grants it — which is the whole difference between this and a
-README warning. The bucket had no policy at all before (`NoSuchBucketPolicy`).
-Scope is this repo's state keys plus `global/*` **and** `ci_runner`'s own
-`eks-mgmt` key, and it denies non-TLS access. `Principal = "*"` with an
-`aws:PrincipalArn` condition naming the denied role directly, not
-`NotPrincipal` (fails open when an assumed-role session ARN doesn't match the
-role ARN) and not `Principal = { AWS = role-arn }` either (that form pins to
-the role's internal principal ID at policy-save time and silently fail-opens
-if the role is ever recreated — see the ADR's round-8 note). `ci_runner`'s own
-layer key is **not** exempted (round-10 fix — it used to be, on the reasoning
-that "that repo owns and applies it"; but per the ADR, `ci_runner` is the
-self-hosted GitHub Actions runner role, not the Atlantis identity that
-actually applies `infra/eks-mgmt` — repo ownership and this role's own
-authorization are different things, and `ci_runner` has no legitimate reason
-to touch that key either).
+That one is closed here, with an **allowlist bucket policy**:
+`terraform/global/terraform-state`, `protected_state_keys` +
+`state_custody_appliers`. A resource-policy Deny beats any Allow in any
+identity policy, so attaching a managed FullAccess policy no longer grants it —
+which is the whole difference between this and a README warning. The bucket had
+no policy at all before (`NoSuchBucketPolicy`). Scope is this repo's state keys
+plus `global/*` **and** the externally-owned `eks-mgmt` key (each with its
+`env:/<workspace>/` variant), and it denies non-TLS access.
 
-Still outside this: a human with admin credentials, and — concretely, not
-theoretically — the same `ci_runner` role can become a *different* principal
-ARN via its own `sts:AssumeRole role/cdk-*` and `iam:PassRole role/* (ecs-tasks)`
-+ `ecs:RunTask` grants (both owned by the other repo), neither of which this
-Deny's `aws:PrincipalArn` condition matches. Custody is closed for calls made
-as `ci_runner` itself; it is not closed against that pivot. See the ADR
-follow-up for what's tracked and where.
+The shape is `Principal = "*"` + `aws:PrincipalArn` **`StringNotLike`** the
+applier list — everyone not on the list is denied, on the objects and on the
+bucket's own policy document (so a non-applier holding `PutBucketPolicy` cannot
+remove the Deny and then read). Not `NotPrincipal` (fails open when an
+assumed-role session ARN doesn't match the role ARN) and not `Principal = { AWS
+= role-arn }` (pins to the role's internal principal ID at policy-save time and
+silently fail-opens if the role is ever recreated — ADR round-8 note). Rounds
+8–14 used a **denylist** naming `ci_runner`'s ARN; that only matched calls made
+*as that role*, and `ci_runner` can become a different principal ARN via its
+own `sts:AssumeRole role/cdk-*` and `iam:PassRole role/* (ecs-tasks)` +
+`ecs:RunTask` grants — the round-13/14 review CRITICAL. An allowlist denies
+those sessions by construction (ADR round-15). `ci_runner` is deliberately not
+an applier: it is the self-hosted runner role that executes PR code, not the
+Atlantis identity that actually applies `infra/eks-mgmt`.
+
+The allowlist's failure mode is the mirror image — a missing applier is locked
+out loudly (its next plan/apply fails on state access) instead of the target
+slipping through silently. Confirm `state_custody_appliers` against the account
+before every apply that changes it; the human SSO administrator entry is
+wildcarded on its permission-set hash so Identity Center re-provisioning cannot
+lock the recovery path out, and the account root can always `PutBucketPolicy` on
+its own bucket. Still outside this: what `ci_runner` can do to resources *other*
+than this bucket with those pivot grants — tracked as a request to the other
+repo in the ADR follow-up.
 Rationale and the full contract:
 `docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md`.
 

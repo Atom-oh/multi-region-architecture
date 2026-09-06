@@ -16,41 +16,78 @@ variable "lock_table_name" {
   default     = "multi-region-mall-terraform-locks"
 }
 
-variable "state_custody_denials" {
+variable "protected_state_keys" {
   description = <<-EOT
-    Bucket-policy Deny map: IAM role name (in this account) -> state object keys
-    that role must not touch. The default is the production deny map below; set to {} explicitly to create no bucket policy at all.
+    State object keys (bucket-relative, S3 wildcards allowed) that only the
+    principals in `state_custody_appliers` may touch. The `env:/<workspace>/<key>`
+    variant of every key is added automatically (Terraform workspaces store
+    state under the bucket-root env:/ prefix, not under the key's own prefix).
+    Set to [] to create no bucket policy at all.
 
-    Use this for principals whose permissions are granted by a repo other than
-    this one, where an identity-policy Deny cannot reach them — the mgmt cluster's
-    CI runner role is the case this exists for. A resource-policy Deny beats any
-    identity Allow, including AWS-managed FullAccess policies.
+    This covers every layer this repo owns, `global/*`, and the eks-mgmt key
+    that AWS-Demo-Platform owns but stores in this bucket (ADR-003). It is
+    deliberately NOT a per-role map any more: a key→denied-role map is a
+    denylist, and a denylist is fail-open toward every principal it does not
+    name — see `state_custody_appliers`.
   EOT
-  type        = map(list(string))
-  default = {
-    # Owned by AWS-Demo-Platform/infra/eks-mgmt, pod-identity-bound to every
-    # self-hosted runner SA on the mgmt cluster, and carrying AmazonS3FullAccess
-    # + ReadOnlyAccess. Runner pods run PR code, so they must not reach state:
-    # shared/ carries Aurora and DocumentDB master passwords in plaintext.
-    #
-    # eks-mgmt's own key is denied too, not exempted (round-10 review MAJOR,
-    # confirmed): the original reasoning for exempting "its own layer" — "that
-    # repo owns and applies it" — conflates repo ownership with *this role's*
-    # authorization. Per the ADR, mall-apne2-mgmt-ci-runner is the self-hosted
-    # GitHub Actions runner role (bound to runner pods that execute PR code);
-    # the actual apply path for infra/eks-mgmt is that repo's Atlantis, a
-    # separate identity. ci_runner has no legitimate reason to read or write
-    # its own layer's state either, so leaving that one key open kept exactly
-    # the "state object with more than one writer" risk this whole bucket
-    # policy exists to close — just narrowed to one key instead of six.
-    "mall-apne2-mgmt-ci-runner" = [
-      "production/ap-northeast-2/shared/terraform.tfstate",
-      "production/ap-northeast-2/eks-mgmt/terraform.tfstate",
-      "production/ap-northeast-2/eks-az-a/terraform.tfstate",
-      "production/ap-northeast-2/eks-az-c/terraform.tfstate",
-      "production/us-east-1/*",
-      "production/us-west-2/*",
-      "global/*",
-    ]
-  }
+  type        = list(string)
+  default = [
+    "production/ap-northeast-2/shared/terraform.tfstate",
+    "production/ap-northeast-2/eks-mgmt/terraform.tfstate",
+    "production/ap-northeast-2/eks-az-a/terraform.tfstate",
+    "production/ap-northeast-2/eks-az-c/terraform.tfstate",
+    "production/us-east-1/*",
+    "production/us-west-2/*",
+    "global/*",
+  ]
+}
+
+variable "state_custody_appliers" {
+  description = <<-EOT
+    ALLOWLIST of IAM role names (path included, `*` allowed) in this account
+    whose sessions may read/write `protected_state_keys` and mutate this
+    bucket's own policy. The bucket policy denies `s3:*` on those keys — and
+    PutBucketPolicy & friends on the bucket — to every principal whose
+    `aws:PrincipalArn` matches none of these (StringNotLike). Role NAMES, not
+    ARNs: main.tf prefixes the account from data.aws_caller_identity so no
+    account ID is committed to this public repo.
+
+    Why an allowlist (round-13/14 review CRITICAL-2, 3/3 models, confirmed):
+    the previous denylist named mall-apne2-mgmt-ci-runner's role ARN. That
+    role can become a *different* principal ARN through its own
+    `sts:AssumeRole role/cdk-*` and `iam:PassRole role/* (ecs-tasks)` +
+    `ecs:RunTask` grants, and a Deny keyed on the listed ARN never matches
+    those sessions. An allowlist denies every principal it does not name, so
+    a pivot session is denied by construction. The runner role is therefore
+    deliberately absent below — do not add it.
+
+    ⚠ Self-lockout is the failure mode of an allowlist: a missing applier
+    blocks that layer's next apply until a listed principal (or the account
+    root, which can always PutBucketPolicy on its own bucket) fixes the list.
+    CloudTrail S3 data events are not enabled in this account, so this list
+    was assembled from the roles that exist in the account, not from access
+    logs — confirm it against reality before every apply that changes it
+    (ADR-003: the applier enumeration is a human decision, not an inference).
+    An empty list is refused by a precondition on the policy resource rather
+    than turned into a deny-everyone policy.
+  EOT
+  type        = list(string)
+  default = [
+    # This repo's layers, applied by humans/agents on the mgmt-vpc devbox
+    # (code-server EC2 instance profile) — what `aws sts get-caller-identity`
+    # returns for every plan/apply run from that box.
+    "mgmt-vpc-VSCode-Role",
+    "VSCodeAdminRole",
+    # This repo's CI applier (modules/security/iam/github-actions.tf).
+    "github-actions-role",
+    # AWS-Demo-Platform: its Atlantis applies infra/eks-mgmt (the one key in
+    # this bucket that repo owns), and its terraformer role.
+    "AtlantisIRSARole",
+    "DemoPlatformTerraformer",
+    # Human break-glass: IAM Identity Center AdministratorAccess permission set.
+    # The trailing hash is regenerated whenever the permission set is
+    # re-provisioned, so it is wildcarded — pinning it would silently lock the
+    # only human recovery path out after routine SSO maintenance.
+    "aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_AdministratorAccess_*",
+  ]
 }
