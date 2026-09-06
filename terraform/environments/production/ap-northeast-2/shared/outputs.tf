@@ -226,7 +226,7 @@ output "mgmt_cluster_security_group_id_override_value" {
 }
 
 output "break_glass_confirm" {
-  description = "Acknowledgment gate for mgmt_cluster_security_group_id_override — the break_glass_gate preconditions (this root and the mgmt-cluster-trust module) fail the plan if the override is set and this is not true. scripts/check-mgmt-guards.sh FAILs on the inverse (true with no override): a stale true silently pre-disarms the gate for the next override."
+  description = "Acknowledgment gate for mgmt_cluster_security_group_id_override — the break_glass_gate preconditions (this root and the mgmt-cluster-trust module) fail the plan if the override is set and this is not true — and, since round-16, also on the inverse (true with no override), because a stale true silently pre-disarms the gate for the next override. scripts/check-mgmt-guards.sh FAILs on the inverse post-hoc as a second layer."
   value       = var.break_glass_confirm
 }
 

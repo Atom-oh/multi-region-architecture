@@ -56,7 +56,9 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# State custody — only the principals that apply a layer may touch its state.
+# State custody — only the appliers of a layer may touch its state: this repo's
+# applier group on this repo's keys, the other repo's appliers on the one key
+# it owns, and nobody else.
 #
 # The identity policy on github-actions-role already denies the mgmt state key
 # (modules/security/iam/github-actions.tf, DenyAccessToExternallyOwnedState), but
@@ -85,21 +87,54 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
 # ─────────────────────────────────────────────────────────────────────────────
 
 locals {
+  account_id = data.aws_caller_identity.current.account_id
   # Role names -> ARNs, account prefixed at plan time (no account ID in git).
   state_custody_applier_arns = [
-    for r in var.state_custody_appliers :
-    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${r}"
+    for r in var.state_custody_appliers : "arn:aws:iam::${local.account_id}:role/${r}"
   ]
-  # Every protected key plus its env:/ workspace variant — same gap as the
-  # identity-policy Deny (github-actions.tf): a workspace object lives under
-  # the bucket-root env:/ prefix, not under the key's own prefix, so an
-  # exact-key-only list leaves it open to a second writer.
-  protected_state_resources = flatten([
-    for key in var.protected_state_keys : [
+  external_state_applier_arns = {
+    for key, roles in var.external_state_appliers :
+    key => [for r in roles : "arn:aws:iam::${local.account_id}:role/${r}"]
+  }
+  # Keys governed by this repo's applier group alone = protected minus external.
+  internal_state_keys = [
+    for key in var.protected_state_keys : key if !contains(keys(var.external_state_appliers), key)
+  ]
+  # Every key plus its env:/ workspace variant — same gap as the identity-policy
+  # Deny (github-actions.tf): a workspace object lives under the bucket-root
+  # env:/ prefix, not under the key's own prefix, so an exact-key-only list
+  # leaves it open to a second writer.
+  internal_state_resources = flatten([
+    for key in local.internal_state_keys : [
       "${aws_s3_bucket.terraform_state.arn}/${key}",
       "${aws_s3_bucket.terraform_state.arn}/env:/*/${key}",
     ]
   ])
+
+  # ── Self-lockout guard (round-16 review L2 MAJOR, confirmed) ──────────────
+  # Whoever runs `terraform apply` here must be on the allowlist: PutBucketPolicy
+  # would succeed and the very next call — writing this layer's own state under
+  # global/* — would be denied, leaving state and reality split and the caller
+  # without the permission to fix the policy (root only). aws:PrincipalArn is
+  # compared as the ROLE ARN with path, but the caller identity of an assumed
+  # role is `arn:aws:sts::<acct>:assumed-role/<RoleName>/<session>` — the path
+  # is dropped and the name is what remains — so the check normalises both
+  # sides to the role NAME and applies the applier patterns' `*` as a glob.
+  # Root (`arn:aws:iam::<acct>:root`) can always rewrite its own bucket policy
+  # and is accepted. IAM users are not appliers here and fail the check.
+  caller_resource = element(split(":", data.aws_caller_identity.current.arn), 5)
+  caller_role_name = (
+    startswith(local.caller_resource, "assumed-role/") ? split("/", local.caller_resource)[1] :
+    startswith(local.caller_resource, "role/") ? element(split("/", local.caller_resource), length(split("/", local.caller_resource)) - 1) :
+    null
+  )
+  applier_name_regexes = [
+    for r in var.state_custody_appliers :
+    "^${replace(replace(element(split("/", r), length(split("/", r)) - 1), ".", "\\."), "*", ".*")}$"
+  ]
+  caller_is_applier = local.caller_resource == "root" || (
+    local.caller_role_name != null && anytrue([for re in local.applier_name_regexes : can(regex(re, local.caller_role_name))])
+  )
 }
 
 resource "aws_s3_bucket_policy" "terraform_state" {
@@ -115,11 +150,21 @@ resource "aws_s3_bucket_policy" "terraform_state" {
       condition     = length(var.state_custody_appliers) > 0
       error_message = "state_custody_appliers is empty: this would deny every principal access to protected_state_keys (self-lockout). Set protected_state_keys = [] to disable the policy instead."
     }
+    # The principal applying this policy must be an applier, or it locks itself
+    # out of this layer's own state on the next call (see locals).
+    precondition {
+      condition     = local.caller_is_applier
+      error_message = "The current caller (${data.aws_caller_identity.current.arn}) matches none of state_custody_appliers. Applying this bucket policy would deny your own next state write under global/* and remove your permission to fix it (recovery: account root PutBucketPolicy). Add the caller's role to state_custody_appliers, or apply from a listed applier."
+    }
+    precondition {
+      condition     = alltrue([for k in keys(var.external_state_appliers) : contains(var.protected_state_keys, k)])
+      error_message = "Every key in external_state_appliers must also be listed in protected_state_keys — otherwise that key is not protected at all and the per-key allowlist is dead configuration."
+    }
   }
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       # Unconditional: nothing has a reason to reach state over plaintext HTTP,
       # and a state object in flight is the densest secret this account moves.
       {
@@ -136,7 +181,11 @@ resource "aws_s3_bucket_policy" "terraform_state" {
         }
       },
       # Object custody: deny s3:* on protected keys to every principal whose
-      # aws:PrincipalArn matches none of the applier patterns.
+      # aws:PrincipalArn matches none of the applier patterns. Object-level only
+      # by design: s3:ListBucket / ListBucketVersions on the bucket ARN stay
+      # open to non-appliers, so key names and version metadata are visible —
+      # contents are not (round-16 review L3 MINOR, accepted: other layers'
+      # appliers need to list their own prefixes and the leak is metadata).
       #
       # NotPrincipal is deliberately not used: it is famously easy to get wrong
       # (a role's assumed-role session ARN differs from the role ARN, so an
@@ -163,43 +212,62 @@ resource "aws_s3_bucket_policy" "terraform_state" {
         Effect    = "Deny"
         Principal = "*"
         Action    = "s3:*"
-        Resource  = local.protected_state_resources
+        Resource  = local.internal_state_resources
         Condition = {
           StringNotLike = {
             "aws:PrincipalArn" = local.state_custody_applier_arns
           }
         }
-      },
-      # The object Deny above is itself removable by a non-applier that holds
-      # s3:PutBucketPolicy/DeleteBucketPolicy on the bucket ARN (AmazonS3FullAccess
-      # does): object Denies don't protect the bucket's own policy document. So
-      # the same allowlist also guards policy/configuration mutation on the
-      # bucket ARN. Object-level read/write is governed above, not here, so a
-      # listed applier of a single layer is unaffected by this statement.
-      {
-        Sid       = "DenyBucketPolicyMutationExceptAppliers"
+      }],
+      # Externally-owned keys: this repo's appliers ∪ that repo's appliers, and
+      # nobody else — the other repo's roles are exempt HERE and only here, so
+      # they never reach shared/, the spokes, US or global/ state.
+      [for i, key in sort(keys(var.external_state_appliers)) : {
+        Sid       = "DenyExternalStateAccessExceptAppliers${i}"
         Effect    = "Deny"
         Principal = "*"
-        Action = [
-          "s3:PutBucketPolicy",
-          "s3:DeleteBucketPolicy",
-          "s3:PutBucketAcl",
-          "s3:PutBucketPublicAccessBlock",
-          "s3:PutLifecycleConfiguration",
-          "s3:PutBucketVersioning",
-          "s3:PutReplicationConfiguration",
-          "s3:PutEncryptionConfiguration",
-          "s3:PutBucketNotification",
-          "s3:DeleteBucket",
+        Action    = "s3:*"
+        Resource = [
+          "${aws_s3_bucket.terraform_state.arn}/${key}",
+          "${aws_s3_bucket.terraform_state.arn}/env:/*/${key}",
         ]
-        Resource = aws_s3_bucket.terraform_state.arn
         Condition = {
           StringNotLike = {
-            "aws:PrincipalArn" = local.state_custody_applier_arns
+            "aws:PrincipalArn" = concat(local.state_custody_applier_arns, local.external_state_applier_arns[key])
           }
         }
-      },
-    ]
+      }],
+      [
+        # The object Deny above is itself removable by a non-applier that holds
+        # s3:PutBucketPolicy/DeleteBucketPolicy on the bucket ARN (AmazonS3FullAccess
+        # does): object Denies don't protect the bucket's own policy document. So
+        # the same allowlist also guards policy/configuration mutation on the
+        # bucket ARN. Object-level read/write is governed above, not here, so a
+        # listed applier of a single layer is unaffected by this statement.
+        {
+          Sid       = "DenyBucketPolicyMutationExceptAppliers"
+          Effect    = "Deny"
+          Principal = "*"
+          Action = [
+            "s3:PutBucketPolicy",
+            "s3:DeleteBucketPolicy",
+            "s3:PutBucketAcl",
+            "s3:PutBucketPublicAccessBlock",
+            "s3:PutLifecycleConfiguration",
+            "s3:PutBucketVersioning",
+            "s3:PutReplicationConfiguration",
+            "s3:PutEncryptionConfiguration",
+            "s3:PutBucketNotification",
+            "s3:DeleteBucket",
+          ]
+          Resource = aws_s3_bucket.terraform_state.arn
+          Condition = {
+            StringNotLike = {
+              "aws:PrincipalArn" = local.state_custody_applier_arns
+            }
+          }
+        },
+    ])
   })
 }
 

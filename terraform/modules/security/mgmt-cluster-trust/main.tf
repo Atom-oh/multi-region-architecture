@@ -70,7 +70,14 @@ resource "terraform_data" "break_glass_gate" {
   # evaluated on every plan without it.
   lifecycle {
     precondition {
-      condition = var.mgmt_cluster_security_group_id == null || var.break_glass_confirm
+      # Both directions (round-16 review L3 MAJOR, confirmed): override set
+      # without confirm was already a plan failure; confirm=true with NO
+      # override is now one too. A stale confirm left behind after recovery
+      # pre-disarms this gate for the next override, and until this change
+      # only the manual check-mgmt-guards.sh noticed it — this repo's own
+      # rule is that a manual script is not a preventive control. The
+      # runbook already unsets both in the same change, so this costs nothing.
+      condition = (var.mgmt_cluster_security_group_id != null) == var.break_glass_confirm
       # Not a direct ${var.mgmt_cluster_security_group_id} interpolation:
       # verified empirically that Terraform evaluates a precondition's
       # error_message template even when the condition passes (and the value

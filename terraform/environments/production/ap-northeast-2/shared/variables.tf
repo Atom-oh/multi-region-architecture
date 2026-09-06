@@ -103,7 +103,7 @@ variable "tags" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# mgmt cluster trust inputs — all four live here, not in the spokes.
+# mgmt cluster trust inputs — all five live here, not in the spokes.
 #
 # Every one of them decides who may reach the workload API servers, and every one
 # is releasable from the environment with a TF_VAR_*. As per-spoke variables they

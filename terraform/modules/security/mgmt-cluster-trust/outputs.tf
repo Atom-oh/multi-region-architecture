@@ -9,7 +9,7 @@ output "released_guards" {
 }
 
 output "break_glass_confirm_engaged" {
-  description = "Whether break_glass_confirm was true on the last apply. Not part of released_guards (it is not a trust input — it doesn't change who is trusted), but it must be reported SOMEWHERE (round-12 review M2-2, confirmed): a confirm left true after recovery pre-disarms the break_glass_gate for the next override with no signal anywhere. scripts/check-mgmt-guards.sh FAILs on confirm-true-without-override."
+  description = "Whether break_glass_confirm was true on the last apply. Not part of released_guards (it is not a trust input — it doesn't change who is trusted), but it must be reported SOMEWHERE (round-12 review M2-2, confirmed): a confirm left true after recovery pre-disarms the break_glass_gate for the next override with no signal anywhere. Since round-16 the gate precondition itself fails the plan on confirm-true-without-override; scripts/check-mgmt-guards.sh (which reads shared/'s output, not this module's) FAILs on it post-hoc."
   value       = var.break_glass_confirm
 }
 

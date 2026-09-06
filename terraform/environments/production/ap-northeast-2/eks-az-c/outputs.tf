@@ -67,7 +67,7 @@ output "mgmt_trust_security_group_id" {
 }
 
 output "break_glass_confirm_engaged" {
-  description = "Whether break_glass_confirm was true on this spoke's last apply. Reported so a confirm left true after recovery (which would silently pre-disarm the break-glass gate for the next override) is visible — scripts/check-mgmt-guards.sh FAILs on confirm-true-without-override."
+  description = "Whether break_glass_confirm was true on this spoke's last apply. Reported so a confirm left true after recovery (which would silently pre-disarm the break-glass gate for the next override) is visible in this spoke's record. Prevention lives elsewhere: the break_glass_gate preconditions (shared/ and the mgmt-cluster-trust module) now fail the plan on confirm-true-without-override, and scripts/check-mgmt-guards.sh — which reads shared/'s break_glass_confirm output, not this one — FAILs on it post-hoc."
   value       = module.mgmt_trust.break_glass_confirm_engaged
 }
 

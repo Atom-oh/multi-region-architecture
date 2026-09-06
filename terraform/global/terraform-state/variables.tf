@@ -45,8 +45,12 @@ variable "protected_state_keys" {
 variable "state_custody_appliers" {
   description = <<-EOT
     ALLOWLIST of IAM role names (path included, `*` allowed) in this account
-    whose sessions may read/write `protected_state_keys` and mutate this
-    bucket's own policy. The bucket policy denies `s3:*` on those keys — and
+    whose sessions may read/write every key in `protected_state_keys` and
+    mutate this bucket's own policy — THIS repo's appliers. Appliers that
+    belong to another repo and may touch only the one key that repo owns go
+    in `external_state_appliers` instead (round-16 review L2/L5 MAJOR: a
+    single flat list gave the other repo's Atlantis access to this repo's
+    shared/ and US state, contradicting the "applier of a layer" claim). The bucket policy denies `s3:*` on those keys — and
     PutBucketPolicy & friends on the bucket — to every principal whose
     `aws:PrincipalArn` matches none of these (StringNotLike). Role NAMES, not
     ARNs: main.tf prefixes the account from data.aws_caller_identity so no
@@ -78,16 +82,41 @@ variable "state_custody_appliers" {
     # returns for every plan/apply run from that box.
     "mgmt-vpc-VSCode-Role",
     "VSCodeAdminRole",
-    # This repo's CI applier (modules/security/iam/github-actions.tf).
+    # This repo's CI plan path (modules/security/iam/github-actions.tf). CI
+    # does not apply here — every apply is a human on the devbox — but `plan`
+    # still reads state and takes the lock, so it must not be denied. Its own
+    # identity policy separately denies the eks-mgmt key (defense-in-depth).
     "github-actions-role",
-    # AWS-Demo-Platform: its Atlantis applies infra/eks-mgmt (the one key in
-    # this bucket that repo owns), and its terraformer role.
-    "AtlantisIRSARole",
-    "DemoPlatformTerraformer",
     # Human break-glass: IAM Identity Center AdministratorAccess permission set.
     # The trailing hash is regenerated whenever the permission set is
     # re-provisioned, so it is wildcarded — pinning it would silently lock the
     # only human recovery path out after routine SSO maintenance.
     "aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_AdministratorAccess_*",
   ]
+}
+
+variable "external_state_appliers" {
+  description = <<-EOT
+    Per-key allowlist for state objects another repo owns but stores in this
+    bucket: protected key -> IAM role names (same shape as
+    `state_custody_appliers`) that may touch THAT key only. On these keys the
+    Deny exempts `state_custody_appliers` ∪ the listed roles; on every other
+    protected key it exempts `state_custody_appliers` only. Keys here must
+    also appear in `protected_state_keys` (a precondition checks it).
+
+    This is what makes "only the principals that apply a layer may touch its
+    state" true at the repo boundary: AWS-Demo-Platform's appliers reach the
+    eks-mgmt key and nothing else in this bucket. Inside this repo's own set
+    of keys the boundary is still the applier GROUP, not one role per layer —
+    the same humans on the devbox apply shared/, the spokes and global/.
+  EOT
+  type        = map(list(string))
+  default = {
+    # ADR-003: infra/eks-mgmt is applied by that repo's Atlantis; its
+    # terraformer role is the other identity that repo uses for state.
+    "production/ap-northeast-2/eks-mgmt/terraform.tfstate" = [
+      "AtlantisIRSARole",
+      "DemoPlatformTerraformer",
+    ]
+  }
 }

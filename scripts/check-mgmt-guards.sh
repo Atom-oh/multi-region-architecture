@@ -119,6 +119,8 @@ if [ "$SELF_CHECK" = "1" ]; then
 https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown')" = "1" ] || { echo "self-check FAILED: argocd 미도달인데 FAIL 아님"; exit 1; }
   # stale 등록 오탐 방지: "mall-apne2-az-a-old" 가 이름 필드(두 번째)에 있어도
   # "mall-apne2-az-a" 로 오매칭되면 안 된다 — 실제로는 두 az 모두 미등록으로 FAIL.
+  [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a v1.30.0 Failed connection refused (was Successful)
+https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Successful')" = "1" ] || { echo "self-check FAILED: MESSAGE 컬럼의 Successful 이 STATUS 로 오판됨(round-16 L4)"; exit 1; }
   [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' 'https://mgmt-a.example:6443 mall-apne2-az-a-old v1.30.0 Successful
 https://mgmt-c.example:6443 mall-apne2-az-c-old v1.30.0 Successful')" = "1" ] || { echo "self-check FAILED: stale 등록(az-a-old)이 az-a 로 오매칭됨"; exit 1; }
   # 둘 다 [] 로 수렴해 보이지만 shared/ 에 이미 override 가 적용돼 있고 spoke 는 아직
@@ -165,7 +167,7 @@ https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' '
   # round-12 M2-1: 5개 trust 입력 전체를 덮는 fingerprint 가 shared↔spoke 에서
   # 갈리면(예: expected_mgmt_tags 만 shared 에 apply 되고 spoke 는 아직) FAIL.
   [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '' 'false' '"fp-stale"')" = "1" ] || { echo "self-check FAILED: fingerprint 미수렴(az-a stale)인데 FAIL 아님(M2-1)"; exit 1; }
-  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/shared-미수렴×2/expect-released-override/expect-released-mixed/expect-released-name/mgmt-down-분리/override-접미사-정규화/unknown-prefix-usage/stale-confirm/fingerprint-미수렴/mgmt-down-비대칭 모두 올바르게 판정)"
+  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/argocd-message-substring/shared-미수렴×2/expect-released-override/expect-released-mixed/expect-released-name/mgmt-down-분리/override-접미사-정규화/unknown-prefix-usage/stale-confirm/fingerprint-미수렴/mgmt-down-비대칭 모두 올바르게 판정)"
   exit 0
 fi
 
@@ -453,8 +455,10 @@ for AZ in a c; do
   LINE="$(printf '%s\n' "$ARGO_RAW" | awk -v n="mall-apne2-az-$AZ" '$2==n {print; exit}')"
   if [ -z "$LINE" ]; then
     argo_note "az-$AZ: argocd cluster list 에 등록되어 있지 않다(또는 위 명령 실패로 목록 자체를 못 받았다)."
-  elif ! printf '%s' "$LINE" | grep -q "Successful"; then
-    argo_note "az-$AZ: argocd 도달 상태가 Successful 이 아니다: $LINE"
+  # STATUS 는 4번째 필드다 — 행 전체 grep 은 MESSAGE 컬럼의 "Successful" (예: "Failed
+  # ... previously Successful") 을 성공으로 오판한다(round-16 리뷰 L4 MINOR).
+  elif [ "$(printf '%s\n' "$LINE" | awk '{print $4}')" != "Successful" ]; then
+    argo_note "az-$AZ: argocd 도달 상태(STATUS 필드)가 Successful 이 아니다: $LINE"
   else
     echo "OK   az-$AZ: argocd 도달 확인 (Successful)."
   fi

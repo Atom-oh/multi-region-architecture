@@ -83,6 +83,16 @@ those sessions by construction (ADR round-15). `ci_runner` is deliberately not
 an applier: it is the self-hosted runner role that executes PR code, not the
 Atlantis identity that actually applies `infra/eks-mgmt`.
 
+What the boundary actually is (round-16 review L2/L5): the other repo's
+appliers (`external_state_appliers`) are exempt on the `eks-mgmt` key **only**;
+this repo's applier group (`state_custody_appliers`) is exempt on every
+protected key. Between this repo's own layers the boundary is the group, not
+one role per layer — the same humans on the devbox apply `shared/`, both spokes
+and `global/`, so per-layer roles would be theatre. The `apply` here also
+refuses to run from a principal that is not on the list (a `precondition`
+normalises the caller's assumed-role ARN to a role name and globs it against
+the list), so the policy cannot lock out the hand that applies it.
+
 The allowlist's failure mode is the mirror image — a missing applier is locked
 out loudly (its next plan/apply fails on state access) instead of the target
 slipping through silently. Confirm `state_custody_appliers` against the account
@@ -318,8 +328,12 @@ terraform apply
 (cd ../eks-az-a && terraform apply)
 (cd ../eks-az-c && terraform apply)
 
-# 3. verify both actually moved
+# 3. verify both actually moved — pick the line for YOUR trigger (round-16 L4):
+#    mgmt is down / mgmt was moved (ArgoCD genuinely unreachable from here):
 bash ../../../../../scripts/check-mgmt-guards.sh --expect-released=mgmt_cluster_security_group_id --mgmt-down
+#    `eks:DescribeCluster` fails but mgmt + ArgoCD are alive — NO --mgmt-down,
+#    so a rollback channel that is actually broken still FAILs:
+bash ../../../../../scripts/check-mgmt-guards.sh --expect-released=mgmt_cluster_security_group_id
 ```
 
 Use `--expect-released=mgmt_cluster_security_group_id` here, not the plain
@@ -380,7 +394,9 @@ referencing settings, so if mgmt moves to a VPC reachable only via TGW the
 option is `""` plus a different GitOps route.
 
 Unset both `mgmt_cluster_security_group_id_override` and `break_glass_confirm`
-once mgmt is back, apply all three again, and re-run
+**in the same change** once mgmt is back (the gate now fails the plan if only
+one is unset — a confirm left `true` alone would pre-disarm the next override),
+apply all three again, and re-run
 `scripts/check-mgmt-guards.sh` (plain form, no `--expect-released` now) — the
 guards should report clean. The script also FAILs on a `break_glass_confirm`
 left `true` after the override is unset (round-12 review M2-2): confirm is not

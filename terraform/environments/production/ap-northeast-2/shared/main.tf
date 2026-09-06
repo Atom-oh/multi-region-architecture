@@ -587,8 +587,15 @@ resource "terraform_data" "break_glass_gate" {
   # every plan regardless of input.
   lifecycle {
     precondition {
-      condition     = var.mgmt_cluster_security_group_id_override == null || var.break_glass_confirm
-      error_message = "mgmt_cluster_security_group_id_override=${var.mgmt_cluster_security_group_id_override != null ? var.mgmt_cluster_security_group_id_override : "(none)"} is set (break-glass engaged) but break_glass_confirm is not true. Set break_glass_confirm = true in the same shared/terraform.tfvars change as the override to acknowledge you intend to change production API-server ingress trust."
+      # Both directions (round-16 review L3 MAJOR, confirmed): override set
+      # without confirm was already a plan failure; confirm=true with NO
+      # override is now one too. A stale confirm left behind after recovery
+      # pre-disarms this gate for the next override, and until this change
+      # only the manual check-mgmt-guards.sh noticed it — this repo's own
+      # rule is that a manual script is not a preventive control. The
+      # runbook already unsets both in the same change, so this costs nothing.
+      condition     = (var.mgmt_cluster_security_group_id_override != null) == var.break_glass_confirm
+      error_message = "mgmt_cluster_security_group_id_override=${var.mgmt_cluster_security_group_id_override != null ? var.mgmt_cluster_security_group_id_override : "(none)"}  and break_glass_confirm=${var.break_glass_confirm} disagree. Engaging: set break_glass_confirm = true in the same shared/terraform.tfvars change as the override to acknowledge you intend to change production API-server ingress trust. Recovering: unset BOTH in the same change — a confirm left true with no override would silently pre-disarm this gate for the next override."
     }
   }
 }

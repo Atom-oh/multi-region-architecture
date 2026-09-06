@@ -300,7 +300,40 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    `PutBucketPolicy` 로 항상 가능하지만 수동). 실패 방향은 denylist 의 거울상이다 —
    오타는 조용히 열리는 대신 **크게 닫힌다**. 빈 allowlist 는 리소스의
    `precondition` 이 거부한다(전원 lockout 정책을 만들지 않는다). `ci_runner` 는
-   의도적으로 목록에 없다. 이 반전으로 아래 follow-up 1 의 "pivot 경로 미차단"
+   의도적으로 목록에 없다.
+
+   **round-16 수정(L2/L3/L4/L5 MAJOR 4건).** ① **적용자 self-lockout 을 plan-time 에
+   막는다**: allowlist 밖의 principal 이 이 레이어를 apply 하면 `PutBucketPolicy` 는
+   성공하고 직후 자기 state 저장(`global/*`)이 Deny 되어 state–실물이 갈라지며 정책을
+   고칠 권한도 잃는다 — 문서 경고로만 남겨 둔 것은 이 ADR 자신의 "문서 경고는 통제가
+   아니다" 원칙에 걸렸다. 이제 `precondition` 이 `data.aws_caller_identity.current.arn`
+   을 role 이름으로 정규화(assumed-role 세션 ARN 은 path 를 잃고 이름만 남는다)해
+   applier 패턴과 glob 대조한다. root 는 통과, IAM user 는 실패. ② **custody 주장을
+   구현에 맞춘다**: 단일 전역 목록은 외부 repo 의 Atlantis 를 이 repo 의 shared/·US
+   state Deny 에서도 제외했다. `external_state_appliers`(key → role) 로 분리해 외부
+   repo 의 role 은 **eks-mgmt key 에서만** 제외되고, 이 repo 의 applier 집단은 전 key 에서
+   제외된다. 이 repo 레이어 사이의 경계는 "집단" 이지 "레이어당 role 1개" 가 아니다 —
+   같은 devbox 사람이 shared/·spoke·global/ 을 모두 apply 하므로 그 이상은 연극이다.
+   아래 Consequences 의 "state 객체당 writer 1명" 은 이 수위로 정정했다. ③ stale
+   `break_glass_confirm` 을 plan-time 에 막는다: 두 `break_glass_gate` 의 조건을
+   `(override != null) == confirm` 으로 바꿔 confirm=true·override 없음도 plan 실패다
+   (runbook 의 "둘을 같이 unset" 과 정합). ④ break-glass runbook step 3 의 커맨드
+   블록이 세 트리거 모두에 `--mgmt-down` 을 붙여 본문 지침과 모순됐다 — 트리거별 두
+   커맨드로 분리. 부수: argocd 상태 판정을 STATUS 필드 기준으로(MESSAGE 컬럼의
+   "Successful" 오판, self-check 추가), "all four"→"all five", `github-actions-role` 은
+   "CI applier" 가 아니라 "CI plan 경로(state read)".
+
+   **적용 순서**(이 PR 은 정책을 apply 하지 않는다): ⓐ 머지 → ⓑ `state_custody_appliers`
+   / `external_state_appliers` 를 계정의 실제 role 과 대조해 사람이 확정 → ⓒ devbox
+   (`mgmt-vpc-VSCode-Role`) 에서 `terraform/global/terraform-state` `plan` — caller
+   precondition 이 통과하는지가 첫 확인 — 후 `apply` → ⓓ 검증: runner pod 에서
+   `aws s3api head-object --bucket multi-region-mall-terraform-state --key
+   production/ap-northeast-2/shared/terraform.tfstate` → AccessDenied, devbox 에서
+   같은 명령 → 200. 이 순서를 밟기 전까지 ADR 의 "closed here" 는 코드상 닫힌 것이고
+   계정에서 닫힌 것이 아니다. **후속**: DynamoDB lock 테이블은 여전히 identity Deny
+   (`github-actions-role`) 에만 있고 allowlist 대응물이 없다 — `ci_runner` 의 현재 권한
+   셋에는 DynamoDB write 가 없어 즉시 경로는 없지만, DynamoDB resource-based policy 로
+   같은 allowlist 를 lock row 에 대칭 적용하는 것이 다음 항목이다. 이 반전으로 아래 follow-up 1 의 "pivot 경로 미차단"
    서술은 **이 버킷에 대해서는** 해소됐다(외부 repo 권한 축소 요청은 defense-in-depth
    로 유지).
 
@@ -404,8 +437,12 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 
 **얻는 것**
 
-- state 객체당 writer 1명. CI 경로(= `github-actions-role`)에서는 동시 apply로 state가
-  깨질 경로가 IAM으로 차단된다. 사람의 admin 세션은 관례로만 막힌다.
+- state 객체는 **그 레이어의 applier 집단** 만 쓴다: 이 repo 의 key 는 이 repo 의
+  applier 집단(devbox role, CI plan role, SSO admin) 만, eks-mgmt key 는 그 집단 ∪
+  외부 repo 의 Atlantis/terraformer 만, 그 외 전원(`ci_runner` 와 그것이 pivot 하는
+  세션 포함) 은 버킷 정책으로 Deny. CI 경로(= `github-actions-role`)에서는 동시 apply로
+  state가 깨질 경로가 IAM으로 추가 차단된다. 집단 **내부**의 "레이어당 writer 1명" 은
+  절차(runbook) 로만 보장된다 — round-16 에서 주장 수위를 여기로 낮췄다.
 - cross-repo state 스키마 의존 제거. mgmt 레이어 리팩터링이 이 repo를 깨뜨리지 않는다.
 - 이름 스쿼팅으로 trust boundary를 넘는 경로가 VPC assert로 막힌다. 태그 assert는
   보조 신호에 가깝다 — 태그는 클러스터를 만드는 주체가 임의로 설정할 수 있으므로,
