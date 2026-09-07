@@ -326,6 +326,12 @@ resource "aws_s3_bucket_policy" "terraform_state" {
         # the same allowlist also guards policy/configuration mutation on the
         # bucket ARN. Object-level read/write is governed above, not here, so a
         # listed applier of a single layer is unaffected by this statement.
+        # Known consequence (round-21 review L3 MAJOR, accepted): the applier
+        # group can rewrite this document and thereby reach keys it is denied
+        # on directly (eks-mgmt). The group that applies this layer must be able
+        # to PutBucketPolicy (see caller_is_applier), so the boundary is "one
+        # auditable policy edit away", not "impossible"; a CloudTrail alarm on
+        # PutBucketPolicy/DeleteBucketPolicy for this bucket is the follow-up.
         {
           Sid       = "DenyBucketPolicyMutationExceptAppliers"
           Effect    = "Deny"

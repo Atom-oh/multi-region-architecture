@@ -358,7 +358,7 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    버킷 read/write) 보다 대폭 축소이고 노출 비밀번호는 2026-08-19 로테이션됐지만,
    **follow-up 0(a) `manage_master_user_password = true` 전환(또는 sanitized handoff —
    output 전용 state / SSM) 이 끝나면 이 grant 를 재검토·축소한다**는 것을 만기 조건으로
-   여기와 변수 설명에 고정한다.
+   여기와 변수 설명에 고정한다. 기한은 round-21 ③ (2026-10-31).
 
    **round-20 수정(MAJOR 2).** ① reader grant 에서 `s3:GetObjectVersion` 을 제거했다 —
    `terraform_remote_state`/plan 은 현재 객체의 `GetObject` 만 쓰고, 버전 이력 read 는
@@ -513,7 +513,8 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
   role, SSO admin) 만 **쓰고**, `state_custody_readers`(CI plan 경로 `github-actions-role`)
   가 추가로 **읽는다**; (2) eks-mgmt key 는 **정확히** `external_state_appliers`(외부
   repo 의 Atlantis/terraformer + 사람 break-glass 인 SSO admin) 만 쓰고 읽는다 — 이 repo
-  의 devbox 집단은 제외; (3) shared/ key 는 (1) 에 더해 `external_state_readers`(Atlantis/
+  의 devbox 집단은 **직접 접근** 제외(정책 편집이라는 감사 가능한 한 단계를 거치면
+  도달 가능 — round-21 ④); (3) shared/ key 는 (1) 에 더해 `external_state_readers`(Atlantis/
   terraformer) 가 **읽기만** 한다(frozen 6-output 계약; 만기 조건은 round-18 참조). 그 외
   전원(`ci_runner` 와 그것이 pivot 하는 세션 포함) 은 버킷 정책으로 Deny. CI 경로에서는
   동시 apply 로 state 가 깨질 경로가 IAM 으로 추가 차단된다. 집단 **내부**의 "레이어당

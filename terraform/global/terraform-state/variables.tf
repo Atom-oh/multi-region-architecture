@@ -158,6 +158,7 @@ variable "external_state_readers" {
     and narrowed (or removed in favour of a sanitized handoff — dedicated
     output-only state or SSM parameters) when ADR-003 follow-up 0(a)
     `manage_master_user_password = true` lands and the plaintext leaves state.
+    Deadline for that follow-up: 2026-10-31 (ADR-003 round-21).
   EOT
   type        = map(list(string))
   default = {
