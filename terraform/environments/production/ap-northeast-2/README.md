@@ -49,9 +49,11 @@ shorter list is a bypassable list. `shared/main.tf` only passes the key list
 (`externally_owned_state_keys`); the statements themselves live in
 `terraform/modules/security/iam/github-actions.tf`.
 
-That is one principal, not a boundary. A human with admin credentials, or any
-other role, is still free to write the object — the lock-row Deny does not
-follow them either — and nothing here restricts the mgmt resources themselves.
+That is one principal, not a boundary. Before the bucket policy below existed,
+a human with admin credentials, or any other role, was still free to write the
+object — the lock-row Deny did not follow them either — and nothing here
+restricts the mgmt resources themselves. (The lock-row part is still true: the
+DynamoDB table has no allowlist yet, ADR-003 tracks it.)
 One such role was concrete and lives next door: the `ci_runner` role that
 `AWS-Demo-Platform` now owns has `AmazonS3FullAccess` (and `ReadOnlyAccess`)
 attached and is bound by pod identity to ten runner service accounts — so any CI
@@ -83,15 +85,24 @@ those sessions by construction (ADR round-15). `ci_runner` is deliberately not
 an applier: it is the self-hosted runner role that executes PR code, not the
 Atlantis identity that actually applies `infra/eks-mgmt`.
 
-What the boundary actually is (round-16 review L2/L5): the other repo's
-appliers (`external_state_appliers`) are exempt on the `eks-mgmt` key **only**;
-this repo's applier group (`state_custody_appliers`) is exempt on every
-protected key. Between this repo's own layers the boundary is the group, not
-one role per layer — the same humans on the devbox apply `shared/`, both spokes
-and `global/`, so per-layer roles would be theatre. The `apply` here also
-refuses to run from a principal that is not on the list (a `precondition`
-normalises the caller's assumed-role ARN to a role name and globs it against
-the list), so the policy cannot lock out the hand that applies it.
+What the boundary actually is (round-16/17 review): three groups of keys.
+The `eks-mgmt` key is writable by **exactly** `external_state_appliers` (the
+other repo's Atlantis + terraformer, plus the SSO administrator permission set
+as the one human break-glass — a recorded decision, ADR-003 round-17) and by
+nobody in this repo's devbox group. The `shared/` key is writable by this
+repo's applier group only, and additionally **readable** by
+`external_state_readers` — the six frozen outputs the other repo consumes via
+`terraform_remote_state`; round-16 forgot that read and would have broken the
+other repo's every plan on first apply. Every other protected key is this
+repo's applier group only. Between this repo's own layers the boundary is the
+group, not one role per layer — the same humans on the devbox apply `shared/`,
+both spokes and `global/`, so per-layer roles would be theatre. The `apply`
+here also refuses to run from a principal that is not on the list: a
+`precondition` resolves the caller's role to its full ARN with path
+(`iam:GetRole`) and globs it against the same patterns the policy uses, and it
+rejects root outright (the object Deny has no root exemption, so a root apply
+would split policy and state) — so the policy cannot lock out the hand that
+applies it.
 
 The allowlist's failure mode is the mirror image — a missing applier is locked
 out loudly (its next plan/apply fails on state access) instead of the target

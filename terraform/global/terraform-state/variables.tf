@@ -98,23 +98,44 @@ variable "state_custody_appliers" {
 variable "external_state_appliers" {
   description = <<-EOT
     Per-key allowlist for state objects another repo owns but stores in this
-    bucket: protected key -> IAM role names (same shape as
-    `state_custody_appliers`) that may touch THAT key only. On these keys the
-    Deny exempts `state_custody_appliers` ∪ the listed roles; on every other
-    protected key it exempts `state_custody_appliers` only. Keys here must
-    also appear in `protected_state_keys` (a precondition checks it).
-
-    This is what makes "only the principals that apply a layer may touch its
-    state" true at the repo boundary: AWS-Demo-Platform's appliers reach the
-    eks-mgmt key and nothing else in this bucket. Inside this repo's own set
-    of keys the boundary is still the applier GROUP, not one role per layer —
-    the same humans on the devbox apply shared/, the spokes and global/.
+    bucket: protected key -> the COMPLETE list of IAM role names that may
+    touch THAT key. `state_custody_appliers` is NOT added to it (round-17
+    review L2/L3/L4 MAJOR: this repo's devbox roles have no reason to write
+    the eks-mgmt layer's state — that layer is applied by the other repo's
+    Atlantis — and letting them keeps the "re-apply from a pre-deletion
+    checkout" split-brain path open). If a break-glass identity should keep
+    access to an external key, list it here explicitly; the default keeps the
+    SSO administrator permission set as the one human recovery path and
+    records that choice in ADR-003. Keys here must also appear in
+    `protected_state_keys` (a precondition checks it).
   EOT
   type        = map(list(string))
   default = {
     # ADR-003: infra/eks-mgmt is applied by that repo's Atlantis; its
-    # terraformer role is the other identity that repo uses for state.
+    # terraformer role is the other identity that repo uses for state. The
+    # SSO admin entry is the human break-glass (ADR-003 round-17 decision).
     "production/ap-northeast-2/eks-mgmt/terraform.tfstate" = [
+      "AtlantisIRSARole",
+      "DemoPlatformTerraformer",
+      "aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_AdministratorAccess_*",
+    ]
+  }
+}
+
+variable "external_state_readers" {
+  description = <<-EOT
+    Per-key READ-ONLY allowlist: protected key -> IAM role names outside this
+    repo that may `s3:GetObject`/`GetObjectVersion` that key but not write it.
+    This is the frozen cross-repo contract from ADR-003: AWS-Demo-Platform's
+    infra/eks-mgmt reads six outputs from shared/ via terraform_remote_state.
+    round-16 forgot it and denied that read outright — the first apply of the
+    policy would have broken every plan in the other repo (round-17 review
+    CRITICAL, confirmed). Writes to these keys stay with
+    `state_custody_appliers` only. Keys must also be in `protected_state_keys`.
+  EOT
+  type        = map(list(string))
+  default = {
+    "production/ap-northeast-2/shared/terraform.tfstate" = [
       "AtlantisIRSARole",
       "DemoPlatformTerraformer",
     ]

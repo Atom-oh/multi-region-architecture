@@ -96,9 +96,16 @@ locals {
     for key, roles in var.external_state_appliers :
     key => [for r in roles : "arn:aws:iam::${local.account_id}:role/${r}"]
   }
-  # Keys governed by this repo's applier group alone = protected minus external.
+  external_state_reader_arns = {
+    for key, roles in var.external_state_readers :
+    key => [for r in roles : "arn:aws:iam::${local.account_id}:role/${r}"]
+  }
+  state_read_actions = ["s3:GetObject", "s3:GetObjectVersion"]
+  # Keys governed by this repo's applier group alone = protected minus the
+  # externally-applied and the externally-read ones (each gets its own Sid).
   internal_state_keys = [
-    for key in var.protected_state_keys : key if !contains(keys(var.external_state_appliers), key)
+    for key in var.protected_state_keys : key
+    if !contains(keys(var.external_state_appliers), key) && !contains(keys(var.external_state_readers), key)
   ]
   # Every key plus its env:/ workspace variant — same gap as the identity-policy
   # Deny (github-actions.tf): a workspace object lives under the bucket-root
@@ -111,30 +118,40 @@ locals {
     ]
   ])
 
-  # ── Self-lockout guard (round-16 review L2 MAJOR, confirmed) ──────────────
+  # ── Self-lockout guard (round-16 review L2 MAJOR; tightened round-17) ─────
   # Whoever runs `terraform apply` here must be on the allowlist: PutBucketPolicy
   # would succeed and the very next call — writing this layer's own state under
   # global/* — would be denied, leaving state and reality split and the caller
-  # without the permission to fix the policy (root only). aws:PrincipalArn is
-  # compared as the ROLE ARN with path, but the caller identity of an assumed
-  # role is `arn:aws:sts::<acct>:assumed-role/<RoleName>/<session>` — the path
-  # is dropped and the name is what remains — so the check normalises both
-  # sides to the role NAME and applies the applier patterns' `*` as a glob.
-  # Root (`arn:aws:iam::<acct>:root`) can always rewrite its own bucket policy
-  # and is accepted. IAM users are not appliers here and fail the check.
+  # without the permission to fix the policy. The caller identity of an assumed
+  # role is `arn:aws:sts::<acct>:assumed-role/<RoleName>/<session>` — no path —
+  # while aws:PrincipalArn is evaluated against the role ARN WITH path, so the
+  # round-16 name-only glob let a path typo in the applier list (the SSO
+  # `aws-reserved/...` entry is the obvious one) pass the plan and lock that
+  # applier out at runtime (round-17 review L3 MAJOR). Now the role name is
+  # resolved back to its full ARN with `iam:GetRole` and compared against the
+  # same ARN patterns the policy uses, `*` as a glob. Root is REJECTED, not
+  # accepted (round-17 L4 MAJOR): the object Deny has no root exemption, so
+  # applying as root would split policy and state exactly as described above.
+  # Root's ability to PutBucketPolicy remains the manual recovery path only.
   caller_resource = element(split(":", data.aws_caller_identity.current.arn), 5)
   caller_role_name = (
     startswith(local.caller_resource, "assumed-role/") ? split("/", local.caller_resource)[1] :
     startswith(local.caller_resource, "role/") ? element(split("/", local.caller_resource), length(split("/", local.caller_resource)) - 1) :
     null
   )
-  applier_name_regexes = [
-    for r in var.state_custody_appliers :
-    "^${replace(replace(element(split("/", r), length(split("/", r)) - 1), ".", "\\."), "*", ".*")}$"
+  caller_role_arn = local.caller_role_name == null ? null : one(data.aws_iam_role.caller[*].arn)
+  applier_arn_regexes = [
+    for a in local.state_custody_applier_arns : "^${replace(replace(a, ".", "\\."), "*", ".*")}$"
   ]
-  caller_is_applier = local.caller_resource == "root" || (
-    local.caller_role_name != null && anytrue([for re in local.applier_name_regexes : can(regex(re, local.caller_role_name))])
-  )
+  caller_is_applier = local.caller_role_arn != null && anytrue([
+    for re in local.applier_arn_regexes : can(regex(re, local.caller_role_arn))
+  ])
+}
+
+# Resolves the calling role's full ARN (with path) — see caller_is_applier.
+data "aws_iam_role" "caller" {
+  count = local.caller_role_name == null ? 0 : 1
+  name  = local.caller_role_name
 }
 
 resource "aws_s3_bucket_policy" "terraform_state" {
@@ -154,11 +171,15 @@ resource "aws_s3_bucket_policy" "terraform_state" {
     # out of this layer's own state on the next call (see locals).
     precondition {
       condition     = local.caller_is_applier
-      error_message = "The current caller (${data.aws_caller_identity.current.arn}) matches none of state_custody_appliers. Applying this bucket policy would deny your own next state write under global/* and remove your permission to fix it (recovery: account root PutBucketPolicy). Add the caller's role to state_custody_appliers, or apply from a listed applier."
+      error_message = "The current caller (${data.aws_caller_identity.current.arn}, role ARN ${coalesce(local.caller_role_arn, "n/a — not a role; root and IAM users may not apply this layer")}) matches none of state_custody_appliers (compared as full role ARNs with path). Applying this bucket policy would deny your own next state write under global/* and remove your permission to fix it (recovery: account root PutBucketPolicy). Add the caller's role to state_custody_appliers, or apply from a listed applier."
     }
     precondition {
-      condition     = alltrue([for k in keys(var.external_state_appliers) : contains(var.protected_state_keys, k)])
-      error_message = "Every key in external_state_appliers must also be listed in protected_state_keys — otherwise that key is not protected at all and the per-key allowlist is dead configuration."
+      condition     = alltrue([for k in concat(keys(var.external_state_appliers), keys(var.external_state_readers)) : contains(var.protected_state_keys, k)])
+      error_message = "Every key in external_state_appliers / external_state_readers must also be listed in protected_state_keys — otherwise that key is not protected at all and the per-key allowlist is dead configuration."
+    }
+    precondition {
+      condition     = length(setintersection(toset(keys(var.external_state_appliers)), toset(keys(var.external_state_readers)))) == 0
+      error_message = "A key cannot be in both external_state_appliers and external_state_readers — decide whether the other repo applies it or only reads it."
     }
   }
 
@@ -219,9 +240,12 @@ resource "aws_s3_bucket_policy" "terraform_state" {
           }
         }
       }],
-      # Externally-owned keys: this repo's appliers ∪ that repo's appliers, and
-      # nobody else — the other repo's roles are exempt HERE and only here, so
-      # they never reach shared/, the spokes, US or global/ state.
+      # Externally-APPLIED keys: exactly the roles listed for that key, nobody
+      # else — not this repo's appliers either (round-17 L2/L3/L4 MAJOR: the
+      # other repo's Atlantis applies eks-mgmt; a devbox re-apply from a
+      # pre-deletion checkout is the split-brain this ADR exists to prevent).
+      # The other repo's roles are exempt HERE and only here, so they never
+      # reach the spokes, US or global/ state.
       [for i, key in sort(keys(var.external_state_appliers)) : {
         Sid       = "DenyExternalStateAccessExceptAppliers${i}"
         Effect    = "Deny"
@@ -233,7 +257,42 @@ resource "aws_s3_bucket_policy" "terraform_state" {
         ]
         Condition = {
           StringNotLike = {
-            "aws:PrincipalArn" = concat(local.state_custody_applier_arns, local.external_state_applier_arns[key])
+            "aws:PrincipalArn" = local.external_state_applier_arns[key]
+          }
+        }
+      }],
+      # Externally-READ keys (the frozen shared/ output contract, ADR-003): two
+      # statements per key. Everything but GetObject* is denied to non-appliers
+      # of this repo; GetObject* is denied to everyone who is neither one of
+      # this repo's appliers nor a listed reader. round-16 denied the read too
+      # and would have broken the other repo's every plan (round-17 CRITICAL).
+      [for i, key in sort(keys(var.external_state_readers)) : {
+        Sid       = "DenySharedStateWriteExceptAppliers${i}"
+        Effect    = "Deny"
+        Principal = "*"
+        NotAction = local.state_read_actions
+        Resource = [
+          "${aws_s3_bucket.terraform_state.arn}/${key}",
+          "${aws_s3_bucket.terraform_state.arn}/env:/*/${key}",
+        ]
+        Condition = {
+          StringNotLike = {
+            "aws:PrincipalArn" = local.state_custody_applier_arns
+          }
+        }
+      }],
+      [for i, key in sort(keys(var.external_state_readers)) : {
+        Sid       = "DenySharedStateReadExceptAppliersAndReaders${i}"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = local.state_read_actions
+        Resource = [
+          "${aws_s3_bucket.terraform_state.arn}/${key}",
+          "${aws_s3_bucket.terraform_state.arn}/env:/*/${key}",
+        ]
+        Condition = {
+          StringNotLike = {
+            "aws:PrincipalArn" = concat(local.state_custody_applier_arns, local.external_state_reader_arns[key])
           }
         }
       }],

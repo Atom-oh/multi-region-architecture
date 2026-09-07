@@ -323,13 +323,38 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    "Successful" 오판, self-check 추가), "all four"→"all five", `github-actions-role` 은
    "CI applier" 가 아니라 "CI plan 경로(state read)".
 
+   **round-17 수정(CRITICAL 1 + MAJOR 3).** ① **CRITICAL — round-16 이 cross-repo read
+   계약을 끊었다.** 이 ADR 자신이 "infra/eks-mgmt 는 shared/ state 의 6개 output 을
+   `terraform_remote_state` 로 읽는다(frozen contract)" 고 선언하는데, round-16 의 분리는
+   shared key 를 internal 로 두어 Atlantis 의 `s3:GetObject` 까지 Deny 했다 — 정책을
+   apply 한 순간 외부 repo 의 모든 plan 이 깨진다. `external_state_readers`(key → role,
+   기본값 shared key → Atlantis/terraformer) 를 추가하고 shared key 에는 문장 두 개를
+   둔다: `NotAction GetObject*` Deny(이 repo applier 외 전원) + `GetObject*` Deny(applier
+   ∪ reader 외 전원). 쓰기는 여전히 이 repo 만. ② **eks-mgmt key 의 예외에서 이 repo
+   applier 집단을 제거했다.** "같은 사람이 전 레이어를 apply 한다" 는 이 repo 내부에만
+   성립하고 eks-mgmt 는 Atlantis 가 apply 한다 — devbox 가 삭제 전 checkout 에서 재apply
+   하는 split-brain 이 바로 이 ADR 이 막는 것이다. **결정**: SSO AdministratorAccess
+   permission set 은 사람 break-glass 로 eks-mgmt key 에 남긴다(명시적으로
+   `external_state_appliers` 에 등재; devbox instance role 은 남기지 않는다). ③ caller
+   precondition 을 **path 포함 full ARN** 대조로 바꿨다 — assumed-role 세션 ARN 은 path 를
+   잃으므로 role 이름을 `iam:GetRole` 로 되찾아 정책이 쓰는 것과 같은 ARN 패턴에 glob
+   대조한다. 이름만 대조하던 round-16 은 SSO 항목의 path 오타를 plan 에서 통과시키고
+   런타임에 잠갔다. ④ root 는 precondition 에서 **거부**한다 — object Deny 에 root 예외가
+   없으므로 root apply 는 정책–state 분리를 만든다(round-16 이 막겠다고 쓴 바로 그
+   양식). root 의 `PutBucketPolicy` 는 수동 복구 경로로만 남는다. 부수: README 의 "any
+   other role is still free to write" 를 과거형으로, References 에 이 통제의 구현 파일
+   추가. `mgmt_trust_fingerprint` 에 effective VPC ID 를 넣는 제안은 후속으로 남긴다
+   (shared VPC 교체는 사실상 리전 재구축이라 spoke 재apply 가 다른 경로로 강제된다).
+
    **적용 순서**(이 PR 은 정책을 apply 하지 않는다): ⓐ 머지 → ⓑ `state_custody_appliers`
    / `external_state_appliers` 를 계정의 실제 role 과 대조해 사람이 확정 → ⓒ devbox
    (`mgmt-vpc-VSCode-Role`) 에서 `terraform/global/terraform-state` `plan` — caller
    precondition 이 통과하는지가 첫 확인 — 후 `apply` → ⓓ 검증: runner pod 에서
    `aws s3api head-object --bucket multi-region-mall-terraform-state --key
    production/ap-northeast-2/shared/terraform.tfstate` → AccessDenied, devbox 에서
-   같은 명령 → 200. 이 순서를 밟기 전까지 ADR 의 "closed here" 는 코드상 닫힌 것이고
+   같은 명령 → 200, **그리고 Atlantis(`AtlantisIRSARole`) 로 같은 `head-object` → 200**
+   (round-17 CRITICAL 의 회귀 검증 — 외부 repo 의 shared/ read 계약이 살아 있는지),
+   같은 role 로 `put-object` → AccessDenied. 이 순서를 밟기 전까지 ADR 의 "closed here" 는 코드상 닫힌 것이고
    계정에서 닫힌 것이 아니다. **후속**: DynamoDB lock 테이블은 여전히 identity Deny
    (`github-actions-role`) 에만 있고 allowlist 대응물이 없다 — `ci_runner` 의 현재 권한
    셋에는 DynamoDB write 가 없어 즉시 경로는 없지만, DynamoDB resource-based policy 로
@@ -558,6 +583,10 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 - `AWS-Demo-Platform` `ed97945` (코드 이관), `122196a` (단독 소유 선언, 2026-06-24)
 - `terraform/environments/production/ap-northeast-2/README.md` — 레이어 표, apply 순서,
   Runbooks(break-glass·재생성 절차의 정본)
+- `terraform/global/terraform-state/main.tf`, `variables.tf` — state custody 버킷
+  정책(`protected_state_keys`, `state_custody_appliers`, `external_state_appliers`,
+  `external_state_readers`, caller self-lockout precondition)
+- `scripts/check-mgmt-guards.sh` — 가드 상태·spoke 수렴·롤백 채널 점검 스크립트(self-check 포함)
 - `terraform/modules/security/iam/github-actions.tf` — `describable_cluster_names`,
   `externally_owned_state_keys`의 Allow/Deny 문장
 - `terraform/modules/security/iam/variables.tf` — 위 두 변수와 `terraform_lock_table`
