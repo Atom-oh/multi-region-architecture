@@ -67,7 +67,7 @@ That one is closed **in code** here, with an **allowlist bucket policy**:
 / `external_state_readers`. The policy is **not applied by the PR that adds
 it** — that layer is local-state bootstrap; until someone walks ADR-003's
 apply order ⓐ–ⓔ (merge → confirm all four lists against the account →
-plan/apply from the devbox → verify → migrate this layer's own state into the bucket, same session) the bucket still has no policy and the
+plan/apply from the devbox → verify → migrate this layer's own state into the bucket, same session, **and commit + merge the `backend "s3"` block** — an uncommitted backend makes the next checkout local-state again) the bucket still has no policy and the
 paragraph above is the live state. A resource-policy Deny beats any Allow in any
 identity policy, so attaching a managed FullAccess policy no longer grants it —
 which is the whole difference between this and a README warning. The bucket had
@@ -184,7 +184,8 @@ terraform init && terraform plan
 #                                               resource behind it)
 #   ~ github-actions IAM policy                 (DenyAccessToExternallyOwnedState /
 #                                               lock-row Deny statements)
-#   + the seven outputs above (+ mgmt_trust_fingerprint, mgmt_guards_released …)
+#   + the seven outputs above and mgmt_trust_fingerprint — eight in total;
+#     mgmt_guards_released is a SPOKE output and must NOT appear here
 #   no mgmt cluster resources — those left this repo; no data-store changes
 terraform apply
 

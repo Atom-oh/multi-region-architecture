@@ -413,7 +413,11 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    같은 role 로 `put-object` → AccessDenied → ⓔ **같은 세션에서** 이 레이어에 `backend "s3"`
    (key `global/terraform-state/terraform.tfstate`, lock 테이블 포함) 를 추가하고 `terraform
    init -migrate-state` — custody 정책의 관리 state 를 lock 있는 remote 로 옮긴다
-   (follow-up 6) → ⓕ CLAUDE.md 와 Korea README 의 "오늘 버킷에는 정책이 없다 / exists in
+   (follow-up 6). **그 `backend "s3"` 블록(`backend.tf`)을 같은 세션에서 커밋·푸시하고
+   머지한다** — 커밋이 빠지면 다음 checkout 부터 이 레이어는 다시 local-state 가 되어
+   upsert 정책이 lock 도 diff 신호도 없이 구판으로 덮인다(round-25 리뷰, 4 lens 수렴).
+   머지 전 확인: `git -C terraform/global/terraform-state status --short` 가 비어 있고
+   `terraform init` 이 "Successfully configured the backend" 를 낸다 → ⓕ CLAUDE.md 와 Korea README 의 "오늘 버킷에는 정책이 없다 / exists in
    code only" 문구를 현행화하는 후속 커밋(체크 항목 — 문서가 미적용 상태를 서술한 채
    남지 않게). 이 순서를 밟기 전까지 ADR 의 "closed here" 는 코드상 닫힌 것이고
    계정에서 닫힌 것이 아니다. **후속**: DynamoDB lock 테이블은 여전히 identity Deny
@@ -532,7 +536,9 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    예약 안에 있으므로 이관 즉시 같은 allowlist 아래 들어가고 lock 도 생긴다(닭-달걀은
    없다: 버킷과 lock 테이블은 이 레이어가 만들었고 이미 존재한다). 나머지 세 global
    레이어(aurora/documentdb global cluster, route53-zone)도 같은 방식으로 뒤따른다.
-   **기한: 정책 rollout ⓒ 와 같은 날** — rollout 절차 ⓔ 로 아래에 추가했다. 이관 전까지
+   **기한: 정책 rollout ⓒ 와 같은 날** — rollout 절차 ⓔ 로 아래에 추가했다. ⓔ 는
+   `init -migrate-state` 만이 아니라 **`backend.tf` 의 커밋·머지까지** 포함한다 — working
+   tree 에만 있는 backend 블록은 다음 checkout 에서 사라진다. 이관 전까지
    이 레이어의 apply 는 "한 사람이, 최신 main 에서, 한 번에" 라는 절차에만 의존한다.
 
 ## Consequences
