@@ -90,11 +90,15 @@ The `eks-mgmt` key is writable by **exactly** `external_state_appliers` (the
 other repo's Atlantis + terraformer, plus the SSO administrator permission set
 as the one human break-glass — a recorded decision, ADR-003 round-17) and by
 nobody in this repo's devbox group. The `shared/` key is writable by this
-repo's applier group only, and additionally **readable** by
+repo's applier group only, readable also by `state_custody_readers` (the CI
+`plan` role — a reader, not an applier, round-18) and by
 `external_state_readers` — the six frozen outputs the other repo consumes via
 `terraform_remote_state`; round-16 forgot that read and would have broken the
-other repo's every plan on first apply. Every other protected key is this
-repo's applier group only. Between this repo's own layers the boundary is the
+other repo's every plan on first apply. That read is a whole-object read and
+`shared/` state still holds master passwords in plaintext, so it is a recorded
+secret grant with an expiry condition (ADR-003 round-18: re-review when
+`manage_master_user_password` lands). Every other protected key is this repo's
+applier group (write) plus `state_custody_readers` (read) only. Between this repo's own layers the boundary is the
 group, not one role per layer — the same humans on the devbox apply `shared/`,
 both spokes and `global/`, so per-layer roles would be theatre. The `apply`
 here also refuses to run from a principal that is not on the list: a

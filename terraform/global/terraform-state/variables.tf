@@ -82,16 +82,32 @@ variable "state_custody_appliers" {
     # returns for every plan/apply run from that box.
     "mgmt-vpc-VSCode-Role",
     "VSCodeAdminRole",
-    # This repo's CI plan path (modules/security/iam/github-actions.tf). CI
-    # does not apply here — every apply is a human on the devbox — but `plan`
-    # still reads state and takes the lock, so it must not be denied. Its own
-    # identity policy separately denies the eks-mgmt key (defense-in-depth).
-    "github-actions-role",
     # Human break-glass: IAM Identity Center AdministratorAccess permission set.
     # The trailing hash is regenerated whenever the permission set is
     # re-provisioned, so it is wildcarded — pinning it would silently lock the
     # only human recovery path out after routine SSO maintenance.
     "aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_AdministratorAccess_*",
+  ]
+}
+
+variable "state_custody_readers" {
+  description = <<-EOT
+    READ-ONLY allowlist for this repo's own keys (every protected key that is
+    not externally applied): IAM role names that may `s3:GetObject`/
+    `GetObjectVersion` but never write. This is the CI `plan` path —
+    github-actions-role reads state and takes the DynamoDB lock but no CI
+    apply exists in this repo (every apply is a human on the devbox). round-17
+    still had it in `state_custody_appliers`, i.e. exempt from the write Deny,
+    which contradicted the "CI plan path, not applier" correction and left no
+    resource-policy line of defence if its identity policy ever widened
+    (round-18 review L2/L3 MAJOR). Same shape as `external_state_readers`.
+  EOT
+  type        = list(string)
+  default = [
+    # modules/security/iam/github-actions.tf. Its identity policy separately
+    # denies the eks-mgmt key (defense-in-depth) — and that key is externally
+    # applied, so this list does not reach it anyway.
+    "github-actions-role",
   ]
 }
 
@@ -132,6 +148,16 @@ variable "external_state_readers" {
     policy would have broken every plan in the other repo (round-17 review
     CRITICAL, confirmed). Writes to these keys stay with
     `state_custody_appliers` only. Keys must also be in `protected_state_keys`.
+
+    ⚠ EXPIRY CONDITION (round-18 review MAJOR): `terraform_remote_state` reads
+    the WHOLE object, not six outputs, and shared/ state carries Aurora and
+    DocumentDB master passwords in plaintext today. This grant therefore hands
+    the listed roles those secrets — far less than the no-policy state before
+    this PR (whole bucket read/write) and the exposed passwords were rotated
+    2026-08-19, but it is a secret grant nonetheless. It is to be re-reviewed
+    and narrowed (or removed in favour of a sanitized handoff — dedicated
+    output-only state or SSM parameters) when ADR-003 follow-up 0(a)
+    `manage_master_user_password = true` lands and the plaintext leaves state.
   EOT
   type        = map(list(string))
   default = {

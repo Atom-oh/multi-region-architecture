@@ -346,8 +346,23 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    추가. `mgmt_trust_fingerprint` 에 effective VPC ID 를 넣는 제안은 후속으로 남긴다
    (shared VPC 교체는 사실상 리전 재구축이라 spoke 재apply 가 다른 경로로 강제된다).
 
+   **round-18 수정(MAJOR 3).** ① `github-actions-role` 을 `state_custody_appliers` 에서
+   빼고 새 `state_custody_readers`(이 repo key 의 read-only) 로 옮겼다 — round-16 이 "CI
+   plan 경로(state read)" 라고 정정해 놓고 구현은 s3:* 면제 집단에 남겨 두었다. 이 repo
+   key 도 shared/ 처럼 write/read 두 문장으로 나뉜다. ② Consequences "얻는 것" 첫 항목과
+   CLAUDE.md 요약을 key 별 3그룹 모델로 정정(ADR 은 round-16 판 "집단 ∪ 외부" 를, CLAUDE.md
+   는 round-15 판 단일 목록을 서술하고 있었다). ③ **shared/ read grant 의 만기 조건**:
+   `terraform_remote_state` 는 output 6개가 아니라 객체 전체를 읽고, shared/ state 는 오늘
+   Aurora/DocumentDB master password 를 평문으로 담는다 — 즉 `external_state_readers` 는
+   Atlantis/terraformer 에게 시크릿 접근을 계약으로 부여한다. 이 PR 이전(정책 없음 = 전
+   버킷 read/write) 보다 대폭 축소이고 노출 비밀번호는 2026-08-19 로테이션됐지만,
+   **follow-up 0(a) `manage_master_user_password = true` 전환(또는 sanitized handoff —
+   output 전용 state / SSM) 이 끝나면 이 grant 를 재검토·축소한다**는 것을 만기 조건으로
+   여기와 변수 설명에 고정한다.
+
    **적용 순서**(이 PR 은 정책을 apply 하지 않는다): ⓐ 머지 → ⓑ `state_custody_appliers`
-   / `external_state_appliers` 를 계정의 실제 role 과 대조해 사람이 확정 → ⓒ devbox
+   / `state_custody_readers` / `external_state_appliers` / `external_state_readers` 네
+   목록을 계정의 실제 role 과 대조해 사람이 확정 → ⓒ devbox
    (`mgmt-vpc-VSCode-Role`) 에서 `terraform/global/terraform-state` `plan` — caller
    precondition 이 통과하는지가 첫 확인 — 후 `apply` → ⓓ 검증: runner pod 에서
    `aws s3api head-object --bucket multi-region-mall-terraform-state --key
@@ -462,12 +477,16 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 
 **얻는 것**
 
-- state 객체는 **그 레이어의 applier 집단** 만 쓴다: 이 repo 의 key 는 이 repo 의
-  applier 집단(devbox role, CI plan role, SSO admin) 만, eks-mgmt key 는 그 집단 ∪
-  외부 repo 의 Atlantis/terraformer 만, 그 외 전원(`ci_runner` 와 그것이 pivot 하는
-  세션 포함) 은 버킷 정책으로 Deny. CI 경로(= `github-actions-role`)에서는 동시 apply로
-  state가 깨질 경로가 IAM으로 추가 차단된다. 집단 **내부**의 "레이어당 writer 1명" 은
-  절차(runbook) 로만 보장된다 — round-16 에서 주장 수위를 여기로 낮췄다.
+- state 객체는 **그 레이어의 applier 집단** 만 쓴다 — key 별 3그룹 모델(round-17/18):
+  (1) 이 repo 의 key(shared/, spoke, US, global/) 는 `state_custody_appliers`(devbox
+  role, SSO admin) 만 **쓰고**, `state_custody_readers`(CI plan 경로 `github-actions-role`)
+  가 추가로 **읽는다**; (2) eks-mgmt key 는 **정확히** `external_state_appliers`(외부
+  repo 의 Atlantis/terraformer + 사람 break-glass 인 SSO admin) 만 쓰고 읽는다 — 이 repo
+  의 devbox 집단은 제외; (3) shared/ key 는 (1) 에 더해 `external_state_readers`(Atlantis/
+  terraformer) 가 **읽기만** 한다(frozen 6-output 계약; 만기 조건은 round-18 참조). 그 외
+  전원(`ci_runner` 와 그것이 pivot 하는 세션 포함) 은 버킷 정책으로 Deny. CI 경로에서는
+  동시 apply 로 state 가 깨질 경로가 IAM 으로 추가 차단된다. 집단 **내부**의 "레이어당
+  writer 1명" 은 절차(runbook) 로만 보장된다 — round-16 에서 주장 수위를 여기로 낮췄다.
 - cross-repo state 스키마 의존 제거. mgmt 레이어 리팩터링이 이 repo를 깨뜨리지 않는다.
 - 이름 스쿼팅으로 trust boundary를 넘는 경로가 VPC assert로 막힌다. 태그 assert는
   보조 신호에 가깝다 — 태그는 클러스터를 만드는 주체가 임의로 설정할 수 있으므로,
@@ -584,8 +603,8 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 - `terraform/environments/production/ap-northeast-2/README.md` — 레이어 표, apply 순서,
   Runbooks(break-glass·재생성 절차의 정본)
 - `terraform/global/terraform-state/main.tf`, `variables.tf` — state custody 버킷
-  정책(`protected_state_keys`, `state_custody_appliers`, `external_state_appliers`,
-  `external_state_readers`, caller self-lockout precondition)
+  정책(`protected_state_keys`, `state_custody_appliers`, `state_custody_readers`,
+  `external_state_appliers`, `external_state_readers`, caller self-lockout precondition)
 - `scripts/check-mgmt-guards.sh` — 가드 상태·spoke 수렴·롤백 채널 점검 스크립트(self-check 포함)
 - `terraform/modules/security/iam/github-actions.tf` — `describable_cluster_names`,
   `externally_owned_state_keys`의 Allow/Deny 문장

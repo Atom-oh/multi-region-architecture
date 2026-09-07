@@ -100,6 +100,9 @@ locals {
     for key, roles in var.external_state_readers :
     key => [for r in roles : "arn:aws:iam::${local.account_id}:role/${r}"]
   }
+  state_custody_reader_arns = [
+    for r in var.state_custody_readers : "arn:aws:iam::${local.account_id}:role/${r}"
+  ]
   state_read_actions = ["s3:GetObject", "s3:GetObjectVersion"]
   # Keys governed by this repo's applier group alone = protected minus the
   # externally-applied and the externally-read ones (each gets its own Sid).
@@ -228,15 +231,31 @@ resource "aws_s3_bucket_policy" "terraform_state" {
       #     manual recovery path exists;
       #   - the human SSO admin entry is wildcarded on its permission-set hash so
       #     routine Identity Center re-provisioning cannot lock the humans out.
+      # This repo's own keys, two statements (round-18 L2/L3 MAJOR — the CI plan
+      # role is a READER, not an applier): everything but GetObject* is denied to
+      # all but the applier group; GetObject* is denied to all but appliers ∪
+      # state_custody_readers.
       {
-        Sid       = "DenyProtectedStateAccessExceptAppliers"
+        Sid       = "DenyProtectedStateWriteExceptAppliers"
         Effect    = "Deny"
         Principal = "*"
-        Action    = "s3:*"
+        NotAction = local.state_read_actions
         Resource  = local.internal_state_resources
         Condition = {
           StringNotLike = {
             "aws:PrincipalArn" = local.state_custody_applier_arns
+          }
+        }
+      },
+      {
+        Sid       = "DenyProtectedStateReadExceptAppliersAndReaders"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = local.state_read_actions
+        Resource  = local.internal_state_resources
+        Condition = {
+          StringNotLike = {
+            "aws:PrincipalArn" = concat(local.state_custody_applier_arns, local.state_custody_reader_arns)
           }
         }
       }],
@@ -292,7 +311,7 @@ resource "aws_s3_bucket_policy" "terraform_state" {
         ]
         Condition = {
           StringNotLike = {
-            "aws:PrincipalArn" = concat(local.state_custody_applier_arns, local.external_state_reader_arns[key])
+            "aws:PrincipalArn" = concat(local.state_custody_applier_arns, local.state_custody_reader_arns, local.external_state_reader_arns[key])
           }
         }
       }],
