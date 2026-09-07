@@ -108,17 +108,22 @@ repo's applier group only, readable also by `state_custody_readers` (the CI
 `terraform_remote_state`; round-16 forgot that read and would have broken the
 other repo's every plan on first apply. That read is a whole-object read and
 `shared/` state still holds master passwords in plaintext, so it is a recorded
-secret grant with an expiry condition (ADR-003 round-18: re-review when
-`manage_master_user_password` lands). Every other protected key is this repo's
+secret grant with an expiry condition (ADR-003 round-18/21: re-review when
+`manage_master_user_password` lands — **deadline 2026-10-31**, else the
+sanitized-handoff alternative is decided). Every other protected key is this repo's
 applier group (write) plus `state_custody_readers` (read) only. Between this repo's own layers the boundary is the
 group, not one role per layer — the same humans on the devbox apply `shared/`,
 both spokes and `global/`, so per-layer roles would be theatre. The `apply`
 here also refuses to run from a principal that is not on the list: a
 `precondition` resolves the caller's role to its full ARN with path
 (`iam:GetRole`) and globs it against the same patterns the policy uses, and it
-rejects root outright (the object Deny has no root exemption, so a root apply
-would split policy and state) — so the policy cannot lock out the hand that
-applies it.
+rejects root outright (the object Deny has no root exemption). What "locked
+out" means here, precisely: this layer is local-state bootstrap (no `global/*`
+object exists in the bucket — that entry is a reservation), so the hand that
+applies a policy it is not on would not lose *this* layer's state; it would
+lose `PutBucketPolicy` on the spot (unable to undo) and state access for every
+other layer it applies at the next plan. The precondition prevents exactly
+that.
 
 The allowlist's failure mode is the mirror image — a missing applier is locked
 out loudly (its next plan/apply fails on state access) instead of the target

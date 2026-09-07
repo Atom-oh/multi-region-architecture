@@ -127,9 +127,14 @@ locals {
 
   # ── Self-lockout guard (round-16 review L2 MAJOR; tightened round-17) ─────
   # Whoever runs `terraform apply` here must be on the allowlist: PutBucketPolicy
-  # would succeed and the very next call — writing this layer's own state under
-  # global/* — would be denied, leaving state and reality split and the caller
-  # without the permission to fix the policy. The caller identity of an assumed
+  # would succeed and, from that moment, the caller is denied PutBucketPolicy
+  # itself (DenyBucketPolicyMutationExceptAppliers) — it cannot undo what it
+  # just did — and every other layer it applies (shared/, the spokes) loses
+  # state access at its next plan. Not "its own state": this layer is
+  # local-state bootstrap (no backend block anywhere under terraform/global/,
+  # and no global/* object exists in the bucket — round-21 review L5, checked
+  # with `aws s3 ls`), so `global/*` in protected_state_keys is a reservation
+  # for a future migration, not a key anyone writes today. The caller identity of an assumed
   # role is `arn:aws:sts::<acct>:assumed-role/<RoleName>/<session>` — no path —
   # while aws:PrincipalArn is evaluated against the role ARN WITH path, so the
   # round-16 name-only glob let a path typo in the applier list (the SSO
@@ -178,7 +183,7 @@ resource "aws_s3_bucket_policy" "terraform_state" {
     # out of this layer's own state on the next call (see locals).
     precondition {
       condition     = local.caller_is_applier
-      error_message = "The current caller (${data.aws_caller_identity.current.arn}, role ARN ${coalesce(local.caller_role_arn, "n/a — not a role; root and IAM users may not apply this layer")}) matches none of state_custody_appliers (compared as full role ARNs with path). Applying this bucket policy would deny your own next state write under global/* and remove your permission to fix it (recovery: account root PutBucketPolicy). Add the caller's role to state_custody_appliers, or apply from a listed applier."
+      error_message = "The current caller (${data.aws_caller_identity.current.arn}, role ARN ${coalesce(local.caller_role_arn, "n/a — not a role; root and IAM users may not apply this layer")}) matches none of state_custody_appliers (compared as full role ARNs with path). Applying this bucket policy would immediately deny you PutBucketPolicy (you could not undo it) and deny your next plan of every other layer its state (recovery: account root PutBucketPolicy). Add the caller's role to state_custody_appliers, or apply from a listed applier."
     }
     precondition {
       condition     = alltrue([for k in concat(keys(var.external_state_appliers), keys(var.external_state_readers)) : contains(var.protected_state_keys, k)])

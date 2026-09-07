@@ -24,8 +24,12 @@ variable "protected_state_keys" {
     state under the bucket-root env:/ prefix, not under the key's own prefix).
     Set to [] to create no bucket policy at all.
 
-    This covers every layer this repo owns, `global/*`, and the eks-mgmt key
-    that AWS-Demo-Platform owns but stores in this bucket (ADR-003). It is
+    This covers every layer this repo owns, the eks-mgmt key that
+    AWS-Demo-Platform owns but stores in this bucket (ADR-003), and `global/*`
+    as a RESERVATION: the four terraform/global/ layers are local-state
+    bootstrap today (no backend block, no global/* object in the bucket), so
+    that entry protects nothing yet and exists so a future `init -migrate-state`
+    of those layers lands under custody without a policy change. It is
     deliberately NOT a per-role map any more: a key→denied-role map is a
     denylist, and a denylist is fail-open toward every principal it does not
     name — see `state_custody_appliers`.

@@ -304,8 +304,12 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
 
    **round-16 수정(L2/L3/L4/L5 MAJOR 4건).** ① **적용자 self-lockout 을 plan-time 에
    막는다**: allowlist 밖의 principal 이 이 레이어를 apply 하면 `PutBucketPolicy` 는
-   성공하고 직후 자기 state 저장(`global/*`)이 Deny 되어 state–실물이 갈라지며 정책을
-   고칠 권한도 잃는다 — 문서 경고로만 남겨 둔 것은 이 ADR 자신의 "문서 경고는 통제가
+   성공하고 그 순간부터 자신은 `PutBucketPolicy` 가 Deny 되어(되돌릴 수 없다) 자신이
+   apply 하는 다른 모든 레이어(shared/·spoke)의 다음 plan 이 state 접근에서 막힌다 —
+   (round-22 정정: 이전 문구 "직후 자기 state 저장(`global/*`)이 Deny" 는 틀렸다. 이
+   레이어를 포함한 `terraform/global/` 4개는 local-state bootstrap 이고 버킷에 `global/*`
+   객체가 없다 — `protected_state_keys` 의 `global/*` 는 향후 이관을 위한 예약이다) —
+   문서 경고로만 남겨 둔 것은 이 ADR 자신의 "문서 경고는 통제가
    아니다" 원칙에 걸렸다. 이제 `precondition` 이 `data.aws_caller_identity.current.arn`
    을 role 이름으로 정규화(assumed-role 세션 ARN 은 path 를 잃고 이름만 남는다)해
    applier 패턴과 glob 대조한다. root 는 통과, IAM user 는 실패. ② **custody 주장을
@@ -390,6 +394,12 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    **후속**: CloudTrail management event 기반 `PutBucketPolicy`/`DeleteBucketPolicy`
    (이 버킷) 알람 — 그 한 단계를 보이게 만드는 통제. README 의 custody 단락도 같은
    수위로 정정했다.
+
+   **round-22 수정(L5 MAJOR 2).** ① CLAUDE.md 의 custody 요약이 allowlist 를 **시행 중인**
+   통제처럼 읽혔다 — "코드로 존재, ⓐ–ⓓ 수동 rollout 전까지 미적용, 오늘 버킷에는 정책이
+   없다" 를 한 구절로 박았다. ② self-lockout 서술이 local-state 실물과 모순됐다(위 round-16
+   ① 의 정정, main.tf 주석·error message·`protected_state_keys` 설명 동일 정정). Korea
+   README 에 read grant 만기일(2026-10-31) 병기.
 
    **적용 순서**(이 PR 은 정책을 apply 하지 않는다): ⓐ 머지 → ⓑ `state_custody_appliers`
    / `state_custody_readers` / `external_state_appliers` / `external_state_readers` 네
