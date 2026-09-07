@@ -92,6 +92,14 @@ PROMPT_EOF
   echo "=== DIFF UNDER REVIEW ==="
   cat "$DIFF"
   echo ""
+  # 경로 매니페스트가 캡에 걸렸으면 디렉터리별 생략 수를 의장에게도 준다 (round-5 리뷰
+  # L2 MAJOR): 이전에는 렌즈 프롬프트에만 실려, 렌즈가 언급하지 않으면 어떤 결정론적
+  # 신호도 의장에 도달하지 않았다. run-panel.sh 가 쓴다; 없으면 캡 미발동.
+  if [ -s "$WORK/manifest-capped.txt" ]; then
+    echo "=== PATHS MANIFEST CAPPED (lenses did NOT see every path) ==="
+    cat "$WORK/manifest-capped.txt"
+    echo ""
+  fi
   echo "=== PANEL REVIEWS ==="
   printf '%s\n' "$PANEL"
 } > "$WORK/synth-stdin.txt"
@@ -180,7 +188,16 @@ run_chair() {  # $1=model $2=max-turns $3=out-file → $3 에 기록(scrub 통�
 # 저하 판정: 빈 응답 | VERDICT 라인 없음. (ConnectionRefused·타임아웃·행 모두
 # VERDICT 없는 출력으로 귀결되므로 이 두 조건이면 충분 — 에러 문자열 grep은
 # 리뷰 본문이 'connection refused' 등을 언급할 때 오탐이라 쓰지 않는다.)
-chair_degraded() { [ ! -s "$1" ] || ! grep -q '^VERDICT:' "$1"; }
+# 최종 게이트(pr-review.yml "Check for blocking issues")와 같은 기준 — 마지막 줄이
+# 정확히 `VERDICT: PASS|FAIL` 이고 VERDICT 줄이 하나. 이전 판은 `^VERDICT:` 존재만 봐서
+# 게이트가 fail-close 할 출력(중간에 VERDICT, 마지막 줄 다른 텍스트)을 "정상" 으로
+# 판정해 fallback 을 건너뛰었다 (round-5 리뷰 L4, 확인).
+chair_degraded() {
+  [ ! -s "$1" ] && return 0
+  [ "$(grep -c '^VERDICT: \(PASS\|FAIL\)$' "$1")" = "1" ] || return 0
+  tail -n1 "$1" | grep -q '^VERDICT: \(PASS\|FAIL\)$' || return 0
+  return 1
+}
 
 # 각 시도는 자신만의 파일에 쓴다 — 이전 판은 둘 다 같은 "$OUT" 에 썼는데, `run_chair`
 # 내부의 `> "$OUT"` 이 매 호출마다 파일을 truncate 해서 fallback 이 죽으면(예: 같은

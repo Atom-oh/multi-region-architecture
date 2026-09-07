@@ -352,8 +352,9 @@ jobs:
                  "$(paste -sd' ' < /tmp/pr-review-collect/unsafe-filtered.txt)"
             echo "::error::Failing closed — 패널을 실행한다."
           fi
-          # 4번째 인자: 경로 매니페스트 — diff 가 캡·절단으로 잘려도 렌즈가 전체 경로
-          # 목록은 항상 본다 (round-2 리뷰 M-L4-4).
+          # 4번째 인자: 경로 매니페스트 — diff 가 캡·절단으로 잘려도 렌즈가 경로 목록을
+          # 본다 (round-2 리뷰 M-L4-4). "전체" 는 아니다: run-panel.sh 가 16KiB 에서
+          # 자르고(ARG 한계), 생략분은 디렉터리별 카운트로 요약된다 (round-5 L2 MAJOR).
           bash scripts/pr-review/run-panel.sh /tmp/pr-diff-truncated.txt /tmp/pr-review/lenses /tmp/pr-review /tmp/pr-review-collect/all-paths.txt
           bash scripts/pr-review/synthesize.sh /tmp/pr-diff-truncated.txt /tmp/pr-review \
             "$PR_NUMBER" "$PR_TITLE" /tmp/review.md

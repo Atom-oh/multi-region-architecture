@@ -242,9 +242,24 @@ if [ -n "$PATHS_MANIFEST" ] && [ -s "$PATHS_MANIFEST" ]; then
     # 마지막 완전한 줄까지만 — 경로 하나가 중간에서 잘려 다른 경로처럼 읽히지 않게.
     MANIFEST_TEXT="${MANIFEST_TEXT%$'\n'*}"
     SHOWN_PATHS="$(printf '%s\n' "$MANIFEST_TEXT" | wc -l)"
-    MANIFEST_TEXT+=$'\n('"$(( TOTAL_PATHS - SHOWN_PATHS ))"' more paths omitted — manifest capped at '"$PATHS_MANIFEST_CAP"'B)'
+    # 생략분을 디렉터리(앞 4세그먼트)별 카운트로 요약한다 (round-5 리뷰 L2 MAJOR,
+    # 의장 확인): all-paths.txt 는 `sort -u` 라 절단은 **항상 사전순 뒤쪽** — 즉
+    # `terraform/environments/production/us-west-2/`, `k8s/overlays/us-west-2/` 같은
+    # 특정 리전이 큰 PR 에서 결정론적으로 먼저 사라졌고, "N more paths omitted" 만으로는
+    # 렌즈가 리전 parity(L2 의 핵심 축)를 검증할 수 없었다. 4세그먼트는 이 repo 의
+    # 리전 경로 깊이(`terraform/environments/production/<region>`)에 맞춘 것이고,
+    # 요약은 디렉터리 수에 비례하므로 ARG 한계(이 캡의 존재 이유)를 다시 위협하지
+    # 않는다. 같은 요약을 파일로도 남겨 의장 stdin(패널 출력 옆)에 실린다 — 렌즈가
+    # 언급하지 않아도 결정론적 신호가 남도록.
+    OMITTED_SUMMARY="$(tail -n +"$(( SHOWN_PATHS + 1 ))" "$PATHS_MANIFEST" \
+      | awk -F/ '{ d=$1; for (i=2; i<=4 && i<NF; i++) d=d"/"$i; c[d]++ } END { for (d in c) printf "%s: %d paths omitted\n", d, c[d] }' \
+      | sort)"
+    MANIFEST_TEXT+=$'\n('"$(( TOTAL_PATHS - SHOWN_PATHS ))"' more paths omitted — manifest capped at '"$PATHS_MANIFEST_CAP"'B; omitted, by directory:)\n'"$OMITTED_SUMMARY"
+    printf 'PATHS MANIFEST CAPPED: %d of %d paths shown to the lenses; omitted by directory:\n%s\n' \
+      "$SHOWN_PATHS" "$TOTAL_PATHS" "$OMITTED_SUMMARY" > "$WORK/manifest-capped.txt"
   fi
-  PATHS_PREAMBLE=$'\n\nComplete list of paths this PR touches (the diff below may be truncated or capped; a path listed here but absent from the diff means its content was withheld or cut, NOT that it is unchanged):\n'"$MANIFEST_TEXT"
+  # "Complete" 가 아니다 — 위 캡이 있다 (round-5 L2 MAJOR: 이전 문구는 캡 초과 시 거짓).
+  PATHS_PREAMBLE=$'\n\nPaths this PR touches — capped at '"$PATHS_MANIFEST_CAP"$'B, omissions are counted per directory at the end (the diff below may be truncated or capped; a path listed here but absent from the diff means its content was withheld or cut, NOT that it is unchanged):\n'"$MANIFEST_TEXT"
 fi
 
 for lens_file in "${LENS_FILES[@]}"; do
