@@ -44,7 +44,8 @@ SELF_CHECK=0
 usage() {
   echo "usage: $(basename "$0") [--expect-released=<comma-separated guard names>] [--mgmt-down] [--self-check]" >&2
   echo "  known guard names: mgmt_cluster_security_group_id mgmt_cluster_name expected_mgmt_vpc_id expected_mgmt_tags" >&2
-  echo "  break-glass runbook step 3: --expect-released=mgmt_cluster_security_group_id --mgmt-down" >&2
+  echo "  break-glass runbook step 3 (mgmt down / moved — ArgoCD truly unreachable): --expect-released=mgmt_cluster_security_group_id --mgmt-down" >&2
+  echo "  break-glass runbook step 3 (eks:DescribeCluster fails, mgmt+ArgoCD alive):  --expect-released=mgmt_cluster_security_group_id   (NO --mgmt-down)" >&2
   echo "  rename runbook step 1:      --expect-released=mgmt_cluster_name" >&2
   exit 2
 }
@@ -405,7 +406,7 @@ fi
 # ArgoCD 가 실제로 두 클러스터에 도달하는지 — SG 가 맞아도 mgmt 가 재생성됐으면
 # 조용히 죽어 있을 수 있다(ADR-003 의 stale-SG follow-up 이 다루는 실패 양식).
 # 두 spoke 모두 Successful 이어야 통과 — CLI 부재/명령 실패/Unknown 상태는 전부 FAIL,
-# 단 --expect-released=mgmt_cluster_security_group_id 에서는 INFO(break-glass 중
+# INFO 로 내려가는 것은 --mgmt-down 을 명시했을 때뿐이다(break-glass 중이라도
 # mgmt 자체가 죽어 있으므로 예상됨). rename(--expect-released=mgmt_cluster_name)
 # 에서는 mgmt 가 살아 있는 게 전제이므로 이 다운그레이드를 적용하지 않는다.
 #
