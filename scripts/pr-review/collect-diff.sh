@@ -51,10 +51,12 @@ mkdir -p "$WORK" || { echo "collect-diff.sh: cannot create $WORK" >&2; exit 1; }
 #   STATE_RE          이름 자체가 terraform 산출물임을 말하는 패턴. 경로 어디에 있든 deny.
 #                     `.tfstate` / `.tfstate.backup` / `.tfstate.1` / `.tfstate.json`
 #                     (`terraform state pull > x.tfstate.json`), `.tfplan` / `.tfplan.json`
-#                     (`terraform show -json`), 확장자 없는 `tfplan`, `terraform.tfstate.d/`.
+#                     (`terraform show -json`), 확장자 없는 `tfplan`, `tfplan.out`/`*.tfplan.out`,
+#                     `terraform.tfstate.d/`.
 #   STATE_GENERIC_RE  `-out=`/리다이렉트 임의 이름의 흔한 변형인데 **이름만으로는 terraform
 #                     인지 알 수 없는** 패턴: `state.json`, `*-state.json`, `*.state.json`,
-#                     `plan.json`, `*-plan.json`, `*.plan.json`, `*.plan`, `plan.out`. 이전 판은 이 셋을 무앵커로 걸어서
+#                     `plan.json`, `*-plan.json`, `*.plan.json`, `*.plan`, `plan.out`,
+#                     `*-plan.out`, `*.plan.out`. 이전 판은 이 셋을 무앵커로 걸어서
 #                     `webpage/**/state.json`, `docs/capacity-plan.json` 같은 앱/문서 파일을
 #                     삼켰다 — 양방향으로 나쁘다: **수정**이면 state_fatal → 잡 즉사 + "자격
 #                     증명 회전" 오안내(해소책이 rename 뿐), **삭제**면 state_deleted 로
@@ -75,10 +77,12 @@ mkdir -p "$WORK" || { echo "collect-diff.sh: cannot create $WORK" >&2; exit 1; }
 # 주저 없이 넓히고 ADR-004 를 같이 갱신할 것. 내용 기반(시크릿 스캐너) 검사는 ADR-004
 # 의 후속 항목이다. 세 정규식은 아래 두 jq 프로그램의 `is_state_path` 한 정의로만 조합된다
 # — 분류와 panel.diff 재구성이 다른 기준을 쓰면 "분류는 state 인데 헝크는 실린다"가 생긴다.
-STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup|\.json)?$|(^|/)[^/]*\.tfplan(\.json)?$|(^|/)tfplan(\.json)?$|(^|/)terraform\.tfstate\.d/'
+# `.out` 변형(`tfplan.out`, `*.tfplan.out`)도 형제로 덮는다 (round-8 리뷰 L2 MAJOR: 열거
+# 비일관 — `tfplan`/`tfplan.json` 은 잡으면서 `tfplan.out` 만 빠졌다).
+STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup|\.json)?$|(^|/)[^/]*\.tfplan(\.json|\.out)?$|(^|/)tfplan(\.json|\.out)?$|(^|/)terraform\.tfstate\.d/'
 # state 쪽도 plan 쪽과 대칭으로 `*-state.json`/`*.state.json` 을 덮는다 (round-7 리뷰 L2
 # MAJOR: `prod-state.json` 은 tf 앵커가 있어도 deny 를 지나 평문 전문이 패널로 나갔다).
-STATE_GENERIC_RE='(^|/)[^/]*[-.]plan\.json$|(^|/)plan\.json$|(^|/)plan\.out$|(^|/)[^/]*\.plan$|(^|/)[^/]*[-.]state\.json$|(^|/)state\.json$'
+STATE_GENERIC_RE='(^|/)[^/]*[-.]plan\.(json|out)$|(^|/)plan\.(json|out)$|(^|/)[^/]*\.plan$|(^|/)[^/]*[-.]state\.json$|(^|/)state\.json$'
 STATE_TF_ANCHOR_RE='(^|/)terraform/|(^|[/._-])tf([/._-]|$)'
 
 # 패널이 읽어도 의미가 없는 노이즈. 확장자 allow-list 는 여기 **없다** — 이전 판은

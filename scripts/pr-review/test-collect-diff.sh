@@ -208,7 +208,7 @@ assert_empty fatal-oversized.txt
 # 이름만으로 terraform 인 것(`.tfstate*`/`.tfplan*`/`tfplan`)은 경로 무관 deny. 이름이
 # generic 한 것(`state.json`/`*-plan.json`/`*.plan`/`plan.out`)은 **terraform 앵커**(경로의
 # `terraform` 또는 `/tf/`·`.tf.` 토큰)가 있을 때만 deny 다 (round-4 L2 MAJOR, 아래 16b).
-for f in 'terraform.tfstate.json' 'prod.tfplan.json' 'terraform/envs/prod/state.json' 'terraform/envs/prod/prod-state.json' 'terraform/envs/prod/my.state.json' 'terraform/prod-plan.json' 'terraform/prod.plan' 'infra/tf/plan.out' 'envs/prod.tf.plan'; do
+for f in 'terraform.tfstate.json' 'prod.tfplan.json' 'ops/tfplan.out' 'ops/prod.tfplan.out' 'terraform/prod-plan.out' 'terraform/envs/prod/state.json' 'terraform/envs/prod/prod-state.json' 'terraform/envs/prod/my.state.json' 'terraform/prod-plan.json' 'terraform/prod.plan' 'infra/tf/plan.out' 'envs/prod.tf.plan'; do
   run "state/plan variant $f is denied" '[
     {"filename":"'"$f"'","status":"added","changes":1,"patch":"@@ -0,0 +1 @@\n+{\"master_password\":\"hunter2\"}"}
   ]'
