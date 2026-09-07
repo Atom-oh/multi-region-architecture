@@ -94,7 +94,14 @@ What the boundary actually is (round-16/17 review): three groups of keys.
 The `eks-mgmt` key is writable by **exactly** `external_state_appliers` (the
 other repo's Atlantis + terraformer, plus the SSO administrator permission set
 as the one human break-glass — a recorded decision, ADR-003 round-17) and by
-nobody in this repo's devbox group. The `shared/` key is writable by this
+nobody in this repo's devbox group **directly**. Precisely: the devbox group is
+also the group allowed to `PutBucketPolicy`, so it can reach that key only by
+first rewriting the policy document — one auditable, non-routine step, not a
+`terraform apply` of a stale checkout. Splitting policy-edit rights into a
+separate custody-admin role would collide with the self-lockout precondition
+(the applier of this layer *is* the policy writer); ADR-003 round-21 records
+the boundary at this level and tracks a CloudTrail `PutBucketPolicy` /
+`DeleteBucketPolicy` alarm as the follow-up that makes the step visible. The `shared/` key is writable by this
 repo's applier group only, readable also by `state_custody_readers` (the CI
 `plan` role — a reader, not an applier, round-18) and by
 `external_state_readers` — the six frozen outputs the other repo consumes via
@@ -152,25 +159,38 @@ precondition for planning `eks-az-{a,c}`, not for applying `shared/`.
 
 The spokes now read seven new `shared/` outputs from remote state
 (`mgmt_cluster_name`, `default_mgmt_cluster_name`, `expected_mgmt_vpc_id`,
-`expected_mgmt_tags`, `mgmt_cluster_security_group_id_override`,
-`break_glass_confirm`, `mgmt_trust_fingerprint`). Until `shared/` has been
-applied once from the merged tree those outputs do not exist in its state and
-**every spoke plan fails with "Unsupported attribute"** — fail-closed, no data
-risk, but nothing works until the order below is followed. Run it once, in
-this order, from the devbox:
+`expected_mgmt_tags`, `mgmt_cluster_security_group_id_override_set`,
+`mgmt_cluster_security_group_id_override_value`, `break_glass_confirm`;
+`mgmt_trust_fingerprint` is read from `shared/` by `check-mgmt-guards.sh`, not
+by the spokes). Until `shared/` has been applied once from the merged tree
+those outputs do not exist in its state and **every spoke plan fails with
+"Unsupported attribute"** — fail-closed, no data risk, but nothing works until
+the order below is followed. Run it once, in this order, from the devbox.
+Plain `terraform init` — **not** `-upgrade`: the new local module needs only a
+plain init, and `-upgrade` would bump providers past the lockfile and mix an
+unrelated provider diff into a plan you are about to judge by its shape.
 
 ```bash
 cd terraform/environments/production/ap-northeast-2/shared
-terraform init -upgrade && terraform plan   # expect ONLY new outputs + the
-                                            # github-actions IAM Deny changes;
-                                            # no mgmt cluster resources — those
-                                            # left this repo
+terraform init && terraform plan
+# expected plan, and NOTHING else — match the names:
+#   + terraform_data.break_glass_gate          (1 resource to add — the
+#                                               acknowledgment gate, no cloud
+#                                               resource behind it)
+#   ~ github-actions IAM policy                 (DenyAccessToExternallyOwnedState /
+#                                               lock-row Deny statements)
+#   + the seven outputs above (+ mgmt_trust_fingerprint, mgmt_guards_released …)
+#   no mgmt cluster resources — those left this repo; no data-store changes
 terraform apply
 
-(cd ../eks-az-a && terraform init -upgrade && terraform plan && terraform apply)
-(cd ../eks-az-c && terraform init -upgrade && terraform plan && terraform apply)
-#   each spoke plan must show NO changes to the cluster itself — only the
-#   mgmt-trust module's data lookups, checks and the new outputs
+(cd ../eks-az-a && terraform init && terraform plan && terraform apply)
+(cd ../eks-az-c && terraform init && terraform plan && terraform apply)
+# expected spoke plan, each:
+#   + module.mgmt_trust.terraform_data.break_glass_gate   (1 resource to add)
+#   + new outputs (mgmt_guards_released, mgmt_trust_fingerprint,
+#                  break_glass_confirm_engaged, …)
+#   data lookups / checks only otherwise — NO change to the cluster, node
+#   groups, Karpenter or any data store. Anything else: stop and read.
 
 bash ../../../../../scripts/check-mgmt-guards.sh   # plain form: all guards
                                                    # engaged, both spokes

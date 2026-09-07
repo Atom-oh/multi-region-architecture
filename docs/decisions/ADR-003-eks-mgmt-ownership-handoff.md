@@ -370,6 +370,27 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    에 "shared/ apply → eks-az-a → eks-az-c → `check-mgmt-guards.sh`" 섹션을 추가했다.
    버킷 정책 apply(아래 ⓐ–ⓓ)와는 별개의 절차다.
 
+   **round-21 수정(MAJOR 4).** ① rollout runbook 의 기대 plan 을 정확히 했다: 정상 rollout
+   plan 에는 `terraform_data.break_glass_gate` **생성 1건**(shared/ 와 각 spoke 의 모듈)이
+   반드시 나타나므로 "output 만" 이라는 이전 문구를 따르면 정상 plan 을 이상으로 판정한다.
+   spoke 가 읽는 output 이름도 실제(`_override_set`/`_override_value` 쌍; fingerprint 는
+   스크립트가 읽음) 로 고쳤다. ② rollout 의 `terraform init -upgrade` 를 plain `init` 으로
+   — `-upgrade` 는 lockfile 을 넘어 provider 를 올려 plan 모양으로 판정하는 절차에 무관한
+   diff 를 섞는다. ③ **shared/ read grant 의 만기를 기한 있는 항목으로 승격**: follow-up
+   0(a) `manage_master_user_password = true` 전환(Aurora 4 클러스터 + DocumentDB Korea)을
+   **2026-10-31 까지** 완료하고, 그 apply 와 같은 PR 에서 `external_state_readers` 의
+   shared/ grant 를 재검토한다(전환 후 state 에 남는 것은 Secrets Manager ARN 이라 grant
+   는 "output 계약" 수위로 내려간다). 기한을 넘기면 대안(sanitized output-only state 또는
+   SSM parameter handoff) 로 전환하는 결정을 이 ADR 에 추가한다. ④ **devbox 집단의 정책
+   편집 경로를 custody 주장에 명시**: `state_custody_appliers` 는 `PutBucketPolicy` 도
+   허용되므로 정책 문서를 고쳐 쓰면 eks-mgmt key 에 도달할 수 있다 — "정확히 external
+   만" 은 **직접 접근** 에 대한 주장이고, 정책 편집이라는 감사 가능한 한 단계를 거치면
+   도달 가능하다. 정책 변경권을 별도 custody-admin role 로 떼는 것은 self-lockout
+   precondition 설계(이 레이어의 applier = 정책 적용자) 와 충돌해 채택하지 않는다.
+   **후속**: CloudTrail management event 기반 `PutBucketPolicy`/`DeleteBucketPolicy`
+   (이 버킷) 알람 — 그 한 단계를 보이게 만드는 통제. README 의 custody 단락도 같은
+   수위로 정정했다.
+
    **적용 순서**(이 PR 은 정책을 apply 하지 않는다): ⓐ 머지 → ⓑ `state_custody_appliers`
    / `state_custody_readers` / `external_state_appliers` / `external_state_readers` 네
    목록을 계정의 실제 role 과 대조해 사람이 확정 → ⓒ devbox
