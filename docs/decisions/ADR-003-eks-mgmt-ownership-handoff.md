@@ -372,7 +372,7 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    에서 읽으므로 shared/ 를 먼저 apply 하지 않으면 모든 spoke plan 이 "Unsupported
    attribute" 로 죽는다(fail-closed, 데이터 위험 없음). region README "Deployment Order"
    에 "shared/ apply → eks-az-a → eks-az-c → `check-mgmt-guards.sh`" 섹션을 추가했다.
-   버킷 정책 apply(아래 ⓐ–ⓓ)와는 별개의 절차다.
+   버킷 정책 apply(아래 ⓐ–ⓔ)와는 별개의 절차다.
 
    **round-21 수정(MAJOR 4).** ① rollout runbook 의 기대 plan 을 정확히 했다: 정상 rollout
    plan 에는 `terraform_data.break_glass_gate` **생성 1건**(shared/ 와 각 spoke 의 모듈)이
@@ -396,7 +396,7 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    수위로 정정했다.
 
    **round-22 수정(L5 MAJOR 2).** ① CLAUDE.md 의 custody 요약이 allowlist 를 **시행 중인**
-   통제처럼 읽혔다 — "코드로 존재, ⓐ–ⓓ 수동 rollout 전까지 미적용, 오늘 버킷에는 정책이
+   통제처럼 읽혔다 — "코드로 존재, ⓐ–ⓔ 수동 rollout 전까지 미적용, 오늘 버킷에는 정책이
    없다" 를 한 구절로 박았다. ② self-lockout 서술이 local-state 실물과 모순됐다(위 round-16
    ① 의 정정, main.tf 주석·error message·`protected_state_keys` 설명 동일 정정). Korea
    README 에 read grant 만기일(2026-10-31) 병기.
@@ -413,7 +413,9 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    같은 role 로 `put-object` → AccessDenied → ⓔ **같은 세션에서** 이 레이어에 `backend "s3"`
    (key `global/terraform-state/terraform.tfstate`, lock 테이블 포함) 를 추가하고 `terraform
    init -migrate-state` — custody 정책의 관리 state 를 lock 있는 remote 로 옮긴다
-   (follow-up 6). 이 순서를 밟기 전까지 ADR 의 "closed here" 는 코드상 닫힌 것이고
+   (follow-up 6) → ⓕ CLAUDE.md 와 Korea README 의 "오늘 버킷에는 정책이 없다 / exists in
+   code only" 문구를 현행화하는 후속 커밋(체크 항목 — 문서가 미적용 상태를 서술한 채
+   남지 않게). 이 순서를 밟기 전까지 ADR 의 "closed here" 는 코드상 닫힌 것이고
    계정에서 닫힌 것이 아니다. **후속**: DynamoDB lock 테이블은 여전히 identity Deny
    (`github-actions-role`) 에만 있고 allowlist 대응물이 없다 — `ci_runner` 의 현재 권한
    셋에는 DynamoDB write 가 없어 즉시 경로는 없지만, DynamoDB resource-based policy 로
@@ -522,7 +524,7 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    DynamoDB lock 도 없는 bootstrap 레이어다. `aws_s3_bucket_policy` 는 upsert 이므로
    allowlist 의 복수 applier(devbox role 2개 + SSO admin) 중 누구든 stale checkout 에서
    apply 하면 동시성 통제도 diff 신호도 없이 정책이 이전 판으로 덮인다 — "custody
-   boundary" 라고 부르는 통제에 대해서다. **결정**: rollout ⓐ–ⓓ 직후, 같은 devbox 세션에서
+   boundary" 라고 부르는 통제에 대해서다. **결정**: rollout ⓒ–ⓓ 직후, 같은 devbox 세션에서
    이 레이어를 remote state 로 이관한다 — `backend "s3"` 블록(`bucket =
    multi-region-mall-terraform-state`, `key = global/terraform-state/terraform.tfstate`,
    `dynamodb_table = multi-region-mall-terraform-locks`, `encrypt = true`) 추가 후

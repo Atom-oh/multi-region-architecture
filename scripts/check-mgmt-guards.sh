@@ -19,6 +19,19 @@
 # stale-SG 상시 감지는 ADR-003 의 follow-up 으로 별도 추적된다.
 set -euo pipefail
 
+# Workspace 고정 (round-24 리뷰 L4 MAJOR, 확인): `terraform output` 은 그 디렉터리에
+# *현재 선택된* workspace 의 state 를 읽는다. 이 repo 는 `env:/*/<key>` 객체를 실존
+# 위협으로 다뤄 세 정책에 패턴을 넣어 놓고도, 검사기는 non-default workspace 가 선택된
+# 셸에서 production(default) 이 아닌 state 를 비교해 PASS 를 낼 수 있었다 — 침묵형
+# 오판. TF_WORKSPACE 가 이미 다른 값으로 설정돼 있으면 조용히 덮지 않고 FAIL 한다
+# (운영자가 의도적으로 다른 workspace 를 보고 있다는 신호일 수 있다); 없으면 default 로
+# 고정한다. `terraform workspace select` 로 선택된 상태는 TF_WORKSPACE 가 우선한다.
+if [ -n "${TF_WORKSPACE:-}" ] && [ "$TF_WORKSPACE" != "default" ]; then
+  echo "FAIL TF_WORKSPACE=$TF_WORKSPACE — this check compares the production (default) workspace only. Unset it or set TF_WORKSPACE=default." >&2
+  exit 1
+fi
+export TF_WORKSPACE=default
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LAYERS="$ROOT/terraform/environments/production/ap-northeast-2"
 MGMT_REGION="ap-northeast-2"
@@ -112,6 +125,7 @@ https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Successful}" \
 }
 if [ "$SELF_CHECK" = "1" ]; then
   [ "$(run_self_check '[]' '[]')" = "0" ] || { echo "self-check FAILED: 둘 다 깨끗한데 PASS 아님"; exit 1; }
+  [ "$(TF_WORKSPACE=staging run_self_check '[]' '[]')" = "1" ] || { echo "self-check FAILED: non-default TF_WORKSPACE 인데 FAIL 아님(round-24 L4)"; exit 1; }
   [ "$(run_self_check '["x"]' '["x"]')" = "1" ] || { echo "self-check FAILED: 양쪽 가드 해제인데 FAIL 아님"; exit 1; }
   [ "$(run_self_check '[]' '["x"]')" = "1" ] || { echo "self-check FAILED: guards 불일치인데 FAIL 아님"; exit 1; }
   [ "$(run_self_check '[]' '[]' 'sg-old' 'sg-new')" = "1" ] || { echo "self-check FAILED: SG 불일치인데 FAIL 아님"; exit 1; }
@@ -168,7 +182,7 @@ https://mgmt-c.example:6443 mall-apne2-az-c v1.30.0 Unknown' 'mall-apne2-mgmt' '
   # round-12 M2-1: 5개 trust 입력 전체를 덮는 fingerprint 가 shared↔spoke 에서
   # 갈리면(예: expected_mgmt_tags 만 shared 에 apply 되고 spoke 는 아직) FAIL.
   [ "$(run_self_check '[]' '[]' 'sg-mgmt' 'sg-mgmt' '' 'mall-apne2-mgmt' 'false' '' 'sg-mgmt' '' 'false' '"fp-stale"')" = "1" ] || { echo "self-check FAILED: fingerprint 미수렴(az-a stale)인데 FAIL 아님(M2-1)"; exit 1; }
-  echo "self-check PASS (clean/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/argocd-message-substring/shared-미수렴×2/expect-released-override/expect-released-mixed/expect-released-name/mgmt-down-분리/override-접미사-정규화/unknown-prefix-usage/stale-confirm/fingerprint-미수렴/mgmt-down-비대칭 모두 올바르게 판정)"
+  echo "self-check PASS (clean/non-default-workspace/released/guards-divergent/sg-divergent/unreadable/argocd-unreachable/argocd-stale-substring/argocd-message-substring/shared-미수렴×2/expect-released-override/expect-released-mixed/expect-released-name/mgmt-down-분리/override-접미사-정규화/unknown-prefix-usage/stale-confirm/fingerprint-미수렴/mgmt-down-비대칭 모두 올바르게 판정)"
   exit 0
 fi
 

@@ -66,8 +66,8 @@ That one is closed **in code** here, with an **allowlist bucket policy**:
 `state_custody_appliers` / `state_custody_readers` / `external_state_appliers`
 / `external_state_readers`. The policy is **not applied by the PR that adds
 it** — that layer is local-state bootstrap; until someone walks ADR-003's
-apply order ⓐ–ⓓ (merge → confirm all four lists against the account →
-plan/apply from the devbox → verify) the bucket still has no policy and the
+apply order ⓐ–ⓔ (merge → confirm all four lists against the account →
+plan/apply from the devbox → verify → migrate this layer's own state into the bucket, same session) the bucket still has no policy and the
 paragraph above is the live state. A resource-policy Deny beats any Allow in any
 identity policy, so attaching a managed FullAccess policy no longer grants it —
 which is the whole difference between this and a README warning. The bucket had
