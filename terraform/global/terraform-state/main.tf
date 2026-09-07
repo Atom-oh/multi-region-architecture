@@ -103,7 +103,11 @@ locals {
   state_custody_reader_arns = [
     for r in var.state_custody_readers : "arn:aws:iam::${local.account_id}:role/${r}"
   ]
-  state_read_actions = ["s3:GetObject", "s3:GetObjectVersion"]
+  # Current-version read only. terraform_remote_state and `plan` need GetObject;
+  # GetObjectVersion would hand readers the whole versioned history of a state
+  # object (older plaintext passwords included) with no contract covering it
+  # (round-20 review L2/L3 MAJOR). Appliers keep s3:* and can still read history.
+  state_read_actions = ["s3:GetObject"]
   # Keys governed by this repo's applier group alone = protected minus the
   # externally-applied and the externally-read ones (each gets its own Sid).
   internal_state_keys = [

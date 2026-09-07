@@ -360,6 +360,16 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    output 전용 state / SSM) 이 끝나면 이 grant 를 재검토·축소한다**는 것을 만기 조건으로
    여기와 변수 설명에 고정한다.
 
+   **round-20 수정(MAJOR 2).** ① reader grant 에서 `s3:GetObjectVersion` 을 제거했다 —
+   `terraform_remote_state`/plan 은 현재 객체의 `GetObject` 만 쓰고, 버전 이력 read 는
+   round-18 의 만기 조건부 grant 기록에 없던 권한이다(이력 버전의 비밀번호는 2026-08-19
+   로테이션으로 대부분 무효지만 least-privilege 상 뺄 이유만 있다). ② 머지 직후 **일회성
+   rollout 순서**가 어디에도 없었다: spoke 는 shared/ 의 신규 output 7개를 remote state
+   에서 읽으므로 shared/ 를 먼저 apply 하지 않으면 모든 spoke plan 이 "Unsupported
+   attribute" 로 죽는다(fail-closed, 데이터 위험 없음). region README "Deployment Order"
+   에 "shared/ apply → eks-az-a → eks-az-c → `check-mgmt-guards.sh`" 섹션을 추가했다.
+   버킷 정책 apply(아래 ⓐ–ⓓ)와는 별개의 절차다.
+
    **적용 순서**(이 PR 은 정책을 apply 하지 않는다): ⓐ 머지 → ⓑ `state_custody_appliers`
    / `state_custody_readers` / `external_state_appliers` / `external_state_readers` 네
    목록을 계정의 실제 role 과 대조해 사람이 확정 → ⓒ devbox

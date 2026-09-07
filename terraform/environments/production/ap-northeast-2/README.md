@@ -148,6 +148,38 @@ Budget that into the RTO: a Korea rebuild is not a single-repo operation.
 Steady state, only the spokes' plan-time dependency is live — mgmt existing is a
 precondition for planning `eks-az-{a,c}`, not for applying `shared/`.
 
+### One-time rollout after merging the eks-mgmt handoff (ADR-003)
+
+The spokes now read seven new `shared/` outputs from remote state
+(`mgmt_cluster_name`, `default_mgmt_cluster_name`, `expected_mgmt_vpc_id`,
+`expected_mgmt_tags`, `mgmt_cluster_security_group_id_override`,
+`break_glass_confirm`, `mgmt_trust_fingerprint`). Until `shared/` has been
+applied once from the merged tree those outputs do not exist in its state and
+**every spoke plan fails with "Unsupported attribute"** — fail-closed, no data
+risk, but nothing works until the order below is followed. Run it once, in
+this order, from the devbox:
+
+```bash
+cd terraform/environments/production/ap-northeast-2/shared
+terraform init -upgrade && terraform plan   # expect ONLY new outputs + the
+                                            # github-actions IAM Deny changes;
+                                            # no mgmt cluster resources — those
+                                            # left this repo
+terraform apply
+
+(cd ../eks-az-a && terraform init -upgrade && terraform plan && terraform apply)
+(cd ../eks-az-c && terraform init -upgrade && terraform plan && terraform apply)
+#   each spoke plan must show NO changes to the cluster itself — only the
+#   mgmt-trust module's data lookups, checks and the new outputs
+
+bash ../../../../../scripts/check-mgmt-guards.sh   # plain form: all guards
+                                                   # engaged, both spokes
+                                                   # converged, ArgoCD reaches both
+```
+
+The state-custody bucket policy is a **separate** step with its own order and
+confirmation gates — ADR-003 apply order ⓐ–ⓓ — and is not part of this rollout.
+
 ### 1. shared/ (Foundation)
 
 ```bash
