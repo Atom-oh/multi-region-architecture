@@ -533,12 +533,14 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
   "released"를 보고한다(의도된 것 — rename 진행 중 신호. `check-mgmt-guards.sh`는
   이 단계에서 `--expect-released=mgmt_cluster_name`으로 실행할 것 — plain 모드는
   released guard가 있으면 그 이유를 안 따지고 FAIL한다. break-glass 런북 step 3는
-  `--expect-released=mgmt_cluster_security_group_id`에 **`--mgmt-down`을 더해**
-  실행한다 — round-12 리뷰 M4-1 이후 argocd 미도달의 INFO 다운그레이드는
-  `--expect-released` 값에서 유도되지 않고 `--mgmt-down` 플래그 전용이며, 그
-  플래그도 **양쪽 spoke 동시 미도달**만 예상으로 삼킨다(비대칭 미도달은 half-fleet
-  신호라 여전히 FAIL — round-13 리뷰 M-L4). rename 은 mgmt 가 살아 있는 상태에서
-  진행하므로 `--mgmt-down` 없이 실행하고, 그때 argocd 미도달은 전부 FAIL 이다.
+  `--expect-released=mgmt_cluster_security_group_id` 이고, `--mgmt-down` 은 **mgmt
+  가 실제로 다운/이관되어 ArgoCD 가 진짜로 미도달인 트리거에서만** 더한다 —
+  `eks:DescribeCluster` 만 실패한 트리거(mgmt·ArgoCD 정상)에서는 붙이지 않는다(round-16
+  수정 ④, README step 3 의 트리거별 두 커맨드). round-12 리뷰 M4-1 이후 argocd 미도달의
+  INFO 다운그레이드는 `--expect-released` 값에서 유도되지 않고 `--mgmt-down` 플래그
+  전용이며, 그 플래그도 **양쪽 spoke 동시 미도달**만 예상으로 삼킨다(비대칭 미도달은
+  half-fleet 신호라 여전히 FAIL — round-13 리뷰 M-L4). rename 은 mgmt 가 살아 있는
+  상태에서 진행하므로 `--mgmt-down` 없이 실행하고, 그때 argocd 미도달은 전부 FAIL 이다.
   guard 이름을 명시하는 이유는 round-11 리뷰 M6: 인자 없는 `--expect-released`는
   released 가드 전부를 무조건 INFO로 낮췄는데, break-glass 중에도 override 외의
   가드가 같이 released 돼선 안 된다 — 두 런북이 서로 다른 "무엇이 released 여도

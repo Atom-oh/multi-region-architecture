@@ -61,9 +61,14 @@ workload on the mgmt cluster could read and write this whole state bucket,
 including the `shared/` state that carries Aurora and DocumentDB master passwords
 in plaintext. Runner pods execute PR code, so that was not a theoretical path.
 
-That one is closed here, with an **allowlist bucket policy**:
+That one is closed **in code** here, with an **allowlist bucket policy**:
 `terraform/global/terraform-state`, `protected_state_keys` +
-`state_custody_appliers`. A resource-policy Deny beats any Allow in any
+`state_custody_appliers` / `state_custody_readers` / `external_state_appliers`
+/ `external_state_readers`. The policy is **not applied by the PR that adds
+it** — that layer is local-state bootstrap; until someone walks ADR-003's
+apply order ⓐ–ⓓ (merge → confirm all four lists against the account →
+plan/apply from the devbox → verify) the bucket still has no policy and the
+paragraph above is the live state. A resource-policy Deny beats any Allow in any
 identity policy, so attaching a managed FullAccess policy no longer grants it —
 which is the whole difference between this and a README warning. The bucket had
 no policy at all before (`NoSuchBucketPolicy`). Scope is this repo's state keys
@@ -110,8 +115,13 @@ applies it.
 
 The allowlist's failure mode is the mirror image — a missing applier is locked
 out loudly (its next plan/apply fails on state access) instead of the target
-slipping through silently. Confirm `state_custody_appliers` against the account
-before every apply that changes it; the human SSO administrator entry is
+slipping through silently. Confirm **all four lists** — `state_custody_appliers`,
+`state_custody_readers`, `external_state_appliers`, `external_state_readers` —
+against the account before every apply that changes any of them (a missing
+reader breaks the other repo's plans, not just ours), and after applying verify
+from a runner pod (`head-object` on `shared/` → AccessDenied), from the devbox
+(→ 200) and as Atlantis (`head-object` on `shared/` → 200, `put-object` →
+AccessDenied — the round-17 regression check); the human SSO administrator entry is
 wildcarded on its permission-set hash so Identity Center re-provisioning cannot
 lock the recovery path out, and the account root can always `PutBucketPolicy` on
 its own bucket. Still outside this: what `ci_runner` can do to resources *other*
@@ -438,10 +448,11 @@ the CloudFront → NLB → api-gateway traffic path does not use this SG.
    `--expect-released=mgmt_cluster_security_group_id`: the `mgmt_cluster_name`
    guard is released on both right now by design, and plain mode FAILs on any
    released guard regardless of whether that's expected. Use the
-   `mgmt_cluster_name` prefix specifically, not the override one — this mode
-   does *not* downgrade an unreachable ArgoCD to INFO the way the override
-   prefix does, because mgmt is expected to be alive and reachable during a
-   rename; an unreachable ArgoCD here is a real problem, not expected noise.
+   `mgmt_cluster_name` guard name specifically, not the override one, and do
+   **not** add `--mgmt-down` — no `--expect-released` value downgrades an
+   unreachable ArgoCD to INFO by itself (that is the separate `--mgmt-down`
+   flag, round-12 M4-1), and mgmt is expected to be alive and reachable during
+   a rename; an unreachable ArgoCD here is a real problem, not expected noise.
    Still hard-fails on the thing that actually matters, the two spokes not
    agreeing with each other):
    `shared/` sets `default_mgmt_cluster_name` to the same new name and applies,
