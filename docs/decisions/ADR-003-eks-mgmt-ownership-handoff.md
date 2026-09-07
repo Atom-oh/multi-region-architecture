@@ -410,7 +410,10 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    production/ap-northeast-2/shared/terraform.tfstate` → AccessDenied, devbox 에서
    같은 명령 → 200, **그리고 Atlantis(`AtlantisIRSARole`) 로 같은 `head-object` → 200**
    (round-17 CRITICAL 의 회귀 검증 — 외부 repo 의 shared/ read 계약이 살아 있는지),
-   같은 role 로 `put-object` → AccessDenied. 이 순서를 밟기 전까지 ADR 의 "closed here" 는 코드상 닫힌 것이고
+   같은 role 로 `put-object` → AccessDenied → ⓔ **같은 세션에서** 이 레이어에 `backend "s3"`
+   (key `global/terraform-state/terraform.tfstate`, lock 테이블 포함) 를 추가하고 `terraform
+   init -migrate-state` — custody 정책의 관리 state 를 lock 있는 remote 로 옮긴다
+   (follow-up 6). 이 순서를 밟기 전까지 ADR 의 "closed here" 는 코드상 닫힌 것이고
    계정에서 닫힌 것이 아니다. **후속**: DynamoDB lock 테이블은 여전히 identity Deny
    (`github-actions-role`) 에만 있고 allowlist 대응물이 없다 — `ci_runner` 의 현재 권한
    셋에는 DynamoDB write 가 없어 즉시 경로는 없지만, DynamoDB resource-based policy 로
@@ -513,6 +516,22 @@ server로 접근하기 위한 ingress 규칙(`argocd_security_group_id`)이다. 
    `expected_mgmt_tags`)에는 여전히 이런 게이트가 없다 — CI 없이도 가능한 개선
    (plan JSON에 대한 OPA/Conftest 검사, 또는 이들에도 비슷한 확인 변수)은 후속으로
    남긴다.
+
+6. **custody 정책 자체가 local-state 레이어에서 관리된다 — 기한 있는 follow-up.**
+   (round-23 리뷰 L2 MAJOR, 확인) `terraform/global/terraform-state` 는 backend 도
+   DynamoDB lock 도 없는 bootstrap 레이어다. `aws_s3_bucket_policy` 는 upsert 이므로
+   allowlist 의 복수 applier(devbox role 2개 + SSO admin) 중 누구든 stale checkout 에서
+   apply 하면 동시성 통제도 diff 신호도 없이 정책이 이전 판으로 덮인다 — "custody
+   boundary" 라고 부르는 통제에 대해서다. **결정**: rollout ⓐ–ⓓ 직후, 같은 devbox 세션에서
+   이 레이어를 remote state 로 이관한다 — `backend "s3"` 블록(`bucket =
+   multi-region-mall-terraform-state`, `key = global/terraform-state/terraform.tfstate`,
+   `dynamodb_table = multi-region-mall-terraform-locks`, `encrypt = true`) 추가 후
+   `terraform init -migrate-state`. 그 key 는 이미 `protected_state_keys` 의 `global/*`
+   예약 안에 있으므로 이관 즉시 같은 allowlist 아래 들어가고 lock 도 생긴다(닭-달걀은
+   없다: 버킷과 lock 테이블은 이 레이어가 만들었고 이미 존재한다). 나머지 세 global
+   레이어(aurora/documentdb global cluster, route53-zone)도 같은 방식으로 뒤따른다.
+   **기한: 정책 rollout ⓒ 와 같은 날** — rollout 절차 ⓔ 로 아래에 추가했다. 이관 전까지
+   이 레이어의 apply 는 "한 사람이, 최신 main 에서, 한 번에" 라는 절차에만 의존한다.
 
 ## Consequences
 

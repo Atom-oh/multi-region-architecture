@@ -60,6 +60,14 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
 # applier group on this repo's keys, the other repo's appliers on the one key
 # it owns, and nobody else.
 #
+# This layer is still local-state bootstrap (no backend block): aws_s3_bucket_policy
+# is an upsert, so two appliers on different checkouts can silently overwrite each
+# other's policy with no lock and no diff signal. ADR-003 follow-up 6 / rollout
+# step ⓔ migrates this layer's state into the bucket it manages
+# (key global/terraform-state/terraform.tfstate — already inside the global/*
+# reservation) right after the policy is first applied. Until then: one person,
+# latest main, one apply.
+#
 # The identity policy on github-actions-role already denies the mgmt state key
 # (modules/security/iam/github-actions.tf, DenyAccessToExternallyOwnedState), but
 # an identity Deny only binds the one principal it is attached to. The mgmt

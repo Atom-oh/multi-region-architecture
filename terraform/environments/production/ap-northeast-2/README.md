@@ -203,7 +203,10 @@ bash ../../../../../scripts/check-mgmt-guards.sh   # plain form: all guards
 ```
 
 The state-custody bucket policy is a **separate** step with its own order and
-confirmation gates — ADR-003 apply order ⓐ–ⓓ — and is not part of this rollout.
+confirmation gates — ADR-003 apply order ⓐ–ⓔ (ⓔ = migrate the policy layer's
+own state into the bucket right after the first apply; until then that layer is
+local-state and its apply is one person, latest `main`, one shot) — and is not
+part of this rollout.
 
 ### 1. shared/ (Foundation)
 
