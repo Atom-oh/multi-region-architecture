@@ -55,8 +55,8 @@ mkdir -p "$WORK" || { echo "collect-diff.sh: cannot create $WORK" >&2; exit 1; }
 #                     `terraform.tfstate.d/`.
 #   STATE_GENERIC_RE  `-out=`/리다이렉트 임의 이름의 흔한 변형인데 **이름만으로는 terraform
 #                     인지 알 수 없는** 패턴: `state.json`, `*-state.json`, `*.state.json`,
-#                     `plan.json`, `*-plan.json`, `*.plan.json`, `*.plan`, `plan.out`,
-#                     `*-plan.out`, `*.plan.out`. 이전 판은 이 셋을 무앵커로 걸어서
+#                     `plan.json`, `*-plan.json`, `*.plan.json`, `*_plan.json`, `*.plan`,
+#                     `plan.out`, `*-plan.out`, `*.plan.out`, `*_plan.out`. 이전 판은 이 셋을 무앵커로 걸어서
 #                     `webpage/**/state.json`, `docs/capacity-plan.json` 같은 앱/문서 파일을
 #                     삼켰다 — 양방향으로 나쁘다: **수정**이면 state_fatal → 잡 즉사 + "자격
 #                     증명 회전" 오안내(해소책이 rename 뿐), **삭제**면 state_deleted 로
@@ -82,7 +82,9 @@ mkdir -p "$WORK" || { echo "collect-diff.sh: cannot create $WORK" >&2; exit 1; }
 STATE_RE='(^|/)[^/]*\.tfstate(\.[0-9]+)?(\.backup|\.json)?$|(^|/)[^/]*\.tfplan(\.json|\.out)?$|(^|/)tfplan(\.json|\.out)?$|(^|/)terraform\.tfstate\.d/'
 # state 쪽도 plan 쪽과 대칭으로 `*-state.json`/`*.state.json` 을 덮는다 (round-7 리뷰 L2
 # MAJOR: `prod-state.json` 은 tf 앵커가 있어도 deny 를 지나 평문 전문이 패널로 나갔다).
-STATE_GENERIC_RE='(^|/)[^/]*[-.]plan\.(json|out)$|(^|/)plan\.(json|out)$|(^|/)[^/]*\.plan$|(^|/)[^/]*[-.]state\.json$|(^|/)state\.json$'
+# 구분자는 `- . _` 셋 다 — snake_case 산출물(`prod_plan.json`, `prod_state.json`)이 빠졌던
+# round-9 리뷰 L2 MAJOR. STATE_TF_ANCHOR_RE 가 `_` 를 토큰 구분자로 인정하는 것과 맞춘다.
+STATE_GENERIC_RE='(^|/)[^/]*[-._]plan\.(json|out)$|(^|/)plan\.(json|out)$|(^|/)[^/]*\.plan$|(^|/)[^/]*[-._]state\.json$|(^|/)state\.json$'
 STATE_TF_ANCHOR_RE='(^|/)terraform/|(^|[/._-])tf([/._-]|$)'
 
 # 패널이 읽어도 의미가 없는 노이즈. 확장자 allow-list 는 여기 **없다** — 이전 판은

@@ -160,11 +160,12 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
 명시한다(round-2 리뷰 M-L2-1·M-L3-3):
 
 - **열거 기반이다 — 그리고 두 그룹이다.** 이름 자체가 terraform 산출물인 패턴
-  (`STATE_RE`: `*.tfstate`/`*.tfstate.<n>`/`*.tfstate.backup`/`*.tfstate.json`,
-  `*.tfplan`/`*.tfplan.json`/`*.tfplan.out`, 확장자 없는 `tfplan`/`tfplan.json`/`tfplan.out`,
-  `terraform.tfstate.d/`)은 경로 어디에 있든 deny 다. 이름이 generic 한 `-out=`/리다이렉트
-  관행(`STATE_GENERIC_RE`: `plan.json`/`*-plan.json`/`*.plan.json`/`*.plan`/`plan.out`/
-  `*-plan.out`/`*.plan.out`, `state.json`/`*-state.json`/`*.state.json`)은
+  (`STATE_RE`: `*.tfstate`/`*.tfstate.<n>`/`*.tfstate.backup`/`*.tfstate.json` 과 그
+  조합 `*.tfstate.<n>.backup`/`*.tfstate.<n>.json`, `*.tfplan`/`*.tfplan.json`/
+  `*.tfplan.out`, 확장자 없는 `tfplan`/`tfplan.json`/`tfplan.out`, `terraform.tfstate.d/`)은
+  경로 어디에 있든 deny 다. 이름이 generic 한 `-out=`/리다이렉트 관행(`STATE_GENERIC_RE`:
+  `plan.json`/`plan.out`, `*<sep>plan.json`/`*<sep>plan.out`, `*.plan`, `state.json`/
+  `*<sep>state.json` — `<sep>` 는 `-` `.` `_` 셋 다, snake_case 포함)은
   **`STATE_TF_ANCHOR_RE` 와 AND 로만** deny 다 — 경로에 `terraform/` 디렉터리 세그먼트가
   있거나 `tf` 가 `/ . - _` 로 구분된 토큰으로 있을 때(round-4 리뷰 L2 MAJOR: 무앵커
   였을 때 `webpage/**/state.json`, `docs/capacity-plan.json` 같은 앱/문서 파일이 state
@@ -242,11 +243,12 @@ git 이 그 blob 을 바이너리로 판정했는지에 걸려 있다(files API 
    그래서 **추가·수정·rename** 은 `::error::` + `exit 1` 이다. 검출은 diff 구성과
    무관하다 — files API 의 `filename` 과 `previous_filename` 을 각각 검사하므로
    (D1) rename 도 인용 경로도 우회가 아니다. 패턴은 D3 의 열거와 동일하다 —
-   무조건 deny 인 `*.tfstate`/`*.tfstate.<n>`/`*.tfstate.backup`/`*.tfstate.json`,
-   `*.tfplan`/`*.tfplan.json`/`*.tfplan.out`, 확장자 없는 `tfplan`/`tfplan.json`/`tfplan.out`,
-   `terraform.tfstate.d/`, 그리고 **terraform 앵커(`terraform/` 세그먼트 또는 `tf`
-   토큰)가 경로에 있을 때만** deny 인 `plan.json`/`*-plan.json`/`*.plan.json`/`*.plan`/
-   `plan.out`/`*-plan.out`/`*.plan.out`/`state.json`/`*-state.json`/`*.state.json`
+   무조건 deny 인 `*.tfstate`/`*.tfstate.<n>`/`*.tfstate.backup`/`*.tfstate.json`(과
+   조합 `*.tfstate.<n>.backup`/`*.tfstate.<n>.json`), `*.tfplan`/`*.tfplan.json`/
+   `*.tfplan.out`, 확장자 없는 `tfplan`/`tfplan.json`/`tfplan.out`, `terraform.tfstate.d/`,
+   그리고 **terraform 앵커(`terraform/` 세그먼트 또는 `tf` 토큰)가 경로에 있을 때만**
+   deny 인 `plan.json`/`plan.out`/`*<sep>plan.json`/`*<sep>plan.out`/`*.plan`/`state.json`/
+   `*<sep>state.json`(`<sep>` ∈ `-` `.` `_`)
    (이 두 열거는 `collect-diff.sh` 의 `STATE_RE`/`STATE_GENERIC_RE` 와 항목 단위로
    같아야 한다 — round-8 리뷰 L5: 구현이 문서보다 넓어진 채 머지되면 auto-PASS 범위가
    ADR 밖에서 커진다)

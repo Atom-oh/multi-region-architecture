@@ -208,7 +208,7 @@ assert_empty fatal-oversized.txt
 # 이름만으로 terraform 인 것(`.tfstate*`/`.tfplan*`/`tfplan`)은 경로 무관 deny. 이름이
 # generic 한 것(`state.json`/`*-plan.json`/`*.plan`/`plan.out`)은 **terraform 앵커**(경로의
 # `terraform` 또는 `/tf/`·`.tf.` 토큰)가 있을 때만 deny 다 (round-4 L2 MAJOR, 아래 16b).
-for f in 'terraform.tfstate.json' 'prod.tfplan.json' 'ops/tfplan.out' 'ops/prod.tfplan.out' 'terraform/prod-plan.out' 'terraform/envs/prod/state.json' 'terraform/envs/prod/prod-state.json' 'terraform/envs/prod/my.state.json' 'terraform/prod-plan.json' 'terraform/prod.plan' 'infra/tf/plan.out' 'envs/prod.tf.plan'; do
+for f in 'terraform.tfstate.json' 'prod.tfplan.json' 'ops/tfplan.out' 'ops/prod.tfplan.out' 'terraform/prod-plan.out' 'terraform/envs/prod/state.json' 'terraform/envs/prod/prod-state.json' 'terraform/envs/prod/my.state.json' 'terraform/prod_state.json' 'terraform/prod_plan.json' 'infra/tf/prod_plan.out' 'terraform/prod-plan.json' 'terraform/prod.plan' 'infra/tf/plan.out' 'envs/prod.tf.plan'; do
   run "state/plan variant $f is denied" '[
     {"filename":"'"$f"'","status":"added","changes":1,"patch":"@@ -0,0 +1 @@\n+{\"master_password\":\"hunter2\"}"}
   ]'
@@ -233,7 +233,7 @@ assert_grep panel.diff 'docs/deployment-plan.md'
 # 아니라(pla**tf**orm) 앵커가 아니고, `docs/terraform-migration/capacity-plan.json` 의
 # `terraform-migration` 은 `terraform/` 세그먼트가 아니라 앵커가 아니다(round-5 L2 MINOR:
 # substring 앵커였을 때 이 문서가 state 로 오분류됐다).
-for f in 'webpage/src/state.json' 'webpage/src/app-state.json' 'docs/capacity-plan.json' 'src/scheduler/release.plan' 'platform-plan.json' 'ops/plan.out' 'docs/terraform-migration/capacity-plan.json' 'notes/terraform-plan.md'; do
+for f in 'webpage/src/state.json' 'webpage/src/app-state.json' 'webpage/src/app_state.json' 'docs/capacity-plan.json' 'src/scheduler/release.plan' 'platform-plan.json' 'ops/plan.out' 'docs/terraform-migration/capacity-plan.json' 'notes/terraform-plan.md'; do
   run "generic-named app file $f is reviewed, not denied" '[
     {"filename":"'"$f"'","status":"modified","changes":2,"patch":"@@ -1 +1 @@\n-a\n+b"}
   ]'
