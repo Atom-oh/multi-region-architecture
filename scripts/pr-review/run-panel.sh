@@ -247,17 +247,30 @@ if [ -n "$PATHS_MANIFEST" ] && [ -s "$PATHS_MANIFEST" ]; then
     # `terraform/environments/production/us-west-2/`, `k8s/overlays/us-west-2/` 같은
     # 특정 리전이 큰 PR 에서 결정론적으로 먼저 사라졌고, "N more paths omitted" 만으로는
     # 렌즈가 리전 parity(L2 의 핵심 축)를 검증할 수 없었다. 4세그먼트는 이 repo 의
-    # 리전 경로 깊이(`terraform/environments/production/<region>`)에 맞춘 것이고,
-    # 요약은 디렉터리 수에 비례하므로 ARG 한계(이 캡의 존재 이유)를 다시 위협하지
-    # 않는다. 같은 요약을 파일로도 남겨 의장 stdin(패널 출력 옆)에 실린다 — 렌즈가
-    # 언급하지 않아도 결정론적 신호가 남도록.
-    OMITTED_SUMMARY="$(tail -n +"$(( SHOWN_PATHS + 1 ))" "$PATHS_MANIFEST" \
-      | awk -F/ '{ d=$1; for (i=2; i<=4 && i<NF; i++) d=d"/"$i; c[d]++ } END { for (d in c) printf "%s: %d paths omitted\n", d, c[d] }' \
-      | sort)"
-    MANIFEST_TEXT+=$'\n('"$(( TOTAL_PATHS - SHOWN_PATHS ))"' more paths omitted — manifest capped at '"$PATHS_MANIFEST_CAP"'B; omitted, by directory:)\n'"$OMITTED_SUMMARY"
-    printf 'PATHS MANIFEST CAPPED: %d of %d paths shown to the lenses; omitted by directory:\n%s\n' \
-      "$SHOWN_PATHS" "$TOTAL_PATHS" "$OMITTED_SUMMARY" > "$WORK/manifest-capped.txt"
+    # 리전 경로 깊이(`terraform/environments/production/<region>`)에 맞춘 것이다.
+    # 요약 자체에도 캡을 건다 (round-6 리뷰 L5 MAJOR, 확인): 디렉터리 수의 상한은
+    # 파일 수이므로(node_modules 커밋형 PR 은 고유 prefix 가 수천 개) 무캡 요약은
+    # round-3 M-L4 가 닫은 ARG_MAX 결함을 그대로 재도입한다. 카운트 내림차순으로
+    # 정렬해 가장 많이 잘린 디렉터리가 캡 안에 남게 하고, 줄 경계로 자른 뒤 절단
+    # 표시를 붙인다. 이 캡은 argv 로 가는 렌즈 프롬프트에만 적용 — 의장용 파일
+    # (manifest-capped.txt, stdin 으로 전달)은 무캡 전문이다.
+    OMITTED_SUMMARY_FULL="$(tail -n +"$(( SHOWN_PATHS + 1 ))" "$PATHS_MANIFEST" \
+      | awk -F/ '{ d=$1; for (i=2; i<=4 && i<NF; i++) d=d"/"$i; c[d]++ } END { for (d in c) printf "%d\t%s\n", c[d], d }' \
+      | sort -t$'\t' -k1,1nr -k2,2 \
+      | awk -F'\t' '{ printf "%s: %d paths omitted\n", $2, $1 }')"
+    OMITTED_SUMMARY_CAP="${OMITTED_SUMMARY_CAP:-4096}"
+    OMITTED_SUMMARY="$(printf '%s' "$OMITTED_SUMMARY_FULL" | head -c "$OMITTED_SUMMARY_CAP")"
+    if [ "$(printf '%s' "$OMITTED_SUMMARY_FULL" | wc -c)" -gt "$OMITTED_SUMMARY_CAP" ]; then
+      OMITTED_SUMMARY="${OMITTED_SUMMARY%$'\n'*}"
+      OMITTED_SUMMARY+=$'\n(…summary truncated at '"$OMITTED_SUMMARY_CAP"'B — '"$(( $(printf '%s\n' "$OMITTED_SUMMARY_FULL" | wc -l) - $(printf '%s\n' "$OMITTED_SUMMARY" | wc -l) + 1 ))"' more directories; the chair receives the full summary)'
+    fi
+    MANIFEST_TEXT+=$'\n('"$(( TOTAL_PATHS - SHOWN_PATHS ))"' more paths omitted — manifest capped at '"$PATHS_MANIFEST_CAP"$'B; omitted, by directory, largest first:)\n'"$OMITTED_SUMMARY"
+    printf 'PATHS MANIFEST CAPPED: %d of %d paths shown to the lenses; omitted by directory (largest first):\n%s\n' \
+      "$SHOWN_PATHS" "$TOTAL_PATHS" "$OMITTED_SUMMARY_FULL" > "$WORK/manifest-capped.txt"
   fi
+  # 렌즈 preamble 총량 = PATHS_MANIFEST_CAP + OMITTED_SUMMARY_CAP + 고정 문구 ≈ 20.5KiB
+  # 상한 — 렌즈 프롬프트 본문과 합쳐도 MAX_ARG_STRLEN(128KiB) 아래다. 이 두 캡이 그
+  # 보장의 전부이므로 어느 쪽을 올리면 이 산식을 같이 확인할 것.
   # "Complete" 가 아니다 — 위 캡이 있다 (round-5 L2 MAJOR: 이전 문구는 캡 초과 시 거짓).
   PATHS_PREAMBLE=$'\n\nPaths this PR touches — capped at '"$PATHS_MANIFEST_CAP"$'B, omissions are counted per directory at the end (the diff below may be truncated or capped; a path listed here but absent from the diff means its content was withheld or cut, NOT that it is unchanged):\n'"$MANIFEST_TEXT"
 fi
