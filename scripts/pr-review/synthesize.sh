@@ -114,11 +114,11 @@ PROMPT_EOF
 # 286초를 정상적으로 썼다. 매트릭스(4→12 패널 출력)는 체어 입력이 더 커 286s 실측조차
 # 밑돎 — job timeout-minutes 여유를 반영해 600s로 상향.
 # 의도적으로 job 전역 ANTHROPIC_MODEL 을 참조하지 않는다 — 그 값은 job 의 다른
-# step/용도에도 쓰이고 이 repo 에서는 이미 fable-5 로 고정돼 있어, 그대로 재사용하면
-# PRIMARY==FALLBACK(둘 다 fable-5)으로 붕괴해 fallback 자체가 무력화된다. chair 전용
+# step/용도에도 쓰이고 이 repo 에서는 이미 fable-5.1 로 고정돼 있어, 그대로 재사용하면
+# PRIMARY==FALLBACK(둘 다 fable-5.1)으로 붕괴해 fallback 자체가 무력화된다. chair 전용
 # CHAIR_PRIMARY_MODEL 로 완전히 분리한다(다른 pr-review 리포와 동일 패턴).
-PRIMARY_MODEL="${CHAIR_PRIMARY_MODEL:-us.anthropic.claude-fable-5}"
-FALLBACK_MODEL="${CHAIR_FALLBACK_MODEL:-us.anthropic.claude-opus-5}"
+PRIMARY_MODEL="${CHAIR_PRIMARY_MODEL:-global.anthropic.claude-fable-5-1}"
+FALLBACK_MODEL="${CHAIR_FALLBACK_MODEL:-global.anthropic.claude-opus-5}"
 CHAIR_TIMEOUT="${CHAIR_TIMEOUT:-600}"
 # 의장은 에이전트라서 툴을 돌릴 수 있고, 턴 상한이 없으면 종합 대신 리포 탐색으로
 # 시간을 다 쓸 수 있다 — 관측된 실패 양식: PR#34(리뷰 워크플로 자체를 바꾸는 diff)에서
@@ -157,9 +157,10 @@ else
 fi
 
 chair_label() { case "$1" in
-  *fable-5*)  echo "Claude Fable 5" ;;
-  *opus-5*)   echo "Claude Opus 5" ;;
-  *)          echo "$1" ;;
+  *fable-5-1*) echo "Claude Fable 5.1" ;;
+  *fable-5*)   echo "Claude Fable 5" ;;
+  *opus-5*)    echo "Claude Opus 5" ;;
+  *)           echo "$1" ;;
 esac ; }
 
 run_chair() {  # $1=model $2=max-turns $3=out-file → $3 에 기록(scrub 통과). 실패해도 || true 로 계속.
