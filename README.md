@@ -180,7 +180,7 @@ multi-region-architecture/
 │   │   └── production/
 │   │       ├── us-east-1/              # Primary region (260 resources)
 │   │       ├── us-west-2/              # Secondary region
-│   │       └── ap-northeast-2/         # Korea (shared, eks-mgmt, eks-az-a, eks-az-c)
+│   │       └── ap-northeast-2/         # Korea (shared, eks-az-a, eks-az-c / mgmt는 AWS-Demo-Platform 소유)
 │   └── modules/
 │       ├── networking/                 # VPC, Transit Gateway, Security Groups
 │       ├── compute/                    # EKS, ALB Controller
@@ -375,6 +375,9 @@ graph LR
 | [OTel Tracing Design](docs/otel-tracing-design.md) | 분산 트레이싱 설계 |
 | [Data Architecture](docs/data-architecture.md) | 데이터 아키텍처 및 스키마 |
 | [Network Architecture](docs/network-architecture.md) | 네트워크 토폴로지 및 보안 |
+| [ADR-001: AI 리뷰 패널](docs/decisions/ADR-001-complete-review-feature.md) | lens×model 매트릭스 PR 리뷰 게이트 |
+| [ADR-002: Kiro fs_read 위험](docs/decisions/ADR-002-pr-review-kiro-fs-read-risk.md) | diff 인젝션과 `persist-credentials: false` |
+| [ADR-003: eks-mgmt 소유권 이관](docs/decisions/ADR-003-eks-mgmt-ownership-handoff.md) | mgmt 클러스터는 `AWS-Demo-Platform`이 소유, spoke는 live lookup |
 
 ## License
 
