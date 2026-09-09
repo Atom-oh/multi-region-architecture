@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lens×모델 매트릭스 병렬 fan-out. 인자: <diff> <lenses_dir> <workdir>
+# lens×모델 매트릭스 병렬 fan-out. 인자: <diff> <lenses_dir> <workdir> [paths-manifest]
 # lenses_dir 안의 각 *.txt 가 lens 하나(파일명 stem = lens 태그, 예: L2/L3/L4/L5) —
 # 그 lens 전용 리뷰 프롬프트(자체 완결형: "이 lens만 봐"). 각 lens × 각 모델이
 # 독립 에이전트 셀 하나(design: oh-my-cloud-skills 원본 설계 문서 — 이 repo엔 없음, 그 repo의
@@ -13,7 +13,7 @@
 set -uo pipefail
 DIFF="$(realpath "$1" 2>/dev/null)" \
   || { echo "run-panel.sh: realpath failed to resolve diff path: $1" >&2; exit 1; }
-LENSES_DIR="$2"; WORK="$3"
+LENSES_DIR="$2"; WORK="$3"; PATHS_MANIFEST="${4:-}"
 # precheck.sh 와 같은 원칙 — $WORK 가 비면 ensure_slots 의 `rm -rf "$1/slot"` 가
 # `rm -rf /slot`(파일시스템 루트 하위) 이 되는 파괴적 경로가 생긴다. $LENSES_DIR 빈 값은
 # 파괴적이진 않지만(글롭이 매치 없이 조용히 0셀로 끝남) 인자 오설정을 조용히 넘기지 않고
@@ -222,9 +222,62 @@ if [ "$DIFF_BYTES" -gt "$KIRO_DIFF_CAP" ]; then
   : > "$WORK/kiro-diffcap-fired.flag"
 fi
 
+# 경로 매니페스트(collect-diff.sh 의 all-paths.txt)를 모든 lens 프롬프트에 첨부한다
+# (round-2 리뷰 M-L4-4): diff 는 3000 파일 API 캡·Kiro diff 캡으로 잘릴 수 있고, 그때
+# 렌즈는 "한 리전만 변경됨"과 "잘려서 안 보임"을 구별할 수 없다. 경로 **목록**은 내용과
+# 달리 토큰 예산이 싸므로 상시 첨부한다 — 잘린 경우 렌즈가 최소한 어떤 파일이 있는지는
+# 안다. 경로에 개행·제어문자가 있으면 collect-diff.sh 가 이미 fail-close 했으므로 이
+# 목록은 줄 단위로 안전하다.
+# 매니페스트에도 캡을 건다 (round-3 리뷰 M-L4, 2/3 수렴): 워크플로는 2999개
+# 파일까지 허용하는데 이 문자열은 codex 셀의 **단일 argv 인자**(LENS_PROMPT)에
+# 합쳐진다 — 무캡이면 큰 PR 에서 exec 자체가 128KiB(MAX_ARG_STRLEN) 한계로 실패해,
+# synthesize.sh 가 문서화해 둔 "ARG_MAX → 빈 응답 → fail-closed 역설"을 패널 쪽에
+# 재생산한다. 줄 경계로 자르고 생략 수를 명시한다.
+PATHS_MANIFEST_CAP="${PATHS_MANIFEST_CAP:-16384}"
+PATHS_PREAMBLE=""
+if [ -n "$PATHS_MANIFEST" ] && [ -s "$PATHS_MANIFEST" ]; then
+  TOTAL_PATHS="$(wc -l < "$PATHS_MANIFEST")"
+  MANIFEST_TEXT="$(head -c "$PATHS_MANIFEST_CAP" "$PATHS_MANIFEST")"
+  if [ "$(wc -c < "$PATHS_MANIFEST")" -gt "$PATHS_MANIFEST_CAP" ]; then
+    # 마지막 완전한 줄까지만 — 경로 하나가 중간에서 잘려 다른 경로처럼 읽히지 않게.
+    MANIFEST_TEXT="${MANIFEST_TEXT%$'\n'*}"
+    SHOWN_PATHS="$(printf '%s\n' "$MANIFEST_TEXT" | wc -l)"
+    # 생략분을 디렉터리(앞 4세그먼트)별 카운트로 요약한다 (round-5 리뷰 L2 MAJOR,
+    # 의장 확인): all-paths.txt 는 `sort -u` 라 절단은 **항상 사전순 뒤쪽** — 즉
+    # `terraform/environments/production/us-west-2/`, `k8s/overlays/us-west-2/` 같은
+    # 특정 리전이 큰 PR 에서 결정론적으로 먼저 사라졌고, "N more paths omitted" 만으로는
+    # 렌즈가 리전 parity(L2 의 핵심 축)를 검증할 수 없었다. 4세그먼트는 이 repo 의
+    # 리전 경로 깊이(`terraform/environments/production/<region>`)에 맞춘 것이다.
+    # 요약 자체에도 캡을 건다 (round-6 리뷰 L5 MAJOR, 확인): 디렉터리 수의 상한은
+    # 파일 수이므로(node_modules 커밋형 PR 은 고유 prefix 가 수천 개) 무캡 요약은
+    # round-3 M-L4 가 닫은 ARG_MAX 결함을 그대로 재도입한다. 카운트 내림차순으로
+    # 정렬해 가장 많이 잘린 디렉터리가 캡 안에 남게 하고, 줄 경계로 자른 뒤 절단
+    # 표시를 붙인다. 이 캡은 argv 로 가는 렌즈 프롬프트에만 적용 — 의장용 파일
+    # (manifest-capped.txt, stdin 으로 전달)은 무캡 전문이다.
+    OMITTED_SUMMARY_FULL="$(tail -n +"$(( SHOWN_PATHS + 1 ))" "$PATHS_MANIFEST" \
+      | awk -F/ '{ d=$1; for (i=2; i<=4 && i<NF; i++) d=d"/"$i; c[d]++ } END { for (d in c) printf "%d\t%s\n", c[d], d }' \
+      | sort -t$'\t' -k1,1nr -k2,2 \
+      | awk -F'\t' '{ printf "%s: %d paths omitted\n", $2, $1 }')"
+    OMITTED_SUMMARY_CAP="${OMITTED_SUMMARY_CAP:-4096}"
+    OMITTED_SUMMARY="$(printf '%s' "$OMITTED_SUMMARY_FULL" | head -c "$OMITTED_SUMMARY_CAP")"
+    if [ "$(printf '%s' "$OMITTED_SUMMARY_FULL" | wc -c)" -gt "$OMITTED_SUMMARY_CAP" ]; then
+      OMITTED_SUMMARY="${OMITTED_SUMMARY%$'\n'*}"
+      OMITTED_SUMMARY+=$'\n(…summary truncated at '"$OMITTED_SUMMARY_CAP"'B — '"$(( $(printf '%s\n' "$OMITTED_SUMMARY_FULL" | wc -l) - $(printf '%s\n' "$OMITTED_SUMMARY" | wc -l) + 1 ))"' more directories; the chair receives the full summary)'
+    fi
+    MANIFEST_TEXT+=$'\n('"$(( TOTAL_PATHS - SHOWN_PATHS ))"' more paths omitted — manifest capped at '"$PATHS_MANIFEST_CAP"$'B; omitted, by directory, largest first:)\n'"$OMITTED_SUMMARY"
+    printf 'PATHS MANIFEST CAPPED: %d of %d paths shown to the lenses; omitted by directory (largest first):\n%s\n' \
+      "$SHOWN_PATHS" "$TOTAL_PATHS" "$OMITTED_SUMMARY_FULL" > "$WORK/manifest-capped.txt"
+  fi
+  # 렌즈 preamble 총량 = PATHS_MANIFEST_CAP + OMITTED_SUMMARY_CAP + 고정 문구 ≈ 20.5KiB
+  # 상한 — 렌즈 프롬프트 본문과 합쳐도 MAX_ARG_STRLEN(128KiB) 아래다. 이 두 캡이 그
+  # 보장의 전부이므로 어느 쪽을 올리면 이 산식을 같이 확인할 것.
+  # "Complete" 가 아니다 — 위 캡이 있다 (round-5 L2 MAJOR: 이전 문구는 캡 초과 시 거짓).
+  PATHS_PREAMBLE=$'\n\nPaths this PR touches — capped at '"$PATHS_MANIFEST_CAP"$'B, omissions are counted per directory at the end (the diff below may be truncated or capped; a path listed here but absent from the diff means its content was withheld or cut, NOT that it is unchanged):\n'"$MANIFEST_TEXT"
+fi
+
 for lens_file in "${LENS_FILES[@]}"; do
   lens="$(basename "$lens_file" .txt)"
-  LENS_PROMPT="$(cat "$lens_file")"
+  LENS_PROMPT="$(cat "$lens_file")$PATHS_PREAMBLE"
 
   # Codex 셀 (Bedrock, config.toml — 모델 문자열은 이 repo 코드가 아니라 러너 이미지의
   # ~/.codex/config.toml 이 결정하며, 그 값이 gpt-5.6-sol; KIRO_MODELS 의 gpt-5.6-terra 와는
