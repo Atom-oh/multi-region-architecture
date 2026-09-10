@@ -10,8 +10,9 @@ name: AI Code Review
 #   - 리전: claude-fable-5.1 은 global inference profile 이지만, "global." 은 Bedrock
 #     착지 이후의 라우팅에만 관여하고 SigV4 서명 리전에는 관여하지 않는다 — AWS_REGION 은
 #     ANTHROPIC_BEDROCK_BASE_URL 엔드포인트(ap-northeast-2)와 여전히 일치해야 한다(codex 의
-#     amazon-bedrock-runtime 은 이 제약이 없어 다름). job-level env 라 codex/kiro 패널
-#     셀에도 상속되지만, 둘 다 이 리전에서 문제없이 호출 가능해 무해하다.
+#     amazon-bedrock-runtime 은 이 제약이 없어 다름). job-level env 지만 Kiro 셀은
+#     `kiro_env()`(`env -i`)로 격리돼 상속받지 않는다 — codex 는 격리 없이 그대로 상속받고,
+#     이 리전에서 호출 가능해 무해하다.
 #   - 분류와 패널 diff 는 `gh pr diff` **텍스트를 파싱하지 않는다**. `pulls/{n}/files` 의
 #     JSON 을 scripts/pr-review/collect-diff.sh 가 읽고 패널 diff 를 재구성한다 — diff
 #     헤더 파싱은 rename(old 경로 뒤가 공백)과 인용 경로(`"a/...`)에서 fail-open 이었다.
