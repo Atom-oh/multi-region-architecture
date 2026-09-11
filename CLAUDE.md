@@ -155,6 +155,7 @@ go test ./...
 - **Prometheus + Grafana**: Metrics collection and dashboards. Exemplar-storage enabled for trace↔metric correlation.
 - **X-Ray**: AWS-native trace viewer (dual export from OTel).
 - Korea observability runs on mgmt cluster; workload clusters export via internal NLBs.
+- Korea Grafana's CloudFront distribution and DNS are owned by `terraform/environments/production/ap-northeast-2/shared`. Its origin reuses the existing private ALB VPC Origin from AWS-Demo-Platform (`grafana_vpc_origin_id` in tfvars). AWS-Demo-Platform owns the ALB's Grafana target group, listener rule and Kubernetes TargetGroupBinding. Preserve this ownership split; never import the distribution into both states. Apply that backend and verify target health before changing CloudFront.
 
 ### Frontend
 

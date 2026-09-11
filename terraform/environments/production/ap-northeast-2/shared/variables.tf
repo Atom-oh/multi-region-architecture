@@ -78,14 +78,8 @@ variable "argocd_nlb_zone_id" {
   default     = ""
 }
 
-variable "grafana_nlb_dns_name" {
-  description = "DNS name of the Grafana NLB (created by K8s LB controller)"
-  type        = string
-  default     = ""
-}
-
-variable "grafana_nlb_zone_id" {
-  description = "Hosted zone ID of the Grafana NLB"
+variable "grafana_vpc_origin_id" {
+  description = "Existing private ALB VPC origin exported by AWS-Demo-Platform infra/cloudfront"
   type        = string
   default     = ""
 }
