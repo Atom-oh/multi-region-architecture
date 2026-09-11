@@ -452,9 +452,9 @@ resource "aws_route53_record" "argocd_korea" {
   }
 }
 
-# CloudFront — Grafana Korea (grafana-kr.atomai.click → CF → NLB → Grafana)
+# CloudFront — Grafana Korea through the existing AWS-Demo-Platform private ALB.
 resource "aws_cloudfront_distribution" "grafana_korea" {
-  count = var.grafana_nlb_dns_name != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
+  count = var.grafana_vpc_origin_id != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
 
   enabled         = true
   is_ipv6_enabled = true
@@ -464,19 +464,19 @@ resource "aws_cloudfront_distribution" "grafana_korea" {
   aliases         = ["grafana-kr.${var.domain_name}", "grafana.${var.domain_name}"]
 
   origin {
-    domain_name = var.grafana_nlb_dns_name
-    origin_id   = "grafana-nlb"
+    # The canonical hostname matches the ALB wildcard certificate's HTTPS SNI.
+    domain_name = "grafana-kr.${var.domain_name}"
+    origin_id   = "grafana-private-alb"
 
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
+    vpc_origin_config {
+      vpc_origin_id            = var.grafana_vpc_origin_id
+      origin_read_timeout      = 30
+      origin_keepalive_timeout = 5
     }
   }
 
   default_cache_behavior {
-    target_origin_id         = "grafana-nlb"
+    target_origin_id         = "grafana-private-alb"
     viewer_protocol_policy   = "redirect-to-https"
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
     origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
@@ -505,7 +505,7 @@ resource "aws_cloudfront_distribution" "grafana_korea" {
 
 # grafana-kr.atomai.click → CloudFront
 resource "aws_route53_record" "grafana_kr" {
-  count = var.grafana_nlb_dns_name != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
+  count = var.grafana_vpc_origin_id != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
 
   zone_id = var.route53_zone_id
   name    = "grafana-kr.${var.domain_name}"
@@ -524,7 +524,7 @@ resource "aws_route53_record" "grafana_kr" {
 # EKS/CloudFront/data-plane is decommissioned — Korea is now the only
 # live Grafana, so the bare alias should point here too.
 resource "aws_route53_record" "grafana" {
-  count = var.grafana_nlb_dns_name != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
+  count = var.grafana_vpc_origin_id != "" && var.cloudfront_acm_certificate_arn != "" ? 1 : 0
 
   zone_id = var.route53_zone_id
   name    = "grafana.${var.domain_name}"
