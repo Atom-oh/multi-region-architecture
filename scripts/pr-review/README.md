@@ -249,7 +249,7 @@ One JSON fence or Kiro `>` prefixes are accepted; extra prose and duplicate keys
 Validated paths stay exact while decoded credential values are scrubbed. Sensitive
 containers are scanned without evaluation: complete boundaries preserve outside text;
 ambiguous expression tails consume the remainder and cannot retain a chair PASS.
-Bullets, links or closing fences can resemble continuations; avoid sensitive
+Bullets, headings, links or closing fences can resemble continuations; avoid sensitive
 assignment examples in the final report.
 
 MRA retains its portable control stripper because its legacy `lib.sh` lacks one.
