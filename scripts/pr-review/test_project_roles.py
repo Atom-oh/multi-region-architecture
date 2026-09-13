@@ -220,16 +220,37 @@ class ProjectInputTests(unittest.TestCase):
         self.assertNotIn(b"UNTRUSTED candidate", result["context"])
 
     def test_spaces_and_rename_paths_use_api_metadata(self):
-        old = self.repo / "app.txt"
-        new = self.repo / "new name.txt"
-        old.rename(new)
+        for mode in (0o644, 0o755):
+            with self.subTest(mode=mode):
+                old, new = self.repo / "app.txt", self.repo / "new name.txt"
+                old.rename(new)
+                new.chmod(mode)
+                head = self.commit_change()
+                files = [{"filename": "new name.txt", "previous_filename": "app.txt",
+                          "status": "renamed", "changes": 0}]
+                result = self.prepare(self.collect(head, files), head)
+                self.assertEqual(result["paths"], ["new name.txt"])
+                self.assertEqual(result["provenance"]["scope_paths"], ["app.txt", "new name.txt"])
+                self.assertIn(b"rename from app.txt\nrename to new name.txt", result["diff"])
+                status, plan = self.engine_plan(result, head)
+                self.assertEqual(status, 0, plan["input_failures"])
+                self.assertTrue(plan["input_complete"])
+                if mode == 0o755:
+                    self.assertIn(b"old mode 100644\nnew mode 100755\n", result["diff"])
+
+    def test_missing_rename_patch_cannot_hide_changed_contents(self):
+        text = "".join(f"line {index}\n" for index in range(100))
+        (self.repo / "app.txt").write_text(text)
+        self.git("add", ".")
+        self.git("commit", "-qm", "base rename candidate")
+        self.base = self.git("rev-parse", "HEAD").strip()
+        (self.repo / "app.txt").rename(self.repo / "new.txt")
+        (self.repo / "new.txt").write_text(text + "changed\n")
         head = self.commit_change()
-        files = [{"filename": "new name.txt", "previous_filename": "app.txt",
+        files = [{"filename": "new.txt", "previous_filename": "app.txt",
                   "status": "renamed", "changes": 0}]
-        result = self.prepare(self.collect(head, files), head)
-        self.assertEqual(result["paths"], ["new name.txt"])
-        self.assertEqual(result["provenance"]["scope_paths"], ["app.txt", "new name.txt"])
-        self.assertIn(b"rename from app.txt\nrename to new name.txt", result["diff"])
+        with self.assertRaisesRegex(ValueError, "rename content"):
+            self.prepare(self.collect(head, files), head)
 
     def test_oversized_source_is_retained_and_explicitly_blocked(self):
         large = "x" * 96000

@@ -56,8 +56,8 @@ automatic quota or billing changes are made.
 Codex retains its read-only sandbox and configured Bedrock provider. Its JSONL
 events validate execution; the CLI-designated private final reply supplies review
 text, excluding tool/progress output. Claude's specialist disables tools, denies `*` and caps each attempt at one turn. The chair
-has bounded local read tools and no GitHub token. Review output is scrubbed before
-becoming a public artifact.
+has bounded local read tools and no GitHub token. Terminal formatting is removed before strict JSON validation; credential values
+are scrubbed afterward. Ambiguous sensitive expressions cannot preserve a chair PASS.
 
 Complete, valid results with no Critical/Major candidate or uncertainty receive
 a deterministic summary. Other valid results require chair adjudication. A

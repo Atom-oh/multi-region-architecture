@@ -30,6 +30,7 @@ The operational workflow selects `ROLE_REVIEW=1`; legacy matrix branches remain 
 | [test_prepare_roles.py](test_prepare_roles.py), [test_project_policy_roles.py](test_project_policy_roles.py) | Trusted input and policy tests. |
 | [test_run_role.py](test_run_role.py), [test_synthesize_roles.py](test_synthesize_roles.py), [test_integrity_roles.py](test_integrity_roles.py) | Executor, chair and cross-stage tests. |
 | [test_project_roles.py](test_project_roles.py) | MRA collector and policy binding tests. |
+| [test_redaction_roles.py](test_redaction_roles.py) | Credential containers, expression tails and chair-output privacy. |
 | [test_e2e_roles.py](test_e2e_roles.py) | Generic temporary-fixture executor scenarios. |
 | [test_project_integration_roles.py](test_project_integration_roles.py), [test_project_workflow_roles.py](test_project_workflow_roles.py) | MRA entrypoints, workflow and credential boundaries. |
 

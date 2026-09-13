@@ -221,6 +221,25 @@ def prepare(head, base, merge_base, work, supplied_diff):
     collector_digest = checksum(panel)
     path_only = []
     for entry in selected:
+        if entry["status"] == "renamed" and not entry.get("patch"):
+            old, name = entry["previous_filename"], entry["filename"]
+            before, after = [
+                git("--literal-pathspecs", "ls-tree", "-z", revision, "--", path)
+                .split(b"\t", 1)[0].split()
+                for revision, path in ((merge_base, old), (head, name))
+            ]
+            if len(before) != 3 or len(after) != 3 or before[2] != after[2]:
+                raise ValueError("collector rename contents differ or are unavailable")
+            # Object IDs prove unchanged content without reading either blob.
+            extra = b"similarity index 100%\n"
+            if before[0] != after[0]:
+                extra = b"old mode " + before[0] + b"\nnew mode " + after[0] + b"\n" + extra
+            header = f"diff --git a/{old} b/{name}\n".encode()
+            panel, count = re.subn(
+                rb"(?m)^" + re.escape(header), lambda _: header + extra, panel, count=1,
+            )
+            if count != 1:
+                raise ValueError("collector rename record is unavailable")
         if entry["status"] == "removed" and "patch" not in entry:
             # ADR-004 permits metadata-only oversized deletions. Add the actual
             # tree mode so the shared engine recognizes a complete deletion

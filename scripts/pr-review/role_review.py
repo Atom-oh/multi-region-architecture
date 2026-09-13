@@ -3,6 +3,8 @@
 
 import argparse
 import ast
+import warnings
+import ast
 from contextlib import contextmanager
 import hashlib
 import json
@@ -723,6 +725,67 @@ SENSITIVE_KEY = re.compile(
 )
 
 
+def _scrub_containers(value, key):
+    """Remove complete containers; an uncertain boundary consumes the remainder."""
+    opening = re.compile(key + r"[\[({]")
+    line_end = re.compile(r"[ \t\r]*(?:\n|\Z)")
+    continuation = re.compile(
+        r"\s*(?:[" + re.escape("()[]{}.+-*/%&|^?\\<>=!,\"'`")
+        + r"]|(?:if|else|and|or|in|is|not)\b)"
+    )
+    closing = {"[": "]", "(": ")", "{": "}"}
+    pieces, cursor = [], 0
+    while match := opening.search(value, cursor):
+        pieces.extend((value[cursor:match.start()], "[REDACTED]"))
+        start, index = match.end() - 1, match.end()
+        stack, quote, escaped = [closing[value[start]]], None, False
+        # Each matched region is scanned once, including nested/quoted delimiters.
+        while index < len(value) and stack:
+            char = value[index]
+            if escaped:
+                escaped = False
+                index += 1
+            elif char == "\\":
+                escaped = True
+                index += 1
+            elif quote:
+                if value.startswith(quote, index):
+                    index += len(quote)
+                    quote = None
+                else:
+                    index += 1
+            elif char in "\"'":
+                quote = char * 3 if value.startswith(char * 3, index) else char
+                index += len(quote)
+            elif char in closing:
+                stack.append(closing[char])
+                index += 1
+            elif char in "])}":
+                if char != stack.pop():
+                    return "".join(pieces)
+                index += 1
+            else:
+                index += 1
+        if stack or quote or escaped:
+            return "".join(pieces)
+        try:
+            # Parse only, never evaluate. Malformed or unsupported syntax must
+            # not preserve an apparent verdict after a guessed closing bracket.
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                ast.parse(value[start:index], mode="eval")
+        except (SyntaxError, ValueError, RecursionError, Warning):
+            return "".join(pieces)
+        # A balanced prefix can still be followed by a conditional, call, index
+        # or concatenation. Do not guess where such a sensitive expression ends.
+        boundary = line_end.match(value, index)
+        if boundary is None or continuation.match(value, boundary.end()):
+            return "".join(pieces)
+        cursor = index
+    pieces.append(value[cursor:])
+    return "".join(pieces)
+
+
 def scrub(value, preserved=frozenset()):
     """Scrub decoded strings too: raw-JSON sanitizers miss escaped credentials."""
     if isinstance(value, list):
@@ -759,6 +822,7 @@ def scrub(value, preserved=frozenset()):
     quote = r"""\\*["']"""
     string = r"""(?P<escape>\\*)(?P<quote>["'])(?:(?P=escape)\\.|(?P=escape)(?P=quote)(?P=escape)(?P=quote)|(?!(?P=escape)(?P=quote)).)*(?:(?P=escape)(?P=quote)|\Z)"""
     key = identifier + rf"(?:{quote})?\s*[:=]\s*"
+    value = _scrub_containers(value, key)
     block = r"[|>][-+]?[ \t]*\r?\n(?:[+-]?[ \t]+[^\r\n]*(?:\r?\n|\Z))+"
     patterns = (
         r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)",
