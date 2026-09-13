@@ -51,12 +51,12 @@ and produce a deterministic `NOT_APPLICABLE` explanation followed by
 reviewed the change. The report must disclose the excluded paths and policy hash.
 If any reviewable input remains, the independent primary-role requirement applies.
 
-**Policy artifacts (planned).** For generic consumers, the reviewed source is
+**Generic policy artifacts.** For generic consumers, the reviewed source is
 `scripts/pr-review/role-input-scope.json` in the pinned BASE commit. The trusted
-caller passes a byte-identical local copy using `--policy FILE`. Preparation will
-retain the verified bytes as `WORK/exclusions-policy.json`: a generated private
+caller passes a byte-identical local copy using `--policy FILE`. Preparation
+retains the verified bytes as `WORK/exclusions-policy.json`: a generated private
 validation copy, not a second committed policy. `input_policy_sha256` hashes the
-exact BASE policy bytes; both local copies must match it. Aggregation will recheck
+exact BASE policy bytes; both local copies must match it. Aggregation rechecks
 the retained WORK copy against that digest. The caller still owns verification of
 the BASE source and complete Git scope.
 
