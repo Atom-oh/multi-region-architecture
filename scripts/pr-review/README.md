@@ -1,7 +1,9 @@
 # Specialist review protocol
 
-Offline protocol; legacy review remains active. Executors/adapters need separate
-activation review. No Git fetch or model calls.
+**Installed offline protocol.** Its code, tests and offline test workflow are
+available. The legacy operational review remains active; provider/adapter
+integration and slot changes follow separately. The library performs no Git fetch
+or model calls.
 
 | Tag | Requested model | Scope |
 | --- | --- | --- |
@@ -10,9 +12,20 @@ activation review. No Git fetch or model calls.
 | kiro-sol | `gpt-5.6-sol` | Deployment/contracts/recovery |
 | claude-self | `global.anthropic.claude-fable-5-1` | Auth/data/API/ADR |
 
-`kiro-fable` means Opus. `ROLES` governs specialists; legacy files govern legacy
-execution. Kiro/Bedrock IDs differ. English is requested, not validated; configured
-IDs do not attest model weights.
+`kiro-fable` means Opus. The `ROLES` constant in `role_review.py` defines
+protocol tags; `run-panel.sh` defines the existing legacy slot labels.
+Kiro/Bedrock IDs differ. English is requested, not validated; configured IDs do not
+attest model weights.
+
+## Slot mapping (planned)
+
+| Protocol tag | Legacy `run-panel.sh` slot | Model selection |
+| --- | --- | --- |
+| `kiro-fable` | `kiro-opus` | `claude-opus-5` remains selected |
+| `kiro-sol` | `kiro-gpt` | Planned `gpt-5.6-terra` → `gpt-5.6-sol` |
+
+These are different label namespaces. The protocol tag does not rename the
+legacy slot; the activation change selects the new role-based execution path.
 
 ## API and input
 
@@ -28,26 +41,43 @@ IDs do not attest model weights.
 The executor sends issued bytes; hashes bind inputs, not transport. Keep tool data
 out of diagnostics.
 
-`--paths`: UTF-8 JSON array of unique repository-relative paths matching the patch,
+`--paths FILE`: UTF-8 JSON array of unique repository-relative paths matching the patch,
 e.g. `["src/api.ts"]`. Renames use destinations; the collector checks both sides.
 Omit only for authoritative, unambiguous patch paths.
 
-`--provenance`: JSON object. Required `head_sha`/`base_sha` equal the lowercase
-40-character CLI revisions; `diff_sha256` hashes exact raw diff bytes. Example:
+<a id="provenance-planned"></a>
 
-```json
-{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","base_sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","diff_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
-```
+### Provenance
 
-Optional `input_failures` contains codes matching `[a-z][a-z0-9_:.-]{0,63}`; any code
-blocks. Invalid provenance is discarded and blocks; stored values are scrubbed.
-Optional `path_only: list[str]` identifies collector-approved metadata-only
-deletions. Verify eligibility before withholding bodies.
+`--provenance FILE` supplies a JSON object. This table is the canonical field
+contract; library checks and trusted-producer duties are distinct.
+
+| Field | Required for | Meaning and owner |
+| --- | --- | --- |
+| `head_sha`, `base_sha` | Every supplied provenance object | Lowercase 40-hex CLI revisions; the library checks equality. `base_sha` identifies the trusted checkout and policy source. |
+| `diff_sha256` | Every supplied provenance object | SHA-256 of the exact bytes supplied through `--diff`, after approved filtering. The library recomputes it; an approved empty input hashes empty bytes. |
+| `merge_base_sha` | Generic Git preparer | Immutable comparison origin verified by the trusted preparer. |
+| `raw_diff_sha256` | Generic Git preparer | Hash of its complete, unfiltered Git diff before policy exclusions. The preparer computes/verifies this evidence; the library does not recover withheld input to recompute it. |
+| `scope_paths` | Generic Git preparer; exclusions-only opt-in | Complete original path set, independently derived from Git by the preparer, including excluded paths. |
+| `excluded_paths` | Generic Git preparer; exclusions-only opt-in | Paths excluded by the verified BASE policy; empty when none. For exclusions-only, the library requires equality with nonempty `scope_paths`. |
+| `input_policy_sha256` | Generic preparer using a policy; exclusions-only opt-in | Hash of exact committed BASE policy bytes; null without a policy. For exclusions-only the library hashes `--policy FILE` and requires a match. |
+| `scope_exception` | Exclusions-only opt-in | Exactly `configured_exclusions_only`, with explicit CLI opt-in and empty diff/reviewable paths; absent or null for ordinary review. |
+| `input_failures` | Optional | Static codes matching `[a-z][a-z0-9_:.-]{0,63}`; any code blocks. |
+| `path_only` | Optional collector-approved metadata-only deletions | Path list permitting deletion-metadata review without bodies; eligibility remains the trusted collector's responsibility. |
+
+`diff_sha256` and `raw_diff_sha256` describe different processing stages and can
+differ. They are not interchangeable names. The generic producer must supply its
+listed fields in addition to the common library envelope. Project adapters may
+retain additional evidence; MRA uses its approved collector view and never
+reconstructs withheld state bodies merely to populate the generic raw-diff field.
+Provenance is bound into request/plan fingerprints as data; invalid envelope
+values block and stored values are scrubbed. These hashes do not authenticate an
+arbitrary caller or independently establish Git membership.
 
 ## Coverage and lifecycle
 
 Codex/Claude are required for reviewable source; trusted routing may deactivate
-irrelevant Kiro roles. App Router React is conservative. Failed output is never
+irrelevant Kiro roles. Unknown paths route conservatively. Failed output is never
 N/A. Parsing misses whole omissions/some cut prefixes: verify Git scope/hashes.
 
 BASE-approved exclusions-only scope may yield NOT_APPLICABLE/PASS without models.
@@ -63,7 +93,8 @@ each other; interrupted operations require fresh work. Duplicate records retain
 the first result and block. Finish writers before aggregation. Reissue archives
 32 prior results in `slot/TAG-attempts.json`; model-selection/fallback/quota/preflight
 failures block until new preparation. Summaries retain history. All `*.flag` files
-block except root `coverage-severe.flag`. `failure_codes` is canonical; `failures` aliases it.
+block except the aggregator's own root `coverage-severe.flag`, which it rewrites from
+current evidence; upstream flags are never exempt. `failure_codes` is canonical; `failures` aliases it.
 
 Exit 2 means blocked. Aggregate exit 0: `deterministic` permits the report when no
 blocking candidate/uncertainty exists (Minor/Info remain); `review` needs a chair.
@@ -90,13 +121,23 @@ MRA retains ADR-004 collector/state-deletion custody and its deletion-only short
 These stages do not configure generic exclusions-only scope for MRA (ADR-005).
 
 Exclusions-only review requires both `--allow-exclusions-only --policy FILE`.
-The trusted BASE collector supplies a schema-1 policy; its exact bytes must match
-`input_policy_sha256`. The private `exclusions-policy.json` anchor is rechecked
-during aggregation. Missing or mismatched opt-in blocks. The collector, not this
-offline library, must establish complete Git scope and approved exclusions.
+The planned generic source is the reviewed schema-1
+`scripts/pr-review/role-input-scope.json` blob at pinned BASE. `FILE` is the trusted
+caller's byte-identical local copy. Preparation will retain those verified bytes
+as `WORK/exclusions-policy.json`, a generated private validation copy rather than
+another committed policy. Both copies must match `input_policy_sha256` of the BASE
+blob; aggregation will recheck the retained WORK copy. Missing or mismatched opt-in
+blocks. The caller, not this library, must verify the BASE source, complete Git
+scope and approved exclusions. MRA does not enable this generic policy.
+
+The generic BASE preparer must supply the fields and source checks in the
+[canonical provenance table](#provenance-planned). Candidate/model assertions
+cannot establish these facts. Incomplete evidence fails closed. As recorded in ADR-005, the library does
+not impose a universal file-type denylist: reviewed generated-code exclusions
+remain possible. MRA instead retains ADR-004's specific mandatory deny rules.
 
 A valid result cannot be reissued to discard findings or uncertainty. Start a new
 preparation for a new review; failed attempts retain their diagnostic history.
 
-The model table targets CI's Bedrock Runtime provider. Local Mantle uses
-`openai.gpt-6-astra` for Astra; provider-specific identifiers are not interchangeable.
+Codex/Claude rows use Bedrock Runtime IDs; Kiro rows use Kiro catalog aliases.
+Local Codex on Mantle uses `openai.gpt-6-astra`; these namespaces are distinct.
