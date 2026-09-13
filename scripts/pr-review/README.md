@@ -249,3 +249,7 @@ responses block chair invocation without truncation. Configured chair fallback m
 recover from transient throttling; hard monthly/credit/overage limits stop it.
 Original model JSON reaches `record` via a mode-0600 temporary file outside WORK,
 removed even on errors; only validated results and scrubbed diagnostics persist.
+
+Claude specialists also set `--disallowedTools "*"` and `--max-turns 1` alongside
+empty tools and strict MCP configuration. Fake-CLI tests simulate ignored tool
+availability and verify explicit denial; they do not establish live model behavior.

@@ -55,7 +55,7 @@ automatic quota or billing changes are made.
 
 Codex retains its read-only sandbox and configured Bedrock provider. Its JSONL
 events validate execution; the CLI-designated private final reply supplies review
-text, excluding tool/progress output. Claude's specialist has no tools. The chair
+text, excluding tool/progress output. Claude's specialist disables tools, denies `*` and caps each attempt at one turn. The chair
 has bounded local read tools and no GitHub token. Review output is scrubbed before
 becoming a public artifact.
 

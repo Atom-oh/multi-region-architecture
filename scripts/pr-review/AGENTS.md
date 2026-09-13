@@ -27,7 +27,8 @@ The operational workflow selects `ROLE_REVIEW=1`; legacy matrix branches remain 
 | [synthesize_roles.py](synthesize_roles.py) | Deterministic output or bounded adjudication; no coverage override. |
 | [role-controls.sh](role-controls.sh) | ANSI/control stripping, combined with `lib.sh` secret masking by `run_role.scrub()`. |
 | [test_mra_bootstrap_roles.py](test_mra_bootstrap_roles.py) | Guard, per-slot evidence cap and tool-denial regressions. |
-| `test_{prepare,project_policy,run,synthesize,integrity}_roles.py` | Preparation, policy, execution, chair and cross-stage regressions. |
+| [test_prepare_roles.py](test_prepare_roles.py), [test_project_policy_roles.py](test_project_policy_roles.py) | Trusted input and policy tests. |
+| [test_run_role.py](test_run_role.py), [test_synthesize_roles.py](test_synthesize_roles.py), [test_integrity_roles.py](test_integrity_roles.py) | Executor, chair and cross-stage tests. |
 | [test_project_roles.py](test_project_roles.py) | MRA collector and policy binding tests. |
 | [test_e2e_roles.py](test_e2e_roles.py) | Generic temporary-fixture executor scenarios. |
 | [test_project_integration_roles.py](test_project_integration_roles.py), [test_project_workflow_roles.py](test_project_workflow_roles.py) | MRA entrypoints, workflow and credential boundaries. |
