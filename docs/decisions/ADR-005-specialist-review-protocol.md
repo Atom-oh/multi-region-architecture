@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted (2026-09-13). Common executors are installed. This stage adds the MRA
-collector adapter, explicit context/chair policy and unit tests. The legacy
-workflow remains selected until separate activation and E2E review.
+Accepted (2026-09-13). PR #52 installed the protocol; PR #54 installed executors
+and the required guard policy. PR #55 adds the MRA adapter, bounded context and
+unit tests. Legacy review remains selected until PR #56 activation and E2E review.
+The original policy rationale from PR #53 is retained below.
 
 ## Context
 
@@ -109,7 +110,7 @@ The current `pr-review.yml`, collector and chair execution path are unchanged.
 Protocol PASS means supplied role evidence validated; it is not a live provider
 result or permission to skip activation review.
 
-After the implementation files exist, run
+Run
 `python3 -B -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v`.
 The phase-two integration needs its own current-HEAD review and tests for the
 collector bundle, nondisclosure, provenance, provider failures and chair controls.
