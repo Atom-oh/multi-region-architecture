@@ -58,6 +58,14 @@ continues to use its custom files API collector, state-body withholding and the
 narrow deletion-only workflow shortcut. These MRA stages do not introduce a
 `role-input-scope.json` policy or select `configured_exclusions_only` for MRA.
 
+**Scoped context validation.** The adapter requires the immutable BASE, HEAD and
+merge-base objects to be available; a targeted shallow fetch suffices. It may read
+only the fixed candidate context documents as data to reject missing/oversized
+context before merge. Candidate text is never executed or used as instructions.
+This narrow check qualifies the historical blanket wording about HEAD-blob reads
+in ADR-004; it does not authorize retrieval of withheld state/plan bodies. Adapter
+source order and the JSON profile are bound by the preparer and MRA regression tests.
+
 Existing decisions remain in force:
 
 - [ADR-002](ADR-002-pr-review-kiro-fs-read-risk.md): preserve trusted execution and

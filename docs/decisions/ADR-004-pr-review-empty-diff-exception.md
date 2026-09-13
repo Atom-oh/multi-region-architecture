@@ -2,6 +2,11 @@
 
 ## Status
 
+**2026-09-13 adapter clarification:** [ADR-005](ADR-005-specialist-review-protocol.md)
+permits fixed candidate context documents to be read as data for size/availability
+checks, without execution or instruction use. This qualifies older HEAD-blob wording
+below. It does not permit retrieving withheld state/plan bodies or change D1/D3.
+
 **2026-09-13 phase-one amendment:** [ADR-005](ADR-005-specialist-review-protocol.md)
 introduces only the offline protocol library and tests. The existing collector,
 D1/D3 state-deletion protections, exception eligibility and chair controls remain

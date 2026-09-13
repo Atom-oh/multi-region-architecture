@@ -35,6 +35,11 @@ plus `mra-review-context.md`, and the mandatory chair policy: 600-second attempt
 8/12 turns, Read/Grep/Glob allowed, and Bash/Write/Edit/NotebookEdit/WebFetch/
 WebSearch/Task always denied. Read tools have no filesystem path confinement.
 
+The caller must already have the BASE, HEAD and merge-base commit objects locally.
+A shallow BASE checkout plus fetching those exact revisions is sufficient; complete
+Git history is not required. Fetching objects is not permission to reconstruct
+withheld state/plan bodies. The activation workflow supplies this prerequisite.
+
 From the pinned BASE checkout, collect all files API pages between two immutable
 HEAD/base snapshots, then create the approved bundle before deleting raw API files:
 
@@ -49,6 +54,13 @@ Snapshot JSON contains `head_sha`/`base_sha`. The bundle retains `panel.diff`,
 `collection.json` and patch-free `collection-meta.json`. State-deletion bodies are
 removed before persistence. The caller must delete original raw API responses
 before providers or the chair run. Publish safe metadata, never raw request bodies.
+
+The adapter's ordered `SOURCES` tuple defines context assembly. The profile declares
+the same sources; the common preparer rejects a mismatch, and MRA unit tests bind
+the exact order and actual chair options to the committed profile. Candidate
+`CLAUDE.md`/ADR-summary blobs are read only for availability and size validation,
+then discarded. Missing or moved context sources block until their migration is
+reviewed; this is an input-readiness failure, not proof of forged provenance.
 
 The hook receives `prepare(head, base, merge_base, work, supplied_diff)` and returns
 `diff`/`context` bytes, reviewable `paths`, `provenance` and `input_failures`.
