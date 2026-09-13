@@ -4,7 +4,7 @@
 # PR Review
 
 ## Purpose
-Owns the existing operational PR-review scripts and the installed offline protocol.
+Legacy review scripts and the installed protocol.
 The live workflow still calls the legacy panel and chair; the protocol is not activated.
 
 ## Key Files
@@ -35,7 +35,7 @@ The live workflow still calls the legacy panel and chair; the protocol is not ac
 
 ## Testing Requirements
 Current check: `bash scripts/pr-review/test-collect-diff.sh`.
-Run the offline protocol checks:
+Protocol checks:
 
 ```bash
 python3 -m unittest discover -s scripts/pr-review -p test_role_review.py -v

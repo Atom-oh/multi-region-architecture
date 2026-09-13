@@ -757,6 +757,7 @@ def scrub(value, preserved=frozenset()):
     value = re.sub(r'"(?:\\.|[^"\\])*"', quoted, value)
     identifier = SENSITIVE_KEY.pattern
     quote = r"""\\*["']"""
+    string = r"""(?P<escape>\\*)(?P<quote>["'])(?:(?P=escape)\\.|(?P=escape)(?P=quote)(?P=escape)(?P=quote)|(?!(?P=escape)(?P=quote)).)*(?:(?P=escape)(?P=quote)|\Z)"""
     key = identifier + rf"(?:{quote})?\s*[:=]\s*"
     block = r"[|>][-+]?[ \t]*\r?\n(?:[+-]?[ \t]+[^\r\n]*(?:\r?\n|\Z))+"
     patterns = (
@@ -777,8 +778,8 @@ def scrub(value, preserved=frozenset()):
         key + r"<<-?(?P<heredoc>\w[\w-]*)[ \t]*\r?\n.*?(?:(?m:^[+-]?[ \t]*(?P=heredoc)[ \t]*\r?$)|\Z)",
         rf"(?i:\b(?:header)?name)(?:{quote})?\s*[:=]\s*(?:{quote})?" + identifier
         + rf"(?:{quote})?[\s,]*[+-]?[ \t]*(?:{quote})?(?i:(?:header)?value)(?:{quote})?\s*[:=]\s*"
-        + rf"(?:{block}|(?P<named>{quote}).*?(?P=named)|[^\s,}}\]]+)",
-        key + rf"(?P<quote>{quote}).*?(?P=quote)",
+        + rf"(?:{block}|{string}|[^\s,}}\]]+)",
+        key + string,
         key + r"""[^\s"',;}\]]+""",
     )
     for pattern in patterns:

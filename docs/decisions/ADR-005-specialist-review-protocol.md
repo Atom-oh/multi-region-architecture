@@ -2,10 +2,8 @@
 
 ## Status
 
-Accepted (2026-09-13). Policy PR #53 records the rationale below. PR #52 now
-installs the offline protocol and tests; its provider/adapter integrations and
-workflow activation remain separate following stages. Historical future-tense
-statements below describe the original policy decision, not current file presence.
+Accepted (2026-09-13). PR #52 installs the protocol/tests; policy PR #53's rationale
+is preserved below. Legacy review remains active; provider/adapter rollout follows.
 
 ## Context
 
