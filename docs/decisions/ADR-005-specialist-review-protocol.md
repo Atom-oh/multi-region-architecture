@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted for phase one (2026-09-13). The protocol library is planned in the following implementation PR.
-Provider execution and workflow activation are a separate phase-two change.
+Accepted (2026-09-13). PR #52 installs the protocol/tests; policy PR #53's rationale
+is preserved below. Legacy review remains active; provider/adapter rollout follows.
 
 ## Context
 

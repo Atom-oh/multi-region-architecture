@@ -1,10 +1,9 @@
 # Specialist review protocol
 
-**Planned contract:** implementation and tests arrive in the following PR.
-The legacy review pipeline remains active.
-
-Offline protocol; legacy review remains active. Executors/adapters need separate
-activation review. No Git fetch or model calls.
+**Installed offline protocol.** Its code, tests and offline test workflow are
+available. The legacy operational review remains active; provider/adapter
+integration and slot changes follow separately. The library performs no Git fetch
+or model calls.
 
 | Tag | Requested model | Scope |
 | --- | --- | --- |
@@ -13,7 +12,7 @@ activation review. No Git fetch or model calls.
 | kiro-sol | `gpt-5.6-sol` | Deployment/contracts/recovery |
 | claude-self | `global.anthropic.claude-fable-5-1` | Auth/data/API/ADR |
 
-`kiro-fable` means Opus. The planned `ROLES` constant in `role_review.py` defines
+`kiro-fable` means Opus. The `ROLES` constant in `role_review.py` defines
 protocol tags; `run-panel.sh` defines the existing legacy slot labels.
 Kiro/Bedrock IDs differ. English is requested, not validated; configured IDs do not
 attest model weights.
@@ -28,7 +27,7 @@ attest model weights.
 These are different label namespaces. The protocol tag does not rename the
 legacy slot; the activation change selects the new role-based execution path.
 
-## API and input (planned)
+## API and input
 
 `python3 scripts/pr-review/role_review.py COMMAND --help` lists flags.
 
@@ -46,7 +45,9 @@ out of diagnostics.
 e.g. `["src/api.ts"]`. Renames use destinations; the collector checks both sides.
 Omit only for authoritative, unambiguous patch paths.
 
-### Provenance (planned)
+<a id="provenance-planned"></a>
+
+### Provenance
 
 `--provenance FILE` supplies a JSON object. This table is the canonical field
 contract; library checks and trusted-producer duties are distinct.
@@ -108,8 +109,8 @@ Limits: 95,000 diff bytes (UTF-8), 3,000 lines, 24,000 context bytes, <128 KiB
 request; projects may lower them. Oversize blocks. No chunk coordinator or
 combining partial PASS results; preserve custody/budgets.
 
-After implementation lands, run `python3 -m unittest discover -s scripts/pr-review -p test_role_review.py`.
-Planned offline CI: `.github/workflows/pr-review-roles-tests.yml` (not installed yet). Activation also needs
+Run `python3 -m unittest discover -s scripts/pr-review -p test_role_review.py`.
+Offline CI: `.github/workflows/pr-review-roles-tests.yml`. Activation also needs
 executor/adapter, limit and exact-HEAD publication tests; offline success proves
 no live provider execution.
 

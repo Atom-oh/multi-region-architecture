@@ -4,7 +4,7 @@
 # PR Review
 
 ## Purpose
-Owns the existing operational PR-review scripts and the planned offline protocol.
+Legacy review scripts and the installed protocol.
 The live workflow still calls the legacy panel and chair; the protocol is not activated.
 
 ## Key Files
@@ -15,8 +15,8 @@ The live workflow still calls the legacy panel and chair; the protocol is not ac
 | [run-panel.sh](run-panel.sh) | Operational legacy panel entrypoint. |
 | [synthesize.sh](synthesize.sh) | Operational legacy chair entrypoint. |
 | [test-collect-diff.sh](test-collect-diff.sh) | Existing executable collector regression checks. |
-| `role_review.py` (planned) | Offline protocol: prepare, issue, record and aggregate; not used by the live workflow. |
-| `test_role_review.py` (planned) | Offline protocol regression tests. |
+| [role_review.py](role_review.py) | Offline protocol: prepare, issue, record and aggregate; not used by the live workflow. |
+| [test_role_review.py](test_role_review.py) | Offline protocol regression tests. |
 | [README.md](README.md) | Command, file-schema and stage contracts. |
 
 ## Subdirectories
@@ -35,7 +35,7 @@ The live workflow still calls the legacy panel and chair; the protocol is not ac
 
 ## Testing Requirements
 Current check: `bash scripts/pr-review/test-collect-diff.sh`.
-The following protocol check is planned and runs only after implementation lands:
+Protocol checks:
 
 ```bash
 python3 -m unittest discover -s scripts/pr-review -p test_role_review.py -v
