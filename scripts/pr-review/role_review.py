@@ -1,23 +1,5 @@
 #!/usr/bin/env python3
-"""Portable role-review preparation, response validation, and aggregation.
-
-CLI:
-  prepare --diff RAW --context CONTEXT --head SHA --base SHA --work WORK
-          [--context-cap BYTES] [--paths JSON_FILE] [--provenance JSON_FILE]
-          [--allow-exclusions-only --policy TRUSTED_BASE_JSON_FILE]
-  issue --work WORK --tag TAG
-  record --work WORK --tag TAG --output FILE --stderr FILE --exit-code RC --nonce NONCE
-  aggregate --work WORK
-
-Schema 1 plans list all four tags; only required roles get roles/TAG.txt and
-roles/TAG.diff. Response ``role`` is the stable role slug, not the tag. Result
-envelopes obtain tag, configured family/model and fingerprints from the plan.
-Exit 2 means blocked. Aggregate exit 0 means deterministic PASS or chair handoff;
-read chair-mode.txt to distinguish them. No networking or model invocation.
-Use a fresh work directory per complete reviewed diff. This library does not
-coordinate chunks. These are scope attestations,
-not proof of model honesty or of the provider's actual executed weights.
-"""
+"""Offline role-review protocol; README.md and --help define its contract."""
 
 import argparse
 import ast
@@ -447,6 +429,7 @@ def prepare(args):
             provenance = {}
             failures.append("invalid_input_provenance")
     material, policy_hash = None, None
+    scope_names = set()
     try:
         manifest = strict_json(text_file(args.paths)) if args.paths else None
         metadata_only = provenance.get("path_only", [])
@@ -461,6 +444,12 @@ def prepare(args):
                 raise Invalid("invalid_exclusions_policy")
             material, policy_hash = candidate, digest(candidate)
         paths = [] if policy_hash else diff_paths(diff, manifest, metadata_only)
+        scope_names.update(paths)
+        for key in ("scope_paths", "excluded_paths", "path_only"):
+            values = provenance.get(key, [])
+            if not isinstance(values, list):
+                raise Invalid("invalid_input_provenance")
+            scope_names.update(repo_path(path) for path in values)
     except Invalid as exc:
         paths = []
         failures.append(str(exc))
@@ -471,7 +460,7 @@ def prepare(args):
         remove(anchor)
     if re.search(r"^(?:Binary files .* differ|GIT binary patch)$", diff, re.M):
         failures.append("binary_content_not_reviewable")
-    provenance = scrub(provenance)
+    provenance = scrub(provenance, frozenset(scope_names))
     plan = {
         "schema_version": 1, "head_sha": args.head, "base_sha": args.base,
         "diff_sha256": digest(raw), "context_sha256": digest(context.encode()),
@@ -590,6 +579,8 @@ def _issue_request(work, tag):
     if not plan["input_complete"] or not role["required"]:
         raise Invalid("inactive_or_incomplete_request")
     previous = work / "slot" / f"{tag}-result.json"
+    if (work / "slot" / f"{tag}.record-claim").exists() and not previous.exists():
+        raise Invalid("missing_record_result")
     if previous.exists():
         prior = strict_json(text_file(previous))
         if not isinstance(prior, dict) or prior.get("valid") is True:
@@ -714,6 +705,9 @@ def diagnostic_failure(stderr):
             return "agent_preflight_diagnostic"
         if re.search(r"^(?:falling back|using (?:a )?fallback|fallback model)\b", body, re.I):
             return "model_fallback_diagnostic"
+        if (re.match(r"^HTTP(?:/\d(?:\.\d)?)?\s+[45]\d\d\b", body, re.I)
+                and re.search(r"\bMONTHLY_REQUEST_COUNT\b", body, re.I)):
+            return "quota_diagnostic"
         if re.search(r"^(?:MONTHLY_REQUEST_COUNT|UsageLimitReachedError|"
                      r"quota exceeded|rate limit exceeded|insufficient credits|"
                      r"monthly request limit (?:reached|exceeded)|"
@@ -724,23 +718,25 @@ def diagnostic_failure(stderr):
 
 SENSITIVE_KEY = re.compile(
     r"(?i:(?<![A-Za-z0-9])[A-Za-z0-9_.:-]*(?:password|passwd|pwd|dsn|api[_-]?key|"
-    r"secret|token|credential|passphrase|private[_-]?key|cookie|authorization|"
+    r"secret|token|credential|passphrase|private[_-]?key|cookie|authorization|auth(?![A-Za-z])|dockerconfigjson|"
     r"connection[_-]?string|origin[_-]?verify|AccessKeyId|access[_-]?key[_-]?id)[A-Za-z0-9_.:-]*)"
 )
 
 
-def scrub(value):
+def scrub(value, preserved=frozenset()):
     """Scrub decoded strings too: raw-JSON sanitizers miss escaped credentials."""
     if isinstance(value, list):
-        return [scrub(x) for x in value]
+        return [scrub(x, preserved) for x in value]
     if isinstance(value, dict):
         fields = {str(k).lower(): v for k, v in value.items()}
         sensitive_values = {v for k, v in (("name", "value"), ("headername", "headervalue"))
                             if isinstance(fields.get(k), str) and SENSITIVE_KEY.fullmatch(fields[k])}
         return {k: "[REDACTED]" if isinstance(k, str) and (
             SENSITIVE_KEY.fullmatch(k) or k.lower() in sensitive_values
-        ) else scrub(v) for k, v in value.items()}
+        ) else scrub(v, preserved) for k, v in value.items()}
     if not isinstance(value, str):
+        return value
+    if value in preserved:
         return value
     value = re.sub(r"(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]", "", value)
     value = re.sub(r"(?:\x1b[\]PX^_]|\x9d|\x90|\x98|\x9e|\x9f).*?(?:\x07|\x9c|\x1b\\|$)", "", value, flags=re.S)
@@ -749,19 +745,21 @@ def scrub(value):
     try:
         decoded = strict_json(value)
         if isinstance(decoded, (dict, list)):
-            return canonical(scrub(decoded))
+            return canonical(scrub(decoded, preserved))
     except Invalid:
         pass
     def quoted(match):
         try:
-            return canonical(scrub(strict_json(match.group())))
+            return canonical(scrub(strict_json(match.group()), preserved))
         except Invalid:
             return match.group()
     # Decode nested JSON strings/escaped keys before applying key/value patterns.
     value = re.sub(r'"(?:\\.|[^"\\])*"', quoted, value)
     identifier = SENSITIVE_KEY.pattern
     quote = r"""\\*["']"""
+    string = r"""(?P<escape>\\*)(?P<quote>["'])(?:(?P=escape)\\.|(?P=escape)(?P=quote)(?P=escape)(?P=quote)|(?!(?P=escape)(?P=quote)).)*(?:(?P=escape)(?P=quote)|\Z)"""
     key = identifier + rf"(?:{quote})?\s*[:=]\s*"
+    block = r"[|>][-+]?[ \t]*\r?\n(?:[+-]?[ \t]+[^\r\n]*(?:\r?\n|\Z))+"
     patterns = (
         r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)",
         r"\b(?:AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}\b",
@@ -776,11 +774,12 @@ def scrub(value):
         r"""https://hooks\.slack\.com/services/[^\s"'<>]+""",
         r"""(?im)^[ \t]*[+-]?[ \t]*(?:set-)?cookie["']?[ \t]*:[^\r\n]*""",
         r"""(?i:\bx-origin-verify)["']?\s*:\s*["']?[^\s"',;}\]]+""",
-        key + r"[|>][-+]?[ \t]*\r?\n(?:[+-]?[ \t]+[^\r\n]*(?:\r?\n|\Z))+",
+        key + block,
+        key + r"<<-?(?P<heredoc>\w[\w-]*)[ \t]*\r?\n.*?(?:(?m:^[+-]?[ \t]*(?P=heredoc)[ \t]*\r?$)|\Z)",
         rf"(?i:\b(?:header)?name)(?:{quote})?\s*[:=]\s*(?:{quote})?" + identifier
         + rf"(?:{quote})?[\s,]*[+-]?[ \t]*(?:{quote})?(?i:(?:header)?value)(?:{quote})?\s*[:=]\s*"
-        + rf"(?:(?P<named>{quote}).*?(?P=named)|[^\s,}}\]]+)",
-        key + rf"(?P<quote>{quote}).*?(?P=quote)",
+        + rf"(?:{block}|{string}|[^\s,}}\]]+)",
+        key + string,
         key + r"""[^\s"',;}\]]+""",
     )
     for pattern in patterns:
@@ -844,7 +843,7 @@ def _record(args):
             raise Invalid(result["failure_codes"][0])
         response = parse_response(text_file(args.output))
         validate_response(response, plan, args.tag)
-        response = scrub(response)
+        response = scrub(response, frozenset(role["paths"]))
         validate_response(response, plan, args.tag)
         result.update(valid=True, response=response, response_digest=digest(response))
     except Invalid as exc:
@@ -912,7 +911,7 @@ def aggregate(args):
                 if result.get("response_digest") != digest(response):
                     raise Invalid("invalid_response_digest")
                 responded.append(tag)
-                findings.extend({"tag": tag, **scrub(item)} for item in response["findings"])
+                findings.extend({"tag": tag, **scrub(item, frozenset(plan["paths"]))} for item in response["findings"])
                 uncertainties.extend({"tag": tag, "text": scrub(text)} for text in response["uncertainties"])
             except Invalid as exc:
                 failures.append(f"{exc}:{tag}")
@@ -927,7 +926,7 @@ def aggregate(args):
                 attempts = strict_json(text_file(path))
                 if not isinstance(attempts, list) or len(attempts) > 32:
                     raise Invalid("invalid_attempt_history")
-                history[tag] = scrub(attempts)
+                history[tag] = scrub(attempts, frozenset(plan["paths"]) if plan else frozenset())
             except Invalid:
                 failures.append(f"invalid_attempt_history:{tag}")
     mode = "blocked" if failures else "review" if uncertainties or any(

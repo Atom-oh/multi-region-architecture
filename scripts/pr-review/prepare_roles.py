@@ -18,8 +18,15 @@ from role_review import Invalid, strict_json
 DIRECTORY = Path(__file__).resolve().parent
 
 
-def project_policy(directory=None):
+def project_policy(directory=None, base=None):
     file = (directory or DIRECTORY) / "role-project.json"
+    if base is not None:
+        expected = git_file(base, "scripts/pr-review/role-project.json")
+        if expected is None and not file.exists() and not file.is_symlink():
+            return {}
+        if (file.is_symlink() or not file.is_file() or expected is None
+                or file.read_bytes() != expected.encode("utf-8")):
+            raise ValueError("Project policy differs from the trusted base")
     if not file.exists():
         return {}
     if file.is_symlink():
@@ -105,7 +112,7 @@ def prepare(head, base, work, supplied_diff=None):
     cap = int(os.environ.get("REVIEW_CONTEXT_CAP", "24000"))
     if not 0 < cap <= 24000:
         raise ValueError("REVIEW_CONTEXT_CAP must be between 1 and 24000 bytes")
-    policy = project_policy()
+    policy = project_policy(base=base)
     exclusion_source = None
     if policy:
         name = policy["input_adapter"]

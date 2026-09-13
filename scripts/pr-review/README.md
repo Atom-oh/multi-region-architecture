@@ -12,7 +12,9 @@ preflight failure flags remain intact for aggregation.
 
 ## Trusted interface
 
-The adjacent `role-project.json` selects `prepare_project_roles.py`, canonical
+The adjacent `role-project.json` must match its committed BASE bytes; absence or
+modification blocks preparation. The chair verifies its BASE checkout and prepared
+`project_policy_sha256` before using the policy. That profile selects `prepare_project_roles.py`, canonical
 `CLAUDE.md` plus `mra-review-context.md`, and the existing chair policy. The shared
 preparer invokes this hook before selecting default context or generating any
 raw Git diff:
@@ -91,10 +93,40 @@ attempt records and protocol-owned terminal flags; upstream failures remain.
 `--paths FILE` contains a UTF-8 JSON array of unique repository-relative reviewable paths;
 renames use destinations while collector provenance covers both names.
 `--provenance FILE` contains a JSON object with matching lowercase 40-hex `head_sha`/`base_sha` and a
-`diff_sha256` of the exact raw input bytes. Optional `path_only` identifies approved
+`diff_sha256` of the exact supplied collector-view bytes. Optional `path_only` identifies approved
 metadata-only deletions. Optional `input_failures` codes must match
 `[a-z][a-z0-9_:.-]{0,63}` and always block; invalid provenance also blocks.
 Persisted values are scrubbed.
+
+<a id="provenance-planned"></a>
+
+### Provenance
+
+`--provenance FILE` supplies a JSON object. This table is the canonical field
+contract; library checks and trusted-producer duties are distinct.
+
+| Field | Required for | Meaning and owner |
+| --- | --- | --- |
+| `head_sha`, `base_sha` | Every supplied provenance object | Lowercase 40-hex CLI revisions; the library checks equality. `base_sha` identifies the trusted checkout and policy source. |
+| `diff_sha256` | Every supplied provenance object | SHA-256 of the exact bytes supplied through `--diff`, after approved filtering. The library recomputes it; an approved empty input hashes empty bytes. |
+| `merge_base_sha` | Generic Git preparer | Immutable comparison origin verified by the trusted preparer. |
+| `raw_diff_sha256` | Generic Git preparer | Hash of its complete, unfiltered Git diff before policy exclusions. The preparer computes/verifies this evidence; the library does not recover withheld input to recompute it. |
+| `scope_paths` | Generic Git preparer; exclusions-only opt-in | Complete original path set, independently derived from Git by the preparer, including excluded paths. |
+| `excluded_paths` | Generic Git preparer; exclusions-only opt-in | Paths excluded by the verified BASE policy; empty when none. For exclusions-only, the library requires equality with nonempty `scope_paths`. |
+| `input_policy_sha256` | Generic preparer using a policy; exclusions-only opt-in | Hash of exact committed BASE policy bytes; null without a policy. For exclusions-only the library hashes `--policy FILE` and requires a match. |
+| `scope_exception` | Exclusions-only opt-in | Exactly `configured_exclusions_only`, with explicit CLI opt-in and empty diff/reviewable paths; absent or null for ordinary review. |
+| `input_failures` | Optional | Static codes matching `[a-z][a-z0-9_:.-]{0,63}`; any code blocks. |
+| `path_only` | Optional collector-approved metadata-only deletions | Path list permitting deletion-metadata review without bodies; eligibility remains the trusted collector's responsibility. |
+
+`diff_sha256` and `raw_diff_sha256` describe different processing stages and can
+differ. They are not interchangeable names. The generic producer must supply its
+listed fields in addition to the common library envelope. Project adapters may
+retain additional evidence; MRA uses its approved collector view and never
+reconstructs withheld state bodies merely to populate the generic raw-diff field.
+Provenance is bound into request/plan fingerprints as data; invalid envelope
+values block and stored values are scrubbed. These hashes do not authenticate an
+arbitrary caller or independently establish Git membership.
+
 
 Responses have exactly `head_sha`, `role`, `scope_complete`, `reviewed_paths`,
 `checks`, `findings` and `uncertainties`. Complete scope means every expected path,
@@ -121,6 +153,12 @@ the library does not discover repository membership. MRA does not enable this
 policy or weaken ADR-004. See ADR-005 for the approved exception's PASS semantics.
 
 ## Collector bundle
+
+BASE, HEAD and merge-base commit objects must be local; a shallow checkout with
+those exact revisions fetched is sufficient. Candidate context blobs are checked
+for availability/size, then discarded. Only BASE instructions reach reviewers.
+Missing or moved context sources block pending a reviewed migration; this is an
+input-readiness failure, not proof of forged provenance.
 
 The trusted caller resolves/fetches the immutable Git objects and collects all
 GitHub files API pages between two PR snapshot checks. Each snapshot file contains
@@ -205,3 +243,9 @@ artifact-upload paths using local Git and fake CLIs.
 
 Generic exclusion-policy examples in shared E2E tests use temporary repositories;
 they do not install or enable that policy in MRA.
+
+MRA retains `PANEL_CELL_CAP=20000` per-slot evidence bytes. Oversized validated
+responses block chair invocation without truncation. Configured chair fallback may
+recover from transient throttling; hard monthly/credit/overage limits stop it.
+Original model JSON reaches `record` via a mode-0600 temporary file outside WORK,
+removed even on errors; only validated results and scrubbed diagnostics persist.

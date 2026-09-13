@@ -283,17 +283,21 @@ def run(work, tag):
                     break
                 if code == 0 and output.strip():
                     break
-    # Only scrubbed artifacts enter slot/. Runtime raw output is never uploaded.
-    output_path = runtime / f"{tag}.txt"
+    # Record validates original JSON before scrubbing decoded evidence and paths.
     error_path = runtime / f"{tag}.err"
-    output_path.write_text(scrub(output))
     error_path.write_text(scrub(error))
-    result = subprocess.run([
-        sys.executable, str(DIRECTORY / "role_review.py"), "record",
-        "--work", str(work), "--tag", tag, "--output", str(output_path),
-        "--stderr", str(error_path), "--exit-code", str(code),
-        "--nonce", nonce,
-    ])
+    # The mode-0600 response stays outside WORK and is removed even on failure.
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", prefix=f"{tag}-response-", dir=work.parent,
+    ) as response:
+        response.write(output)
+        response.flush()
+        result = subprocess.run([
+            sys.executable, str(DIRECTORY / "role_review.py"), "record",
+            "--work", str(work), "--tag", tag, "--output", response.name,
+            "--stderr", str(error_path), "--exit-code", str(code),
+            "--nonce", nonce,
+        ])
     if result.returncode not in (0, 2):
         raise RuntimeError("Specialist result recording failed")
     (slot / f"{tag}-timing.json").write_text(json.dumps({

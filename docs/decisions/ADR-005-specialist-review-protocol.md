@@ -14,7 +14,7 @@ adaptation and activation makes the native review input too large. The rollout
 therefore separates protocol, common executors, MRA adaptation and activation without
 increasing review budgets or removing meaningful tests.
 
-MRA already has operational contracts for collector classification, sensitive
+Multi-Region Architecture (MRA) already has operational contracts for collector classification, sensitive
 deletions and bounded adjudication. Adding a protocol must not silently replace
 those controls or imply that a new workflow is active.
 
@@ -74,10 +74,46 @@ and produce a deterministic `NOT_APPLICABLE` explanation followed by
 reviewed the change. The report must disclose the excluded paths and policy hash.
 If any reviewable input remains, the independent primary-role requirement applies.
 
+**Policy artifacts (planned).** For generic consumers, the reviewed source is
+`scripts/pr-review/role-input-scope.json` in the pinned BASE commit. The trusted
+caller passes a byte-identical local copy using `--policy FILE`. Preparation will
+retain the verified bytes as `WORK/exclusions-policy.json`: a generated private
+validation copy, not a second committed policy. `input_policy_sha256` hashes the
+exact BASE policy bytes; both local copies must match it. Aggregation will recheck
+the retained WORK copy against that digest. The caller still owns verification of
+the BASE source and complete Git scope.
+
+**Required generic integration.** Before requesting this exception, the trusted
+BASE preparer must verify its checkout, read the policy blob from `base_sha`, and
+derive the complete changed-path set from immutable Git objects. It must supply
+the generic and exception fields in the README's
+[canonical provenance table](../../scripts/pr-review/README.md#provenance-planned).
+That table distinguishes the complete source diff from the approved protocol input
+and specifies which component verifies each hash.
+Candidate-supplied policy/scope assertions and model output are not authoritative.
+Missing or incomplete evidence must fail closed, never become NOT_APPLICABLE.
+
+**Accepted boundary.** Hashes bind the supplied evidence; they do not authenticate
+an arbitrary caller. Git/source verification belongs to the trusted BASE preparer,
+not the offline library. A universal file-type denylist is deliberately absent:
+reviewed policies can legitimately exclude generated code, including generated
+IaC. Consumer-specific eligibility belongs to that reviewed policy and collector.
+A defective trusted collector or approved policy remains a reviewable integration
+risk, not a guarantee supplied by the hash check. MRA authorizes none of this
+generic exclusion policy; its separate ADR-004 deny rules remain mandatory.
+
 This generic library capability does not broaden MRA's ADR-004 exception. MRA
 continues to use its custom files API collector, state-body withholding and the
 narrow deletion-only workflow shortcut. These MRA stages do not introduce a
 `role-input-scope.json` policy or select `configured_exclusions_only` for MRA.
+
+**Scoped context validation.** The adapter requires the immutable BASE, HEAD and
+merge-base objects to be available; a targeted shallow fetch suffices. It may read
+only the fixed candidate context documents as data to reject missing/oversized
+context before merge. Candidate text is never executed or used as instructions.
+This narrow check qualifies the historical blanket wording about HEAD-blob reads
+in ADR-004; it does not authorize retrieval of withheld state/plan bodies. Adapter
+source order and the JSON profile are bound by the preparer and MRA regression tests.
 
 Existing decisions remain in force:
 

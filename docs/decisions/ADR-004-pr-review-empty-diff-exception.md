@@ -11,6 +11,12 @@ retains 600-second chair attempts, 8/12 turns and the mandatory deny baseline.
 The deletion-only shortcut emits safe evidence without provider calls. Earlier
 matrix counts and unconditional-chair descriptions are historical.
 
+**2026-09-13 adapter clarification:** [ADR-005](ADR-005-specialist-review-protocol.md)
+permits fixed candidate context documents to be read as data for size/availability
+checks, without execution or instruction use. This qualifies older HEAD-blob wording
+below. It does not permit retrieving withheld state/plan bodies or change D1/D3.
+
+
 Accepted (2026-07-28).
 
 번호에 대해: 이 브랜치만 보면 003 이 빠진 것처럼 보이지만,

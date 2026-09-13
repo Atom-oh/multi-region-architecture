@@ -8,8 +8,10 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch as mock_patch
 
 import role_review
+import synthesize_roles
 
 
 SOURCE = Path(__file__).resolve().parent
@@ -56,6 +58,17 @@ class ProjectInputTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
+
+    def test_context_and_chair_declarations_match_the_mra_adapter(self):
+        policy = json.loads((SOURCE / "role-project.json").read_text())
+        self.assertEqual(tuple(policy["context_sources"]), self.adapter().SOURCES)
+        self.assertEqual(policy["input_adapter"], ADAPTER.name)
+        with mock_patch.dict(os.environ, {}, clear=True):
+            options = synthesize_roles.chair_options(policy)
+        self.assertEqual((options["timeout"], options["turns"]), (600, (8, 12)))
+        self.assertEqual(set(policy["chair"]["allowed_tools"]), {"Read", "Grep", "Glob"})
+        self.assertEqual(set(options["deny"]),
+                         {"Bash", "Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch", "Task"})
 
     def commit_change(self):
         self.git("add", ".")

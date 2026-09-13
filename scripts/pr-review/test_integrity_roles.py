@@ -90,7 +90,8 @@ class IntegrityTests(unittest.TestCase):
         (self.work / "chair-mode.txt").write_text("review\n")
         (self.work / "role-summary.json").write_text('{"findings":[]}\n')
         (self.work / "project-context.md").write_text("Trusted context.\n")
-        with patch.object(synthesize_roles, "execute", side_effect=responses) as execute:
+        with patch.object(synthesize_roles, "verified_project_policy", return_value={}), \
+                patch.object(synthesize_roles, "execute", side_effect=responses) as execute:
             with patch.object(synthesize_roles, "scrub", side_effect=lambda value: value):
                 synthesize_roles.synthesize(self.work, self.work / "review.md")
         return execute, (self.work / "review.md").read_text()
@@ -211,7 +212,8 @@ class IntegrityTests(unittest.TestCase):
             run_role.run(self.work, "codex")
         result = json.loads((self.work / "slot/codex-result.json").read_text())
         self.assertFalse(result["valid"])
-        self.assertEqual((self.work / "runtime/codex.txt").read_text(), "")
+        self.assertIn("cli_nonzero_exit", result["failure_codes"])
+        self.assertFalse((self.work / "runtime/codex.txt").exists())
 
     def test_codex_transport_does_not_extract_json_from_invalid_agent_text(self):
         final = "Unrequested prose\n" + self.response("codex")
@@ -221,7 +223,8 @@ class IntegrityTests(unittest.TestCase):
             run_role.run(self.work, "codex")
         result = json.loads((self.work / "slot/codex-result.json").read_text())
         self.assertFalse(result["valid"])
-        self.assertTrue((self.work / "runtime/codex.txt").read_text().startswith("Unrequested prose"))
+        self.assertIn("malformed_json", result["failure_codes"])
+        self.assertFalse((self.work / "runtime/codex.txt").exists())
 
     def test_codex_progress_is_ignored_but_cli_final_reply_is_strictly_validated(self):
         final = self.response("codex")

@@ -54,6 +54,51 @@ class PreparationTests(unittest.TestCase):
             prepare.prepare(head, base, self.root / "work")
         return calls
 
+    def test_project_policy_missing_modified_or_untracked_never_falls_back(self):
+        directory = self.root / "scripts/pr-review"
+        directory.mkdir(parents=True)
+        file = directory / "role-project.json"
+        body = '{"schema_version":1,"input_adapter":"prepare_project_roles.py","chair":{}}\r\n'
+        file.write_bytes(body.encode())
+        with self.subTest(state="untracked"), self.assertRaisesRegex(ValueError, "Project policy differs"):
+            self.prepare_locally(self.base, self.base, directory)
+        self.git("add", ".")
+        self.git("commit", "-qm", "required project policy")
+        base = self.git("rev-parse", "HEAD").strip()
+        for changed in (None, body + " "):
+            with self.subTest(changed=changed):
+                if changed is None:
+                    file.unlink()
+                else:
+                    file.write_text(changed)
+                with self.assertRaisesRegex(ValueError, "Project policy differs"):
+                    self.prepare_locally(base, base, directory)
+                self.assertFalse((self.root / "work/role-diff.txt").exists())
+
+    def test_chair_requires_prepared_policy_hash_and_pinned_base(self):
+        import synthesize_roles as chair
+        directory = self.root / "scripts/pr-review"
+        directory.mkdir(parents=True)
+        file = directory / "role-project.json"
+        body = b'{"schema_version":1,"input_adapter":"prepare_project_roles.py","chair":{}}\r\n'
+        file.write_bytes(body)
+        self.git("add", ".")
+        self.git("commit", "-qm", "chair policy")
+        base = self.git("rev-parse", "HEAD").strip()
+        source = {"project_policy_sha256": hashlib.sha256(body).hexdigest()}
+        summary = {"base_sha": base, "provenance": source}
+        with patch.object(chair, "project_policy",
+                          side_effect=lambda **kw: prepare.project_policy(directory, **kw)):
+            self.assertEqual(chair.verified_project_policy(summary)["schema_version"], 1)
+            for invalid in ({}, {"base_sha": self.base, "provenance": source},
+                            {"base_sha": base, "provenance": {}},
+                            {"base_sha": base, "provenance": {"project_policy_sha256": "0"*64}}):
+                with self.subTest(summary=invalid), self.assertRaises(ValueError):
+                    chair.verified_project_policy(invalid)
+            file.unlink()
+            with self.assertRaisesRegex(ValueError, "Project policy differs"):
+                chair.verified_project_policy(summary)
+
     def test_committed_context_hook_receives_selected_scope_and_lowers_cap(self):
         directory = self.root / "scripts/pr-review"
         directory.mkdir(parents=True)
