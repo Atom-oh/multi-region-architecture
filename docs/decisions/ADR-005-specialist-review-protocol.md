@@ -19,8 +19,8 @@ those controls or imply that a new workflow is active.
 
 ## Decision
 
-Phase one contains `role_review.py`, `test_role_review.py`, protocol documentation
-and their dedicated offline test workflow. The library prepares role inputs,
+This PR records the contract. The following implementation PR will add
+`role_review.py`, `test_role_review.py` and their offline test workflow. The library prepares role inputs,
 validates responses and aggregates coverage. It binds supplied provenance and
 invocation-nonce metadata; it performs no Git fetch, provider call or publication.
 Its [README](../../scripts/pr-review/README.md) defines the CLI and outcome modes.
@@ -72,11 +72,14 @@ The current `pr-review.yml`, collector and chair execution path are unchanged.
 Protocol PASS means supplied role evidence validated; it is not a live provider
 result or permission to skip activation review.
 
-Run
+After the implementation files exist, run
 `python3 -B -m unittest discover -s scripts/pr-review -p test_role_review.py -v`.
 The phase-two integration needs its own current-HEAD review and tests for the
 collector bundle, nondisclosure, provenance, provider failures and chair controls.
 
-The target Sol configuration intentionally replaces the legacy Terra review slot
-for consistent fleet configuration. This is an explicit target selection, not a
-claim that Sol is already LIVE or a change to the application inference models.
+The owner selects Kiro's `gpt-5.6-sol` alias to replace `gpt-5.6-terra` in the
+`kiro-gpt` slot (`run-panel.sh`), retaining its review responsibilities. The
+historical `bedrock-mantle` Sol comment in that script describes Codex's earlier
+provider, not Kiro's catalog. Codex stays on Runtime/Astra; no Mantle region policy
+is reversed. Kiro model selection remains subject to runtime preflight. This
+records a future Kiro selection, not a claim that it is already active.

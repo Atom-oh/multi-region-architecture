@@ -34,11 +34,11 @@ The live workflow still calls the legacy panel and chair; the protocol is not ac
 - New code, comments and review documentation are English. Offline checks are not proof of live model execution.
 
 ## Testing Requirements
-Run from the repository root:
+Current check: `bash scripts/pr-review/test-collect-diff.sh`.
+The following protocol check is planned and runs only after implementation lands:
 
 ```bash
 python3 -m unittest discover -s scripts/pr-review -p test_role_review.py -v
-bash scripts/pr-review/test-collect-diff.sh
 ```
 
 <!-- MANUAL: -->
