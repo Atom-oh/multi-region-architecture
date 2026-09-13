@@ -2,6 +2,7 @@
 
 import importlib.util
 import os
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -20,6 +21,52 @@ class SynthesisTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+
+    def run_chair(self, replies):
+        (self.root / "chair-mode.txt").write_text("review\n")
+        (self.root / "role-summary.json").write_text('{"findings":[]}')
+        (self.root / "project-context.md").write_text("Trusted base.")
+        (self.root / "roles").mkdir(exist_ok=True)
+        (self.root / "roles/codex.diff").write_text("Complete supplied diff.")
+        with patch.dict(os.environ, {"CHAIR_TIMEOUT": "10",
+                "CHAIR_PRIMARY_MODEL": "global.anthropic.claude-fable-5-1",
+                "CHAIR_FALLBACK_MODEL": "global.anthropic.claude-opus-5"}), \
+                patch.object(self.module, "execute", side_effect=replies) as invoke:
+            self.module.synthesize(self.root, self.root / "review.md")
+        return invoke.call_count, (self.root / "review.md").read_text()
+
+    def test_markdown_tail_survives_credential_examples(self):
+        for example in ("Checked credentials = []\nExample: secret = {private-value}",
+                        "-----BEGIN PRIVATE KEY-----\nprivate-value\n-----END PRIVATE KEY-----",
+                        '{"name":"DATABASE_PASSWORD","value":"private-value"}'):
+            with self.subTest(example=example):
+                reply = (0, example + "\nBehavior checked.\nVERDICT: PASS\n", "")
+                calls, text = self.run_chair([reply, reply])
+                self.assertEqual(calls, 1)
+                self.assertIn("Behavior checked.", text)
+                self.assertTrue(text.endswith("VERDICT: PASS\n"))
+                self.assertNotIn("private-value", text)
+
+    def test_transient_throttle_uses_only_configured_fallback(self):
+        for exception in ("ThrottlingException", "TooManyRequestsException"):
+            with self.subTest(exception=exception):
+                calls, text = self.run_chair([
+                    (1, "", f"An error occurred ({exception}) invoking the primary model"),
+                    (0, "Fallback completed.\nVERDICT: PASS\n", ""),
+                ])
+                self.assertEqual(calls, 2)
+                self.assertTrue(text.endswith("VERDICT: PASS\n"))
+
+    def test_hard_account_limits_never_trigger_fallback(self):
+        for marker in ("MONTHLY_REQUEST_COUNT", "insufficient credits", "limit for overages",
+                       "ServiceQuotaExceededException", "RESOURCE_EXHAUSTED"):
+            with self.subTest(marker=marker):
+                calls, text = self.run_chair([
+                    (1, "", f"ThrottlingException: {marker}"),
+                    (0, "Must not run.\nVERDICT: PASS\n", ""),
+                ])
+                self.assertEqual(calls, 1)
+                self.assertTrue(text.endswith("VERDICT: FAIL\n"))
 
     def test_complete_clean_review_does_not_call_chair(self):
         (self.root / "chair-mode.txt").write_text("deterministic\n")

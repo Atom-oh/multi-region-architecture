@@ -138,3 +138,6 @@ preparation for a new review; failed attempts retain their diagnostic history.
 
 The model table targets CI's Bedrock Runtime provider. Local Mantle uses
 `openai.gpt-6-astra` for Astra; provider-specific identifiers are not interchangeable.
+
+Configured chair fallback may recover from transient throttling within existing
+attempt/turn/time bounds; hard account/monthly/credit/overage limits still stop it.

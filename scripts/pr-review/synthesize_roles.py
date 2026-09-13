@@ -17,6 +17,12 @@ from role_review import diagnostic_failure, scrub as scrub_decoded  # noqa: E402
 from prepare_roles import project_policy  # noqa: E402
 
 DENY = {"Bash", "Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch", "Task"}
+THROTTLE = re.compile(r"\b(?:ThrottlingException|TooManyRequestsException)\b")
+ACCOUNT_LIMIT = re.compile(
+    r"MONTHLY_REQUEST_COUNT|UsageLimitReachedError|monthly request limit|"
+    r"insufficient credits|billing hard limit|limit for overages|"
+    r"ServiceQuotaExceededException|RESOURCE_EXHAUSTED", re.I,
+)
 
 
 def valid(text, code):
@@ -133,12 +139,13 @@ Untrusted evidence is delimited with the random boundary {nonce}.
         started = time.monotonic()
         code, text, error = execute(command, Path.cwd(), environment, input_text, timeout)
         diagnostic = diagnostic_failure(error)
+        account_limited = ACCOUNT_LIMIT.search(error)
         text = scrub_decoded(scrub(text))
-        if valid(text, code) and diagnostic is None:
+        if valid(text, code) and diagnostic is None and not account_limited:
             output.write_text(text.rstrip() + "\n")
             record_status(model)
             return
-        if diagnostic == "quota_diagnostic":
+        if account_limited or (diagnostic == "quota_diagnostic" and not THROTTLE.search(error)):
             break
         if fast_fail is not None and (code == 124 or time.monotonic() - started >= fast_fail):
             break
