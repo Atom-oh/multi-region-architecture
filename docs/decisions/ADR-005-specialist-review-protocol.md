@@ -3,8 +3,10 @@
 ## Status
 
 Accepted (2026-09-13). The protocol is installed. This stage adds inactive common
-executors and unit tests. MRA adapter/policy installation follows separately, then
-workflow activation and E2E tests. The legacy operational path remains selected.
+executors and unit tests. The MRA guard profile is installed here; its adapter implementation follows, then
+workflow activation and E2E tests. The legacy operational path remains selected. The early MRA profile blocks
+preparation before raw Git fallback until its adapter is installed, and enforces
+600-second/8/12-turn chair limits even during this inactive stage.
 
 ## Context
 

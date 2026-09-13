@@ -18,7 +18,9 @@ MRA adapter installation and workflow activation remain separate stages.
 | [role_review.py](role_review.py) | Offline protocol: prepare, issue, record and aggregate; not used by the live workflow. |
 | [test_role_review.py](test_role_review.py) | Offline protocol regression tests. |
 | [README.md](README.md) | Command, file-schema and stage contracts. |
-| [prepare_roles.py](prepare_roles.py) | Trusted preparation; optional committed context hook. |
+| [prepare_roles.py](prepare_roles.py) | Trusted preparation; MRA requires its configured adapter. |
+| [role-project.json](role-project.json) | Early MRA guard: blocks preparation until its adapter exists and fixes chair limits. |
+| [test_mra_bootstrap_roles.py](test_mra_bootstrap_roles.py) | Bootstrap fail-closed, chair and Claude command checks. |
 | [run-specialists.sh](run-specialists.sh), [run_role.py](run_role.py) | Common provider execution; not selected by MRA CI. |
 | [synthesize_roles.py](synthesize_roles.py) | Common conditional chair. |
 | [role-controls.sh](role-controls.sh) | Portable output-control stripping; uses the existing repository secret scrubber. |

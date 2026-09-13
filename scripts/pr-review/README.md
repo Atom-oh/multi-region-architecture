@@ -29,6 +29,29 @@ No such repository-specific helper is installed here. MRA requires its separate
 collector adapter before selecting these executors; do not replace ADR-004's
 approved input with generic raw Git diff. See [ADR-005](../../docs/decisions/ADR-005-specialist-review-protocol.md).
 
+## MRA bootstrap guard and commands
+
+`role-project.json` is installed now as a required guard. Its named MRA adapter
+arrives in the next stage; until then preparation fails before any raw Git diff
+fallback. The profile already enforces 600-second chair attempts, 8/12 turns and
+the mandatory deny baseline. No workflow selects these libraries yet.
+
+After the adapter is installed, invoke from the pinned BASE checkout with
+`HEAD_SHA`, `BASE_SHA` and `GH_REPO` set:
+
+| Entry point | Arguments |
+| --- | --- |
+| `prepare_roles.py` | `--prepared-diff BUNDLE/panel.diff --work WORK` |
+| `run-specialists.sh` | `BUNDLE/panel.diff LEGACY_LENSES WORK` (second argument reserved/unused) |
+| `run_role.py` | `--work WORK --tag TAG` |
+| `synthesize_roles.py` | `--work WORK --output REPORT` |
+
+`--prepared-diff` is input for the configured project adapter. Generic consumers
+instead derive immutable Git scope and apply their BASE policy; MRA's required
+profile prevents that generic fallback. Claude's specialist command disables
+built-in tools with `--tools ""` and ignores unprovided MCP configuration with
+`--strict-mcp-config`; the command and token removal have regression coverage.
+
 ## API and input
 
 `python3 scripts/pr-review/role_review.py COMMAND --help` lists flags.
