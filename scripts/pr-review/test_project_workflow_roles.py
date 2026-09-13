@@ -35,6 +35,20 @@ class ProjectWorkflowTests(unittest.TestCase):
                      "Post review comment (upsert)"):
             self.assertIn("GH_TOKEN: ${{ github.token }}", self.block(name))
 
+    def test_reruns_use_distinct_artifact_names_for_the_same_head(self):
+        upload = self.block("Preserve specialist scope and execution evidence")
+        template = re.search(r"(?m)^          name: (.+)$", upload).group(1)
+        names = [
+            template.replace("${{ github.event.pull_request.head.sha }}", self.fixture.head)
+            .replace("${{ github.run_attempt }}", str(attempt))
+            for attempt in (1, 2)
+        ]
+        self.assertNotEqual(names[0], names[1], "Immutable v4 artifacts collide on rerun")
+        for name in names:
+            self.assertIn(self.fixture.head, name)
+            self.assertNotIn("${{", name)
+        self.assertIn("if-no-files-found: error", upload)
+
     def block(self, name):
         marker = "      - name: " + name + "\n"
         self.assertTrue(marker in self.workflow, "Missing workflow step: " + name)

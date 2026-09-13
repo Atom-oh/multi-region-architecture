@@ -240,6 +240,8 @@ metadata rather than invented role results. Posting rechecks the current PR HEAD
 
 Publish `role-source.json`, plan/summary, issued receipts, attempt ledgers, results
 and timing metadata. Request bodies, role diffs and original model output are private.
+Artifacts include HEAD and `github.run_attempt` in their names, so reruns retain
+distinct immutable evidence. Collection metadata and failure flags are also uploaded.
 Each attempt uses its persisted nonce-bound request; interrupted locks require fresh
 work. Full helper contracts are defined above and in each command's `--help`.
 
