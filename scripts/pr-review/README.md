@@ -1,55 +1,67 @@
-# Review protocol — phase one
+# Specialist review protocol
 
-This PR adds the offline, standard-library `role_review.py` protocol, its tests
-and a dedicated test workflow. Provider executors, the MRA collector adapter,
-project policy and workflow activation belong to phase two.
+This phase adds the standalone protocol and offline tests. The live workflow
+still uses its legacy panel. Executors, approved project input adapters and
+activation follow in a separate reviewed change. This library neither invokes
+models nor verifies GitHub/Git provenance on the caller's behalf.
 
-The current `pr-review.yml`, collector classification, state-deletion protections,
-chair controls and infrastructure custody are unchanged. See
-[ADR-005](../../docs/decisions/ADR-005-specialist-review-protocol.md) for the split.
+Target responsibilities: Codex `global.openai.gpt-6-astra` checks correctness;
+Kiro `claude-opus-5` checks AWS; Kiro `gpt-5.6-sol` checks operations; Claude
+`global.anthropic.claude-fable-5-1` checks auth/data/API/ADR requirements. Sol is an
+intentional replacement for the legacy Terra slot when activation occurs. Kiro
+aliases and Bedrock profile IDs are separate namespaces. The `kiro-fable` tag is
+the compatibility name of the Opus slot. Review artifacts are English-only.
 
-## Interface
+## API and files
 
-Run `python3 scripts/pr-review/role_review.py <command> --help` for exact arguments.
+Run `python3 scripts/pr-review/role_review.py COMMAND --help` for exact flags.
 
-| Command | Inputs and result |
+| Command | Contract |
 | --- | --- |
-| `prepare` | Requires `--diff`, `--context`, `--head`, `--base`, `--work`; accepts `--paths`, `--provenance`, `--context-cap`. Writes the role plan and required-role input files. |
-| `record` | Requires `--work`, `--tag`, `--output`, `--stderr`, `--exit-code`, `--nonce`. Validates a response and writes its slot result. |
-| `aggregate` | Requires `--work`. Validates required results and writes scope, failure and synthesis-mode artifacts. |
+| `prepare` | Accept approved diff/context files, HEAD/base SHAs and work directory; optional authoritative paths/provenance. Write `role-plan.json` and `roles/TAG.txt/.diff`. Invalidate old result, request and timing records. |
+| `issue` | Given work directory and required tag, generate a fresh nonce and persist exact `requests/TAG.prompt/.input` plus `slot/TAG-request.json`. Call before every provider attempt. |
+| `record` | Given tag, output/stderr files, exit code and issued `--nonce`, require the matching issued receipt and validate/scrub the response. Write `slot/TAG-result.json`. |
+| `aggregate` | Require matching receipts and valid complete results. Write `role-summary.json`, `responded.txt`, `chair-mode.txt`, and applicable `coverage-severe.flag`/`deterministic-review.md`. |
 
-The caller supplies approved diff bytes, trusted BASE context and full 40-hex
-revision identifiers. The protocol does not fetch Git objects, verify checkout
-identity, classify MRA exclusions, invoke providers or publish reviews.
+The executor sends the issued framed bytes and retains their receipt with the
+result. A result cannot nominate a different nonce. Hashes bind prepared inputs,
+provenance, issued frames and results; they are not provider signatures or proof
+of a model's identity, honesty or transport. The trusted executor and upstream
+collector remain responsible for actual execution and complete source selection.
 
-Plans bind input/provenance fingerprints. Recording binds a caller-supplied
-32-hex invocation nonce, validates the JSON role/HEAD/path assertions and scrubs
-decoded response strings. Provider diagnostics, invalid output and missing or
-stale required results cannot count as completed coverage. Configured model
-identities and scope assertions are not proof of actual model execution.
+Start each job with a fresh work directory before collecting current inputs.
+`prepare` removes prior `*-result.json`, `*-request.json` and timing files from
+`slot/`; current upstream failure flags remain. Aggregation treats upstream
+`*.flag` files under the work tree as failures, except its own root
+`coverage-severe.flag`. Upload issued receipts alongside results and safe source
+metadata. `failure_codes` is canonical; `failures` is a compatibility alias.
 
-## Outcomes and limits
+## Coverage and limits
 
-Codex and Claude are required across model families; deterministic routing may
-deactivate Kiro only for clearly irrelevant changes. Unknown scope stays active.
-The role/model mapping is maintained in `role_review.py`.
+Trusted code routes untrusted path/content data conservatively. Codex and Claude
+remain required across families; only clearly irrelevant Kiro roles are inactive.
+Missing/failed/invalid required output is never NOT_APPLICABLE. Structural checks
+reject incomplete hunks and incomplete new/deleted-file records; approved
+metadata-only deletions must be explicitly identified by trusted provenance.
 
-The protocol blocks diff input over 95,000 UTF-8 bytes or 3,000 lines. Context
-defaults to a 24,000-byte ceiling, optionally lower; complete requests also have
-a 128 KiB limit. Input is not truncated and no automatic chunking is implemented.
-These are library limits, not a change to the current workflow.
+Bounds: 95,000 UTF-8 diff bytes, 3,000 lines, up to 24,000 context bytes and a
+complete request below 128 KiB. Projects may impose smaller limits. The caller
+must retain its own source exclusions, state/secret custody and budget controls.
+Never replace a required project collector with raw Git input. There is no chunk
+coordinator: oversized input blocks; independent PASS results cannot be combined
+to claim coverage of a larger change.
 
-Exit 2 means blocked. Aggregate exit 0 requires reading `chair-mode.txt`:
-`deterministic` produces a PASS summary; `review` requires later adjudication.
-Blocked coverage produces FAIL and cannot be waived by a chair. This library
-does not execute the adjudicator.
+Exit 2 means blocked. After aggregate exit 0, read `chair-mode.txt`: `deterministic`
+permits the prepared clean summary, while `review` requires substantive
+adjudication. Coverage failure produces FAIL and cannot be waived by the chair.
+Scope assertions do not prove that every defect was found.
 
 ## Verification
 
-```bash
-python3 -B -m unittest discover -s scripts/pr-review -p test_role_review.py -v
-```
+`python3 -m unittest discover -s scripts/pr-review -p test_role_review.py -v`
+uses no provider credentials or model calls. Activation must additionally verify
+executors, project input preparation, invocation limits and exact-head publishing.
 
-The phase-one test workflow runs this protocol suite only. Executor, collector
-adapter and activation tests are phase-two material. Offline checks do not
-establish successful live inference or deployment.
+MRA activation must preserve ADR-004 files-API classification, withheld state
+deletions and mandatory chair limits/denials. Protocol-only staging changes none
+of those controls. See ADR-005 for the phased integration decision.

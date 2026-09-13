@@ -57,3 +57,7 @@ Run
 `python3 -B -m unittest discover -s scripts/pr-review -p test_role_review.py -v`.
 The phase-two integration needs its own current-HEAD review and tests for the
 collector bundle, nondisclosure, provenance, provider failures and chair controls.
+
+The target Sol configuration intentionally replaces the legacy Terra review slot
+for consistent fleet configuration. This is an explicit target selection, not a
+claim that Sol is already LIVE or a change to the application inference models.
