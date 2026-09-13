@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for phase one (2026-09-13). The protocol-only library will arrive in a separate implementation PR.
+Accepted for phase one (2026-09-13). The protocol library is planned in the following implementation PR.
 Provider execution and workflow activation are a separate phase-two change.
 
 ## Context
@@ -19,7 +19,7 @@ those controls or imply that a new workflow is active.
 
 ## Decision
 
-The implementation phase will contain `role_review.py`, `test_role_review.py`, protocol documentation
+Phase one contains `role_review.py`, `test_role_review.py`, protocol documentation
 and their dedicated offline test workflow. The library prepares role inputs,
 validates responses and aggregates coverage. It binds supplied provenance and
 invocation-nonce metadata; it performs no Git fetch, provider call or publication.
