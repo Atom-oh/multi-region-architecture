@@ -11,7 +11,7 @@ every review lens. The trusted workflow enables this protocol with
 | `kiro-sol` | `gpt-5.6-sol` | Deployment order, component contracts, lifecycle and recovery |
 | `claude-self` | `global.anthropic.claude-fable-5-1` | Authentication, data boundaries, requirements, API and ADR consistency |
 
-The legacy `kiro-fable` tag identifies the Opus slot. Kiro catalog aliases differ
+The protocol `kiro-fable` tag identifies the Opus slot. Kiro catalog aliases differ
 from Bedrock inference-profile IDs. These are configured model identities, not
 attestation of the provider's internal routing or weights.
 
@@ -48,7 +48,7 @@ existing limits.
 
 Each applicable model receives one specialist request. Both Kiro roles use fresh
 HOME/cwd directories and a profile declaring no tools, MCP servers, resources or
-hooks. Each active Kiro job first receives a fixed canary check without PR data;
+hooks. Each active Kiro job first receives a random canary check without PR data;
 only an exact successful no-tools response permits the actual review. Its child
 environment excludes AWS and GitHub credentials. Errors remain visible; no
 automatic quota or billing changes are made.
