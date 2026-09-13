@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted (2026-09-13). The protocol is installed. This stage adds inactive common
-executors and unit tests. MRA adapter/policy installation follows separately, then
-workflow activation and E2E tests. The legacy operational path remains selected.
+Accepted (2026-09-13). Common executors are installed. This stage adds the MRA
+collector adapter, explicit context/chair policy and unit tests. The legacy
+workflow remains selected until separate activation and E2E review.
 
 ## Context
 
@@ -34,8 +34,8 @@ operational workflow in this PR.
 Implementation is split into common executors/tests, the MRA adapter/policy/tests,
 and final workflow activation/E2E. No stage raises the review input limit. The supplied collector view and safe
 provenance must reach that integration without a raw Git reconstruction that
-restores excluded state contents. Canonical CLAUDE.md plus an ADR summary must
-reach reviewers without file tools.
+restores excluded state contents. The adapter selects canonical BASE CLAUDE.md plus an ADR summary for reviewers
+without file tools. Candidate context is checked but never promoted to instructions.
 
 **Approved generic exclusions-only result.** Repository maintainers approve the
 scope policy through review of the committed BASE configuration. The trusted

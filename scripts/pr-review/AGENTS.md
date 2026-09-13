@@ -4,8 +4,8 @@
 # PR Review
 
 ## Purpose
-Owns operational legacy scripts and inactive common specialist libraries.
-MRA adapter installation and workflow activation remain separate stages.
+Owns operational legacy scripts plus inactive specialist libraries and the MRA
+collector adapter. Workflow activation remains a separate stage.
 
 ## Key Files
 | File | Responsibility |
@@ -22,6 +22,10 @@ MRA adapter installation and workflow activation remain separate stages.
 | [run-specialists.sh](run-specialists.sh), [run_role.py](run_role.py) | Common provider execution; not selected by MRA CI. |
 | [synthesize_roles.py](synthesize_roles.py) | Common conditional chair. |
 | [role-controls.sh](role-controls.sh) | Portable output-control stripping; uses the existing repository secret scrubber. |
+| [prepare_project_roles.py](prepare_project_roles.py) | MRA approved collector bundle and provenance validation. |
+| [role-project.json](role-project.json) | MRA adapter, context and mandatory chair settings. |
+| [mra-review-context.md](mra-review-context.md) | Bounded accepted ADR context accompanying BASE CLAUDE.md. |
+| [test_project_roles.py](test_project_roles.py) | Adapter/custody regression tests. |
 
 ## Subdirectories
 | Directory | Purpose |

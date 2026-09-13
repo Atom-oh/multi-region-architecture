@@ -1,8 +1,8 @@
 # Specialist review protocol
 
-Inactive common executor bootstrap. The operational MRA workflow still uses its
-legacy collector/panel/chair. MRA adapter installation and workflow activation
-follow in separate changes; these libraries are not yet MRA review entrypoints.
+Inactive MRA adapter stage. Common executors and the MRA collector adapter/policy
+are installed; the operational workflow still uses its legacy panel/chair.
+Workflow activation and E2E tests follow separately.
 
 | Tag | Requested model | Scope |
 | --- | --- | --- |
@@ -25,9 +25,45 @@ selects deterministic output or bounded chair adjudication.
 
 `prepare_roles.py` validates a pinned BASE checkout. Its generic branch can load a
 committed, byte-matched `prepare_context_roles.py`; absence preserves root context.
-No such repository-specific helper is installed here. MRA requires its separate
-collector adapter before selecting these executors; do not replace ADR-004's
-approved input with generic raw Git diff. See [ADR-005](../../docs/decisions/ADR-005-specialist-review-protocol.md).
+No such context helper is installed here: MRA uses the project adapter below,
+which takes precedence over generic preparation. See [ADR-005](../../docs/decisions/ADR-005-specialist-review-protocol.md).
+
+## MRA collector adapter (not selected by CI)
+
+`role-project.json` selects `prepare_project_roles.py`, canonical BASE `CLAUDE.md`
+plus `mra-review-context.md`, and the mandatory chair policy: 600-second attempts,
+8/12 turns, Read/Grep/Glob allowed, and Bash/Write/Edit/NotebookEdit/WebFetch/
+WebSearch/Task always denied. Read tools have no filesystem path confinement.
+
+From the pinned BASE checkout, collect all files API pages between two immutable
+HEAD/base snapshots, then create the approved bundle before deleting raw API files:
+
+```bash
+python3 scripts/pr-review/prepare_project_roles.py \
+  --files "$FILES_JSON" --before "$BEFORE_JSON" --after "$AFTER_JSON" \
+  --head "$HEAD_SHA" --base "$BASE_SHA" --merge-base "$MERGE_BASE_SHA" --output "$BUNDLE"
+python3 scripts/pr-review/prepare_roles.py --prepared-diff "$BUNDLE/panel.diff" --work "$WORK"
+```
+
+Snapshot JSON contains `head_sha`/`base_sha`. The bundle retains `panel.diff`,
+`collection.json` and patch-free `collection-meta.json`. State-deletion bodies are
+removed before persistence. The caller must delete original raw API responses
+before providers or the chair run. Publish safe metadata, never raw request bodies.
+
+The hook receives `prepare(head, base, merge_base, work, supplied_diff)` and returns
+`diff`/`context` bytes, reviewable `paths`, `provenance` and `input_failures`.
+Missing/mismatched bundles block; raw Git reconstruction is not a fallback.
+It replays the BASE collector and checks snapshots, source digest and every files
+API path/status against a NUL-delimited Git manifest. Safe blob IDs/counts survive.
+The plan/request binds scope and source/context/diff hashes; metadata is data.
+
+ADR-004 state/plan additions, modifications and renames block. Eligible deletion
+bodies stay withheld. API-omitted oversized text deletions use explicit `path_only`
+metadata and actual tree mode without fetching old bodies. Mixed input retains all
+reviewable text. The eligible deletion-only result is reserved for the trusted
+workflow shortcut; ordinary empty input never receives role PASS. MRA installs no
+generic `role-input-scope.json` or exclusions-only opt-in. Workflow/E2E integration
+must preserve this custody and provide safe deletion-only artifacts.
 
 ## API and input
 
