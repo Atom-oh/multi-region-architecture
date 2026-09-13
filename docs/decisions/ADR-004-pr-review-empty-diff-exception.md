@@ -2,6 +2,13 @@
 
 ## Status
 
+**2026-09-13 phase-one amendment:** [ADR-005](ADR-005-specialist-review-protocol.md)
+specifies the planned offline protocol; implementation follows separately. The existing collector,
+D1/D3 state-deletion protections, exception eligibility and chair controls remain
+unchanged. Phase two must preserve them when adding the MRA adapter, project policy
+and provider execution. No project hook or new operational review path is active
+as a result of this PR.
+
 Accepted (2026-07-28).
 
 번호에 대해: 이 브랜치만 보면 003 이 빠진 것처럼 보이지만,
