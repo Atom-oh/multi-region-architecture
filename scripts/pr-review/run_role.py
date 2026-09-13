@@ -182,6 +182,29 @@ def scrub(text):
     return process.stdout
 
 
+def normalize_transport(text):
+    """Strip terminal controls only; leave JSON values for protocol validation."""
+    process = subprocess.run(
+        ["bash", "-c", 'source "$1" && strip_ansi',
+         "review-controls", str(DIRECTORY / "role-controls.sh")],
+        input=text, text=True, capture_output=True,
+    )
+    if process.returncode:
+        raise RuntimeError("Review transport control stripping failed")
+    return process.stdout
+
+
+def preserve_stdout_error(output, error):
+    lines = normalize_transport(output).lstrip().splitlines()
+    first = re.sub(r"^> ?", "", lines[0]) if lines else ""
+    # JSON review evidence and JSONL events are not text-mode CLI diagnostics.
+    if first.startswith(("{", "```")):
+        return error
+    if first.startswith("You have reached the limit for overages"):
+        first = "UsageLimitReachedError: stdout account limit"
+    return error + "\n" + first if diagnostic_failure(first) else error
+
+
 def run(work, tag):
     plan = json.loads((work / "role-plan.json").read_text())
     role = plan["roles"][tag]
@@ -236,6 +259,7 @@ def run(work, tag):
                         code, output, error = execute(
                             command, cwd, kiro_environment(cwd, environment), "", timeout
                         )
+                        error = preserve_stdout_error(output, error)
                         if FAILURE.search(error) or diagnostic_failure(error):
                             code = code or 1
                             break
@@ -273,6 +297,7 @@ def run(work, tag):
                     command[2] = framed_prompt
                     delivered = payload
                 code, output, error = execute(command, cwd, environment, delivered, timeout)
+                error = preserve_stdout_error(output, error)
                 if tag == "codex":
                     output, event_error, complete = codex_response(output, final_output)
                     if event_error:
@@ -291,7 +316,7 @@ def run(work, tag):
     with tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", prefix=f"{tag}-response-", dir=work.parent,
     ) as response:
-        response.write(output)
+        response.write(normalize_transport(output))
         response.flush()
         result = subprocess.run([
             sys.executable, str(DIRECTORY / "role_review.py"), "record",

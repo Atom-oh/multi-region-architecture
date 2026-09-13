@@ -4,31 +4,35 @@
 # PR Review
 
 ## Purpose
-Owns operational legacy scripts plus inactive specialist libraries and the MRA
-collector adapter. Workflow activation remains a separate stage.
+Owns the activated specialist workflow, collector adapter and protocol.
+The operational workflow selects `ROLE_REVIEW=1`; legacy matrix branches remain for compatibility.
 
 ## Key Files
 | File | Responsibility |
 | --- | --- |
 | [collect-diff.sh](collect-diff.sh) | Existing files API classifier; preserves state/plan deny and deletion-content withholding. |
 | [lib.sh](lib.sh) | Existing slot and output-scrubbing helpers. |
-| [run-panel.sh](run-panel.sh) | Operational legacy panel entrypoint. |
-| [synthesize.sh](synthesize.sh) | Operational legacy chair entrypoint. |
+| [run-panel.sh](run-panel.sh) | Operational bridge to the specialist coordinator. |
+| [synthesize.sh](synthesize.sh) | Operational bridge to conditional specialist synthesis. |
 | [test-collect-diff.sh](test-collect-diff.sh) | Existing executable collector regression checks. |
-| [role_review.py](role_review.py) | Offline protocol: prepare, issue, record and aggregate; not used by the live workflow. |
+| [role_review.py](role_review.py) | Offline protocol used by the installed provider libraries. |
 | [test_role_review.py](test_role_review.py) | Offline protocol regression tests. |
 | [README.md](README.md) | Command, file-schema and stage contracts. |
-| [prepare_roles.py](prepare_roles.py) | Trusted preparation; MRA requires its configured adapter. |
-| [role-project.json](role-project.json) | BASE-bound MRA guard for adapter selection and role-based chair limits. |
-| [test_mra_bootstrap_roles.py](test_mra_bootstrap_roles.py) | Bootstrap fail-closed, chair and Claude command checks. |
-| [run-specialists.sh](run-specialists.sh), [run_role.py](run_role.py) | Common provider execution; not selected by MRA CI. |
-| [synthesize_roles.py](synthesize_roles.py) | Common conditional chair. |
-| [role-controls.sh](role-controls.sh) | `strip_ansi`; `run_role.scrub()` adds `lib.sh` secret masking. |
+| [prepare_roles.py](prepare_roles.py) | Trusted preparation and project-policy selection. |
+| [prepare_project_roles.py](prepare_project_roles.py) | MRA collector bundle verification; never reconstructs withheld state bodies. |
+| [role-project.json](role-project.json) | BASE-bound MRA context sources and mandatory chair settings. |
+| [mra-review-context.md](mra-review-context.md) | Bounded ADR context accompanying canonical BASE CLAUDE.md. |
+| [run-specialists.sh](run-specialists.sh) | Installed provider coordinator; retains current upstream failure flags. |
+| [run_role.py](run_role.py) | Provider execution with issued-request receipts and failure recording. |
+| [synthesize_roles.py](synthesize_roles.py) | Deterministic output or bounded adjudication; no coverage override. |
+| [role-controls.sh](role-controls.sh) | ANSI/control stripping, combined with `lib.sh` secret masking by `run_role.scrub()`. |
+| [test_mra_bootstrap_roles.py](test_mra_bootstrap_roles.py) | Guard, per-slot evidence cap and tool-denial regressions. |
 | [test_prepare_roles.py](test_prepare_roles.py), [test_project_policy_roles.py](test_project_policy_roles.py) | Trusted input and policy tests. |
 | [test_run_role.py](test_run_role.py), [test_synthesize_roles.py](test_synthesize_roles.py), [test_integrity_roles.py](test_integrity_roles.py) | Executor, chair and cross-stage tests. |
-| [prepare_project_roles.py](prepare_project_roles.py) | MRA approved collector bundle and provenance validation. |
-| [mra-review-context.md](mra-review-context.md) | Bounded accepted ADR context accompanying BASE CLAUDE.md. |
-| [test_project_roles.py](test_project_roles.py) | Adapter/custody regression tests. |
+| [test_project_roles.py](test_project_roles.py) | MRA collector and policy binding tests. |
+| [test_redaction_roles.py](test_redaction_roles.py) | Credential containers, expression tails and chair-output privacy. |
+| [test_e2e_roles.py](test_e2e_roles.py) | Generic temporary-fixture executor scenarios. |
+| [test_project_integration_roles.py](test_project_integration_roles.py), [test_project_workflow_roles.py](test_project_workflow_roles.py) | MRA entrypoints, workflow and credential boundaries. |
 
 ## Subdirectories
 | Directory | Purpose |
@@ -45,11 +49,11 @@ collector adapter. Workflow activation remains a separate stage.
 - New code, comments and review documentation are English. Offline checks are not proof of live model execution.
 
 ## Testing Requirements
-Current check: `bash scripts/pr-review/test-collect-diff.sh`.
-Protocol checks:
+Run from the repository root:
 
 ```bash
 python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v
+bash scripts/pr-review/test-collect-diff.sh
 ```
 
 <!-- MANUAL: -->

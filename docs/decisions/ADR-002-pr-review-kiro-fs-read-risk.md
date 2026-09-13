@@ -2,11 +2,12 @@
 
 ## Status
 
-**2026-09-13 phase-one amendment:** [ADR-005](ADR-005-specialist-review-protocol.md)
-specifies the planned offline protocol; implementation follows separately. Provider execution, the MRA
-adapter/project policy and activation follow in phase two. This PR leaves the
-current workflow and trust controls unchanged; it does not activate a project
-hook or establish live model/tool behavior.
+**2026-09-13 activation amendment:** [ADR-005](ADR-005-specialist-review-protocol.md)
+activates the specialist runtime after the protocol, common-executor and MRA-adapter stages. Its Kiro path
+requires a named empty catalog, isolated environment and exact successful no-tools
+canary. Earlier matrix/approval-flag/canary mechanics below describe the legacy
+path; credential and trust boundaries remain applicable. Offline validation and
+configured model identities do not establish live execution.
 
 Accepted (2026-07-07). **Decision #2 (accept the residual risk) is superseded** —
 `fs_read` has since been dropped entirely in favor of embedding the diff directly as

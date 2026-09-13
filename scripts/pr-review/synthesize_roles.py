@@ -26,6 +26,11 @@ ACCOUNT_LIMIT = re.compile(
     r"ServiceQuotaExceededException|RESOURCE_EXHAUSTED", re.I,
 )
 
+STDOUT_ACCOUNT_LIMIT = re.compile(
+    r"\A\s*(?:Error:[ \t]*)?(?:You have reached the )?(?:"
+    + ACCOUNT_LIMIT.pattern + r")", re.I,
+)
+
 
 def valid(text, code):
     lines = [line for line in text.splitlines() if line.strip()]
@@ -169,9 +174,11 @@ Untrusted evidence is delimited with the random boundary {nonce}.
             command.extend(["--max-turns", str(turns)])
         started = time.monotonic()
         code, text, error = execute(command, Path.cwd(), environment, input_text, timeout)
+        text = scrub(text)
         diagnostic = diagnostic_failure(error)
-        account_limited = ACCOUNT_LIMIT.search(error)
-        text = scrub_decoded(scrub(text))
+        account_limited = (ACCOUNT_LIMIT.search(error) or STDOUT_ACCOUNT_LIMIT.search(text)
+                           or (code != 0 and ACCOUNT_LIMIT.search(text)))
+        text = scrub_decoded(text)
         if valid(text, code) and diagnostic is None and not account_limited:
             output.write_text(text.rstrip() + "\n")
             record_status(model)

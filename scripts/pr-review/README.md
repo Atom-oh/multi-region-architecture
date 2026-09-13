@@ -1,8 +1,8 @@
 # Specialist review protocol
 
-Inactive MRA adapter stage. Common executors and the MRA collector adapter/policy
-are installed; the operational workflow still uses its legacy panel/chair.
-Workflow activation and E2E tests follow separately.
+The workflow selects `ROLE_REVIEW=1` through the MRA adapter and bounded chair
+policy. Legacy branches remain for regression fixtures, not an operational toggle.
+Current-HEAD review and required CI precede merge; offline tests are not live inference.
 
 | Tag | Requested model | Scope |
 | --- | --- | --- |
@@ -15,15 +15,15 @@ Workflow activation and E2E tests follow separately.
 execution. Kiro/Bedrock IDs differ. English is requested, not validated; configured
 IDs do not attest model weights.
 
-## Slot mapping (planned)
+## Slot mapping
 
 | Protocol tag | Legacy `run-panel.sh` slot | Model selection |
 | --- | --- | --- |
 | `kiro-fable` | `kiro-opus` | `claude-opus-5` remains selected |
-| `kiro-sol` | `kiro-gpt` | Planned `gpt-5.6-terra` → `gpt-5.6-sol` |
+| `kiro-sol` | `kiro-gpt` | `gpt-5.6-sol` selected |
 
 These are different label namespaces. The protocol tag does not rename the
-legacy slot; the activation change selects the new role-based execution path.
+legacy slot; the workflow selects the role-based execution path.
 
 ## Installed common libraries
 
@@ -40,7 +40,7 @@ committed, byte-matched `prepare_context_roles.py`; absence preserves root conte
 No such context helper is installed here: MRA uses the project adapter below,
 which takes precedence over generic preparation. See [ADR-005](../../docs/decisions/ADR-005-specialist-review-protocol.md).
 
-## MRA collector adapter (not selected by CI)
+## MRA collector adapter
 
 `role-project.json` must match its committed BASE bytes before adapter selection.
 The chair verifies that checkout and the prepared policy hash before using its limits.
@@ -102,8 +102,8 @@ bodies stay withheld. API-omitted oversized text deletions use explicit `path_on
 metadata and actual tree mode without fetching old bodies. Mixed input retains all
 reviewable text. The eligible deletion-only result is reserved for the trusted
 workflow shortcut; ordinary empty input never receives role PASS. MRA installs no
-generic `role-input-scope.json` or exclusions-only opt-in. Workflow/E2E integration
-must preserve this custody and provide safe deletion-only artifacts.
+generic `role-input-scope.json` or exclusions-only opt-in. Workflow/E2E tests
+cover this custody and the safe deletion-only artifacts.
 
 ## API and input
 
@@ -188,11 +188,11 @@ request; projects may lower them. Oversize blocks. No chunk coordinator or
 combining partial PASS results; preserve custody/budgets.
 
 Run `python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py'`.
-Offline CI: `.github/workflows/pr-review-roles-tests.yml`. Activation also needs
-workflow integration and exact-HEAD publication tests; offline success proves
+Offline CI: `.github/workflows/pr-review-roles-tests.yml`. Workflow integration and exact-HEAD
+publication tests are included; offline success proves
 no live provider execution.
 
-Sol replaces this repository's legacy Terra slot at activation; application
+Sol replaces this repository's legacy Terra slot; application
 inference models remain unchanged.
 
 MRA retains ADR-004 collector/state-deletion custody and its deletion-only shortcut.
@@ -225,6 +225,35 @@ attempt/turn/time bounds; hard account/monthly/credit/overage limits still stop 
 
 MRA retains the legacy `PANEL_CELL_CAP=20000` per-slot evidence budget. Before
 chair invocation, oversized validated response data blocks without truncation;
-no ADP-style total cap is substituted. Original model JSON reaches `record` through
+no ADP-style total cap is substituted. Model JSON, with terminal display controls removed, reaches `record` through
 a mode-0600 temporary file outside WORK, removed even if recording fails. Only
 validated/scrubbed results and scrubbed diagnostics remain in review artifacts.
+
+## Workflow and artifacts
+
+After checkout, CI rejects a symlink WORK and recreates `/tmp/pr-review`
+before CLI checks or collection. Original files API responses are deleted before
+providers run; current omission/preflight flags survive coordination. Missing or
+invalid required coverage produces deterministic FAIL; the chair cannot waive it.
+The eligible deletion-only shortcut invokes no provider and publishes safe collection
+metadata rather than invented role results. Posting rechecks the current PR HEAD.
+
+Publish `role-source.json`, plan/summary, issued receipts, attempt ledgers, results
+and timing metadata. Artifacts include HEAD and `github.run_attempt` in their names, so reruns retain
+distinct immutable evidence. Collection metadata and failure flags are also uploaded.
+
+Responses require `head_sha`, `role`, `scope_complete`, all `reviewed_paths`, evidence
+`checks`, `findings` and `uncertainties`. Findings carry severity/path/condition/evidence.
+One JSON fence or Kiro `>` prefixes are accepted; extra prose and duplicate keys fail.
+Validated paths stay exact while decoded credential values are scrubbed. Sensitive
+containers are scanned without evaluation: complete boundaries preserve outside text;
+ambiguous expression tails consume the remainder and cannot retain a chair PASS.
+Bullets, headings, links or closing fences can resemble continuations; avoid sensitive
+assignment examples in the final report.
+
+MRA retains its portable control stripper because its legacy `lib.sh` lacks one.
+Terminal formatting is removed before JSON validation without masking path values;
+credential masking follows validation. Text-mode stdout errors remain diagnostics;
+JSON review evidence stays data.
+
+Generic exclusion tests use temporary repos.

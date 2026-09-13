@@ -1,19 +1,18 @@
-# ADR-005: Introduce the specialist review protocol before activation
+# ADR-005: Activate specialist review after the protocol-only stage
 
 ## Status
 
-Accepted (2026-09-13). PR #52 installed the protocol; PR #54 installed executors
-and the required guard policy. PR #55 adds the MRA adapter, bounded context and
-unit tests. Legacy review remains selected until PR #56 activation and E2E review.
-The original policy rationale from PR #53 is retained below.
+Accepted (2026-09-13). Protocol PR #52, executors #54 and MRA adapter #55 precede
+this PR #56 activation and its end-to-end tests. PR #53's policy rationale is
+retained below. Code and offline tests do not establish live deployment or inference.
 
 ## Context
 
 The specialist design assigns distinct responsibilities while retaining independent
 Codex/Claude coverage and explicit failures. Combining protocol, executors, project
 adaptation and activation makes the native review input too large. The rollout
-therefore separates the implementation without increasing review budgets or
-removing meaningful tests.
+therefore separates protocol, common executors, MRA adaptation and activation without
+increasing review budgets or removing meaningful tests.
 
 Multi-Region Architecture (MRA) already has operational contracts for collector classification, sensitive
 deletions and bounded adjudication. Adding a protocol must not silently replace
@@ -21,29 +20,52 @@ those controls or imply that a new workflow is active.
 
 ## Decision
 
-The policy stage recorded this contract. PR #52 installed `role_review.py`,
-`test_role_review.py` and their offline test workflow. The library prepares role inputs,
+Phase one introduced `role_review.py`, `test_role_review.py`, protocol documentation
+and their dedicated offline test workflow. The library prepares role inputs,
 validates responses and aggregates coverage. It binds supplied provenance and
 invocation-nonce metadata; it performs no Git fetch, provider call or publication.
-Its [README](../../scripts/pr-review/README.md) defines the CLI and outcome modes.
+The [module README](../../scripts/pr-review/README.md) now describes the integrated
+MRA input contract.
 
 The library blocks incomplete input and diffs exceeding 95,000 bytes or 3,000
 lines, without prefix credit. Context and complete-request limits also apply.
-There is no automatic chunking. Library limits do not change the existing
-operational workflow in this PR.
+There is no automatic chunking or budget increase. The activated review path
+applies these limits to the complete approved collector view.
 
-Provider executors, project policy and the MRA input adapter are now installed.
-Workflow activation and integration tests follow separately. The supplied collector view and safe
-provenance must reach that integration without a raw Git reconstruction that
-restores excluded state contents. The adapter selects canonical BASE CLAUDE.md plus an ADR summary for reviewers
-without file tools. Candidate context is checked but never promoted to instructions.
+The workflow selects `ROLE_REVIEW=1` from a pinned BASE checkout. Immediately
+after checkout it rejects a symlink WORK and recreates the review directory before
+CLI checks or input collection. Current upstream failure flags survive coordination. Provider
+executors, the project-policy loader, MRA adapter and chair integration consume
+the protocol. Canonical BASE CLAUDE.md plus a bounded ADR summary supplies context;
+candidate context is validated but never becomes instructions.
+
+The existing files API collector still decides which contents may be reviewed.
+The adapter binds its complete view to head/base/merge-base identifiers, before/
+after snapshots, the BASE collector digest and Git's NUL-delimited path/status
+manifest. Raw Git reconstruction is not a fallback. Safe provenance reaches
+prompts, plan/request fingerprints and summary artifacts. Deleted state contents
+remain withheld; metadata-only text deletions retain their explicit scope.
+
+Required roles receive one responsibility each, with fresh invocation framing.
+Codex and Claude provide independent family coverage; deterministic routing
+selects the Kiro roles. Kiro uses an empty catalog, isolated environment and
+successful no-tools canary. Invalid output, quota/model failures or incomplete
+required coverage block; configured model identities are not execution attestations.
+
+Complete uncontested results produce a deterministic summary. Valid substantive
+candidates or uncertainties go to a bounded chair. The project policy enforces
+600-second attempts, 8/12 turns and the mandatory tool deny baseline independently
+of the legacy shell file. A chair cannot waive incomplete coverage. Valid findings cannot be discarded;
+this runtime rejects reissue of a valid result.
 
 **Approved generic exclusions-only result.** Repository maintainers approve the
 scope policy through review of the committed BASE configuration. The trusted
 preparer, never a model response, may select `configured_exclusions_only` when
 all changed paths are covered by that policy. The prepared diff and reviewable
 path list must be empty; nonempty `scope_paths` and `excluded_paths` must match,
-and `input_policy_sha256` must identify the verified BASE policy. Missing,
+and `input_policy_sha256` must identify the verified BASE policy. Explicit
+`--allow-exclusions-only --policy FILE` anchors its exact bytes; the caller MUST
+verify BASE policy provenance and complete Git scope. Missing,
 unknown or accidentally empty input and provider failures do not qualify.
 
 For this approved case the protocol may make all roles inactive, invoke no models,
@@ -102,24 +124,19 @@ Existing decisions remain in force:
 - [ADR-004](ADR-004-pr-review-empty-diff-exception.md): retain files API classification,
   both rename paths, state/plan deny rules, deletion-content withholding and the
   narrowly eligible deletion-only exception. Preserve the 600-second chair limits,
-  8/12 turn caps and mandatory tool deny baseline when integrating phase two.
+  8/12 turn caps and mandatory tool deny baseline in the activated path.
 
 ## Consequences and verification
 
-The current `pr-review.yml`, collector and chair execution path are unchanged.
-Protocol PASS means supplied role evidence validated; it is not a live provider
-result or permission to skip activation review.
+The operational workflow now delegates to the specialist runtime. Collector
+classification, deletion-only eligibility and infrastructure custody are preserved.
+The trusted deletion-only shortcut invokes no provider and uploads safe collection
+metadata; it does not fabricate successful role responses. Public posting still
+checks the current PR HEAD.
 
 Run
-`python3 -B -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v`.
-The phase-two integration needs its own current-HEAD review and tests for the
-collector bundle, nondisclosure, provenance, provider failures and chair controls.
-
-The owner selects Kiro's `gpt-5.6-sol` alias to replace `gpt-5.6-terra` in the
-`kiro-gpt` slot (`run-panel.sh`), retaining its review responsibilities. The
-historical `bedrock-mantle` Sol comment in that script describes Codex's earlier
-provider, not Kiro's catalog. Codex stays on Runtime/Astra; no Mantle region policy
-is reversed. Kiro model selection remains subject to runtime preflight. This
-records a future Kiro selection, not a claim that it is already active.
-The [README mapping](../../scripts/pr-review/README.md#slot-mapping-planned)
-distinguishes protocol tags from legacy slot labels.
+`python3 -B -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v`
+and `bash scripts/pr-review/test-collect-diff.sh`. Integration tests exercise the
+real entrypoints and workflow blocks with local Git and fake CLIs, including
+missing-bundle rejection, state privacy and chair controls after legacy-script
+removal. Current-HEAD review and required CI still precede release.
