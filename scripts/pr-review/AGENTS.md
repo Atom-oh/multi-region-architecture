@@ -25,6 +25,10 @@ The operational workflow selects `ROLE_REVIEW=1`; legacy matrix branches remain 
 | [run-specialists.sh](run-specialists.sh) | Installed provider coordinator; retains current upstream failure flags. |
 | [run_role.py](run_role.py) | Provider execution with issued-request receipts and failure recording. |
 | [synthesize_roles.py](synthesize_roles.py) | Deterministic output or bounded adjudication; no coverage override. |
+| [role-controls.sh](role-controls.sh) | Shared output-control cleanup. |
+| [test_project_roles.py](test_project_roles.py) | MRA collector and policy binding tests. |
+| [test_e2e_roles.py](test_e2e_roles.py) | Generic temporary-fixture executor scenarios. |
+| [test_project_integration_roles.py](test_project_integration_roles.py), [test_project_workflow_roles.py](test_project_workflow_roles.py) | MRA entrypoints, workflow and credential boundaries. |
 
 ## Subdirectories
 | Directory | Purpose |

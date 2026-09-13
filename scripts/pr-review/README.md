@@ -173,8 +173,8 @@ There is no automatic chunking or budget increase.
 fallback turns. Read/Grep/Glob remain the allowed set; the Bash/Write/Edit/
 NotebookEdit/WebFetch/WebSearch/Task deny baseline must always be sent. The shared
 chair enforces these explicit settings even if the legacy shell file is removed,
-and rejects attempts to disable or increase the limits. This preserves ADR-004
-independently of regex extraction.
+and rejects attempts to disable or increase the limits. Read/Grep/Glob still have
+no filesystem path confinement. This preserves ADR-004 independently of regex extraction.
 
 The approved specialist roster is Codex `global.openai.gpt-6-astra`, Kiro
 `claude-opus-5` and `gpt-5.6-sol`, and Claude
@@ -185,8 +185,9 @@ For reviewable input, Codex (`implementation`) and Claude (`requirements`) are
 always required and receive all paths. Trusted routing can deactivate irrelevant
 Kiro roles; model failures never create an exemption.
 
-Run `python3 -B -m unittest -v test_project_roles test_project_integration_roles`
-from this directory, followed by the shared runtime and existing collector tests.
+From the repository root run
+`python3 -B -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v`
+and `bash scripts/pr-review/test-collect-diff.sh`, matching the offline CI scope.
 The integration suite executes the real shared entrypoints with local Git and fake
 CLIs: missing bundles block before raw diff generation, provenance is fingerprinted,
 withheld state stays out of provider/artifact input, and mandatory chair arguments
@@ -201,3 +202,6 @@ The activation-only `test_project_workflow_roles` suite executes the workflow's
 actual collection, prompt, review and gate blocks. It checks mixed state deletion
 privacy, raw-response cleanup, deletion-only provider skipping and the declared
 artifact-upload paths using local Git and fake CLIs.
+
+Generic exclusion-policy examples in shared E2E tests use temporary repositories;
+they do not install or enable that policy in MRA.
