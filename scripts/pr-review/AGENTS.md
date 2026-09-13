@@ -4,7 +4,8 @@
 # PR Review
 
 ## Purpose
-Legacy review scripts and the installed protocol.
+Legacy review scripts and inactive common specialist executors. MRA requires its
+configured adapter before preparation; the operational workflow remains legacy.
 The live workflow still calls the legacy panel and chair; the protocol is not activated.
 
 ## Key Files
@@ -18,6 +19,14 @@ The live workflow still calls the legacy panel and chair; the protocol is not ac
 | [role_review.py](role_review.py) | Offline protocol: prepare, issue, record and aggregate; not used by the live workflow. |
 | [test_role_review.py](test_role_review.py) | Offline protocol regression tests. |
 | [README.md](README.md) | Command, file-schema and stage contracts. |
+| [prepare_roles.py](prepare_roles.py) | Trusted preparation; MRA requires its configured adapter. |
+| [role-project.json](role-project.json) | BASE-bound MRA guard for adapter selection and role-based chair limits. |
+| [test_mra_bootstrap_roles.py](test_mra_bootstrap_roles.py) | Bootstrap fail-closed, chair and Claude command checks. |
+| [run-specialists.sh](run-specialists.sh), [run_role.py](run_role.py) | Common provider execution; not selected by MRA CI. |
+| [synthesize_roles.py](synthesize_roles.py) | Common conditional chair. |
+| [role-controls.sh](role-controls.sh) | `strip_ansi`; `run_role.scrub()` adds `lib.sh` secret masking. |
+| [test_prepare_roles.py](test_prepare_roles.py), [test_project_policy_roles.py](test_project_policy_roles.py) | Trusted input and policy tests. |
+| [test_run_role.py](test_run_role.py), [test_synthesize_roles.py](test_synthesize_roles.py), [test_integrity_roles.py](test_integrity_roles.py) | Executor, chair and cross-stage tests. |
 
 ## Subdirectories
 | Directory | Purpose |
@@ -38,7 +47,7 @@ Current check: `bash scripts/pr-review/test-collect-diff.sh`.
 Protocol checks:
 
 ```bash
-python3 -m unittest discover -s scripts/pr-review -p test_role_review.py -v
+python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v
 ```
 
 <!-- MANUAL: -->

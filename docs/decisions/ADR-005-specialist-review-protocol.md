@@ -2,8 +2,11 @@
 
 ## Status
 
-Accepted (2026-09-13). PR #52 installs the protocol/tests; policy PR #53's rationale
-is preserved below. Legacy review remains active; provider/adapter rollout follows.
+Accepted (2026-09-13). PR #52 installed the protocol. PR #54 adds inactive common
+executors and the required MRA guard profile. Its limits apply when the role-based
+path is called; missing adapter input blocks preparation. Legacy review remains
+active with its existing `synthesize.sh` limits. The adapter arrives in PR #55 and
+workflow activation follows in PR #56. PR #53's rationale is preserved below.
 
 ## Context
 
@@ -101,7 +104,7 @@ Protocol PASS means supplied role evidence validated; it is not a live provider
 result or permission to skip activation review.
 
 After the implementation files exist, run
-`python3 -B -m unittest discover -s scripts/pr-review -p test_role_review.py -v`.
+`python3 -B -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v`.
 The phase-two integration needs its own current-HEAD review and tests for the
 collector bundle, nondisclosure, provenance, provider failures and chair controls.
 

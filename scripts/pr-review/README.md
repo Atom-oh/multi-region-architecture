@@ -109,7 +109,7 @@ Limits: 95,000 diff bytes (UTF-8), 3,000 lines, 24,000 context bytes, <128 KiB
 request; projects may lower them. Oversize blocks. No chunk coordinator or
 combining partial PASS results; preserve custody/budgets.
 
-Run `python3 -m unittest discover -s scripts/pr-review -p test_role_review.py`.
+Run `python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py'`.
 Offline CI: `.github/workflows/pr-review-roles-tests.yml`. Activation also needs
 executor/adapter, limit and exact-HEAD publication tests; offline success proves
 no live provider execution.
@@ -141,3 +141,24 @@ preparation for a new review; failed attempts retain their diagnostic history.
 
 Codex/Claude rows use Bedrock Runtime IDs; Kiro rows use Kiro catalog aliases.
 Local Codex on Mantle uses `openai.gpt-6-astra`; these namespaces are distinct.
+
+## Inactive executors
+
+MRA requires
+`prepare_project_roles.py` and `mra-review-context.md` from the adapter stage.
+`role-project.json` and its adapter must match BASE; mismatches block raw fallback.
+The chair checks BASE/policy hash and retains 600s, 8/12 turns and 20,000 bytes
+per-slot without truncation. Fallback permits throttle, never hard account limits.
+
+From pinned BASE, set `HEAD_SHA`, `BASE_SHA`, `GH_REPO`:
+
+- `prepare_roles.py --prepared-diff BUNDLE/panel.diff --work WORK`
+- `run-specialists.sh BUNDLE/panel.diff UNUSED WORK`
+- `run_role.py --work WORK --tag TAG`
+- `synthesize_roles.py --work WORK --output REPORT`
+
+Codex validates JSONL and its final file. `record` receives original JSON through
+a mode-0600 file outside WORK, removed even on errors.
+Kiro uses an isolated empty catalog and random canary. Claude sets `--tools ""`,
+`--disallowedTools "*"`, `--max-turns 1` and strict MCP configuration. Fake CLIs test
+denial, not live inference. Only validated results and scrubbed diagnostics persist.

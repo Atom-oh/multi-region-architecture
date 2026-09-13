@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "input_adapter": "prepare_project_roles.py",
+  "context_sources": [
+    "CLAUDE.md",
+    "scripts/pr-review/mra-review-context.md"
+  ],
+  "chair": {
+    "timeout_seconds": 600,
+    "max_turns": 8,
+    "fallback_max_turns": 12,
+    "allowed_tools": [
+      "Read",
+      "Grep",
+      "Glob"
+    ],
+    "disallowed_tools": [
+      "Bash",
+      "Write",
+      "Edit",
+      "NotebookEdit",
+      "WebFetch",
+      "WebSearch",
+      "Task"
+    ],
+    "panel_cell_cap": 20000
+  }
+}
