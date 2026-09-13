@@ -181,3 +181,9 @@ Local Codex on Mantle uses `openai.gpt-6-astra`; these namespaces are distinct.
 
 Configured chair fallback may recover from transient throttling within existing
 attempt/turn/time bounds; hard account/monthly/credit/overage limits still stop it.
+
+MRA retains the legacy `PANEL_CELL_CAP=20000` per-review evidence budget. Before
+chair invocation, oversized validated response data blocks without truncation;
+no ADP-style total cap is substituted. Original model JSON reaches `record` through
+a mode-0600 temporary file outside WORK, removed even if recording fails. Only
+validated/scrubbed results and scrubbed diagnostics remain in review artifacts.

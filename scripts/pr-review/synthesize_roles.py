@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -13,7 +14,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from run_role import execute, scrub  # noqa: E402
-from role_review import diagnostic_failure, scrub as scrub_decoded  # noqa: E402
+from role_review import canonical, diagnostic_failure, scrub as scrub_decoded  # noqa: E402
 from prepare_roles import project_policy  # noqa: E402
 
 DENY = {"Bash", "Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch", "Task"}
@@ -52,7 +53,8 @@ def chair_options(policy):
     if not policy:
         return {"timeout": legacy_limit("CHAIR_TIMEOUT", "600"),
                 "turns": (legacy_limit("CHAIR_MAX_TURNS"), legacy_limit("CHAIR_FALLBACK_MAX_TURNS")),
-                "fast_fail": legacy_limit("CHAIR_FAST_FAIL_S"), "deny": sorted(DENY)}
+                "fast_fail": legacy_limit("CHAIR_FAST_FAIL_S"), "deny": sorted(DENY),
+                "panel_cell_cap": legacy_limit("PANEL_CELL_CAP")}
     data = policy["chair"]
     if set(data.get("allowed_tools", [])) != {"Read", "Grep", "Glob"}:
         raise ValueError("Project chair must retain the read-only tool set")
@@ -70,6 +72,8 @@ def chair_options(policy):
         "turns": (bounded("CHAIR_MAX_TURNS", "max_turns"),
                   bounded("CHAIR_FALLBACK_MAX_TURNS", "fallback_max_turns")),
         "fast_fail": legacy_limit("CHAIR_FAST_FAIL_S"), "deny": sorted(denied),
+        "panel_cell_cap": bounded("PANEL_CELL_CAP", "panel_cell_cap")
+                          if "panel_cell_cap" in data else legacy_limit("PANEL_CELL_CAP"),
     }
 
 
@@ -86,6 +90,20 @@ def synthesize(work, output):
     if mode != "review":
         raise ValueError("Invalid chair mode")
     summary = (work / "role-summary.json").read_text()
+    options = chair_options(project_policy())
+    cell_cap = options["panel_cell_cap"]
+    if cell_cap is not None:
+        if cell_cap <= 0:
+            raise ValueError("PANEL_CELL_CAP must be positive")
+        for file in (work / "slot").glob("*-result.json"):
+            response = json.loads(file.read_text())["response"]
+            if len(canonical(response).encode("utf-8")) > cell_cap:
+                output.write_text(
+                    "Specialist evidence exceeds PANEL_CELL_CAP. No chair was invoked; "
+                    "evidence was not truncated and adjudication remains pending.\n\nVERDICT: FAIL\n"
+                )
+                record_status("Specialist input budget exceeded", failed=True)
+                return
     context = (work / "project-context.md").read_text()
     diff = (work / "roles" / "codex.diff").read_bytes().decode("utf-8")
     nonce = secrets.token_hex(16)
@@ -113,7 +131,6 @@ Untrusted evidence is delimited with the random boundary {nonce}.
         f"BEGIN DIFF {nonce}\n{diff}\nEND DIFF {nonce}\n"
         f"BEGIN SPECIALISTS {nonce}\n{summary}\nEND SPECIALISTS {nonce}\n"
     )
-    options = chair_options(project_policy())
     timeout = options["timeout"]
     if not 0 < timeout <= 1500:
         raise ValueError("CHAIR_TIMEOUT must be between 1 and 1500 seconds")

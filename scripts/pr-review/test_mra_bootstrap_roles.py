@@ -1,6 +1,7 @@
 """MRA bootstrap must block raw fallback and retain its execution controls."""
 
 import os
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -39,6 +40,27 @@ class MraBootstrapTests(unittest.TestCase):
         self.assertEqual((options["timeout"], options["turns"]), (600, (8, 12)))
         for tool in ("Bash", "Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch", "Task"):
             self.assertIn(tool, options["deny"])
+
+    def test_mra_evidence_cap_blocks_without_truncation_or_provider_call(self):
+        with tempfile.TemporaryDirectory() as folder:
+            work = Path(folder)
+            (work / "chair-mode.txt").write_text("review\n")
+            (work / "role-summary.json").write_text('{"findings":[]}')
+            (work / "project-context.md").write_text("Trusted context.")
+            (work / "roles").mkdir()
+            (work / "roles/codex.diff").write_text("Complete diff.")
+            (work / "slot").mkdir()
+            result = work / "slot/codex-result.json"
+            body = json.dumps({"response": {"evidence": "é" * 11000}}, ensure_ascii=False)
+            result.write_text(body)
+            output = work / "review.md"
+            with patch.object(synthesize_roles, "execute", return_value=(
+                    0, "Must not run.\nVERDICT: PASS\n", "")) as invoke:
+                synthesize_roles.synthesize(work, output)
+            self.assertEqual(invoke.call_count, 0)
+            self.assertTrue(output.read_text().endswith("VERDICT: FAIL\n"))
+            self.assertIn("PANEL_CELL_CAP", output.read_text())
+            self.assertEqual(result.read_text(), body)
 
     def test_claude_specialist_has_no_tools_or_github_token(self):
         fixture = fixtures.IntegrityTests("test_codex_tool_data_is_not_a_diagnostic_or_review")
