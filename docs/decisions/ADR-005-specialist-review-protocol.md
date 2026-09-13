@@ -36,6 +36,25 @@ provenance must reach that integration without a raw Git reconstruction that
 restores excluded state contents. Canonical CLAUDE.md plus an ADR summary must
 reach reviewers without file tools.
 
+**Approved generic exclusions-only result.** Repository maintainers approve the
+scope policy through review of the committed BASE configuration. The trusted
+preparer, never a model response, may select `configured_exclusions_only` when
+all changed paths are covered by that policy. The prepared diff and reviewable
+path list must be empty; nonempty `scope_paths` and `excluded_paths` must match,
+and `input_policy_sha256` must identify the verified BASE policy. Missing,
+unknown or accidentally empty input and provider failures do not qualify.
+
+For this approved case the protocol may make all roles inactive, invoke no models,
+and produce a deterministic `NOT_APPLICABLE` explanation followed by
+`VERDICT: PASS`. This PASS means the approved scope check passed, not that models
+reviewed the change. The report must disclose the excluded paths and policy hash.
+If any reviewable input remains, the independent primary-role requirement applies.
+
+This generic library capability does not broaden MRA's ADR-004 exception. MRA
+continues to use its custom files API collector, state-body withholding and the
+narrow deletion-only workflow shortcut. These MRA stages do not introduce a
+`role-input-scope.json` policy or select `configured_exclusions_only` for MRA.
+
 Existing decisions remain in force:
 
 - [ADR-002](ADR-002-pr-review-kiro-fs-read-risk.md): preserve trusted execution and

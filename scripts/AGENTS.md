@@ -1,10 +1,10 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-15 -->
+<!-- Generated: 2026-03-15 | Updated: 2026-09-13 -->
 
 # Scripts
 
 ## Purpose
-Build automation and data seeding scripts for the multi-region shopping mall platform. Contains Docker build/push workflows and database initialization scripts.
+Build automation, data seeding and PR review tooling for the multi-region shopping mall platform. Includes Docker publication, database initialization and review helpers.
 
 ## Key Files
 | File | Description |
@@ -14,6 +14,7 @@ Build automation and data seeding scripts for the multi-region shopping mall pla
 ## Subdirectories
 | Directory | Purpose |
 |-----------|---------|
+| [pr-review/](pr-review/AGENTS.md) | PR collection, execution helpers and staged protocol; see the module guide for the operational path |
 | `seed-data/` | Database seeding scripts for all data stores |
 | `seed-data/k8s/` | Kubernetes Job manifests for running seeds in-cluster |
 
