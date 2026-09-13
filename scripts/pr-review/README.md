@@ -42,21 +42,36 @@ legacy slot; the activation change selects the new role-based execution path.
 The executor sends issued bytes; hashes bind inputs, not transport. Keep tool data
 out of diagnostics.
 
-`--paths`: UTF-8 JSON array of unique repository-relative paths matching the patch,
+`--paths FILE`: UTF-8 JSON array of unique repository-relative paths matching the patch,
 e.g. `["src/api.ts"]`. Renames use destinations; the collector checks both sides.
 Omit only for authoritative, unambiguous patch paths.
 
-`--provenance`: JSON object. Required `head_sha`/`base_sha` equal the lowercase
-40-character CLI revisions; `diff_sha256` hashes exact raw diff bytes. Example:
+### Provenance (planned)
 
-```json
-{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","base_sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","diff_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
-```
+`--provenance FILE` supplies a JSON object. This table is the canonical field
+contract; library checks and trusted-producer duties are distinct.
 
-Optional `input_failures` contains codes matching `[a-z][a-z0-9_:.-]{0,63}`; any code
-blocks. Invalid provenance is discarded and blocks; stored values are scrubbed.
-Optional `path_only: list[str]` identifies collector-approved metadata-only
-deletions. Verify eligibility before withholding bodies.
+| Field | Required for | Meaning and owner |
+| --- | --- | --- |
+| `head_sha`, `base_sha` | Every supplied provenance object | Lowercase 40-hex CLI revisions; the library checks equality. `base_sha` identifies the trusted checkout and policy source. |
+| `diff_sha256` | Every supplied provenance object | SHA-256 of the exact bytes supplied through `--diff`, after approved filtering. The library recomputes it; an approved empty input hashes empty bytes. |
+| `merge_base_sha` | Generic Git preparer | Immutable comparison origin verified by the trusted preparer. |
+| `raw_diff_sha256` | Generic Git preparer | Hash of its complete, unfiltered Git diff before policy exclusions. The preparer computes/verifies this evidence; the library does not recover withheld input to recompute it. |
+| `scope_paths` | Generic Git preparer; exclusions-only opt-in | Complete original path set, independently derived from Git by the preparer, including excluded paths. |
+| `excluded_paths` | Generic Git preparer; exclusions-only opt-in | Paths excluded by the verified BASE policy; empty when none. For exclusions-only, the library requires equality with nonempty `scope_paths`. |
+| `input_policy_sha256` | Generic preparer using a policy; exclusions-only opt-in | Hash of exact committed BASE policy bytes; null without a policy. For exclusions-only the library hashes `--policy FILE` and requires a match. |
+| `scope_exception` | Exclusions-only opt-in | Exactly `configured_exclusions_only`, with explicit CLI opt-in and empty diff/reviewable paths; absent or null for ordinary review. |
+| `input_failures` | Optional | Static codes matching `[a-z][a-z0-9_:.-]{0,63}`; any code blocks. |
+| `path_only` | Optional collector-approved metadata-only deletions | Path list permitting deletion-metadata review without bodies; eligibility remains the trusted collector's responsibility. |
+
+`diff_sha256` and `raw_diff_sha256` describe different processing stages and can
+differ. They are not interchangeable names. The generic producer must supply its
+listed fields in addition to the common library envelope. Project adapters may
+retain additional evidence; MRA uses its approved collector view and never
+reconstructs withheld state bodies merely to populate the generic raw-diff field.
+Provenance is bound into request/plan fingerprints as data; invalid envelope
+values block and stored values are scrubbed. These hashes do not authenticate an
+arbitrary caller or independently establish Git membership.
 
 ## Coverage and lifecycle
 
@@ -114,11 +129,9 @@ blob; aggregation will recheck the retained WORK copy. Missing or mismatched opt
 blocks. The caller, not this library, must verify the BASE source, complete Git
 scope and approved exclusions. MRA does not enable this generic policy.
 
-The generic BASE preparer must derive the complete Git path set from immutable
-`merge_base_sha`/`head_sha`, source the policy from `base_sha`, and retain those
-revisions plus `scope_paths`, `excluded_paths`, `raw_diff_sha256` and
-`input_policy_sha256` as provenance. Candidate/model data cannot establish these
-facts. Incomplete evidence fails closed. As recorded in ADR-005, the library does
+The generic BASE preparer must supply the fields and source checks in the
+[canonical provenance table](#provenance-planned). Candidate/model assertions
+cannot establish these facts. Incomplete evidence fails closed. As recorded in ADR-005, the library does
 not impose a universal file-type denylist: reviewed generated-code exclusions
 remain possible. MRA instead retains ADR-004's specific mandatory deny rules.
 

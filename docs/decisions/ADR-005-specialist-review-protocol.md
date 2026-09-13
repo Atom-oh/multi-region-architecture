@@ -61,9 +61,11 @@ the BASE source and complete Git scope.
 
 **Required generic integration.** Before requesting this exception, the trusted
 BASE preparer must verify its checkout, read the policy blob from `base_sha`, and
-derive the complete changed-path set from immutable `merge_base_sha` and
-`head_sha` Git objects. Provenance must retain those revisions, `scope_paths`,
-`excluded_paths`, `raw_diff_sha256` and the BASE policy's `input_policy_sha256`.
+derive the complete changed-path set from immutable Git objects. It must supply
+the generic and exception fields in the README's
+[canonical provenance table](../../scripts/pr-review/README.md#provenance-planned).
+That table distinguishes the complete source diff from the approved protocol input
+and specifies which component verifies each hash.
 Candidate-supplied policy/scope assertions and model output are not authoritative.
 Missing or incomplete evidence must fail closed, never become NOT_APPLICABLE.
 
