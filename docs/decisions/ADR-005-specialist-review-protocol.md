@@ -13,7 +13,7 @@ adaptation and activation makes the native review input too large. The rollout
 therefore separates the implementation without increasing review budgets or
 removing meaningful tests.
 
-MRA already has operational contracts for collector classification, sensitive
+Multi-Region Architecture (MRA) already has operational contracts for collector classification, sensitive
 deletions and bounded adjudication. Adding a protocol must not silently replace
 those controls or imply that a new workflow is active.
 
@@ -59,6 +59,23 @@ exact BASE policy bytes; both local copies must match it. Aggregation will reche
 the retained WORK copy against that digest. The caller still owns verification of
 the BASE source and complete Git scope.
 
+**Required generic integration.** Before requesting this exception, the trusted
+BASE preparer must verify its checkout, read the policy blob from `base_sha`, and
+derive the complete changed-path set from immutable `merge_base_sha` and
+`head_sha` Git objects. Provenance must retain those revisions, `scope_paths`,
+`excluded_paths`, `raw_diff_sha256` and the BASE policy's `input_policy_sha256`.
+Candidate-supplied policy/scope assertions and model output are not authoritative.
+Missing or incomplete evidence must fail closed, never become NOT_APPLICABLE.
+
+**Accepted boundary.** Hashes bind the supplied evidence; they do not authenticate
+an arbitrary caller. Git/source verification belongs to the trusted BASE preparer,
+not the offline library. A universal file-type denylist is deliberately absent:
+reviewed policies can legitimately exclude generated code, including generated
+IaC. Consumer-specific eligibility belongs to that reviewed policy and collector.
+A defective trusted collector or approved policy remains a reviewable integration
+risk, not a guarantee supplied by the hash check. MRA authorizes none of this
+generic exclusion policy; its separate ADR-004 deny rules remain mandatory.
+
 This generic library capability does not broaden MRA's ADR-004 exception. MRA
 continues to use its custom files API collector, state-body withholding and the
 narrow deletion-only workflow shortcut. These MRA stages do not introduce a
@@ -92,3 +109,5 @@ historical `bedrock-mantle` Sol comment in that script describes Codex's earlier
 provider, not Kiro's catalog. Codex stays on Runtime/Astra; no Mantle region policy
 is reversed. Kiro model selection remains subject to runtime preflight. This
 records a future Kiro selection, not a claim that it is already active.
+The [README mapping](../../scripts/pr-review/README.md#slot-mapping-planned)
+distinguishes protocol tags from legacy slot labels.

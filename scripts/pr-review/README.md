@@ -13,11 +13,22 @@ activation review. No Git fetch or model calls.
 | kiro-sol | `gpt-5.6-sol` | Deployment/contracts/recovery |
 | claude-self | `global.anthropic.claude-fable-5-1` | Auth/data/API/ADR |
 
-`kiro-fable` means Opus. `ROLES` governs specialists; legacy files govern legacy
-execution. Kiro/Bedrock IDs differ. English is requested, not validated; configured
-IDs do not attest model weights.
+`kiro-fable` means Opus. The planned `ROLES` constant in `role_review.py` defines
+protocol tags; `run-panel.sh` defines the existing legacy slot labels.
+Kiro/Bedrock IDs differ. English is requested, not validated; configured IDs do not
+attest model weights.
 
-## API and input
+## Slot mapping (planned)
+
+| Protocol tag | Legacy `run-panel.sh` slot | Model selection |
+| --- | --- | --- |
+| `kiro-fable` | `kiro-opus` | `claude-opus-5` remains selected |
+| `kiro-sol` | `kiro-gpt` | Planned `gpt-5.6-terra` → `gpt-5.6-sol` |
+
+These are different label namespaces. The protocol tag does not rename the
+legacy slot; the activation change selects the new role-based execution path.
+
+## API and input (planned)
 
 `python3 scripts/pr-review/role_review.py COMMAND --help` lists flags.
 
@@ -50,7 +61,7 @@ deletions. Verify eligibility before withholding bodies.
 ## Coverage and lifecycle
 
 Codex/Claude are required for reviewable source; trusted routing may deactivate
-irrelevant Kiro roles. App Router React is conservative. Failed output is never
+irrelevant Kiro roles. Unknown paths route conservatively. Failed output is never
 N/A. Parsing misses whole omissions/some cut prefixes: verify Git scope/hashes.
 
 BASE-approved exclusions-only scope may yield NOT_APPLICABLE/PASS without models.
@@ -102,6 +113,14 @@ another committed policy. Both copies must match `input_policy_sha256` of the BA
 blob; aggregation will recheck the retained WORK copy. Missing or mismatched opt-in
 blocks. The caller, not this library, must verify the BASE source, complete Git
 scope and approved exclusions. MRA does not enable this generic policy.
+
+The generic BASE preparer must derive the complete Git path set from immutable
+`merge_base_sha`/`head_sha`, source the policy from `base_sha`, and retain those
+revisions plus `scope_paths`, `excluded_paths`, `raw_diff_sha256` and
+`input_policy_sha256` as provenance. Candidate/model data cannot establish these
+facts. Incomplete evidence fails closed. As recorded in ADR-005, the library does
+not impose a universal file-type denylist: reviewed generated-code exclusions
+remain possible. MRA instead retains ADR-004's specific mandatory deny rules.
 
 A valid result cannot be reissued to discard findings or uncertainty. Start a new
 preparation for a new review; failed attempts retain their diagnostic history.
