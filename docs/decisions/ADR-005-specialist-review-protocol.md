@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted for phase one (2026-09-13). This PR adds a protocol-only library.
-Provider execution and workflow activation are a separate phase-two change.
+Accepted (2026-09-13). The protocol is installed. This stage adds inactive common
+executors and unit tests. MRA adapter/policy installation follows separately, then
+workflow activation and E2E tests. The legacy operational path remains selected.
 
 ## Context
 
@@ -30,8 +31,8 @@ lines, without prefix credit. Context and complete-request limits also apply.
 There is no automatic chunking. Library limits do not change the existing
 operational workflow in this PR.
 
-Phase two adds provider executors, the project-policy loader, MRA input adapter,
-chair integration and activation tests. The supplied collector view and safe
+Implementation is split into common executors/tests, the MRA adapter/policy/tests,
+and final workflow activation/E2E. No stage raises the review input limit. The supplied collector view and safe
 provenance must reach that integration without a raw Git reconstruction that
 restores excluded state contents. Canonical CLAUDE.md plus an ADR summary must
 reach reviewers without file tools.
@@ -41,7 +42,9 @@ scope policy through review of the committed BASE configuration. The trusted
 preparer, never a model response, may select `configured_exclusions_only` when
 all changed paths are covered by that policy. The prepared diff and reviewable
 path list must be empty; nonempty `scope_paths` and `excluded_paths` must match,
-and `input_policy_sha256` must identify the verified BASE policy. Missing,
+and `input_policy_sha256` must identify the verified BASE policy. Explicit
+`--allow-exclusions-only --policy FILE` anchors its actual bytes; the caller MUST
+verify BASE policy provenance and complete Git scope. Missing,
 unknown or accidentally empty input and provider failures do not qualify.
 
 For this approved case the protocol may make all roles inactive, invoke no models,
@@ -69,11 +72,11 @@ Existing decisions remain in force:
 ## Consequences and verification
 
 The current `pr-review.yml`, collector and chair execution path are unchanged.
-Protocol PASS means supplied role evidence validated; it is not a live provider
-result or permission to skip activation review.
+Protocol PASS means validated role evidence or an approved exclusions-only scope.
+It does not attest live provider execution or waive activation review.
 
 Run
-`python3 -B -m unittest discover -s scripts/pr-review -p test_role_review.py -v`.
+`python3 -B -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v`.
 The phase-two integration needs its own current-HEAD review and tests for the
 collector bundle, nondisclosure, provenance, provider failures and chair controls.
 

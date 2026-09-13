@@ -4,8 +4,8 @@
 # PR Review
 
 ## Purpose
-Owns the existing operational PR-review scripts and the new offline protocol.
-The live workflow still calls the legacy panel and chair; the protocol is not activated.
+Owns operational legacy scripts and inactive common specialist libraries.
+MRA adapter installation and workflow activation remain separate stages.
 
 ## Key Files
 | File | Responsibility |
@@ -18,6 +18,10 @@ The live workflow still calls the legacy panel and chair; the protocol is not ac
 | [role_review.py](role_review.py) | Offline protocol: prepare, issue, record and aggregate; not used by the live workflow. |
 | [test_role_review.py](test_role_review.py) | Offline protocol regression tests. |
 | [README.md](README.md) | Command, file-schema and stage contracts. |
+| [prepare_roles.py](prepare_roles.py) | Trusted preparation; optional committed context hook. |
+| [run-specialists.sh](run-specialists.sh), [run_role.py](run_role.py) | Common provider execution; not selected by MRA CI. |
+| [synthesize_roles.py](synthesize_roles.py) | Common conditional chair. |
+| [role-controls.sh](role-controls.sh) | Portable output-control stripping; uses the existing repository secret scrubber. |
 
 ## Subdirectories
 | Directory | Purpose |
@@ -37,7 +41,7 @@ The live workflow still calls the legacy panel and chair; the protocol is not ac
 Run from the repository root:
 
 ```bash
-python3 -m unittest discover -s scripts/pr-review -p test_role_review.py -v
+python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v
 bash scripts/pr-review/test-collect-diff.sh
 ```
 

@@ -1,7 +1,8 @@
 # Specialist review protocol
 
-Offline protocol; legacy review remains active. Executors/adapters need separate
-activation review. No Git fetch or model calls.
+Inactive common executor bootstrap. The operational MRA workflow still uses its
+legacy collector/panel/chair. MRA adapter installation and workflow activation
+follow in separate changes; these libraries are not yet MRA review entrypoints.
 
 | Tag | Requested model | Scope |
 | --- | --- | --- |
@@ -13,6 +14,20 @@ activation review. No Git fetch or model calls.
 `kiro-fable` means Opus. `ROLES` governs specialists; legacy files govern legacy
 execution. Kiro/Bedrock IDs differ. English is requested, not validated; configured
 IDs do not attest model weights.
+
+## Installed common libraries
+
+`run-specialists.sh` coordinates one role per applicable tag; `run_role.py` sends
+issued requests, validates process/transport outcomes and records scrubbed results.
+Codex validates JSONL events and its private final-output file. Kiro uses an empty
+catalog and fixed no-tools canary in an isolated environment. `synthesize_roles.py`
+selects deterministic output or bounded chair adjudication.
+
+`prepare_roles.py` validates a pinned BASE checkout. Its generic branch can load a
+committed, byte-matched `prepare_context_roles.py`; absence preserves root context.
+No such repository-specific helper is installed here. MRA requires its separate
+collector adapter before selecting these executors; do not replace ADR-004's
+approved input with generic raw Git diff. See [ADR-005](../../docs/decisions/ADR-005-specialist-review-protocol.md).
 
 ## API and input
 
@@ -28,11 +43,11 @@ IDs do not attest model weights.
 The executor sends issued bytes; hashes bind inputs, not transport. Keep tool data
 out of diagnostics.
 
-`--paths`: UTF-8 JSON array of unique repository-relative paths matching the patch,
+`--paths FILE`: UTF-8 JSON array of unique repository-relative paths matching the patch,
 e.g. `["src/api.ts"]`. Renames use destinations; the collector checks both sides.
 Omit only for authoritative, unambiguous patch paths.
 
-`--provenance`: JSON object. Required `head_sha`/`base_sha` equal the lowercase
+`--provenance FILE`: JSON object. Required `head_sha`/`base_sha` equal the lowercase
 40-character CLI revisions; `diff_sha256` hashes exact raw diff bytes. Example:
 
 ```json
@@ -60,8 +75,8 @@ exclusions/hash. Accidental empty input never qualifies.
 Start fresh work before collection. `prepare` clears owned results/receipts, claims,
 duplicate/terminal flags and histories; upstream flags remain. Issue/record exclude
 each other; interrupted operations require fresh work. Duplicate records retain
-the first result and block. Finish writers before aggregation. Reissue archives
-32 prior results in `slot/TAG-attempts.json`; model-selection/fallback/quota/preflight
+the first result and block. Finish writers before aggregation. Reissue of failed results archives
+at most 32 prior results in `slot/TAG-attempts.json`; model-selection/fallback/quota/preflight
 failures block until new preparation. Summaries retain history. All `*.flag` files
 block except root `coverage-severe.flag`. `failure_codes` is canonical; `failures` aliases it.
 
@@ -78,7 +93,7 @@ Limits: 95,000 diff bytes (UTF-8), 3,000 lines, 24,000 context bytes, <128 KiB
 request; projects may lower them. Oversize blocks. No chunk coordinator or
 combining partial PASS results; preserve custody/budgets.
 
-Run `python3 -m unittest discover -s scripts/pr-review -p test_role_review.py`.
+Run `python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py'`.
 Offline CI: `.github/workflows/pr-review-roles-tests.yml`. Activation also needs
 executor/adapter, limit and exact-HEAD publication tests; offline success proves
 no live provider execution.
