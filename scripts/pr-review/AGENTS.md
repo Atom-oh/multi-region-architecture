@@ -4,9 +4,8 @@
 # PR Review
 
 ## Purpose
-Legacy review scripts and inactive common specialist executors. MRA requires its
-configured adapter before preparation; the operational workflow remains legacy.
-The live workflow still calls the legacy panel and chair; the protocol is not activated.
+Owns operational legacy scripts plus inactive specialist libraries and the MRA
+collector adapter. Workflow activation remains a separate stage.
 
 ## Key Files
 | File | Responsibility |
@@ -27,6 +26,9 @@ The live workflow still calls the legacy panel and chair; the protocol is not ac
 | [role-controls.sh](role-controls.sh) | `strip_ansi`; `run_role.scrub()` adds `lib.sh` secret masking. |
 | [test_prepare_roles.py](test_prepare_roles.py), [test_project_policy_roles.py](test_project_policy_roles.py) | Trusted input and policy tests. |
 | [test_run_role.py](test_run_role.py), [test_synthesize_roles.py](test_synthesize_roles.py), [test_integrity_roles.py](test_integrity_roles.py) | Executor, chair and cross-stage tests. |
+| [prepare_project_roles.py](prepare_project_roles.py) | MRA approved collector bundle and provenance validation. |
+| [mra-review-context.md](mra-review-context.md) | Bounded accepted ADR context accompanying BASE CLAUDE.md. |
+| [test_project_roles.py](test_project_roles.py) | Adapter/custody regression tests. |
 
 ## Subdirectories
 | Directory | Purpose |

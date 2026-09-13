@@ -2,11 +2,10 @@
 
 ## Status
 
-Accepted (2026-09-13). PR #52 installed the protocol. PR #54 adds inactive common
-executors and the required MRA guard profile. Its limits apply when the role-based
-path is called; missing adapter input blocks preparation. Legacy review remains
-active with its existing `synthesize.sh` limits. The adapter arrives in PR #55 and
-workflow activation follows in PR #56. PR #53's rationale is preserved below.
+Accepted (2026-09-13). PR #52 installed the protocol; PR #54 installed executors
+and the required guard policy. PR #55 adds the MRA adapter, bounded context and
+unit tests. Legacy review remains selected until PR #56 activation and E2E review.
+The original policy rationale from PR #53 is retained below.
 
 ## Context
 
@@ -22,8 +21,8 @@ those controls or imply that a new workflow is active.
 
 ## Decision
 
-This PR records the contract. The following implementation PR will add
-`role_review.py`, `test_role_review.py` and their offline test workflow. The library prepares role inputs,
+The policy stage recorded this contract. PR #52 installed `role_review.py`,
+`test_role_review.py` and their offline test workflow. The library prepares role inputs,
 validates responses and aggregates coverage. It binds supplied provenance and
 invocation-nonce metadata; it performs no Git fetch, provider call or publication.
 Its [README](../../scripts/pr-review/README.md) defines the CLI and outcome modes.
@@ -33,11 +32,11 @@ lines, without prefix credit. Context and complete-request limits also apply.
 There is no automatic chunking. Library limits do not change the existing
 operational workflow in this PR.
 
-Phase two adds provider executors, the project-policy loader, MRA input adapter,
-chair integration and activation tests. The supplied collector view and safe
+Provider executors, project policy and the MRA input adapter are now installed.
+Workflow activation and integration tests follow separately. The supplied collector view and safe
 provenance must reach that integration without a raw Git reconstruction that
-restores excluded state contents. Canonical CLAUDE.md plus an ADR summary must
-reach reviewers without file tools.
+restores excluded state contents. The adapter selects canonical BASE CLAUDE.md plus an ADR summary for reviewers
+without file tools. Candidate context is checked but never promoted to instructions.
 
 **Approved generic exclusions-only result.** Repository maintainers approve the
 scope policy through review of the committed BASE configuration. The trusted
@@ -53,12 +52,12 @@ and produce a deterministic `NOT_APPLICABLE` explanation followed by
 reviewed the change. The report must disclose the excluded paths and policy hash.
 If any reviewable input remains, the independent primary-role requirement applies.
 
-**Policy artifacts (planned).** For generic consumers, the reviewed source is
+**Generic policy artifacts.** For generic consumers, the reviewed source is
 `scripts/pr-review/role-input-scope.json` in the pinned BASE commit. The trusted
-caller passes a byte-identical local copy using `--policy FILE`. Preparation will
-retain the verified bytes as `WORK/exclusions-policy.json`: a generated private
+caller passes a byte-identical local copy using `--policy FILE`. Preparation
+retains the verified bytes as `WORK/exclusions-policy.json`: a generated private
 validation copy, not a second committed policy. `input_policy_sha256` hashes the
-exact BASE policy bytes; both local copies must match it. Aggregation will recheck
+exact BASE policy bytes; both local copies must match it. Aggregation rechecks
 the retained WORK copy against that digest. The caller still owns verification of
 the BASE source and complete Git scope.
 
@@ -86,6 +85,14 @@ continues to use its custom files API collector, state-body withholding and the
 narrow deletion-only workflow shortcut. These MRA stages do not introduce a
 `role-input-scope.json` policy or select `configured_exclusions_only` for MRA.
 
+**Scoped context validation.** The adapter requires the immutable BASE, HEAD and
+merge-base objects to be available; a targeted shallow fetch suffices. It may read
+only the fixed candidate context documents as data to reject missing/oversized
+context before merge. Candidate text is never executed or used as instructions.
+This narrow check qualifies the historical blanket wording about HEAD-blob reads
+in ADR-004; it does not authorize retrieval of withheld state/plan bodies. Adapter
+source order and the JSON profile are bound by the preparer and MRA regression tests.
+
 Existing decisions remain in force:
 
 - [ADR-002](ADR-002-pr-review-kiro-fs-read-risk.md): preserve trusted execution and
@@ -103,7 +110,7 @@ The current `pr-review.yml`, collector and chair execution path are unchanged.
 Protocol PASS means supplied role evidence validated; it is not a live provider
 result or permission to skip activation review.
 
-After the implementation files exist, run
+Run
 `python3 -B -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v`.
 The phase-two integration needs its own current-HEAD review and tests for the
 collector bundle, nondisclosure, provenance, provider failures and chair controls.

@@ -1,9 +1,8 @@
 # Specialist review protocol
 
-**Installed offline protocol.** Its code, tests and offline test workflow are
-available. The legacy operational review remains active; provider/adapter
-integration and slot changes follow separately. The library performs no Git fetch
-or model calls.
+Inactive MRA adapter stage. Common executors and the MRA collector adapter/policy
+are installed; the operational workflow still uses its legacy panel/chair.
+Workflow activation and E2E tests follow separately.
 
 | Tag | Requested model | Scope |
 | --- | --- | --- |
@@ -12,10 +11,9 @@ or model calls.
 | kiro-sol | `gpt-5.6-sol` | Deployment/contracts/recovery |
 | claude-self | `global.anthropic.claude-fable-5-1` | Auth/data/API/ADR |
 
-`kiro-fable` means Opus. The `ROLES` constant in `role_review.py` defines
-protocol tags; `run-panel.sh` defines the existing legacy slot labels.
-Kiro/Bedrock IDs differ. English is requested, not validated; configured IDs do not
-attest model weights.
+`kiro-fable` means Opus. `ROLES` governs specialists; legacy files govern legacy
+execution. Kiro/Bedrock IDs differ. English is requested, not validated; configured
+IDs do not attest model weights.
 
 ## Slot mapping (planned)
 
@@ -26,6 +24,86 @@ attest model weights.
 
 These are different label namespaces. The protocol tag does not rename the
 legacy slot; the activation change selects the new role-based execution path.
+
+## Installed common libraries
+
+`run-specialists.sh` coordinates one role per applicable tag; `run_role.py` sends
+issued requests, validates process/transport outcomes and records scrubbed results.
+Codex validates JSONL events and its private final-output file. Kiro uses an empty
+catalog and a random canary with expected `NO_TOOLS` response. `synthesize_roles.py`
+selects deterministic output or bounded chair adjudication. Claude specialists
+set `--tools ""`, `--disallowedTools "*"`, `--max-turns 1` and strict MCP configuration;
+fake CLIs exercise denial without claiming live inference.
+
+`prepare_roles.py` validates a pinned BASE checkout. Its generic branch can load a
+committed, byte-matched `prepare_context_roles.py`; absence preserves root context.
+No such context helper is installed here: MRA uses the project adapter below,
+which takes precedence over generic preparation. See [ADR-005](../../docs/decisions/ADR-005-specialist-review-protocol.md).
+
+## MRA collector adapter (not selected by CI)
+
+`role-project.json` must match its committed BASE bytes before adapter selection.
+The chair verifies that checkout and the prepared policy hash before using its limits.
+The profile selects `prepare_project_roles.py`, canonical BASE `CLAUDE.md`
+plus `mra-review-context.md`, and the mandatory chair policy: 600-second attempts,
+8/12 turns, Read/Grep/Glob allowed, and Bash/Write/Edit/NotebookEdit/WebFetch/
+WebSearch/Task always denied. Read tools have no filesystem path confinement.
+
+The caller must already have the BASE, HEAD and merge-base commit objects locally.
+A shallow BASE checkout plus fetching those exact revisions is sufficient; complete
+Git history is not required. Fetching objects is not permission to reconstruct
+withheld state/plan bodies. The activation workflow supplies this prerequisite.
+
+Set `HEAD_SHA`, `BASE_SHA` and `GH_REPO`. From the pinned BASE checkout, collect
+all files API pages between two immutable
+HEAD/base snapshots, then create the approved bundle before deleting raw API files:
+
+```bash
+python3 scripts/pr-review/prepare_project_roles.py \
+  --files "$FILES_JSON" --before "$BEFORE_JSON" --after "$AFTER_JSON" \
+  --head "$HEAD_SHA" --base "$BASE_SHA" --merge-base "$MERGE_BASE_SHA" --output "$BUNDLE"
+python3 scripts/pr-review/prepare_roles.py --prepared-diff "$BUNDLE/panel.diff" --work "$WORK"
+```
+
+The shared preparer obtains merge-base identity from GitHub's compare API and
+requires the bundle to match; shallow checkout history is not used to recompute it.
+After collection, the installed entrypoints are:
+
+- `run-specialists.sh BUNDLE/panel.diff UNUSED WORK`
+- `run_role.py --work WORK --tag TAG`
+- `synthesize_roles.py --work WORK --output REPORT`
+
+Snapshot JSON contains `head_sha`/`base_sha`. The bundle retains `panel.diff`,
+`collection.json` and patch-free `collection-meta.json`. State-deletion bodies are
+removed before persistence. The caller must delete original raw API responses
+before providers or the chair run. Publish safe metadata, never raw request bodies.
+
+The adapter's ordered `SOURCES` tuple defines context assembly. The profile declares
+the same sources; the common preparer rejects a mismatch, and MRA unit tests bind
+the exact order and actual chair options to the committed profile. Candidate
+`CLAUDE.md`/ADR-summary blobs are read only for availability and size validation,
+then discarded. Missing or moved context sources block until their migration is
+reviewed; this is an input-readiness failure, not proof of forged provenance.
+
+The hook receives `prepare(head, base, merge_base, work, supplied_diff)` and returns
+`diff`/`context` bytes, reviewable `paths`, `provenance` and `input_failures`.
+Missing/mismatched bundles block; raw Git reconstruction is not a fallback.
+It replays the BASE collector and checks snapshots, source digest and every files
+API path/status against a NUL-delimited Git manifest. Safe blob IDs/counts survive.
+The plan/request binds scope and source/context/diff hashes; metadata is data.
+Header-only renames require equal Git blob IDs, without reading bodies, before
+adding 100% similarity evidence; actual mode changes are retained. Omitted content
+changes block. `collector_diff_sha256` identifies replay bytes; `diff_sha256`
+identifies the completed metadata supplied to the protocol. Shared bounds are in
+[Limits and checks](#limits-and-checks).
+
+ADR-004 state/plan additions, modifications and renames block. Eligible deletion
+bodies stay withheld. API-omitted oversized text deletions use explicit `path_only`
+metadata and actual tree mode without fetching old bodies. Mixed input retains all
+reviewable text. The eligible deletion-only result is reserved for the trusted
+workflow shortcut; ordinary empty input never receives role PASS. MRA installs no
+generic `role-input-scope.json` or exclusions-only opt-in. Workflow/E2E integration
+must preserve this custody and provide safe deletion-only artifacts.
 
 ## API and input
 
@@ -111,7 +189,7 @@ combining partial PASS results; preserve custody/budgets.
 
 Run `python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py'`.
 Offline CI: `.github/workflows/pr-review-roles-tests.yml`. Activation also needs
-executor/adapter, limit and exact-HEAD publication tests; offline success proves
+workflow integration and exact-HEAD publication tests; offline success proves
 no live provider execution.
 
 Sol replaces this repository's legacy Terra slot at activation; application
@@ -142,23 +220,11 @@ preparation for a new review; failed attempts retain their diagnostic history.
 Codex/Claude rows use Bedrock Runtime IDs; Kiro rows use Kiro catalog aliases.
 Local Codex on Mantle uses `openai.gpt-6-astra`; these namespaces are distinct.
 
-## Inactive executors
+Configured chair fallback may recover from transient throttling within existing
+attempt/turn/time bounds; hard account/monthly/credit/overage limits still stop it.
 
-MRA requires
-`prepare_project_roles.py` and `mra-review-context.md` from the adapter stage.
-`role-project.json` and its adapter must match BASE; mismatches block raw fallback.
-The chair checks BASE/policy hash and retains 600s, 8/12 turns and 20,000 bytes
-per-slot without truncation. Fallback permits throttle, never hard account limits.
-
-From pinned BASE, set `HEAD_SHA`, `BASE_SHA`, `GH_REPO`:
-
-- `prepare_roles.py --prepared-diff BUNDLE/panel.diff --work WORK`
-- `run-specialists.sh BUNDLE/panel.diff UNUSED WORK`
-- `run_role.py --work WORK --tag TAG`
-- `synthesize_roles.py --work WORK --output REPORT`
-
-Codex validates JSONL and its final file. `record` receives original JSON through
-a mode-0600 file outside WORK, removed even on errors.
-Kiro uses an isolated empty catalog and random canary. Claude sets `--tools ""`,
-`--disallowedTools "*"`, `--max-turns 1` and strict MCP configuration. Fake CLIs test
-denial, not live inference. Only validated results and scrubbed diagnostics persist.
+MRA retains the legacy `PANEL_CELL_CAP=20000` per-slot evidence budget. Before
+chair invocation, oversized validated response data blocks without truncation;
+no ADP-style total cap is substituted. Original model JSON reaches `record` through
+a mode-0600 temporary file outside WORK, removed even if recording fails. Only
+validated/scrubbed results and scrubbed diagnostics remain in review artifacts.
