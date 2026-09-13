@@ -267,6 +267,11 @@ class RoleReviewTests(unittest.TestCase):
             ('originSecret="origin-private-value"', "origin-private-value"),
             ('mcpToken="mcp-private-value"', "mcp-private-value"),
             ("x-origin-verify: origin-header-private", "origin-header-private"),
+            ("- name: DATABASE_PASSWORD\n  value: |-\n    yaml-block-private", "yaml-block-private"),
+            ("+ - name: DB_PASSWORD\n+   value: >-\n+     diff-block-private", "diff-block-private"),
+            ("master_password = <<-EOT\n  heredoc-private\nEOT", "heredoc-private"),
+            ("+master_password = <<-END\n+ diff-heredoc-private\n+END", "diff-heredoc-private"),
+            ("master_password = <<EOT\ncut-heredoc-private", "cut-heredoc-private"),
             ('{"auth":"registry-private"}', "registry-private"),
             (".dockerconfigjson: docker-private", "docker-private"),
         ]

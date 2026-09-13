@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Offline review protocol; see README.md and COMMAND --help.
-
-Exit 2 blocks. After aggregate exit 0, chair-mode.txt distinguishes deterministic
-output from adjudication. Use fresh work for each complete diff; no networking,
-model calls or chunk coordinator. Scope metadata does not attest model execution.
-"""
+"""Offline role-review protocol; README.md and --help define its contract."""
 
 import argparse
 import ast
@@ -763,6 +758,7 @@ def scrub(value, preserved=frozenset()):
     identifier = SENSITIVE_KEY.pattern
     quote = r"""\\*["']"""
     key = identifier + rf"(?:{quote})?\s*[:=]\s*"
+    block = r"[|>][-+]?[ \t]*\r?\n(?:[+-]?[ \t]+[^\r\n]*(?:\r?\n|\Z))+"
     patterns = (
         r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)",
         r"\b(?:AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}\b",
@@ -777,10 +773,11 @@ def scrub(value, preserved=frozenset()):
         r"""https://hooks\.slack\.com/services/[^\s"'<>]+""",
         r"""(?im)^[ \t]*[+-]?[ \t]*(?:set-)?cookie["']?[ \t]*:[^\r\n]*""",
         r"""(?i:\bx-origin-verify)["']?\s*:\s*["']?[^\s"',;}\]]+""",
-        key + r"[|>][-+]?[ \t]*\r?\n(?:[+-]?[ \t]+[^\r\n]*(?:\r?\n|\Z))+",
+        key + block,
+        key + r"<<-?(?P<heredoc>\w[\w-]*)[ \t]*\r?\n.*?(?:(?m:^[+-]?[ \t]*(?P=heredoc)[ \t]*\r?$)|\Z)",
         rf"(?i:\b(?:header)?name)(?:{quote})?\s*[:=]\s*(?:{quote})?" + identifier
         + rf"(?:{quote})?[\s,]*[+-]?[ \t]*(?:{quote})?(?i:(?:header)?value)(?:{quote})?\s*[:=]\s*"
-        + rf"(?:(?P<named>{quote}).*?(?P=named)|[^\s,}}\]]+)",
+        + rf"(?:{block}|(?P<named>{quote}).*?(?P=named)|[^\s,}}\]]+)",
         key + rf"(?P<quote>{quote}).*?(?P=quote)",
         key + r"""[^\s"',;}\]]+""",
     )
