@@ -15,6 +15,16 @@ Workflow activation and E2E tests follow separately.
 execution. Kiro/Bedrock IDs differ. English is requested, not validated; configured
 IDs do not attest model weights.
 
+## Slot mapping (planned)
+
+| Protocol tag | Legacy `run-panel.sh` slot | Model selection |
+| --- | --- | --- |
+| `kiro-fable` | `kiro-opus` | `claude-opus-5` remains selected |
+| `kiro-sol` | `kiro-gpt` | Planned `gpt-5.6-terra` → `gpt-5.6-sol` |
+
+These are different label namespaces. The protocol tag does not rename the
+legacy slot; the activation change selects the new role-based execution path.
+
 ## Installed common libraries
 
 `run-specialists.sh` coordinates one role per applicable tag; `run_role.py` sends

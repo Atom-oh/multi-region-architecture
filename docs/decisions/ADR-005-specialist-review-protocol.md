@@ -20,8 +20,8 @@ those controls or imply that a new workflow is active.
 
 ## Decision
 
-This PR records the contract. The following implementation PR will add
-`role_review.py`, `test_role_review.py` and their offline test workflow. The library prepares role inputs,
+The policy stage recorded this contract. PR #52 installed `role_review.py`,
+`test_role_review.py` and their offline test workflow. The library prepares role inputs,
 validates responses and aggregates coverage. It binds supplied provenance and
 invocation-nonce metadata; it performs no Git fetch, provider call or publication.
 Its [README](../../scripts/pr-review/README.md) defines the CLI and outcome modes.
@@ -31,8 +31,8 @@ lines, without prefix credit. Context and complete-request limits also apply.
 There is no automatic chunking. Library limits do not change the existing
 operational workflow in this PR.
 
-Phase two adds provider executors, the project-policy loader, MRA input adapter,
-chair integration and activation tests. The supplied collector view and safe
+Provider executors, project policy and the MRA input adapter are now installed.
+Workflow activation and integration tests follow separately. The supplied collector view and safe
 provenance must reach that integration without a raw Git reconstruction that
 restores excluded state contents. The adapter selects canonical BASE CLAUDE.md plus an ADR summary for reviewers
 without file tools. Candidate context is checked but never promoted to instructions.
