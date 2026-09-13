@@ -43,7 +43,9 @@ if name == "gh":
     raise SystemExit(0)
 data = sys.stdin.read()
 with (root / "calls.jsonl").open("a") as stream:
-    stream.write(json.dumps({"name": name, "args": args, "stdin": data}) + "\n")
+    stream.write(json.dumps({"name": name, "args": args, "stdin": data,
+                            "env": {key: os.environ.get(key) for key in
+                                    ("GH_TOKEN", "GITHUB_TOKEN", "AWS_ACCESS_KEY_ID")}}) + "\n")
 if name == "kiro-cli" and args[1].startswith("Kiro startup safety check."):
     assert data == ""
     if (root / "fail-preflight").exists():
@@ -208,6 +210,9 @@ class ProjectEntrypointTests(unittest.TestCase):
         self.assertEqual(self.read_calls(), [])
 
     def test_real_pipeline_preserves_state_privacy_and_complete_provenance(self):
+        self.environment.update(GH_TOKEN="SYNTHETIC_GH_TOKEN",
+                                GITHUB_TOKEN="SYNTHETIC_GITHUB_TOKEN",
+                                AWS_ACCESS_KEY_ID="SYNTHETIC_AWS_ID")
         plan = self.pipeline()
         self.assertTrue(plan["input_complete"])
         self.assertEqual(plan["paths"], ["app.txt"])
@@ -217,6 +222,11 @@ class ProjectEntrypointTests(unittest.TestCase):
         source = json.loads((self.work / "role-source.json").read_text())
         self.assertIn(plan["provenance"]["collection_digest"], json.dumps(source))
         calls = self.read_calls()
+        for call in calls:
+            self.assertIsNone(call["env"]["GH_TOKEN"])
+            self.assertIsNone(call["env"]["GITHUB_TOKEN"])
+            self.assertEqual(call["env"]["AWS_ACCESS_KEY_ID"],
+                             None if call["name"] == "kiro-cli" else "SYNTHETIC_AWS_ID")
         reviews = [call for call in calls if
                    not call["args"][1].startswith("Kiro startup safety check.")]
         self.assertEqual(len(reviews), 4)
@@ -244,6 +254,8 @@ class ProjectEntrypointTests(unittest.TestCase):
             else:
                 self.assertEqual(call["args"][1], prompt)
                 self.assertEqual(call["stdin"], payload)
+                self.assertEqual(call["args"][call["args"].index("--tools") + 1], "")
+                self.assertIn("--strict-mcp-config", call["args"])
         self.assertFalse((self.root / "raw-git.jsonl").exists())
         for path in self.work.rglob("*"):
             if path.is_file():

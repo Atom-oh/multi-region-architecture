@@ -28,6 +28,13 @@ class ProjectWorkflowTests(unittest.TestCase):
         })
         self.workflow = WORKFLOW.read_text()
 
+    def test_github_token_is_step_scoped(self):
+        before_steps = self.workflow.split("    steps:", 1)[0]
+        self.assertNotRegex(before_steps, r"(?m)^\s+(?:GH_TOKEN|GITHUB_TOKEN):")
+        for name in ("Get PR diff", "Run specialists and conditionally adjudicate findings",
+                     "Post review comment (upsert)"):
+            self.assertIn("GH_TOKEN: ${{ github.token }}", self.block(name))
+
     def block(self, name):
         marker = "      - name: " + name + "\n"
         self.assertTrue(marker in self.workflow, "Missing workflow step: " + name)
