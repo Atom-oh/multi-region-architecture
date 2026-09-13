@@ -4,8 +4,9 @@
 # PR Review
 
 ## Purpose
-Owns operational legacy scripts and inactive common specialist libraries.
-MRA adapter installation and workflow activation remain separate stages.
+Legacy review scripts and inactive common specialist executors. MRA requires its
+configured adapter before preparation; the operational workflow remains legacy.
+The live workflow still calls the legacy panel and chair; the protocol is not activated.
 
 ## Key Files
 | File | Responsibility |
@@ -40,11 +41,11 @@ MRA adapter installation and workflow activation remain separate stages.
 - New code, comments and review documentation are English. Offline checks are not proof of live model execution.
 
 ## Testing Requirements
-Run from the repository root:
+Current check: `bash scripts/pr-review/test-collect-diff.sh`.
+Protocol checks:
 
 ```bash
 python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v
-bash scripts/pr-review/test-collect-diff.sh
 ```
 
 <!-- MANUAL: -->
