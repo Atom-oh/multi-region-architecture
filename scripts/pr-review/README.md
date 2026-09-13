@@ -31,7 +31,9 @@ legacy slot; the activation change selects the new role-based execution path.
 issued requests, validates process/transport outcomes and records scrubbed results.
 Codex validates JSONL events and its private final-output file. Kiro uses an empty
 catalog and a random canary with expected `NO_TOOLS` response. `synthesize_roles.py`
-selects deterministic output or bounded chair adjudication.
+selects deterministic output or bounded chair adjudication. Claude specialists
+set `--tools ""`, `--disallowedTools "*"`, `--max-turns 1` and strict MCP configuration;
+fake CLIs exercise denial without claiming live inference.
 
 `prepare_roles.py` validates a pinned BASE checkout. Its generic branch can load a
 committed, byte-matched `prepare_context_roles.py`; absence preserves root context.

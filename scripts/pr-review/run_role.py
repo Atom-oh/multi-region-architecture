@@ -255,6 +255,7 @@ def run(work, tag):
                 command = [
                     "claude", "-p", prompt, "--model", role["model"],
                     "--output-format", "text", "--strict-mcp-config", "--tools", "",
+                    "--disallowedTools", "*", "--max-turns", "1",
                 ]
             else:
                 raise ValueError("Unknown specialist")

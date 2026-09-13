@@ -110,7 +110,7 @@ Protocol PASS means supplied role evidence validated; it is not a live provider
 result or permission to skip activation review.
 
 After the implementation files exist, run
-`python3 -B -m unittest discover -s scripts/pr-review -p test_role_review.py -v`.
+`python3 -B -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v`.
 The phase-two integration needs its own current-HEAD review and tests for the
 collector bundle, nondisclosure, provenance, provider failures and chair controls.
 

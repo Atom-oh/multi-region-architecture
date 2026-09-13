@@ -23,8 +23,9 @@ collector adapter. Workflow activation remains a separate stage.
 | [test_mra_bootstrap_roles.py](test_mra_bootstrap_roles.py) | Bootstrap fail-closed, chair and Claude command checks. |
 | [run-specialists.sh](run-specialists.sh), [run_role.py](run_role.py) | Common provider execution; not selected by MRA CI. |
 | [synthesize_roles.py](synthesize_roles.py) | Common conditional chair. |
-| [role-controls.sh](role-controls.sh) | Portable ANSI/control stripping; `run_role.scrub()` combines it with `lib.sh` secret masking. |
-| `test_{prepare,project_policy,run,synthesize,integrity}_roles.py` | Preparation, policy, executor, chair and cross-stage regressions. |
+| [role-controls.sh](role-controls.sh) | `strip_ansi`; `run_role.scrub()` adds `lib.sh` secret masking. |
+| [test_prepare_roles.py](test_prepare_roles.py), [test_project_policy_roles.py](test_project_policy_roles.py) | Trusted input and policy tests. |
+| [test_run_role.py](test_run_role.py), [test_synthesize_roles.py](test_synthesize_roles.py), [test_integrity_roles.py](test_integrity_roles.py) | Executor, chair and cross-stage tests. |
 | [prepare_project_roles.py](prepare_project_roles.py) | MRA approved collector bundle and provenance validation. |
 | [mra-review-context.md](mra-review-context.md) | Bounded accepted ADR context accompanying BASE CLAUDE.md. |
 | [test_project_roles.py](test_project_roles.py) | Adapter/custody regression tests. |
