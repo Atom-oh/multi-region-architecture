@@ -3,7 +3,7 @@
 ## Status
 
 **2026-09-13 phase-one amendment:** [ADR-005](ADR-005-specialist-review-protocol.md)
-adds only the offline protocol library and tests. Provider execution, the MRA
+specifies the planned offline protocol; implementation follows separately. Provider execution, the MRA
 adapter/project policy and activation follow in phase two. This PR leaves the
 current workflow and trust controls unchanged; it does not activate a project
 hook or establish live model/tool behavior.

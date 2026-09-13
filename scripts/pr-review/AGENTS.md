@@ -18,12 +18,14 @@ collector adapter. Workflow activation remains a separate stage.
 | [role_review.py](role_review.py) | Offline protocol: prepare, issue, record and aggregate; not used by the live workflow. |
 | [test_role_review.py](test_role_review.py) | Offline protocol regression tests. |
 | [README.md](README.md) | Command, file-schema and stage contracts. |
-| [prepare_roles.py](prepare_roles.py) | Trusted preparation; optional committed context hook. |
+| [prepare_roles.py](prepare_roles.py) | Trusted preparation; MRA requires its configured adapter. |
+| [role-project.json](role-project.json) | BASE-bound MRA guard for adapter selection and role-based chair limits. |
+| [test_mra_bootstrap_roles.py](test_mra_bootstrap_roles.py) | Bootstrap fail-closed, chair and Claude command checks. |
 | [run-specialists.sh](run-specialists.sh), [run_role.py](run_role.py) | Common provider execution; not selected by MRA CI. |
 | [synthesize_roles.py](synthesize_roles.py) | Common conditional chair. |
-| [role-controls.sh](role-controls.sh) | Portable output-control stripping; uses the existing repository secret scrubber. |
+| [role-controls.sh](role-controls.sh) | Portable ANSI/control stripping; `run_role.scrub()` combines it with `lib.sh` secret masking. |
+| `test_{prepare,project_policy,run,synthesize,integrity}_roles.py` | Preparation, policy, executor, chair and cross-stage regressions. |
 | [prepare_project_roles.py](prepare_project_roles.py) | MRA approved collector bundle and provenance validation. |
-| [role-project.json](role-project.json) | MRA adapter, context and mandatory chair settings. |
 | [mra-review-context.md](mra-review-context.md) | Bounded accepted ADR context accompanying BASE CLAUDE.md. |
 | [test_project_roles.py](test_project_roles.py) | Adapter/custody regression tests. |
 
@@ -42,11 +44,11 @@ collector adapter. Workflow activation remains a separate stage.
 - New code, comments and review documentation are English. Offline checks are not proof of live model execution.
 
 ## Testing Requirements
-Run from the repository root:
+Current check: `bash scripts/pr-review/test-collect-diff.sh`.
+Protocol checks:
 
 ```bash
 python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py' -v
-bash scripts/pr-review/test-collect-diff.sh
 ```
 
 <!-- MANUAL: -->

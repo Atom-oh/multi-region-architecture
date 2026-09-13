@@ -8,7 +8,7 @@ checks, without execution or instruction use. This qualifies older HEAD-blob wor
 below. It does not permit retrieving withheld state/plan bodies or change D1/D3.
 
 **2026-09-13 phase-one amendment:** [ADR-005](ADR-005-specialist-review-protocol.md)
-introduces only the offline protocol library and tests. The existing collector,
+specifies the planned offline protocol; implementation follows separately. The existing collector,
 D1/D3 state-deletion protections, exception eligibility and chair controls remain
 unchanged. Phase two must preserve them when adding the MRA adapter, project policy
 and provider execution. No project hook or new operational review path is active
