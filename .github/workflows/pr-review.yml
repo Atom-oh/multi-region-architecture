@@ -35,6 +35,13 @@ on:
   pull_request_target:
     types: [opened, synchronize]
 
+env:
+  GH_TOKEN: ${{ github.token }}
+  ROLE_REVIEW: "1"
+  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  GH_REPO: ${{ github.repository }}
+
 jobs:
   review:
     name: AI Code Review
@@ -78,7 +85,14 @@ jobs:
       # 유출시킬 수 있다. 이 스텝이 그 토큰을 아예 디스크에 남기지 않게 한다.
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
+
+      - name: Prepare fresh review workspace
+        run: |
+          test ! -L /tmp/pr-review
+          rm -rf -- /tmp/pr-review
+          mkdir -p /tmp/pr-review
 
       - name: Verify CLIs present (runner image)
         run: |
@@ -170,6 +184,23 @@ jobs:
           # 신호가 사라졌다.
           RC=0
           bash scripts/pr-review/collect-diff.sh /tmp/pr-files.json /tmp/pr-review-collect || RC=$?
+          if [ "$RC" -eq 0 ]; then
+            # Bind the approved collector view while its API metadata is available.
+            # Fetch Git objects only for path/status provenance, never raw provider input.
+            MERGE_BASE_SHA="$(gh api "repos/$REPO/compare/${BASE_SHA}...${HEAD_SHA}" --jq '.merge_base_commit.sha')"
+            [[ "$MERGE_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+              echo "::error::invalid merge-base snapshot"; exit 1; }
+            git fetch --no-tags --depth=1 origin "$MERGE_BASE_SHA" "$HEAD_SHA"
+            jq -n --arg head "${SHAS_BEFORE%% *}" --arg base "${SHAS_BEFORE##* }" \
+              '{head_sha: $head, base_sha: $base}' > /tmp/pr-before.json
+            jq -n --arg head "${SHAS_AFTER%% *}" --arg base "${SHAS_AFTER##* }" \
+              '{head_sha: $head, base_sha: $base}' > /tmp/pr-after.json
+            python3 scripts/pr-review/prepare_project_roles.py \
+              --files /tmp/pr-files.json \
+              --before /tmp/pr-before.json --after /tmp/pr-after.json \
+              --head "$HEAD_SHA" --base "$BASE_SHA" --merge-base "$MERGE_BASE_SHA" \
+              --output /tmp/pr-review-collect || RC=$?
+          fi
           # 분류가 끝났으면 raw API JSON 은 즉시 지운다 (round-3 리뷰 M-L3, 3/3 수렴):
           # 삭제된 state 의 평문 patch 가 이 두 파일에 그대로 남아 의장 실행 시점까지
           # 디스크에 있었고, 의장의 Read 는 경로 제한이 없다 — "내용은 어떤 출력
@@ -295,7 +326,7 @@ jobs:
             echo "panel_truncated=1" >> "$GITHUB_ENV"
           fi
 
-      - name: Run panel + synthesize (lens×model matrix -> Claude chair)
+      - name: Run specialists and conditionally adjudicate findings
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
@@ -361,13 +392,29 @@ jobs:
                  "$(paste -sd' ' < /tmp/pr-review-collect/unsafe-filtered.txt)"
             echo "::error::Failing closed — 패널을 실행한다."
           fi
-          # 4번째 인자: 경로 매니페스트 — diff 가 캡·절단으로 잘려도 렌즈가 경로 목록을
-          # 본다 (round-2 리뷰 M-L4-4). "전체" 는 아니다: run-panel.sh 가 16KiB 에서
-          # 자르고(ARG 한계), 생략분은 디렉터리별 카운트로 요약된다 (round-5 L2 MAJOR).
-          bash scripts/pr-review/run-panel.sh /tmp/pr-diff-truncated.txt /tmp/pr-review/lenses /tmp/pr-review /tmp/pr-review-collect/all-paths.txt
-          bash scripts/pr-review/synthesize.sh /tmp/pr-diff-truncated.txt /tmp/pr-review \
+          # Feed the complete approved collector view and its adjacent provenance.
+          # Specialist limits block oversized input without awarding prefix coverage.
+          bash scripts/pr-review/run-panel.sh /tmp/pr-review-collect/panel.diff /tmp/pr-review/lenses /tmp/pr-review /tmp/pr-review-collect/all-paths.txt
+          bash scripts/pr-review/synthesize.sh /tmp/pr-review-collect/panel.diff /tmp/pr-review \
             "$PR_NUMBER" "$PR_TITLE" /tmp/review.md
           echo "panel_responded=$(tr '\n' ' ' < /tmp/pr-review/responded.txt 2>/dev/null)" >> "$GITHUB_ENV"
+
+      - name: Preserve specialist scope and execution evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: specialist-review-${{ github.event.pull_request.head.sha }}
+          path: |
+            /tmp/pr-review/slot/*-result.json
+            /tmp/pr-review/slot/*-request.json
+            /tmp/pr-review/slot/*-attempts.json
+            /tmp/pr-review/slot/*-timing.json
+            /tmp/pr-review/slot/*.flag
+            /tmp/pr-review/role-plan.json
+            /tmp/pr-review/role-summary.json
+            /tmp/pr-review/role-source.json
+            /tmp/pr-review-collect/collection-meta.json
+          if-no-files-found: error
 
       - name: Check for blocking issues
         id: gate
@@ -392,8 +439,15 @@ jobs:
           REPO: ${{ github.repository }}
           GATE_RESULT: ${{ steps.gate.outputs.result }}
         run: |
+          CURRENT_HEAD="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')"
+          if [ "$CURRENT_HEAD" != "$HEAD_SHA" ]; then
+            echo "::error::PR head changed; this review belongs to an older commit"
+            exit 1
+          fi
           MARKER="<!-- multi-ai-pr-review -->"
-          if [ "$GATE_RESULT" = "fail" ]; then
+          if [ "$GATE_RESULT" = "fail" ] && [ "${chair_failed:-0}" = "1" ]; then
+            STATUS_BADGE="**Status: BLOCKED** — required review execution or coverage failed"
+          elif [ "$GATE_RESULT" = "fail" ]; then
             STATUS_BADGE="**Status: BLOCKED** — CRITICAL/MAJOR issues must be resolved before merge"
           else
             STATUS_BADGE="**Status: PASSED** — No blocking issues found"
@@ -401,9 +455,10 @@ jobs:
           sed '$ { /^VERDICT:/d }' /tmp/review.md > /tmp/review-clean.md
           {
             echo "$MARKER"
-            echo "## 🤖 AI Code Review (${chair_used:-Claude Fable 5} chair · lens×model matrix)"
+            echo "## AI Code Review — specialists"
+            echo "_Synthesis: ${chair_used:-pending}_"
             echo ""
-            echo "_Cells (model/lens): ${panel_responded:-solo}_"
+            echo "_Specialist coverage: ${panel_responded:-solo}_"
             [ "${panel_truncated:-0}" = "1" ] && echo "_⚠️ diff truncated to first 3000 lines — review is partial._"
             echo ""
             echo "$STATUS_BADGE"

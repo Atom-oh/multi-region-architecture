@@ -2,12 +2,14 @@
 
 ## Status
 
-**2026-09-13 phase-one amendment:** [ADR-005](ADR-005-specialist-review-protocol.md)
-introduces only the offline protocol library and tests. The existing collector,
-D1/D3 state-deletion protections, exception eligibility and chair controls remain
-unchanged. Phase two must preserve them when adding the MRA adapter, project policy
-and provider execution. No project hook or new operational review path is active
-as a result of this PR.
+**2026-09-13 activation amendment:** [ADR-005](ADR-005-specialist-review-protocol.md)
+activates the specialist runtime while retaining the existing collector, D1/D3
+state-deletion protections and exception eligibility. The MRA adapter consumes
+the approved collector view with bound path/status/snapshot provenance; it never
+reconstructs withheld state bodies from raw Git diff. Explicit project policy
+retains 600-second chair attempts, 8/12 turns and the mandatory deny baseline.
+The deletion-only shortcut emits safe evidence without provider calls. Earlier
+matrix counts and unconditional-chair descriptions are historical.
 
 Accepted (2026-07-28).
 

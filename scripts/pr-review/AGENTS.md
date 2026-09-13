@@ -4,28 +4,27 @@
 # PR Review
 
 ## Purpose
-Owns operational legacy scripts plus inactive specialist libraries and the MRA
-collector adapter. Workflow activation remains a separate stage.
+Owns the activated specialist workflow, collector adapter and protocol.
+The operational workflow selects `ROLE_REVIEW=1`; legacy matrix branches remain for compatibility.
 
 ## Key Files
 | File | Responsibility |
 | --- | --- |
 | [collect-diff.sh](collect-diff.sh) | Existing files API classifier; preserves state/plan deny and deletion-content withholding. |
 | [lib.sh](lib.sh) | Existing slot and output-scrubbing helpers. |
-| [run-panel.sh](run-panel.sh) | Operational legacy panel entrypoint. |
-| [synthesize.sh](synthesize.sh) | Operational legacy chair entrypoint. |
+| [run-panel.sh](run-panel.sh) | Operational bridge to the specialist coordinator. |
+| [synthesize.sh](synthesize.sh) | Operational bridge to conditional specialist synthesis. |
 | [test-collect-diff.sh](test-collect-diff.sh) | Existing executable collector regression checks. |
-| [role_review.py](role_review.py) | Offline protocol: prepare, issue, record and aggregate; not used by the live workflow. |
+| [role_review.py](role_review.py) | Offline protocol used by the installed provider libraries. |
 | [test_role_review.py](test_role_review.py) | Offline protocol regression tests. |
 | [README.md](README.md) | Command, file-schema and stage contracts. |
-| [prepare_roles.py](prepare_roles.py) | Trusted preparation; optional committed context hook. |
-| [run-specialists.sh](run-specialists.sh), [run_role.py](run_role.py) | Common provider execution; not selected by MRA CI. |
-| [synthesize_roles.py](synthesize_roles.py) | Common conditional chair. |
-| [role-controls.sh](role-controls.sh) | Portable output-control stripping; uses the existing repository secret scrubber. |
-| [prepare_project_roles.py](prepare_project_roles.py) | MRA approved collector bundle and provenance validation. |
-| [role-project.json](role-project.json) | MRA adapter, context and mandatory chair settings. |
-| [mra-review-context.md](mra-review-context.md) | Bounded accepted ADR context accompanying BASE CLAUDE.md. |
-| [test_project_roles.py](test_project_roles.py) | Adapter/custody regression tests. |
+| [prepare_roles.py](prepare_roles.py) | Trusted preparation and project-policy selection. |
+| [prepare_project_roles.py](prepare_project_roles.py) | MRA collector bundle verification; never reconstructs withheld state bodies. |
+| [role-project.json](role-project.json) | MRA context sources and mandatory chair settings. |
+| [mra-review-context.md](mra-review-context.md) | Bounded ADR context accompanying canonical BASE CLAUDE.md. |
+| [run-specialists.sh](run-specialists.sh) | Installed provider coordinator; retains current upstream failure flags. |
+| [run_role.py](run_role.py) | Provider execution with issued-request receipts and failure recording. |
+| [synthesize_roles.py](synthesize_roles.py) | Deterministic output or bounded adjudication; no coverage override. |
 
 ## Subdirectories
 | Directory | Purpose |

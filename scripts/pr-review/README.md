@@ -1,153 +1,203 @@
-# Specialist review protocol
+# MRA specialist input adapter
 
-Inactive MRA adapter stage. Common executors and the MRA collector adapter/policy
-are installed; the operational workflow still uses its legacy panel/chair.
-Workflow activation and E2E tests follow separately.
+This activation workflow selects `ROLE_REVIEW=1` and consumes the MRA adapter and
+explicit chair policy. It follows the protocol, common-executor and MRA-adapter stages; see
+[ADR-005](../../docs/decisions/ADR-005-specialist-review-protocol.md).
+Release follows current-HEAD review and required CI. Offline checks do not establish
+live inference or deployment.
 
-| Tag | Requested model | Scope |
-| --- | --- | --- |
-| codex | `global.openai.gpt-6-astra` | Implementation/tests |
-| kiro-fable | `claude-opus-5` | AWS/IAM/network |
-| kiro-sol | `gpt-5.6-sol` | Deployment/contracts/recovery |
-| claude-self | `global.anthropic.claude-fable-5-1` | Auth/data/API/ADR |
+The workflow recreates `/tmp/pr-review` immediately after checkout, before CLI
+checks or input preparation. A symlink is rejected first. Current preparation and
+preflight failure flags remain intact for aggregation.
 
-`kiro-fable` means Opus. `ROLES` governs specialists; legacy files govern legacy
-execution. Kiro/Bedrock IDs differ. English is requested, not validated; configured
-IDs do not attest model weights.
+## Trusted interface
 
-## Installed common libraries
+The adjacent `role-project.json` selects `prepare_project_roles.py`, canonical
+`CLAUDE.md` plus `mra-review-context.md`, and the existing chair policy. The shared
+preparer invokes this hook before selecting default context or generating any
+raw Git diff:
 
-`run-specialists.sh` coordinates one role per applicable tag; `run_role.py` sends
-issued requests, validates process/transport outcomes and records scrubbed results.
-Codex validates JSONL events and its private final-output file. Kiro uses an empty
-catalog and fixed no-tools canary in an isolated environment. `synthesize_roles.py`
-selects deterministic output or bounded chair adjudication.
+```python
+prepare(head, base, merge_base, work, supplied_diff) -> {
+    "diff": bytes,
+    "paths": list[str],
+    "context": bytes,
+    "provenance": dict,
+    "input_failures": list[str],
+}
+```
 
-`prepare_roles.py` validates a pinned BASE checkout. Its generic branch can load a
-committed, byte-matched `prepare_context_roles.py`; absence preserves root context.
-No such context helper is installed here: MRA uses the project adapter below,
-which takes precedence over generic preparation. See [ADR-005](../../docs/decisions/ADR-005-specialist-review-protocol.md).
+`supplied_diff` is the complete `panel.diff` next to `collection.json`.
+Missing, mismatched or invalid bundles raise `ValueError`; never fall back to raw
+Git input. Preserve failures as blocked results before any provider invocation.
+The metadata is review evidence, not instructions.
 
-## MRA collector adapter (not selected by CI)
+The shared CLI names the caller-provided file `--prepared-diff`:
 
-`role-project.json` selects `prepare_project_roles.py`, canonical BASE `CLAUDE.md`
-plus `mra-review-context.md`, and the mandatory chair policy: 600-second attempts,
-8/12 turns, Read/Grep/Glob allowed, and Bash/Write/Edit/NotebookEdit/WebFetch/
-WebSearch/Task always denied. Read tools have no filesystem path confinement.
+```bash
+python3 scripts/pr-review/prepare_roles.py \
+  --prepared-diff /tmp/pr-review-collect/panel.diff --work /tmp/pr-review
+```
 
-From the pinned BASE checkout, collect all files API pages between two immutable
-HEAD/base snapshots, then create the approved bundle before deleting raw API files:
+`run-specialists.sh` forwards its first argument through that flag. Pair the adapter
+with the shared runtime revision that loads `role-project.json`; an older generic
+preparer is not a compatible fallback.
+
+The hook checks immutable HEAD/base/merge-base identifiers, both collection
+snapshots, the collector's BASE source digest, every API path/status against a
+NUL-delimited Git manifest, and exact collector replay. It validates complete
+text hunks without using diff headers to decide file identity.
+
+## Issued requests and artifacts
+
+Before each attempt, `role_review.py issue --work <work> --tag <tag>` persists the
+framed `requests/<tag>.prompt` and `requests/<tag>.input`, plus
+`slot/<tag>-request.json` containing their hashes, invocation nonce and plan binding.
+Executors send those issued bytes. `record --nonce` and aggregation require the
+matching receipt; a self-declared nonce cannot validate a result. Re-preparation
+clears old result/request/timing JSON but preserves upstream failure flags.
+Issuing and recording use a per-tag operation lock; an interrupted operation
+requires a fresh workspace. Finish result writers before aggregation.
+
+Codex uses `--json` and an attempt-specific `--output-last-message` file in its
+private temporary directory. The executor validates stream completion and reads
+that final reply unchanged. Tool/progress events cannot become review output;
+native error events still undergo terminal-diagnostic checks. Missing final output,
+failed turns or nonzero exit remain failures. The temporary file is not uploaded.
+
+Uploads include the receipt and `role-source.json` alongside result/plan/summary
+metadata. Framed request bodies are not uploaded. The trusted deletion-only path
+has collection evidence instead of invented provider receipts.
+
+Valid findings cannot be discarded: this runtime rejects reissue of a valid
+result before changing its result or receipt. Reissuing after a failed result
+retains it in `slot/<tag>-attempts.json`.
+Terminal model failures create sticky `slot/role-<tag>-terminal.flag`, so a later
+clean result cannot waive them. The summary exposes `attempt_history`. Uploads
+include the ledger with receipt/source metadata. Fresh preparation clears previous
+attempt records and protocol-owned terminal flags; upstream failures remain.
+
+## Protocol contract
+
+`python3 scripts/pr-review/role_review.py COMMAND --help` lists required flags.
+
+| Command | Files and result |
+| --- | --- |
+| `prepare` | Diff/context, HEAD/base and work produce `role-plan.json` and `roles/<tag>.txt/.diff`. |
+| `issue` | Work/tag produce the framed request and matching receipt described above. |
+| `record` | Work/tag, output/stderr, exit code and issued nonce produce `slot/<tag>-result.json`. |
+| `aggregate` | Validates receipts, scope and fingerprints; writes `role-summary.json`, `responded.txt` and `chair-mode.txt`. |
+
+`--paths FILE` contains a UTF-8 JSON array of unique repository-relative reviewable paths;
+renames use destinations while collector provenance covers both names.
+`--provenance FILE` contains a JSON object with matching lowercase 40-hex `head_sha`/`base_sha` and a
+`diff_sha256` of the exact raw input bytes. Optional `path_only` identifies approved
+metadata-only deletions. Optional `input_failures` codes must match
+`[a-z][a-z0-9_:.-]{0,63}` and always block; invalid provenance also blocks.
+Persisted values are scrubbed.
+
+Responses have exactly `head_sha`, `role`, `scope_complete`, `reviewed_paths`,
+`checks`, `findings` and `uncertainties`. Complete scope means every expected path,
+with at least one `{path, evidence}` check. Findings require
+`severity` (`CRITICAL|MAJOR|MINOR|INFO`), `path`, `condition` and `evidence`.
+Uncertainties are strings. A single JSON fence or Kiro `>` prefixes are allowed;
+extra prose, duplicate keys and invalid scope are rejected.
+
+Exit 2 is blocked, not permission for the chair to waive coverage. Aggregation
+produces deterministic FAIL and `coverage-severe.flag` for blocked input/results.
+Exit 0 with `chair-mode.txt=deterministic` permits a complete, uncontested summary
+(Minor/Info remain visible); `review` requires adjudication of Critical/Major
+candidates or uncertainties. Required missing, stale or invalid results block.
+All `*.flag` files block except the generated root `coverage-severe.flag`.
+`failure_codes` is canonical; `failures` is its alias. Reports retain role
+activation reasons and attempt history. At most 32 prior results may be archived.
+
+The generic `configured_exclusions_only` outcome requires explicit
+`--allow-exclusions-only --policy FILE`, empty diff/paths and matching scope lists.
+The engine hashes actual schema-1 policy bytes against `input_policy_sha256`,
+retains `exclusions-policy.json` and rechecks that anchor during aggregation.
+Its caller MUST verify the policy's trusted BASE source and complete Git scope;
+the library does not discover repository membership. MRA does not enable this
+policy or weaken ADR-004. See ADR-005 for the approved exception's PASS semantics.
+
+## Collector bundle
+
+The trusted caller resolves/fetches the immutable Git objects and collects all
+GitHub files API pages between two PR snapshot checks. Each snapshot file contains
+only `{"head_sha": "<40-hex>", "base_sha": "<40-hex>"}`.
 
 ```bash
 python3 scripts/pr-review/prepare_project_roles.py \
-  --files "$FILES_JSON" --before "$BEFORE_JSON" --after "$AFTER_JSON" \
-  --head "$HEAD_SHA" --base "$BASE_SHA" --merge-base "$MERGE_BASE_SHA" --output "$BUNDLE"
-python3 scripts/pr-review/prepare_roles.py --prepared-diff "$BUNDLE/panel.diff" --work "$WORK"
+  --files /tmp/pr-files.json \
+  --before /tmp/pr-before.json --after /tmp/pr-after.json \
+  --head "$HEAD_SHA" --base "$BASE_SHA" --merge-base "$MERGE_BASE_SHA" \
+  --output /tmp/pr-review-collect
 ```
 
-Snapshot JSON contains `head_sha`/`base_sha`. The bundle retains `panel.diff`,
-`collection.json` and patch-free `collection-meta.json`. State-deletion bodies are
-removed before persistence. The caller must delete original raw API responses
-before providers or the chair run. Publish safe metadata, never raw request bodies.
+This runs the existing `collect-diff.sh`. The retained bundle has its approved
+diff and sanitized files API records. Excluded patches, including deleted state
+contents, are removed before persistence. A separate `collection-meta.json` excludes all patches and is safe to include
+with coverage/exception artifacts. Safe API blob IDs and change counters remain
+in public and fingerprinted scope metadata. Temporary classifier inputs are destroyed
+before returning. The caller must retain the existing cleanup of its
+original raw API response files before reviewers run.
 
-The hook receives `prepare(head, base, merge_base, work, supplied_diff)` and returns
-`diff`/`context` bytes, reviewable `paths`, `provenance` and `input_failures`.
-Missing/mismatched bundles block; raw Git reconstruction is not a fallback.
-It replays the BASE collector and checks snapshots, source digest and every files
-API path/status against a NUL-delimited Git manifest. Safe blob IDs/counts survive.
-The plan/request binds scope and source/context/diff hashes; metadata is data.
+`paths` contains reviewable filenames in collector order. Provenance records
+`scope_paths` (including both rename paths), per-file status/classification,
+excluded entries, snapshot/source/context/diff hashes and any accepted exception.
+This provenance is bound into trusted plan/request/result fingerprints and included
+with summary evidence. No changed path may disappear merely because it is absent
+from provider text.
 
-ADR-004 state/plan additions, modifications and renames block. Eligible deletion
-bodies stay withheld. API-omitted oversized text deletions use explicit `path_only`
-metadata and actual tree mode without fetching old bodies. Mixed input retains all
-reviewable text. The eligible deletion-only result is reserved for the trusted
-workflow shortcut; ordinary empty input never receives role PASS. MRA installs no
-generic `role-input-scope.json` or exclusions-only opt-in. Workflow/E2E integration
-must preserve this custody and provide safe deletion-only artifacts.
+API-omitted oversized text deletions remain metadata-only. The adapter adds their
+actual Git tree mode to the collector's deletion record so the existing engine
+accepts it; it never fetches the old body. Both collector and prepared diff hashes
+are recorded, and `path_only` identifies these entries. Reviewers must see that
+the deletion was assessed without its contents.
 
-## API and input
+## Exceptions, limits and chair
 
-`python3 scripts/pr-review/role_review.py COMMAND --help` lists flags.
+Only ADR-004's eligible deletion-only case returns
+`provenance.exception == "adr004_deletions_only"` with empty diff/paths. The caller
+preserves the existing no-provider shortcut and uploads explicit exception
+evidence. It does not fabricate role results or pass an empty diff to ordinary review.
+Other empty views return `no_reviewable_input`.
 
-| Command | Contract |
-| --- | --- |
-| prepare | Diff/context, HEAD/base, work; optional paths/provenance → `role-plan.json`, `roles/TAG.txt/.diff`. |
-| issue | Work/tag → nonce, exact `requests/TAG.prompt/.input`, `slot/TAG-request.json`. Call before each attempt. |
-| record | Tag, output/stderr, exit code, issued nonce → validated, scrubbed `slot/TAG-result.json`. |
-| aggregate | Validate results/receipts → `role-summary.json`, `responded.txt`, `chair-mode.txt`, applicable report/flag. |
+All reviewable text is retained. Input beyond 95,000 bytes or 3,000 lines reports
+`input_failures`, without truncation. Context combines only BASE source bytes;
+candidate sources are checked for availability/size but never become instructions.
+The context ceiling stays 24,000 bytes and the shared request ceiling still applies.
+There is no automatic chunking or budget increase.
 
-The executor sends issued bytes; hashes bind inputs, not transport. Keep tool data
-out of diagnostics.
+`role-project.json` requires 600-second chair attempts, 8 primary turns and 12
+fallback turns. Read/Grep/Glob remain the allowed set; the Bash/Write/Edit/
+NotebookEdit/WebFetch/WebSearch/Task deny baseline must always be sent. The shared
+chair enforces these explicit settings even if the legacy shell file is removed,
+and rejects attempts to disable or increase the limits. This preserves ADR-004
+independently of regex extraction.
 
-`--paths FILE`: UTF-8 JSON array of unique repository-relative paths matching the patch,
-e.g. `["src/api.ts"]`. Renames use destinations; the collector checks both sides.
-Omit only for authoritative, unambiguous patch paths.
+The approved specialist roster is Codex `global.openai.gpt-6-astra`, Kiro
+`claude-opus-5` and `gpt-5.6-sol`, and Claude
+`global.anthropic.claude-fable-5-1`. The legacy Terra setting is not the specialist
+roster. These IDs target CI's Bedrock Runtime provider; local Mantle uses the distinct
+`openai.gpt-6-astra` ID. Configured identity and offline tests do not attest live inference.
+For reviewable input, Codex (`implementation`) and Claude (`requirements`) are
+always required and receive all paths. Trusted routing can deactivate irrelevant
+Kiro roles; model failures never create an exemption.
 
-`--provenance FILE`: JSON object. Required `head_sha`/`base_sha` equal the lowercase
-40-character CLI revisions; `diff_sha256` hashes exact raw diff bytes. Example:
+Run `python3 -B -m unittest -v test_project_roles test_project_integration_roles`
+from this directory, followed by the shared runtime and existing collector tests.
+The integration suite executes the real shared entrypoints with local Git and fake
+CLIs: missing bundles block before raw diff generation, provenance is fingerprinted,
+withheld state stays out of provider/artifact input, and mandatory chair arguments
+survive legacy-script removal. Invalid budget overrides must fail before a call.
 
-```json
-{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","base_sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","diff_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
-```
+During shared-core integration, `ROLE_REVIEW_TEST_CORE=/path/to/shared/core` selects
+the candidate runtime for temporary test fixtures only. It neither changes production
+configuration nor overwrites this repository's shared files. Run the same suite
+without that override after copying the reviewed common runtime into the repository.
 
-Optional `input_failures` contains codes matching `[a-z][a-z0-9_:.-]{0,63}`; any code
-blocks. Invalid provenance is discarded and blocks; stored values are scrubbed.
-Optional `path_only: list[str]` identifies collector-approved metadata-only
-deletions. Verify eligibility before withholding bodies.
-
-## Coverage and lifecycle
-
-Codex/Claude are required for reviewable source; trusted routing may deactivate
-irrelevant Kiro roles. App Router React is conservative. Failed output is never
-N/A. Parsing misses whole omissions/some cut prefixes: verify Git scope/hashes.
-
-BASE-approved exclusions-only scope may yield NOT_APPLICABLE/PASS without models.
-Require empty diff/paths, `scope_exception: configured_exclusions_only`, lowercase
-64-character `input_policy_sha256`, and identical nonempty unique safe
-`scope_paths`/`excluded_paths`. Caller MUST verify trusted BASE policy and complete
-Git scope; the library cannot establish repository membership. Reports disclose
-exclusions/hash. Accidental empty input never qualifies.
-
-Start fresh work before collection. `prepare` clears owned results/receipts, claims,
-duplicate/terminal flags and histories; upstream flags remain. Issue/record exclude
-each other; interrupted operations require fresh work. Duplicate records retain
-the first result and block. Finish writers before aggregation. Reissue of failed results archives
-at most 32 prior results in `slot/TAG-attempts.json`; model-selection/fallback/quota/preflight
-failures block until new preparation. Summaries retain history. All `*.flag` files
-block except root `coverage-severe.flag`. `failure_codes` is canonical; `failures` aliases it.
-
-Exit 2 means blocked. Aggregate exit 0: `deterministic` permits the report when no
-blocking candidate/uncertainty exists (Minor/Info remain); `review` needs a chair.
-Blocked input yields deterministic FAIL; the chair cannot waive coverage failures.
-
-Publish scrubbed reports/receipts/metadata only; never raw `roles/*.diff` or
-`requests/*.input/.prompt`.
-
-## Limits and checks
-
-Limits: 95,000 diff bytes (UTF-8), 3,000 lines, 24,000 context bytes, <128 KiB
-request; projects may lower them. Oversize blocks. No chunk coordinator or
-combining partial PASS results; preserve custody/budgets.
-
-Run `python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py'`.
-Offline CI: `.github/workflows/pr-review-roles-tests.yml`. Activation also needs
-executor/adapter, limit and exact-HEAD publication tests; offline success proves
-no live provider execution.
-
-Sol replaces this repository's legacy Terra slot at activation; application
-inference models remain unchanged.
-
-MRA retains ADR-004 collector/state-deletion custody and its deletion-only shortcut.
-These stages do not configure generic exclusions-only scope for MRA (ADR-005).
-
-Exclusions-only review requires both `--allow-exclusions-only --policy FILE`.
-The trusted BASE collector supplies a schema-1 policy; its exact bytes must match
-`input_policy_sha256`. The private `exclusions-policy.json` anchor is rechecked
-during aggregation. Missing or mismatched opt-in blocks. The collector, not this
-offline library, must establish complete Git scope and approved exclusions.
-
-A valid result cannot be reissued to discard findings or uncertainty. Start a new
-preparation for a new review; failed attempts retain their diagnostic history.
-
-The model table targets CI's Bedrock Runtime provider. Local Mantle uses
-`openai.gpt-6-astra` for Astra; provider-specific identifiers are not interchangeable.
+The activation-only `test_project_workflow_roles` suite executes the workflow's
+actual collection, prompt, review and gate blocks. It checks mixed state deletion
+privacy, raw-response cleanup, deletion-only provider skipping and the declared
+artifact-upload paths using local Git and fake CLIs.

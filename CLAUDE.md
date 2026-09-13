@@ -185,3 +185,13 @@ go test ./...
 - kubectl contexts use short aliases: `mall-apne2-mgmt`, `mall-apne2-az-a`, `mall-apne2-az-c`.
 - ALB Controller IRSA role names: `mall-apne2-az-{a,c}-alb-controller-*` (not `production-*` prefix).
 - Self-hosted GitHub Actions runners (ARC v2): x86 + arm64 via Karpenter on mgmt cluster.
+
+## Specialist PR review
+
+CI enables `ROLE_REVIEW=1`: one applicable responsibility per model instead of
+repeating every lens. See [the current review contract](docs/pr-review-specialists.md).
+Codex and Claude retain full change-boundary checks from independent model families;
+Kiro covers AWS and operational responsibilities when applicable. Trusted routing
+owns NOT_APPLICABLE. Failed or incomplete required output is never a clean review.
+The chair adjudicates substantive candidates; it cannot waive coverage failures.
+This section supersedes earlier matrix-count and permissive dropout descriptions.
