@@ -231,7 +231,7 @@ validated/scrubbed results and scrubbed diagnostics remain in review artifacts.
 
 ## Workflow and artifacts
 
-Immediately after checkout, CI rejects a symlink WORK and recreates `/tmp/pr-review`
+After checkout, CI rejects a symlink WORK and recreates `/tmp/pr-review`
 before CLI checks or collection. Original files API responses are deleted before
 providers run; current omission/preflight flags survive coordination. Missing or
 invalid required coverage produces deterministic FAIL; the chair cannot waive it.
@@ -239,11 +239,8 @@ The eligible deletion-only shortcut invokes no provider and publishes safe colle
 metadata rather than invented role results. Posting rechecks the current PR HEAD.
 
 Publish `role-source.json`, plan/summary, issued receipts, attempt ledgers, results
-and timing metadata. Request bodies, role diffs and original model output are private.
-Artifacts include HEAD and `github.run_attempt` in their names, so reruns retain
+and timing metadata. Artifacts include HEAD and `github.run_attempt` in their names, so reruns retain
 distinct immutable evidence. Collection metadata and failure flags are also uploaded.
-Each attempt uses its persisted nonce-bound request; interrupted locks require fresh
-work. Full helper contracts are defined above and in each command's `--help`.
 
 Responses require `head_sha`, `role`, `scope_complete`, all `reviewed_paths`, evidence
 `checks`, `findings` and `uncertainties`. Findings carry severity/path/condition/evidence.
@@ -256,5 +253,7 @@ assignment examples in the final report.
 
 MRA retains its portable control stripper because its legacy `lib.sh` lacks one.
 Terminal formatting is removed before JSON validation without masking path values;
-credential masking follows validation. Generic exclusions in shared E2E tests exist
-only in temporary fixtures. They do not configure exclusions-only review for MRA.
+credential masking follows validation. Text-mode stdout errors remain diagnostics;
+JSON review evidence stays data.
+
+Generic exclusion tests use temporary repos.
