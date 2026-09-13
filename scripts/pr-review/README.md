@@ -54,7 +54,8 @@ A shallow BASE checkout plus fetching those exact revisions is sufficient; compl
 Git history is not required. Fetching objects is not permission to reconstruct
 withheld state/plan bodies. The activation workflow supplies this prerequisite.
 
-From the pinned BASE checkout, collect all files API pages between two immutable
+Set `HEAD_SHA`, `BASE_SHA` and `GH_REPO`. From the pinned BASE checkout, collect
+all files API pages between two immutable
 HEAD/base snapshots, then create the approved bundle before deleting raw API files:
 
 ```bash
@@ -63,6 +64,14 @@ python3 scripts/pr-review/prepare_project_roles.py \
   --head "$HEAD_SHA" --base "$BASE_SHA" --merge-base "$MERGE_BASE_SHA" --output "$BUNDLE"
 python3 scripts/pr-review/prepare_roles.py --prepared-diff "$BUNDLE/panel.diff" --work "$WORK"
 ```
+
+The shared preparer obtains merge-base identity from GitHub's compare API and
+requires the bundle to match; shallow checkout history is not used to recompute it.
+After collection, the installed entrypoints are:
+
+- `run-specialists.sh BUNDLE/panel.diff UNUSED WORK`
+- `run_role.py --work WORK --tag TAG`
+- `synthesize_roles.py --work WORK --output REPORT`
 
 Snapshot JSON contains `head_sha`/`base_sha`. The bundle retains `panel.diff`,
 `collection.json` and patch-free `collection-meta.json`. State-deletion bodies are
@@ -82,6 +91,11 @@ Missing/mismatched bundles block; raw Git reconstruction is not a fallback.
 It replays the BASE collector and checks snapshots, source digest and every files
 API path/status against a NUL-delimited Git manifest. Safe blob IDs/counts survive.
 The plan/request binds scope and source/context/diff hashes; metadata is data.
+Header-only renames require equal Git blob IDs, without reading bodies, before
+adding 100% similarity evidence; actual mode changes are retained. Omitted content
+changes block. `collector_diff_sha256` identifies replay bytes; `diff_sha256`
+identifies the completed metadata supplied to the protocol. Shared bounds are in
+[Limits and checks](#limits-and-checks).
 
 ADR-004 state/plan additions, modifications and renames block. Eligible deletion
 bodies stay withheld. API-omitted oversized text deletions use explicit `path_only`
@@ -235,6 +249,8 @@ One JSON fence or Kiro `>` prefixes are accepted; extra prose and duplicate keys
 Validated paths stay exact while decoded credential values are scrubbed. Sensitive
 containers are scanned without evaluation: complete boundaries preserve outside text;
 ambiguous expression tails consume the remainder and cannot retain a chair PASS.
+Bullets, links or closing fences can resemble continuations; avoid sensitive
+assignment examples in the final report.
 
 MRA retains its portable control stripper because its legacy `lib.sh` lacks one.
 Terminal formatting is removed before JSON validation without masking path values;

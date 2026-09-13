@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted (2026-09-13). Separate protocol, common-executor and MRA-adapter stages
-precede this final workflow activation and its end-to-end tests. Code and offline tests do not establish live
-deployment or inference.
+Accepted (2026-09-13). Protocol PR #52, executors #54 and MRA adapter #55 precede
+this PR #56 activation and its end-to-end tests. PR #53's policy rationale is
+retained below. Code and offline tests do not establish live deployment or inference.
 
 ## Context
 
