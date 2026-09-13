@@ -1,9 +1,9 @@
 # Specialist review protocol
 
-**Inactive executor bootstrap.** The offline protocol and common executors are
-installed. MRA's required guard profile blocks preparation until the separate
-collector adapter arrives in PR #55; activation follows in PR #56. The operational
-workflow remains on its legacy path.
+**Installed offline protocol.** Its code, tests and offline test workflow are
+available. The legacy operational review remains active; provider/adapter
+integration and slot changes follow separately. The library performs no Git fetch
+or model calls.
 
 | Tag | Requested model | Scope |
 | --- | --- | --- |
@@ -26,45 +26,6 @@ attest model weights.
 
 These are different label namespaces. The protocol tag does not rename the
 legacy slot; the activation change selects the new role-based execution path.
-
-## Installed common libraries
-
-`run-specialists.sh` coordinates one role per applicable tag; `run_role.py` sends
-issued requests, validates process/transport outcomes and records scrubbed results.
-Codex validates JSONL events and its private final-output file. Kiro uses an empty
-catalog and a random canary with expected `NO_TOOLS` response. `synthesize_roles.py`
-selects deterministic output or bounded chair adjudication.
-
-`prepare_roles.py` validates a pinned BASE checkout. Its generic branch can load a
-committed, byte-matched `prepare_context_roles.py`; absence preserves root context.
-No such repository-specific helper is installed here. MRA requires its separate
-collector adapter before selecting these executors; do not replace ADR-004's
-approved input with generic raw Git diff. See [ADR-005](../../docs/decisions/ADR-005-specialist-review-protocol.md).
-
-## MRA bootstrap guard and commands
-
-`role-project.json` must match its committed BASE bytes. Missing or changed policy
-blocks before raw Git fallback. The next stage supplies `prepare_project_roles.py`
-and `mra-review-context.md`; preparation remains blocked until they arrive.
-The role-based chair verifies its BASE checkout and prepared policy hash, then
-enforces 600-second attempts, 8/12 turns and the mandatory deny baseline.
-No workflow selects these libraries yet.
-
-After the adapter is installed, invoke from the pinned BASE checkout with
-`HEAD_SHA`, `BASE_SHA` and `GH_REPO` set:
-
-| Entry point | Arguments |
-| --- | --- |
-| `prepare_roles.py` | `--prepared-diff BUNDLE/panel.diff --work WORK` |
-| `run-specialists.sh` | `BUNDLE/panel.diff LEGACY_LENSES WORK` (second argument reserved/unused) |
-| `run_role.py` | `--work WORK --tag TAG` |
-| `synthesize_roles.py` | `--work WORK --output REPORT` |
-
-`--prepared-diff` is input for the configured project adapter. Generic consumers
-instead derive immutable Git scope and apply their BASE policy; MRA's required
-profile prevents that generic fallback. Claude's specialist command disables
-built-in tools with `--tools ""` and ignores unprovided MCP configuration with
-`--strict-mcp-config`; the command and token removal have regression coverage.
 
 ## API and input
 
@@ -148,7 +109,7 @@ Limits: 95,000 diff bytes (UTF-8), 3,000 lines, 24,000 context bytes, <128 KiB
 request; projects may lower them. Oversize blocks. No chunk coordinator or
 combining partial PASS results; preserve custody/budgets.
 
-Run `python3 -m unittest discover -s scripts/pr-review -p test_role_review.py`.
+Run `python3 -m unittest discover -s scripts/pr-review -p 'test_*role*.py'`.
 Offline CI: `.github/workflows/pr-review-roles-tests.yml`. Activation also needs
 executor/adapter, limit and exact-HEAD publication tests; offline success proves
 no live provider execution.
@@ -181,11 +142,23 @@ preparation for a new review; failed attempts retain their diagnostic history.
 Codex/Claude rows use Bedrock Runtime IDs; Kiro rows use Kiro catalog aliases.
 Local Codex on Mantle uses `openai.gpt-6-astra`; these namespaces are distinct.
 
-Configured chair fallback may recover from transient throttling within existing
-attempt/turn/time bounds; hard account/monthly/credit/overage limits still stop it.
+## Inactive executors
 
-MRA retains the legacy `PANEL_CELL_CAP=20000` per-slot evidence budget. Before
-chair invocation, oversized validated response data blocks without truncation;
-no ADP-style total cap is substituted. Original model JSON reaches `record` through
-a mode-0600 temporary file outside WORK, removed even if recording fails. Only
-validated/scrubbed results and scrubbed diagnostics remain in review artifacts.
+MRA requires
+`prepare_project_roles.py` and `mra-review-context.md` from the adapter stage.
+`role-project.json` and its adapter must match BASE; mismatches block raw fallback.
+The chair checks BASE/policy hash and retains 600s, 8/12 turns and 20,000 bytes
+per-slot without truncation. Fallback permits throttle, never hard account limits.
+
+From pinned BASE, set `HEAD_SHA`, `BASE_SHA`, `GH_REPO`:
+
+- `prepare_roles.py --prepared-diff BUNDLE/panel.diff --work WORK`
+- `run-specialists.sh BUNDLE/panel.diff UNUSED WORK`
+- `run_role.py --work WORK --tag TAG`
+- `synthesize_roles.py --work WORK --output REPORT`
+
+Codex validates JSONL and its final file. `record` receives original JSON through
+a mode-0600 file outside WORK, removed even on errors.
+Kiro uses an isolated empty catalog and random canary. Claude sets `--tools ""`,
+`--disallowedTools "*"`, `--max-turns 1` and strict MCP configuration. Fake CLIs test
+denial, not live inference. Only validated results and scrubbed diagnostics persist.

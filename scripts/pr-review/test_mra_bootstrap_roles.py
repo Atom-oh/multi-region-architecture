@@ -81,6 +81,32 @@ class MraBootstrapTests(unittest.TestCase):
         self.assertNotIn("GH_TOKEN", environment)
         self.assertNotIn("GITHUB_TOKEN", environment)
 
+    def test_claude_explicit_denial_prevents_fixture_file_read(self):
+        fixture = fixtures.IntegrityTests("test_codex_tool_data_is_not_a_diagnostic_or_review")
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        marker = "SYNTHETIC_FILE_BODY_MUST_NOT_APPEAR"
+        source = fixture.root / "private-fixture"
+        source.write_text(marker)
+        directory = fixture.root / "bin"
+        directory.mkdir()
+        cli = directory / "claude"
+        # Emulate a CLI regression ignoring --tools; explicit denial must remain.
+        cli.write_text("#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\n"
+            f"reply=json.loads({fixture.response('claude-self')!r})\n"
+            "args=sys.argv[1:]\n"
+            "denied='--disallowedTools' in args and args[args.index('--disallowedTools')+1]=='*'\n"
+            "bounded='--max-turns' in args and args[args.index('--max-turns')+1]=='1'\n"
+            "if not (denied and bounded):\n"
+            f" reply['checks'][0]['evidence']+=Path({str(source)!r}).read_text()\n"
+            "print(json.dumps(reply))\n")
+        cli.chmod(0o700)
+        with patch.dict(os.environ, {"PATH": str(directory) + os.pathsep + os.environ["PATH"]}):
+            run_role.run(fixture.work, "claude-self")
+        text = (fixture.work / "slot/claude-self-result.json").read_text()
+        self.assertTrue(json.loads(text)["valid"], text)
+        self.assertNotIn(marker, text)
+
 
 if __name__ == "__main__":
     unittest.main()
