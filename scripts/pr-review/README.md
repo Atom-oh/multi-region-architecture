@@ -32,7 +32,7 @@ legacy slot; the activation change selects the new role-based execution path.
 `run-specialists.sh` coordinates one role per applicable tag; `run_role.py` sends
 issued requests, validates process/transport outcomes and records scrubbed results.
 Codex validates JSONL events and its private final-output file. Kiro uses an empty
-catalog and fixed no-tools canary in an isolated environment. `synthesize_roles.py`
+catalog and a random canary with expected `NO_TOOLS` response. `synthesize_roles.py`
 selects deterministic output or bounded chair adjudication.
 
 `prepare_roles.py` validates a pinned BASE checkout. Its generic branch can load a
@@ -43,10 +43,12 @@ approved input with generic raw Git diff. See [ADR-005](../../docs/decisions/ADR
 
 ## MRA bootstrap guard and commands
 
-`role-project.json` is installed now as a required guard. Its named MRA adapter
-arrives in the next stage; until then preparation fails before any raw Git diff
-fallback. The profile already enforces 600-second chair attempts, 8/12 turns and
-the mandatory deny baseline. No workflow selects these libraries yet.
+`role-project.json` must match its committed BASE bytes. Missing or changed policy
+blocks before raw Git fallback. The next stage supplies `prepare_project_roles.py`
+and `mra-review-context.md`; preparation remains blocked until they arrive.
+The role-based chair verifies its BASE checkout and prepared policy hash, then
+enforces 600-second attempts, 8/12 turns and the mandatory deny baseline.
+No workflow selects these libraries yet.
 
 After the adapter is installed, invoke from the pinned BASE checkout with
 `HEAD_SHA`, `BASE_SHA` and `GH_REPO` set:
@@ -182,7 +184,7 @@ Local Codex on Mantle uses `openai.gpt-6-astra`; these namespaces are distinct.
 Configured chair fallback may recover from transient throttling within existing
 attempt/turn/time bounds; hard account/monthly/credit/overage limits still stop it.
 
-MRA retains the legacy `PANEL_CELL_CAP=20000` per-review evidence budget. Before
+MRA retains the legacy `PANEL_CELL_CAP=20000` per-slot evidence budget. Before
 chair invocation, oversized validated response data blocks without truncation;
 no ADP-style total cap is substituted. Original model JSON reaches `record` through
 a mode-0600 temporary file outside WORK, removed even if recording fails. Only

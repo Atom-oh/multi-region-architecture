@@ -26,7 +26,9 @@ class MraBootstrapTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as work, \
                 patch.dict(os.environ, {"GH_REPO": "example/mra"}), \
                 patch.object(prepare_roles, "command", side_effect=command), \
-                patch.object(prepare_roles, "git_file", return_value=None), \
+                patch.object(prepare_roles, "git_file", side_effect=lambda base, name:
+                    Path(prepare_roles.__file__).with_name("role-project.json").read_text()
+                    if name.endswith("role-project.json") else None), \
                 patch.object(prepare_roles.subprocess, "run",
                              return_value=subprocess.CompletedProcess([], 0)):
             with self.assertRaisesRegex(ValueError, "Project adapter differs"):
@@ -54,7 +56,9 @@ class MraBootstrapTests(unittest.TestCase):
             body = json.dumps({"response": {"evidence": "é" * 11000}}, ensure_ascii=False)
             result.write_text(body)
             output = work / "review.md"
-            with patch.object(synthesize_roles, "execute", return_value=(
+            with patch.object(synthesize_roles, "verified_project_policy",
+                              return_value=prepare_roles.project_policy()), \
+                    patch.object(synthesize_roles, "execute", return_value=(
                     0, "Must not run.\nVERDICT: PASS\n", "")) as invoke:
                 synthesize_roles.synthesize(work, output)
             self.assertEqual(invoke.call_count, 0)

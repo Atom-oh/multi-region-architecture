@@ -90,7 +90,8 @@ class IntegrityTests(unittest.TestCase):
         (self.work / "chair-mode.txt").write_text("review\n")
         (self.work / "role-summary.json").write_text('{"findings":[]}\n')
         (self.work / "project-context.md").write_text("Trusted context.\n")
-        with patch.object(synthesize_roles, "execute", side_effect=responses) as execute:
+        with patch.object(synthesize_roles, "verified_project_policy", return_value={}), \
+                patch.object(synthesize_roles, "execute", side_effect=responses) as execute:
             with patch.object(synthesize_roles, "scrub", side_effect=lambda value: value):
                 synthesize_roles.synthesize(self.work, self.work / "review.md")
         return execute, (self.work / "review.md").read_text()

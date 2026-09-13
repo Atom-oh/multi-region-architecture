@@ -2,7 +2,6 @@
 
 import importlib.util
 import os
-import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -31,6 +30,7 @@ class SynthesisTests(unittest.TestCase):
         with patch.dict(os.environ, {"CHAIR_TIMEOUT": "10",
                 "CHAIR_PRIMARY_MODEL": "global.anthropic.claude-fable-5-1",
                 "CHAIR_FALLBACK_MODEL": "global.anthropic.claude-opus-5"}), \
+                patch.object(self.module, "verified_project_policy", return_value={}), \
                 patch.object(self.module, "execute", side_effect=replies) as invoke:
             self.module.synthesize(self.root, self.root / "review.md")
         return invoke.call_count, (self.root / "review.md").read_text()

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -15,7 +16,7 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from run_role import execute, scrub  # noqa: E402
 from role_review import canonical, diagnostic_failure, scrub as scrub_decoded  # noqa: E402
-from prepare_roles import project_policy  # noqa: E402
+from prepare_roles import command, git_file, project_policy  # noqa: E402
 
 DENY = {"Bash", "Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch", "Task"}
 THROTTLE = re.compile(r"\b(?:ThrottlingException|TooManyRequestsException)\b")
@@ -77,6 +78,19 @@ def chair_options(policy):
     }
 
 
+def verified_project_policy(summary):
+    base = summary.get("base_sha")
+    if (not isinstance(base, str) or not re.fullmatch(r"[0-9a-f]{40}", base)
+            or command("git", "rev-parse", "HEAD").strip() != base):
+        raise ValueError("Chair requires the pinned base checkout")
+    policy = project_policy(base=base)
+    source = git_file(base, "scripts/pr-review/role-project.json") if policy else None
+    digest = hashlib.sha256(source.encode("utf-8")).hexdigest() if source else None
+    if summary.get("provenance", {}).get("project_policy_sha256") != digest:
+        raise ValueError("Chair policy differs from the prepared policy")
+    return policy
+
+
 def synthesize(work, output):
     mode = (work / "chair-mode.txt").read_text().strip()
     if mode in ("deterministic", "blocked"):
@@ -90,7 +104,7 @@ def synthesize(work, output):
     if mode != "review":
         raise ValueError("Invalid chair mode")
     summary = (work / "role-summary.json").read_text()
-    options = chair_options(project_policy())
+    options = chair_options(verified_project_policy(json.loads(summary)))
     cell_cap = options["panel_cell_cap"]
     if cell_cap is not None:
         if cell_cap <= 0:
