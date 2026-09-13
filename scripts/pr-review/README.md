@@ -94,10 +94,14 @@ MRA retains ADR-004 collector/state-deletion custody and its deletion-only short
 These stages do not configure generic exclusions-only scope for MRA (ADR-005).
 
 Exclusions-only review requires both `--allow-exclusions-only --policy FILE`.
-The trusted BASE collector supplies a schema-1 policy; its exact bytes must match
-`input_policy_sha256`. The private `exclusions-policy.json` anchor is rechecked
-during aggregation. Missing or mismatched opt-in blocks. The collector, not this
-offline library, must establish complete Git scope and approved exclusions.
+The planned generic source is the reviewed schema-1
+`scripts/pr-review/role-input-scope.json` blob at pinned BASE. `FILE` is the trusted
+caller's byte-identical local copy. Preparation will retain those verified bytes
+as `WORK/exclusions-policy.json`, a generated private validation copy rather than
+another committed policy. Both copies must match `input_policy_sha256` of the BASE
+blob; aggregation will recheck the retained WORK copy. Missing or mismatched opt-in
+blocks. The caller, not this library, must verify the BASE source, complete Git
+scope and approved exclusions. MRA does not enable this generic policy.
 
 A valid result cannot be reissued to discard findings or uncertainty. Start a new
 preparation for a new review; failed attempts retain their diagnostic history.
