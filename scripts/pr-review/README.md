@@ -53,11 +53,11 @@ N/A. Parsing misses whole omissions/some cut prefixes: verify Git scope/hashes.
 BASE-approved exclusions-only scope may yield NOT_APPLICABLE/PASS without models.
 Require empty diff/paths, `scope_exception: configured_exclusions_only`, lowercase
 64-character `input_policy_sha256`, and identical nonempty unique safe
-`scope_paths`/`excluded_paths`. The collector verifies policy/all paths; the report
-shows exclusions/hash. Accidental empty input never qualifies. New exclusions
-need policy review; project-specific exceptions remain.
+`scope_paths`/`excluded_paths`. Caller MUST verify trusted BASE policy and complete
+Git scope; the library cannot establish repository membership. Reports disclose
+exclusions/hash. Accidental empty input never qualifies.
 
-Start fresh work before collection. `prepare` clears owned outputs, claims,
+Start fresh work before collection. `prepare` clears owned results/receipts, claims,
 duplicate/terminal flags and histories; upstream flags remain. Issue/record exclude
 each other; interrupted operations require fresh work. Duplicate records retain
 the first result and block. Finish writers before aggregation. Reissue archives
@@ -88,3 +88,12 @@ inference models remain unchanged.
 
 MRA retains ADR-004 collector/state-deletion custody and its deletion-only shortcut.
 These stages do not configure generic exclusions-only scope for MRA (ADR-005).
+
+Exclusions-only review requires both `--allow-exclusions-only --policy FILE`.
+The trusted BASE collector supplies a schema-1 policy; its exact bytes must match
+`input_policy_sha256`. The private `exclusions-policy.json` anchor is rechecked
+during aggregation. Missing or mismatched opt-in blocks. The collector, not this
+offline library, must establish complete Git scope and approved exclusions.
+
+A valid result cannot be reissued to discard findings or uncertainty. Start a new
+preparation for a new review; failed attempts retain their diagnostic history.
