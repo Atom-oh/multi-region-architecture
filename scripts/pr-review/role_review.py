@@ -719,10 +719,14 @@ def diagnostic_failure(stderr):
 
 
 SENSITIVE_KEY = re.compile(
-    r"(?i:(?<![A-Za-z0-9])[A-Za-z0-9_.:-]*(?:password|passwd|pwd|dsn|api[_-]?key|"
+    r"(?i:(?<![A-Za-z0-9])[A-Za-z0-9_.:/()\[\],\t -]*(?:password|passwd|pwd|dsn|api[_\t -]*key|"
     r"secret|token|credential|passphrase|private[_-]?key|cookie|authorization|auth(?![A-Za-z])|dockerconfigjson|"
-    r"connection[_-]?string|origin[_-]?verify|AccessKeyId|access[_-]?key[_-]?id)[A-Za-z0-9_.:-]*)"
+    r"connection[_-]?string|origin[_-]?verify|AccessKeyId|access[_-]?key[_-]?id)[A-Za-z0-9_.:/()\[\],\t -]*)"
 )
+
+def sensitive_key(value):
+    return isinstance(value, str) and SENSITIVE_KEY.fullmatch(re.sub(r"[^A-Za-z0-9]+", "_", value))
+
 
 
 def _scrub_containers(value, key):
@@ -793,9 +797,9 @@ def scrub(value, preserved=frozenset()):
     if isinstance(value, dict):
         fields = {str(k).lower(): v for k, v in value.items()}
         sensitive_values = {v for k, v in (("name", "value"), ("headername", "headervalue"))
-                            if isinstance(fields.get(k), str) and SENSITIVE_KEY.fullmatch(fields[k])}
+                            if sensitive_key(fields.get(k))}
         return {k: "[REDACTED]" if isinstance(k, str) and (
-            SENSITIVE_KEY.fullmatch(k) or k.lower() in sensitive_values
+            sensitive_key(k) or k.lower() in sensitive_values
         ) else scrub(v, preserved) for k, v in value.items()}
     if not isinstance(value, str):
         return value
@@ -844,6 +848,8 @@ def scrub(value, preserved=frozenset()):
         + rf"(?:{quote})?[\s,]*[+-]?[ \t]*(?:{quote})?(?i:(?:header)?value)(?:{quote})?\s*[:=]\s*"
         + rf"(?:{block}|{string}|[^\s,}}\]]+)",
         key + string,
+        # Keep the complete same-line fallback inside a sensitive assignment.
+        key + r"[^\r\n]*(?:\|\||\?\?|\bor\b)[^\r\n]*",
         key + r"""[^\s"',;}\]]+""",
     )
     for pattern in patterns:
