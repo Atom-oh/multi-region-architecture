@@ -70,6 +70,11 @@ class RoleReviewTests(unittest.TestCase):
         cases += [prefix + json.dumps({key: canary}) + suffix
                   for key in ("/prod/db/password", "password[0]", "api key (prod)")
                   for prefix, suffix in (("", ""), ("Evidence: ", "\nPUBLIC_AFTER"))]
+        cases += [f'password = previous {operator} /* local fallback */ "{canary}"\nPUBLIC_AFTER'
+                  for operator in ("||", "??")]
+        cases += ["Evidence: " + json.dumps({key: item})
+                  for key in ("/prod/db/password", "password[0]", "api key (prod)")
+                  for item in ({"note": canary}, [canary])]
         for index, evidence in enumerate(cases):
             with self.subTest(case=index):
                 self.work = self.root / f"publication-{index}"
@@ -119,6 +124,8 @@ class RoleReviewTests(unittest.TestCase):
                    for value in (r"SYNTHETIC_PRIVATE\q", "SYNTHETIC_PRIVATE\nsecond line")]
         reports += ['credentials = {' + key + ': "SYNTHETIC_PRIVATE"}\nVERDICT: PASS\n'
                     for key in (r'"pwd\q"', 'f"pwd{1+}"')]
+        reports += ['credentials = {' + key + ': ["SYNTHETIC_PRIVATE"]}\nVERDICT: PASS\n'
+                    for key in (r'"password[0]\q"', 'f"password[0]{1+}"')]
         for report in reports:
             with self.subTest(report=report):
                 output = self.work / "chair.md"
@@ -150,6 +157,11 @@ VERDICT: PASS
         reports += [
             f"```dotenv\npassword=prefix[{canary}\n```\n[PUBLIC_AFTER](https://example.invalid)\nVERDICT: PASS\n",
         ]
+        reports += [
+            "The secret: user's identity is validated.\nPUBLIC_AFTER\nVERDICT: PASS\n",
+            "password: customer's default is documented.\nPUBLIC_AFTER\nVERDICT: PASS\n",
+            "secret: we're using the documented identity.\nPUBLIC_AFTER\nVERDICT: PASS\n",
+        ]
         for report in reports:
             with self.subTest(report=report):
                 calls, published = fixture.run_chair([(0, report, ""), (0, report, "")])
@@ -157,6 +169,18 @@ VERDICT: PASS
                 self.assertNotIn(canary, published)
                 self.assertIn("PUBLIC_AFTER", published)
                 self.assertTrue(published.rstrip().endswith("VERDICT: PASS"))
+
+    def test_apostrophe_handling_keeps_quoted_credentials_opaque(self):
+        import role_review
+        canary = "SYNTHETIC_QUOTED_VALUE"
+        for value in (f"prefix'{canary} tail'", f"\"owner's {canary}\""):
+            clean = role_review.scrub("password=" + value + "\nPUBLIC_AFTER")
+            self.assertNotIn(canary, clean)
+            self.assertIn("PUBLIC_AFTER", clean)
+        for value in (f"'{canary}", f"(prefix'{canary}"):
+            clean = role_review.scrub("password=" + value + "\nVERDICT: PASS")
+            self.assertNotIn(canary, clean)
+            self.assertNotIn("VERDICT: PASS", clean)
 
     def test_ordinary_prose_scrub_has_bounded_runtime(self):
         prose = "The password is required and the token is optional. " * 80
@@ -171,6 +195,17 @@ VERDICT: PASS
                                 text=True, capture_output=True, cwd=ENGINE.parent, timeout=3)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn(canary, json.loads(result.stdout))
+
+        container = "credentials = {'note': '" + "password_" * 500 + "'}\nPUBLIC_AFTER\n"
+        container += 'api_key="' + canary + '"\nVERDICT: PASS\n'
+        result = subprocess.run([sys.executable, "-c", script], input=json.dumps(container),
+                                text=True, capture_output=True, cwd=ENGINE.parent, timeout=3)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        published = json.loads(result.stdout)
+        self.assertNotIn("password_" * 10, published)
+        self.assertNotIn(canary, published)
+        self.assertIn("PUBLIC_AFTER", published)
+        self.assertTrue(published.rstrip().endswith("VERDICT: PASS"))
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

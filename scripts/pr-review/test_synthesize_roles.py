@@ -16,6 +16,8 @@ class SynthesisTests(unittest.TestCase):
         for example in (
             "Example: `password=SYNTHETIC_CITATION_VALUE` is illustrative.",
             "curl -d 'password=SYNTHETIC_CITATION_VALUE' https://example.invalid",
+            "```bash\npassword=SYNTHETIC_CITATION_VALUE\\'suffix\n```",
+            "```bash\npassword=SYNTHETIC_CITATION_VALUE\\(suffix\n```",
         ):
             with self.subTest(example=example):
                 reply = (0, example + "\nVERDICT: PASS\n", "")
