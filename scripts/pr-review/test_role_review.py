@@ -83,6 +83,10 @@ class RoleReviewTests(unittest.TestCase):
                   for key in ("password[0]", "api key (prod)")]
         cases += [prefix + '\"name\" = \"PASSWORD\"\n\"value\" = <<EOF\n' + canary + '\nEOF'
                   for prefix in ("The secret: ", "The new secret: ")]
+        cases += [f"```bash\ncat <<'EOF'\n> ```\nEOF\necho '`'\npassword=`printf '{canary}'`\n```",
+                  f"<pre>\necho '`'\npassword=`printf '{canary}'`\n</pre>"]
+        cases += [f"<script>\n</{tag}>\necho '`'\npassword=`printf '{canary}'`\n</script>"
+                  for tag in ("ſcript", "scrİpt", "scrıpt")]
         for index, evidence in enumerate(cases):
             with self.subTest(case=index):
                 self.work = self.root / f"publication-{index}"
@@ -113,6 +117,24 @@ class RoleReviewTests(unittest.TestCase):
                         self.assertIn("PUBLIC_AFTER", (self.work / name).read_text())
                 self.assertTrue((self.work / "review.md").read_text().rstrip().endswith("VERDICT: PASS"))
 
+
+    def test_original_container_syntax_survives_recursive_redaction(self):
+        from test_synthesize_roles import SynthesisTests
+        fixture = SynthesisTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        canary = "SYNTHETIC_ORIGINAL_SYNTAX"
+        bad = ['credentials={f"password=x ' + op + ' {1+}": "' + canary + '"}\nVERDICT: PASS\n'
+               for op in ("||", "or")]
+        bad.append('credentials={f"""password=x || {1+}""": "' + canary + '"}\nVERDICT: PASS\n')
+        good = ["Example: " + json.dumps('credentials={"password":"' + canary + '"}')
+                + "\nPUBLIC_AFTER\nVERDICT: PASS\n",
+                'credentials={"password":"\\/' + canary + '"}\nPUBLIC_AFTER\nVERDICT: PASS\n']
+        for report, expected in [(text, "FAIL") for text in bad] + [(text, "PASS") for text in good]:
+            with self.subTest(report=report), mock_patch.dict(fixture.module.os.environ, {"GITHUB_ENV": str(self.root / "test-env")}):
+                _, output = fixture.run_chair([(0, report, ""), (0, report, "")])
+            self.assertNotIn(canary, output)
+            self.assertTrue(output.rstrip().endswith("VERDICT: " + expected), output)
 
     def test_malformed_sensitive_container_cannot_gain_a_chair_pass(self):
         import synthesize_roles
@@ -206,6 +228,10 @@ VERDICT: PASS
         reports += ['Checked `password=`; empty values are rejected.\nPUBLIC_AFTER\nVERDICT: PASS\n',
                     '```dotenv\npassword=\n```\nPUBLIC_AFTER\nVERDICT: PASS\n']
         reports.append(f"password=\n```text\n{canary}\n```\nPUBLIC_AFTER\nVERDICT: PASS\n")
+        reports += [f"```bash\ncat <<'EOF'\n> ```\nEOF\necho '`'\npassword=`printf '{canary}'`\n```\nPUBLIC_AFTER\nVERDICT: PASS\n",
+                    f"<pre>\necho '`'\npassword=`printf '{canary}'`\n</pre>\nPUBLIC_AFTER\nVERDICT: PASS\n"]
+        reports += [f"<script>\n</{tag}>\necho '`'\npassword=`printf '{canary}'`\n</script>\nPUBLIC_AFTER\nVERDICT: PASS\n"
+                    for tag in ("ſcript", "scrİpt", "scrıpt")]
         for report in reports:
             with self.subTest(report=report):
                 calls, published = fixture.run_chair([(0, report, ""), (0, report, "")])
@@ -232,6 +258,10 @@ VERDICT: PASS
         self.assertIn("PUBLIC_AFTER", clean)
         fenced = "```bash\npassword=owner's\n" + canary + "\n'\n```\nPUBLIC_AFTER"
         clean = role_review.scrub(fenced)
+        self.assertNotIn(canary, clean)
+        self.assertIn("PUBLIC_AFTER", clean)
+        indented = "    password=owner's\n    " + canary + "\n    '\nPUBLIC_AFTER"
+        clean = role_review.scrub(indented)
         self.assertNotIn(canary, clean)
         self.assertIn("PUBLIC_AFTER", clean)
         for value in (f"'{canary}", f"(prefix'{canary}", f"os.getenv('NAME', '{canary}'"):
@@ -314,6 +344,16 @@ VERDICT: PASS
                                 text=True, capture_output=True, cwd=ENGINE.parent, timeout=3)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("prefix", json.loads(result.stdout))
+
+    def test_thematic_break_near_match_has_bounded_runtime(self):
+        script = "import json,sys; from role_review import scrub; print(json.dumps(scrub(json.load(sys.stdin))))"
+        for marker in ("*", "_"):
+            with self.subTest(marker=marker):
+                text = marker * 3 + " " * 50000 + "X"
+                result = subprocess.run([sys.executable, "-c", script], input=json.dumps(text),
+                                        text=True, capture_output=True, cwd=ENGINE.parent, timeout=3)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout), text)
 
     def test_ordinary_prose_scrub_has_bounded_runtime(self):
         prose = "The password is required and the token is optional. " * 80
