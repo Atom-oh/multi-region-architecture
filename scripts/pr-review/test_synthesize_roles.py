@@ -12,6 +12,28 @@ MODULE = Path(__file__).with_name("synthesize_roles.py")
 
 
 class SynthesisTests(unittest.TestCase):
+    def test_legacy_bare_inline_markers_keep_the_original_container_guard(self):
+        for example in (
+            "Example: `password=SYNTHETIC_CITATION_VALUE` is illustrative.",
+            "curl -d 'password=SYNTHETIC_CITATION_VALUE' https://example.invalid",
+            "```bash\npassword=SYNTHETIC_CITATION_VALUE\\'suffix\n```",
+            "```bash\npassword=SYNTHETIC_CITATION_VALUE\\(suffix\n```",
+        ):
+            with self.subTest(example=example):
+                reply = (0, example + "\nVERDICT: PASS\n", "")
+                calls, text = self.run_chair([reply, reply])
+                self.assertEqual(calls, 2)
+                self.assertTrue(text.endswith("VERDICT: FAIL\n"))
+                self.assertNotIn("SYNTHETIC_CITATION_VALUE", text)
+
+    def test_scrubbing_cannot_accept_conflicting_original_verdicts(self):
+        for failure in ("VERDICT: FAIL", "\x1b[31mVERDICT: FAIL\x1b[0m", "VERD\u200bICT: FAIL"):
+            with self.subTest(failure=failure):
+                reply = (0, f"Finding:\npassword = prior ||\n{failure}\nVERDICT: PASS\n", "")
+                calls, output = self.run_chair([reply, reply])
+                self.assertEqual(calls, 2)
+                self.assertTrue(output.rstrip().endswith("VERDICT: FAIL"))
+
     def setUp(self):
         self.assertTrue(MODULE.exists(), "Conditional synthesis is not implemented")
         spec = importlib.util.spec_from_file_location("synthesize_roles", MODULE)

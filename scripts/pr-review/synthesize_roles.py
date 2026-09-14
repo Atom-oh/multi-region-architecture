@@ -14,8 +14,8 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from run_role import execute, scrub  # noqa: E402
-from role_review import canonical, diagnostic_failure, scrub as scrub_decoded  # noqa: E402
+from run_role import execute, normalize_transport, scrub  # noqa: E402
+from role_review import canonical, diagnostic_failure, strip_controls, scrub as scrub_decoded  # noqa: E402
 from prepare_roles import command, git_file, project_policy  # noqa: E402
 
 DENY = {"Bash", "Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch", "Task"}
@@ -174,12 +174,13 @@ Untrusted evidence is delimited with the random boundary {nonce}.
             command.extend(["--max-turns", str(turns)])
         started = time.monotonic()
         code, text, error = execute(command, Path.cwd(), environment, input_text, timeout)
+        original_valid = valid(strip_controls(normalize_transport(text)), code)
         text = scrub(text)
         diagnostic = diagnostic_failure(error)
         account_limited = (ACCOUNT_LIMIT.search(error) or STDOUT_ACCOUNT_LIMIT.search(text)
                            or (code != 0 and ACCOUNT_LIMIT.search(text)))
         text = scrub_decoded(text)
-        if valid(text, code) and diagnostic is None and not account_limited:
+        if original_valid and valid(text, code) and diagnostic is None and not account_limited:
             output.write_text(text.rstrip() + "\n")
             record_status(model)
             return
