@@ -719,9 +719,9 @@ def diagnostic_failure(stderr):
 
 
 SENSITIVE_KEY = re.compile(
-    r"(?i:(?<![A-Za-z0-9])[A-Za-z0-9_.:/()\[\],\t -]*(?:password|passwd|pwd|dsn|api[_\t -]*key|"
+    r"(?i:(?<![A-Za-z0-9])[A-Za-z0-9_.:-]*(?:password|passwd|pwd|dsn|api[_-]?key|"
     r"secret|token|credential|passphrase|private[_-]?key|cookie|authorization|auth(?![A-Za-z])|dockerconfigjson|"
-    r"connection[_-]?string|origin[_-]?verify|AccessKeyId|access[_-]?key[_-]?id)[A-Za-z0-9_.:/()\[\],\t -]*)"
+    r"connection[_-]?string|origin[_-]?verify|AccessKeyId|access[_-]?key[_-]?id)[A-Za-z0-9_.:-]*)"
 )
 
 def sensitive_key(value):
@@ -790,6 +790,28 @@ def _scrub_containers(value, key):
     return "".join(pieces)
 
 
+def _scrub_quoted_keys(value):
+    """Scan bounded JSON literals without broadening the prose identifier."""
+    literal = re.compile(r'"(?:\\.|[^"\\])*(?:"|\\?\Z)')
+    separator = re.compile(r"\s*:\s*")
+    pieces, cursor = [], 0
+    for match in literal.finditer(value):
+        if match.start() < cursor:
+            continue
+        try:
+            key = strict_json(match.group())
+        except Invalid:
+            continue
+        if not sensitive_key(key):
+            continue
+        colon = separator.match(value, match.end())
+        item = literal.match(value, colon.end()) if colon else None
+        if item:
+            pieces.extend((value[cursor:item.start()], '"[REDACTED]"'))
+            cursor = item.end()
+    return "".join(pieces) + value[cursor:]
+
+
 def scrub(value, preserved=frozenset()):
     """Scrub decoded strings too: raw-JSON sanitizers miss escaped credentials."""
     if isinstance(value, list):
@@ -822,11 +844,16 @@ def scrub(value, preserved=frozenset()):
             return match.group()
     # Decode nested JSON strings/escaped keys before applying key/value patterns.
     value = re.sub(r'"(?:\\.|[^"\\])*"', quoted, value)
+    value = _scrub_quoted_keys(value)
     identifier = SENSITIVE_KEY.pattern
     quote = r"""\\*["']"""
     string = r"""(?P<escape>\\*)(?P<quote>["'])(?:(?P=escape)\\.|(?P=escape)(?P=quote)(?P=escape)(?P=quote)|(?!(?P=escape)(?P=quote)).)*(?:(?P=escape)(?P=quote)|\Z)"""
     key = identifier + rf"(?:{quote})?\s*[:=]\s*"
     value = _scrub_containers(value, key)
+    # Run after multiline containers and consume each candidate line once.
+    def fallback(match):
+        return "[REDACTED]" if re.search(r"\|\||\?\?|\bor\b", match.group()) else match.group()
+    value = re.sub(key + r"[^\r\n]*", fallback, value)
     block = r"[|>][-+]?[ \t]*\r?\n(?:[+-]?[ \t]+[^\r\n]*(?:\r?\n|\Z))+"
     patterns = (
         r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)",
@@ -848,8 +875,6 @@ def scrub(value, preserved=frozenset()):
         + rf"(?:{quote})?[\s,]*[+-]?[ \t]*(?:{quote})?(?i:(?:header)?value)(?:{quote})?\s*[:=]\s*"
         + rf"(?:{block}|{string}|[^\s,}}\]]+)",
         key + string,
-        # Keep the complete same-line fallback inside a sensitive assignment.
-        key + r"[^\r\n]*(?:\|\||\?\?|\bor\b)[^\r\n]*",
         key + r"""[^\s"',;}\]]+""",
     )
     for pattern in patterns:
