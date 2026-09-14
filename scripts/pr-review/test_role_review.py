@@ -200,6 +200,9 @@ VERDICT: PASS
         reports += [f"> ```dotenv\n> password=prefix{opening}{canary}\n> ```\nPUBLIC_AFTER\nVERDICT: PASS\n"
                     for opening in ("[", "{")]
         reports.append('printf \'%s\\n\' \'"password": "' + canary + '"\'\nPUBLIC_AFTER\nVERDICT: PASS\n')
+        reports += [f'1. Rule\n    Checked `export password="{canary}"` here.\nPUBLIC_AFTER\nVERDICT: PASS\n',
+                    f'Checked `export\npassword="{canary}"` here.\nPUBLIC_AFTER\nVERDICT: PASS\n',
+                    f'1. Rule\n    Checked `export\n    password="{canary}"` here.\nPUBLIC_AFTER\nVERDICT: PASS\n']
         for report in reports:
             with self.subTest(report=report):
                 calls, published = fixture.run_chair([(0, report, ""), (0, report, "")])
@@ -223,6 +226,10 @@ VERDICT: PASS
         clean = role_review.scrub(fenced)
         self.assertNotIn(canary, clean)
         self.assertNotIn("TAIL", clean)
+        self.assertIn("PUBLIC_AFTER", clean)
+        fenced = "```bash\npassword=owner's\n" + canary + "\n'\n```\nPUBLIC_AFTER"
+        clean = role_review.scrub(fenced)
+        self.assertNotIn(canary, clean)
         self.assertIn("PUBLIC_AFTER", clean)
         for value in (f"'{canary}", f"(prefix'{canary}", f"os.getenv('NAME', '{canary}'"):
             clean = role_review.scrub("password=" + value + "\nVERDICT: PASS")
@@ -275,7 +282,10 @@ VERDICT: PASS
 
     def test_commented_bracket_lookahead_has_bounded_runtime(self):
         script = "import json,sys; from role_review import scrub; print(json.dumps(scrub(json.load(sys.stdin))))"
-        for line in ("# password=prefix[\n", "// password=prefix[\n", "/* password=prefix[ */\n"):
+        lines = [prefix + "password=prefix" + "[" * depth + suffix
+                 for prefix, suffix in (("# ", "\n"), ("// ", "\n"), ("/* ", " */\n"))
+                 for depth in (1, 2, 8)]
+        for line in lines:
             with self.subTest(line=line):
                 text = line * 4096
                 result = subprocess.run([sys.executable, "-c", script], input=json.dumps(text),
