@@ -147,6 +147,9 @@ VERDICT: PASS
         ]
         reports += [f"```dotenv\npassword=prefix{opening}{canary}\n```\nPUBLIC_AFTER\nVERDICT: PASS\n"
                     for opening in ("[", "{")]
+        reports += [
+            f"```dotenv\npassword=prefix[{canary}\n```\n[PUBLIC_AFTER](https://example.invalid)\nVERDICT: PASS\n",
+        ]
         for report in reports:
             with self.subTest(report=report):
                 calls, published = fixture.run_chair([(0, report, ""), (0, report, "")])
