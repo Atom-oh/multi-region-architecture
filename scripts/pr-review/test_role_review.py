@@ -44,6 +44,15 @@ class RoleReviewTests(unittest.TestCase):
         cases += [f'password = settings.PASSWORD{before}{operator}{after}"{canary}"\nPUBLIC_AFTER'
                   for operator in ("||", "??", "or")
                   for before, after in ((" ", "\n    "), ("\n    ", " "))]
+        cases += [
+            f'password = prior || "default"; api_key =\n"{canary}"; PUBLIC_AFTER',
+            f'password: "first\n{canary} token=value or last"\nPUBLIC_AFTER',
+            f'password = prior || "{canary}"; PUBLIC_AFTER',
+        ]
+        cases += [
+            f'The new secret: name="PASSWORD", value="{canary}"',
+            f"""curl -d "password="'{canary}'"&user=demo" https://example.invalid""",
+        ]
         cases += [prefix + json.dumps({key: canary}) + suffix
                   for key in ("/prod/db/password", "password[0]", "api key (prod)")
                   for prefix, suffix in (("", ""), ("Evidence: ", "\nPUBLIC_AFTER"))]
