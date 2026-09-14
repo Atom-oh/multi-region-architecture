@@ -89,6 +89,14 @@ class RoleReviewTests(unittest.TestCase):
                   for tag in ("ſcript", "scrİpt", "scrıpt")]
         cases += [f"- > ```bash\n  > echo '`'\n  > password=`printf '{canary}'`\n  > ```",
                   f"- - ```bash\n    echo '`'\n    password=`printf '{canary}'`\n    ```"]
+        cases += [f'secret: |\n  Cookie: session=public\n  {canary}',
+                  f'secret: |\n  Set-Cookie: session=public\n  {canary}',
+                  f'secret: |\n+  Cookie: session=public\n+  {canary}',
+                  f'secret: |\n+  Set-Cookie: session=public\n+  {canary}',
+                  f'secret: >\n  Cookie: session=public\n  {canary}',
+                  f'secret: >\n  Set-Cookie: session=public\n  {canary}',
+                  f'secret: >\n+  Cookie: session=public\n+  {canary}',
+                  f'secret: >\n+  Set-Cookie: session=public\n+  {canary}']
         for index, evidence in enumerate(cases):
             with self.subTest(case=index):
                 self.work = self.root / f"publication-{index}"
@@ -240,6 +248,14 @@ VERDICT: PASS
                     f'```bash\nprintf \'%s\' \'myapp password="{canary}"\'\n```\nPUBLIC_AFTER\nVERDICT: PASS\n']
         reports += [f"Cookie: password='{canary}\nPUBLIC_AFTER\nVERDICT: PASS\n",
                     f"Set-Cookie: password='{canary}\nPUBLIC_AFTER\nVERDICT: PASS\n"]
+        reports += [f'secret: |\n  Cookie: session=public\n  {canary}\nPUBLIC_AFTER\nVERDICT: PASS\n',
+                    f'secret: |\n  Set-Cookie: session=public\n  {canary}\nPUBLIC_AFTER\nVERDICT: PASS\n',
+                    f'secret: |\n+  Cookie: session=public\n+  {canary}\nPUBLIC_AFTER\nVERDICT: PASS\n',
+                    f'secret: |\n+  Set-Cookie: session=public\n+  {canary}\nPUBLIC_AFTER\nVERDICT: PASS\n',
+                    f'secret: >\n  Cookie: session=public\n  {canary}\nPUBLIC_AFTER\nVERDICT: PASS\n',
+                    f'secret: >\n  Set-Cookie: session=public\n  {canary}\nPUBLIC_AFTER\nVERDICT: PASS\n',
+                    f'secret: >\n+  Cookie: session=public\n+  {canary}\nPUBLIC_AFTER\nVERDICT: PASS\n',
+                    f'secret: >\n+  Set-Cookie: session=public\n+  {canary}\nPUBLIC_AFTER\nVERDICT: PASS\n']
         for report in reports:
             with self.subTest(report=report):
                 calls, published = fixture.run_chair([(0, report, ""), (0, report, "")])
