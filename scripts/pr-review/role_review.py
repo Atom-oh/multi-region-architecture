@@ -1176,13 +1176,32 @@ def _json_enclosing_closers(value):
     return closers
 
 
-def _assignment_spans(value, key, json_closers=None):
+def _single_quoted_spans(value):
+    """Locate complete single-line quoted literals, excluding word apostrophes."""
+    spans, index = [], 0
+    while index < len(value):
+        if value[index] != "'" or (index and (value[index - 1].isalnum() or value[index - 1] in "_\\")):
+            index += 1
+            continue
+        end = value.find("'", index + 1)
+        if end < 0:
+            break
+        if "\n" in value[index + 1:end] or "\r" in value[index + 1:end]:
+            index += 1
+            continue
+        spans.append((index + 1, end))
+        index = end + 1
+    return spans
+
+
+def _assignment_spans(value, key, json_closers=None, *, single_strings=()):
     """Find assignments without changing another detector's input."""
     if json_closers is None:
         json_closers = _json_enclosing_closers(value)
     operator = re.compile(r"\|\||\?\?|\bor\b")
     tail_operator = re.compile(r"(?:\|\||\?\?|\bor|\\|(?:^|\s)[+*/%&|^?:<>=!-])$")
     block_spans, block_index = [], 0
+    single_index = 0
     closing_fences = set()
     code_spans, code_index = _inline_code_spans(value, block_spans, closing_fences), 0
     prose_suffix = re.compile(r"'(?:s|t|re|ve|ll|d|m)\b", re.I)
@@ -1330,6 +1349,11 @@ def _assignment_spans(value, key, json_closers=None):
             continue
         if match.end() in closing_fences:
             continue  # Whitespace-only RHS ended at a verified closing fence.
+        while single_index < len(single_strings) and single_strings[single_index][1] <= match.start():
+            single_index += 1
+        single_end = (single_strings[single_index][1]
+                      if single_index < len(single_strings) and single_strings[single_index][0] <= match.start()
+                      else None)
         while code_index < len(code_spans) and code_spans[code_index][1] < match.start():
             code_index += 1
         code_end = (code_spans[code_index][1]
@@ -1361,6 +1385,10 @@ def _assignment_spans(value, key, json_closers=None):
         continuation_pending = False
         while index < len(value):
             char = value[index]
+            if (index == single_end and index > value_start and not quote and not stack
+                    and (index + 1 == len(value) or value[index + 1].isspace()
+                         or value[index + 1] in ";|&)<>" or index + 1 == code_end)):
+                break
             if (index == code_end and not quote and not stack
                     and not tail_operator.search(value[line_start:index].rstrip())):
                 break
@@ -1486,6 +1514,8 @@ def _opaque_scan_view(value, bodies):
 
 def _owned_body(value, match, kind, key):
     end = match.end()
+    if kind == "header":
+        return match.span()  # The complete header line is already redacted.
     if kind == "heredoc":
         newline = value.find("\n", match.end("heredoc"), end)
         if newline < 0:
@@ -1585,7 +1615,7 @@ def scrub(value, preserved=frozenset()):
         r"""(?i:\bAuthorization)["']?\s*:\s*["']?(?i:Basic|Bearer)\s+[A-Za-z0-9+/=_.~-]+""",
         r"""[A-Za-z][A-Za-z0-9+.-]*://[^/\s:@"']*:[^@\s/"']+@""",
         r"""https://hooks\.slack\.com/services/[^\s"'<>]+""",
-        r"""(?im)^[ \t]*[+-]?[ \t]*(?:set-)?cookie["']?[ \t]*:[^\r\n]*""",
+        (r"""(?im)^[ \t]*[+-]?[ \t]*(?:set-)?cookie["']?[ \t]*:[^\r\n]*""", 'header'),
         r"""(?i:\bx-origin-verify)["']?\s*:\s*["']?[^\s"',;}\]]+""",
         (key + block, 'block'),
         (key + r"<<-?(?P<heredoc>\w[\w-]*)[ \t]*\r?\n.*?(?:(?m:^[+-]?[ \t]*(?P=heredoc)[ \t]*\r?$)|\Z)", 'heredoc'),
@@ -1612,7 +1642,8 @@ def scrub(value, preserved=frozenset()):
             scan_value = _opaque_scan_view(value, bodies)
             continue
         if entry is _assignment_spans:
-            spans.extend(_assignment_spans(scan_value, key, _json_enclosing_closers(value)))
+            spans.extend(_assignment_spans(scan_value, key, _json_enclosing_closers(value),
+                                           single_strings=_single_quoted_spans(value)))
             continue
         pattern, kind = entry if isinstance(entry, tuple) else (entry, None)
         for match in re.finditer(pattern, scan_value, flags=re.S):

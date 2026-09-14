@@ -236,6 +236,10 @@ VERDICT: PASS
                     for tag in ("ſcript", "scrİpt", "scrıpt")]
         reports += [f"- > ```bash\n  > echo '`'\n  > password=`printf '{canary}'`\n  > ```\nPUBLIC_AFTER\nVERDICT: PASS\n",
                     f"- - ```bash\n    echo '`'\n    password=`printf '{canary}'`\n    ```\nPUBLIC_AFTER\nVERDICT: PASS\n"]
+        reports += [f'```bash\nbash -c \'myapp password="{canary}"\'\n```\nPUBLIC_AFTER\nVERDICT: PASS\n',
+                    f'```bash\nprintf \'%s\' \'myapp password="{canary}"\'\n```\nPUBLIC_AFTER\nVERDICT: PASS\n']
+        reports += [f"Cookie: password='{canary}\nPUBLIC_AFTER\nVERDICT: PASS\n",
+                    f"Set-Cookie: password='{canary}\nPUBLIC_AFTER\nVERDICT: PASS\n"]
         for report in reports:
             with self.subTest(report=report):
                 calls, published = fixture.run_chair([(0, report, ""), (0, report, "")])
@@ -316,6 +320,18 @@ VERDICT: PASS
             clean = role_review.scrub(scrub_raw(text))
             self.assertNotIn("SYNTHETIC_HEREDOC_BODY", clean)
             self.assertFalse(valid(clean, 0))
+
+    def test_enclosing_quote_does_not_repair_unfinished_value(self):
+        import role_review
+        canary = "SYNTHETIC_UNFINISHED_SHELL"
+        text = "bash -c 'myapp password=\"" + canary + "'\nVERDICT: PASS\n"
+        clean = role_review.scrub(text)
+        self.assertNotIn(canary, clean)
+        self.assertNotIn("VERDICT: PASS", clean)
+        text = "customer's password=prefix'" + canary + " isn't fine"
+        self.assertNotIn(canary, role_review.scrub(text))
+        text = "bash -c 'myapp password=\"prefix\"'" + canary + "\nVERDICT: PASS\n"
+        self.assertNotIn(canary, role_review.scrub(text))
 
     def test_empty_assignment_does_not_skip_nonclosing_fences(self):
         import role_review
