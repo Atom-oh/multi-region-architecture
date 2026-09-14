@@ -62,6 +62,11 @@ class RoleReviewTests(unittest.TestCase):
             f'password = previous ||\n  // local fallback\n  "{canary}"\nPUBLIC_AFTER',
             f'password = previous || // local fallback\n  "{canary}"\nPUBLIC_AFTER',
         ]
+        cases += [
+            f"The secret: don't use token='prefix,{canary}'\nPUBLIC_AFTER",
+            f"password = prior /* don't use token='prefix,{canary}' */\nPUBLIC_AFTER",
+        ]
+        cases.append(f"""curl -d "password="prefix,{canary}"&user=demo" https://example.invalid""")
         cases += [prefix + json.dumps({key: canary}) + suffix
                   for key in ("/prod/db/password", "password[0]", "api key (prod)")
                   for prefix, suffix in (("", ""), ("Evidence: ", "\nPUBLIC_AFTER"))]
@@ -140,6 +145,8 @@ PUBLIC_AFTER
 VERDICT: PASS
 """,
         ]
+        reports += [f"```dotenv\npassword=prefix{opening}{canary}\n```\nPUBLIC_AFTER\nVERDICT: PASS\n"
+                    for opening in ("[", "{")]
         for report in reports:
             with self.subTest(report=report):
                 calls, published = fixture.run_chair([(0, report, ""), (0, report, "")])
