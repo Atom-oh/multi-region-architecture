@@ -162,6 +162,17 @@ VERDICT: PASS
             "password: customer's default is documented.\nPUBLIC_AFTER\nVERDICT: PASS\n",
             "secret: we're using the documented identity.\nPUBLIC_AFTER\nVERDICT: PASS\n",
         ]
+        reports += [
+            f"Example: `password=prefix[{canary}` PUBLIC_AFTER\nVERDICT: PASS\n",
+            f"Example: `export password=prefix{{{canary}` PUBLIC_AFTER\nVERDICT: PASS\n",
+            f"Example: ``password=prefix[{canary}`` PUBLIC_AFTER\nVERDICT: PASS\n",
+        ]
+        reports += [
+            "secret: customer's default\nPUBLIC_AFTER deployment retry is required\nIt isn't recoverable.\nVERDICT: PASS\n",
+            f'secret: |\n  password="{canary}\nPUBLIC_AFTER\nVERDICT: PASS\n',
+            f"name: PASSWORD\nvalue: 'password=\"{canary}'\nPUBLIC_AFTER\nVERDICT: PASS\n",
+        ]
+        reports.append(f'secret=<<EOF\npassword="{canary}\nEOF\nPUBLIC_AFTER\nVERDICT: PASS\n')
         for report in reports:
             with self.subTest(report=report):
                 calls, published = fixture.run_chair([(0, report, ""), (0, report, "")])
