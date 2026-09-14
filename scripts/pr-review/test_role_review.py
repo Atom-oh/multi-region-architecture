@@ -53,6 +53,15 @@ class RoleReviewTests(unittest.TestCase):
             f'The new secret: name="PASSWORD", value="{canary}"',
             f"""curl -d "password="'{canary}'"&user=demo" https://example.invalid""",
         ]
+        cases += [
+            f"password = prior  # don't use token='prefix,{canary}'",
+            f"password = prior  // don't use token='prefix,{canary}'",
+            f"password=https://example.invalid/#{canary}\nPUBLIC_AFTER",
+        ]
+        cases += [
+            f'password = previous ||\n  // local fallback\n  "{canary}"\nPUBLIC_AFTER',
+            f'password = previous || // local fallback\n  "{canary}"\nPUBLIC_AFTER',
+        ]
         cases += [prefix + json.dumps({key: canary}) + suffix
                   for key in ("/prod/db/password", "password[0]", "api key (prod)")
                   for prefix, suffix in (("", ""), ("Evidence: ", "\nPUBLIC_AFTER"))]
@@ -86,6 +95,58 @@ class RoleReviewTests(unittest.TestCase):
                         self.assertIn("PUBLIC_AFTER", (self.work / name).read_text())
                 self.assertTrue((self.work / "review.md").read_text().rstrip().endswith("VERDICT: PASS"))
 
+
+    def test_malformed_sensitive_container_cannot_gain_a_chair_pass(self):
+        import synthesize_roles
+
+        plan = self.prepare()
+        (self.work / "project-context.md").write_text(self.context.read_text())
+        for tag, role in plan["roles"].items():
+            if role["required"]:
+                response = self.response(tag)
+                if tag == "codex":
+                    response["findings"] = [{"severity": "MAJOR", "path": FRONTEND,
+                                             "condition": "Synthetic candidate", "evidence": "Check original syntax."}]
+                self.record(tag, response)
+        self.cli("aggregate", "--work", self.work)
+        self.assertEqual(self.read("role-summary.json")["mode"], "review")
+        reports = ['credentials = {"pwd": "' + value + '"}\nVERDICT: PASS\n'
+                   for value in (r"SYNTHETIC_PRIVATE\q", "SYNTHETIC_PRIVATE\nsecond line")]
+        reports += ['credentials = {' + key + ': "SYNTHETIC_PRIVATE"}\nVERDICT: PASS\n'
+                    for key in (r'"pwd\q"', 'f"pwd{1+}"')]
+        for report in reports:
+            with self.subTest(report=report):
+                output = self.work / "chair.md"
+                # Synthetic Git SHAs: policy custody is covered by its integrity tests.
+                with mock_patch.dict(synthesize_roles.os.environ, {"GITHUB_ENV": str(self.root / "test-env")}), \
+                        mock_patch.object(synthesize_roles, "verified_project_policy", return_value={}), \
+                        mock_patch.object(synthesize_roles, "execute", return_value=(0, report, "")):
+                    synthesize_roles.synthesize(self.work, output)
+                published = output.read_text()
+                self.assertNotIn("SYNTHETIC_PRIVATE", published)
+                self.assertTrue(published.rstrip().endswith("VERDICT: FAIL"))
+
+    def test_chair_keeps_valid_prose_and_shell_tails(self):
+        from test_synthesize_roles import SynthesisTests
+
+        fixture = SynthesisTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        canary = "SYNTHETIC_CHAIR_PRIVATE_VALUE"
+        reports = [
+            f"password=\"{canary}\" isn't rotated\nPUBLIC_AFTER\nVERDICT: PASS\n",
+            f"""curl -d "password="'{canary}'"&user=demo" https://example.invalid
+PUBLIC_AFTER
+VERDICT: PASS
+""",
+        ]
+        for report in reports:
+            with self.subTest(report=report):
+                calls, published = fixture.run_chair([(0, report, ""), (0, report, "")])
+                self.assertEqual(calls, 1)
+                self.assertNotIn(canary, published)
+                self.assertIn("PUBLIC_AFTER", published)
+                self.assertTrue(published.rstrip().endswith("VERDICT: PASS"))
 
     def test_ordinary_prose_scrub_has_bounded_runtime(self):
         prose = "The password is required and the token is optional. " * 80

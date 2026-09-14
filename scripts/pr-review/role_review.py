@@ -815,6 +815,7 @@ def _scrub_quoted_keys(value):
 def _scrub_assignment_values(value, key):
     """Consume complete assignments before another matcher can remove delimiters."""
     operator = re.compile(r"\|\||\?\?|\bor\b")
+    line_break = re.compile(r"\r\n?|\n")
     opening = {"(": ")", "[": "]", "{": "}"}
     def next_content(index):
         while index < len(value) and value[index].isspace():
@@ -825,7 +826,16 @@ def _scrub_assignment_values(value, key):
         if match.start() < cursor:
             continue
         index, quote, escaped, stack = match.end(), None, False, []
+        key_name = match.group().rstrip()[:-1].rstrip()
+        prefix = value[match.start() - 1] if match.start() else ""
+        if key_name.endswith(("\"", "'")):
+            prefix = ""
+        # A quoted shell fragment can contain only the assignment prefix.
+        if prefix in ("\"", "'") and index < len(value) and value[index] == prefix:
+            index += 1
+        value_start = index
         line_start = index
+        continuation_pending = False
         while index < len(value):
             char = value[index]
             if escaped:
@@ -837,10 +847,23 @@ def _scrub_assignment_values(value, key):
                     index += len(quote)
                     quote = None
                     continue
+            elif prefix == "`" and char == "`" and not stack:
+                break
             elif char in "\"'`":
+                continuation_pending = False
                 quote = char * 3 if char != "`" and value.startswith(char * 3, index) else char
                 index += len(quote)
                 continue
+            elif (not stack and (index == match.end() or value[index - 1].isspace())
+                  and (char == "#" or value.startswith("//", index))):
+                previous = value[line_start:index].rstrip()
+                if continuation_pending or re.search(r"(?:\|\||\?\?|\bor|\\)$", previous):
+                    newline = line_break.search(value, index)
+                    index = len(value) if newline is None else next_content(newline.end())
+                    line_start = index
+                    continuation_pending = True
+                    continue
+                break
             elif char in ";," and not stack:
                 break
             elif char in opening:
@@ -849,17 +872,20 @@ def _scrub_assignment_values(value, key):
                 if char != stack.pop():
                     index = len(value)
                     break
-            elif char == "\n" and not stack:
+            elif char.isspace() and not stack:
                 previous = value[line_start:index].rstrip()
                 following = next_content(index)
                 if not (re.search(r"(?:\|\||\?\?|\bor|\\)$", previous) or operator.match(value, following)):
                     break
+                continuation_pending = True
                 index = line_start = following
                 continue
-            if char == "\n":
+            if char in "\r\n":
                 line_start = index + 1
+            elif not char.isspace():
+                continuation_pending = False
             index += 1
-        if index == match.end():
+        if index == value_start:
             continue
         pieces.extend((value[cursor:match.start()], "[REDACTED]"))
         cursor = index
@@ -899,12 +925,12 @@ def scrub(value, preserved=frozenset()):
             return match.group()
     # Decode nested JSON strings/escaped keys before applying key/value patterns.
     value = re.sub(r'"(?:\\.|[^"\\])*"', quoted, value)
-    value = _scrub_quoted_keys(value)
     identifier = SENSITIVE_KEY.pattern
     quote = r"""\\*["']"""
     string = r"""(?P<escape>\\*)(?P<quote>["'])(?:(?P=escape)\\.|(?P=escape)(?P=quote)(?P=escape)(?P=quote)|(?!(?P=escape)(?P=quote)).)*(?:(?P=escape)(?P=quote)|\Z)"""
     key = identifier + rf"(?:{quote})?\s*[:=]\s*"
     value = _scrub_containers(value, key)
+    value = _scrub_quoted_keys(value)
     block = r"[|>][-+]?[ \t]*\r?\n(?:[+-]?[ \t]+[^\r\n]*(?:\r?\n|\Z))+"
     patterns = (
         r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)",
