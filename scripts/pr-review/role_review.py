@@ -980,8 +980,8 @@ def _assignment_spans(value, key, json_closers=None):
     bare_word = re.compile(r"[\w.@/-]+")
     line_break = re.compile(r"\r\n?|\n")
     opening = {"(": ")", "[": "]", "{": "}"}
-    bracket_ends = {}
-    fence_end = re.compile(r"[ \t]*(?:`{3,}|~{3,})[ \t]*(?:\r?\n|\Z)")
+    bracket_ends, comment_suffixes = {}, {}
+    fence_end = re.compile(r"[ \t]*(?:>[ \t]*)*(?:`{3,}|~{3,})[ \t]*(?:\r?\n|\Z)")
 
     def paired_bracket(start, boundary, shell_quote=""):
         # Cache matching pairs from the same forward scan. An unrelated later
@@ -989,11 +989,28 @@ def _assignment_spans(value, key, json_closers=None):
         cache_key = (start, boundary, shell_quote)
         if cache_key in bracket_ends:
             return bracket_ends[cache_key] is not None
+        checkpoints = []
+
+        def finish(result):
+            bracket_ends[cache_key] = 0 if result else None
+            for checkpoint in checkpoints:
+                comment_suffixes[checkpoint] = result
+            return result
+
         pending = [(opening[value[start]], start)]
         index, quote, escaped = start + 1, None, False
         call_syntax = False
         while index < (len(value) if boundary is None else boundary):
             char = value[index]
+            if (not quote and not escaped and len(pending) == 1
+                    and (value.startswith("/*", index) or (value[index - 1].isspace()
+                         and (char == "#" or value.startswith("//", index))))):
+                # Identical suffix states recur for assignments inside comments.
+                # Reuse their outcome without treating comment contents as code.
+                checkpoint = (index, boundary, shell_quote, pending[0][0], call_syntax)
+                if checkpoint in comment_suffixes:
+                    return finish(comment_suffixes[checkpoint])
+                checkpoints.append(checkpoint)
             if escaped:
                 escaped = False
             elif quote:
@@ -1006,7 +1023,7 @@ def _assignment_spans(value, key, json_closers=None):
             elif value.startswith("/*", index):
                 closing = value.find("*/", index + 2)
                 if closing < 0:
-                    return True
+                    return finish(True)
                 index = closing + 2
                 continue
             elif (value[index - 1].isspace()
@@ -1030,16 +1047,16 @@ def _assignment_spans(value, key, json_closers=None):
             elif char in ")]}":
                 closing, position = pending.pop()
                 if char != closing:
-                    return True  # Keep the main scanner's fail-closed behavior.
+                    return finish(True)  # Keep the main scanner's fail-closed behavior.
                 bracket_ends[(position, boundary, shell_quote)] = index
                 if not pending:
-                    return True
+                    return finish(True)
             index += 1
         if quote or escaped or (value[start] == "(" and call_syntax):
-            return True  # An unfinished string is not a bare literal boundary.
+            return finish(True)  # An unfinished string is not a bare literal boundary.
         for _, position in pending:
             bracket_ends[(position, boundary, shell_quote)] = None
-        return False
+        return finish(False)
     last_apostrophe, last_double, quote_escape = -1, -1, False
     code_apostrophes, code_doubles, quote_span_index = {}, {}, 0
     same_line_quote = set()
@@ -1087,7 +1104,7 @@ def _assignment_spans(value, key, json_closers=None):
         key_name = match.group().rstrip()[:-1].rstrip()
         prefix = value[match.start() - 1] if match.start() else ""
         if key_name.endswith(("\"", "'")):
-            prefix = ""
+            prefix = "'" if value[max(0, match.start() - 2):match.start()] == "'\"" else ""
         # A quoted shell fragment can contain only the assignment prefix.
         if prefix in ("\"", "'") and index < len(value) and value[index] == prefix:
             index += 1
@@ -1347,6 +1364,10 @@ def scrub(value, preserved=frozenset()):
             continue
         pattern, kind = entry if isinstance(entry, tuple) else (entry, None)
         for match in re.finditer(pattern, scan_value, flags=re.S):
+            if kind == "named" and match.group("owned_value").lstrip().startswith("<<"):
+                # An unresolved sensitive heredoc retains the legacy tail guard.
+                spans.append((match.start(), len(value)))
+                continue
             spans.append(match.span())
             if kind:
                 body = _owned_body(value, match, kind, key)
