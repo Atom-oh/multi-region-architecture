@@ -248,8 +248,20 @@ One JSON fence or Kiro `>` prefixes are accepted; extra prose and duplicate keys
 Validated paths stay exact while decoded credential values are scrubbed. Sensitive
 containers are scanned without evaluation: complete boundaries preserve outside text;
 ambiguous expression tails consume the remainder and cannot retain a chair PASS.
-Bullets, headings, links or closing fences can resemble continuations; avoid sensitive
-assignment examples in the final report.
+Review examples use closed top-level code fences, with both delimiters on their
+own lines at column one. Inline backticks are limited to single-line, whitespace-free
+symbol/path references. Use synthetic values and a longer outer fence around an
+example containing fences. The shared `review_format.py` checks prose fields before
+and after masking; validated path and protocol metadata keep their existing rules.
+Complete fenced JSON uses the existing strict JSON masking first. This contract
+does not turn the conservative privacy filter into a general source parser:
+uncertain containers, incomplete heredocs and keys can still require withheld details.
+
+Unsupported specialist output fails coverage with `unsupported_review_format`.
+A complete original chair FAIL with invalid formatting publishes a static FAIL
+with details withheld, without falling back to an approving response. Provider and
+quota failures retain precedence and the existing limits. Other invalid chair
+output can use only the configured fallback within those limits.
 
 MRA retains its portable control stripper because its legacy `lib.sh` lacks one.
 Terminal formatting is removed before JSON validation without masking path values;

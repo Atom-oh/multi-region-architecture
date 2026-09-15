@@ -103,7 +103,7 @@ class SensitiveContainerTests(unittest.TestCase):
         harness = synthesis_fixture.SynthesisTests()
         harness.setUp()
         self.addCleanup(harness.doCleanups)
-        reply = (0, self.report(self.complete_cases()[0]), "")
+        reply = (0, self.report("```text\n" + self.complete_cases()[0] + "\n```"), "")
         calls, text = harness.run_chair([reply, reply])
         self.assertEqual(calls, 1)
         self.assertNotIn("synthetic-", text)
@@ -116,7 +116,7 @@ class SensitiveContainerTests(unittest.TestCase):
         self.addCleanup(harness.doCleanups)
         for container in self.malformed_cases():
             with self.subTest(container=container):
-                reply = (0, self.report(container), "")
+                reply = (0, self.report("```text\n" + container + "\n```"), "")
                 calls, text = harness.run_chair([reply, reply])
                 self.assertEqual(calls, 2)
                 self.assertNotIn("synthetic-", text)
