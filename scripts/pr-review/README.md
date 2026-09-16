@@ -253,6 +253,9 @@ own lines at column one. Inline backticks are limited to single-line, whitespace
 symbol/path references. Use synthetic values and a longer outer fence around an
 example containing fences. The shared `review_format.py` checks prose fields before
 and after masking; validated path and protocol metadata keep their existing rules.
+Qualified key syntax and YAML tags/anchors do not exempt explicit assignments;
+adjacent numeric path:line citations remain references. The gate recognizes explicit
+forms without classifying every unmarked phrase as source.
 Complete fenced JSON uses the existing strict JSON masking first. This contract
 does not turn the conservative privacy filter into a general source parser:
 uncertain containers, incomplete heredocs and keys can still require withheld details.

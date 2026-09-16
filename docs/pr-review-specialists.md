@@ -67,7 +67,8 @@ Minor/Info findings remain in the report.
 Code/configuration examples must be inside closed top-level fences at column one;
 inline backticks are only for single-line symbol/path references. The
 [protocol guide](../scripts/pr-review/README.md) defines validation and safe failure
-handling. Prose is checked before and after masking. Invalid examples fail coverage;
+handling. Prose is checked before and after masking. Qualified assignments and YAML tags/anchors
+require fences. Detected unsupported examples fail coverage;
 a complete blocking chair verdict survives a formatting failure as a static FAIL
 with details withheld, without an approving fallback. Existing quota and execution
 limits still apply.

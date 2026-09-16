@@ -117,6 +117,9 @@ class ReviewFormatTests(unittest.TestCase):
             "Per `docs/decisions/002-auth-and-login.md`: signup is closed.",
             "The guard at web/lib/auth.ts:42 is missing.",
             "See `app/src/lib/chart-tokens.ts:42` for palette mapping.",
+            "See `AWS::SecretsManager::Secret` for the resource type.",
+            "See `web/lib/token.ts:42-45` for token validation.",
+            "See `web/lib/token.ts:42:7` for token validation.",
             "Authorization:\n```http\nGET /health HTTP/1.1\n```",
         )
 
@@ -334,6 +337,75 @@ class ReviewFormatTests(unittest.TestCase):
         self.assertEqual(calls, 2)
         self.assertNotIn("synthetic-private", text)
         self.assertTrue(text.endswith("VERDICT: FAIL\n"))
+
+    def qualified_yaml_examples(self):
+        return (
+            'db.password: "FMT_V4_PRIVATE"',
+            '/prod/db/password: "FMT_V4_PRIVATE"',
+            '`config.password`: "FMT_V4_PRIVATE"',
+            '`/prod/db/password` = "FMT_V4_PRIVATE"',
+            'password: !!str "FMT_V4_PRIVATE"',
+            'password: &credential "FMT_V4_PRIVATE"',
+        )
+
+    def test_v4_rejects_qualified_and_yaml_forms_in_each_prose_field(self):
+        for text in self.qualified_yaml_examples():
+            for field in ("check", "condition", "evidence", "uncertainty"):
+                with self.subTest(text=text, field=field):
+                    response, plan = self.response("Checked the changed caller.")
+                    if field == "check":
+                        response["checks"][0]["evidence"] = text
+                    elif field == "uncertainty":
+                        response["uncertainties"] = [text]
+                    else:
+                        finding = {"severity": "MAJOR", "path": response["reviewed_paths"][0],
+                                   "condition": "The caller fails.", "evidence": "Checked the caller."}
+                        finding[field] = text
+                        response["findings"] = [finding]
+                    with self.assertRaisesRegex(role_review.Invalid, "^unsupported_review_format$"):
+                        role_review.validate_response(response, plan, "codex")
+
+    def test_v4_invalid_forms_never_enter_published_role_results(self):
+        for evidence in self.qualified_yaml_examples():
+            with self.subTest(evidence=evidence):
+                helper = test_role_review.RoleReviewTests()
+                helper.setUp()
+                try:
+                    helper.prepare()
+                    response = helper.response("codex", checks=[{
+                        "path": test_role_review.FRONTEND, "evidence": evidence}])
+                    result = helper.record("codex", response, expected=2)
+                    self.assertEqual(result["failure_codes"], ["unsupported_review_format"])
+                    self.assertIsNone(result["response"])
+                    helper.record("claude-self")
+                    helper.cli("aggregate", "--work", helper.work, expected=2)
+                    for name in ("slot/codex-result.json", "role-summary.json", "deterministic-review.md"):
+                        self.assertNotIn("FMT_V4_PRIVATE", (helper.work / name).read_text())
+                    self.assertTrue((helper.work / "deterministic-review.md").read_text()
+                                    .endswith("VERDICT: FAIL\n"))
+                finally:
+                    helper.tearDown()
+
+    def test_v4_chair_rejects_qualified_and_yaml_examples(self):
+        for evidence in self.qualified_yaml_examples():
+            with self.subTest(evidence=evidence):
+                reply = (0, evidence + "\nVERDICT: PASS\n", "")
+                calls, published = self.chair([reply, reply])
+                self.assertEqual(calls, 2)
+                self.assertTrue(published.endswith("VERDICT: FAIL\n"))
+                self.assertNotIn("FMT_V4_PRIVATE", published)
+
+    def test_delimiter_preservation_does_not_exempt_actual_values(self):
+        canary = "DELIMITER_PRIVATE_CANARY"
+        for value in ("prefix`" + canary + "`", "`" + canary + "`",
+                      "prefix`path/token.ts:42`" + canary,
+                      "prefix`AWS::SecretsManager::Secret`" + canary,
+                      "prefix`web/lib/token.ts:42-45`" + canary):
+            with self.subTest(value=value):
+                text = "password=" + value + "\nPUBLIC_AFTER"
+                filtered = role_review.scrub(text)
+                self.assertNotIn(canary, filtered)
+                self.assertIn("PUBLIC_AFTER", filtered)
 
     def test_original_fail_with_invalid_format_cannot_fall_back_to_pass(self):
         first = (0, "Blocking issue remains. Run `echo details`.\nVERDICT: FAIL\n", "")
