@@ -64,6 +64,16 @@ a deterministic summary. Other valid results require chair adjudication. A
 coverage failure receives a deterministic failure; a chair cannot waive it.
 Minor/Info findings remain in the report.
 
+Code/configuration examples must be inside closed top-level fences at column one;
+inline backticks are only for single-line symbol/path references. The
+[protocol guide](../scripts/pr-review/README.md) defines validation and safe failure
+handling. Prose is checked before and after masking. Qualified assignments and YAML tags/anchors
+require fences. Detected unsupported examples fail coverage;
+a complete blocking chair verdict survives a formatting failure as a static FAIL
+with details withheld, without an approving fallback. Existing quota and execution
+limits still apply.
+
+
 With all four roles active, the ordinary path uses four review calls and two
 Kiro startup checks. Adjudication adds one chair call; retries and fallback add
 calls only when needed. This reduces duplicate requests, but is not a measured
