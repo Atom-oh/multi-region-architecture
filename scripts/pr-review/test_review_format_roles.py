@@ -19,6 +19,89 @@ import test_synthesize_roles
 
 
 class ReviewFormatTests(unittest.TestCase):
+    def brace_reference_examples(self):
+        return (
+            "See `terraform/environments/production/{us-east-1,us-west-2}/` for deployment roots.",
+            "See `k8s/overlays/{us-east-1,us-west-2,ap-northeast-2-az-a,ap-northeast-2-az-c}/` for overlays.",
+            "See `mall-apne2-az-{a,c}-alb-controller-*` for role names.",
+            "See `src/{auth,worker}/token.py:42` for the changed caller.",
+        )
+
+    def test_brace_references_survive_record_and_publication(self):
+        for text in self.brace_reference_examples():
+            with self.subTest(text=text):
+                helper = test_role_review.RoleReviewTests()
+                helper.setUp()
+                self.addCleanup(helper.tearDown)
+                helper.prepare()
+                evidence = text + "\nPUBLIC_AFTER"
+                helper.finish({"codex": helper.response("codex", findings=[{
+                    "severity": "MINOR", "path": test_role_review.FRONTEND,
+                    "condition": "The canonical reference identifies the changed boundary.",
+                    "evidence": evidence,
+                }])})
+                result = helper.read("slot/codex-result.json")
+                self.assertTrue(result["valid"])
+                self.assertIn("PUBLIC_AFTER", result["response"]["findings"][0]["evidence"])
+                self.assertIn("PUBLIC_AFTER", helper.text("role-summary.json"))
+                self.assertIn("PUBLIC_AFTER", helper.text("deterministic-review.md"))
+                self.assertTrue(helper.text("deterministic-review.md").endswith("VERDICT: PASS\n"))
+
+    def test_brace_references_preserve_actual_chair_success(self):
+        for text in self.brace_reference_examples():
+            with self.subTest(text=text):
+                reply = (0, text + "\nPUBLIC_AFTER\nVERDICT: PASS\n", "")
+                calls, published = self.chair([reply, reply])
+                self.assertEqual(calls, 1)
+                self.assertIn("PUBLIC_AFTER", published)
+                self.assertTrue(published.endswith("VERDICT: PASS\n"))
+
+    def test_brace_objects_commands_and_assignments_remain_rejected(self):
+        examples = (
+            '`{"a":1,"b":2}`', "`{a,b}`", "`path/{alone}`",
+            "`path/{a:1,b:2}`", "`path/{a=1,b=2}`", "`path/{a b,c}`",
+            '`path/{a,"b"}`', "`path/{a,,b}`", "`path/{,b}`", "`path/{a,}`",
+            "`path/{a,{b,c}}`", "`path/{a,b`", "`path/a,b}`",
+            "`echo {a,b}`", "`path/{a,b}/call(arg)`",
+            "`path/{a,b}/value=synthetic`", "`path/{a,b}/token.py` = 'synthetic'",
+        )
+        for text in examples:
+            with self.subTest(text=text):
+                response, plan = self.response(text)
+                with self.assertRaisesRegex(role_review.Invalid, "^unsupported_review_format$"):
+                    role_review.validate_response(response, plan, "codex")
+        for text in (examples[0], examples[3], examples[13], examples[-1]):
+            with self.subTest(publication=text):
+                helper = test_role_review.RoleReviewTests()
+                helper.setUp()
+                self.addCleanup(helper.tearDown)
+                helper.prepare()
+                result = helper.record("codex", helper.response("codex", checks=[{
+                    "path": test_role_review.FRONTEND, "evidence": text,
+                }]), expected=2)
+                self.assertIsNone(result["response"])
+                helper.record("claude-self")
+                helper.aggregate(expected=2)
+                self.assertTrue(helper.text("deterministic-review.md").endswith("VERDICT: FAIL\n"))
+                reply = (0, text + "\nVERDICT: PASS\n", "")
+                calls, published = self.chair([reply, reply])
+                self.assertEqual(calls, 2)
+                self.assertTrue(published.endswith("VERDICT: FAIL\n"))
+
+    def test_brace_reference_scans_bound_long_and_malformed_inputs(self):
+        program = (
+            "from review_format import format_violation\n"
+            "valid='root/'+('{a,b}/'*6000)+'file.py'\n"
+            "assert format_violation('`'+valid+'`') is None\n"
+            "for value in ('root/'+('{'*36000)+'a,b}',valid+'}'):\n"
+            " assert format_violation('`'+value+'`') == 'unsupported_review_format'\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-B", "-c", program], cwd=Path(role_review.__file__).parent,
+            capture_output=True, text=True, timeout=2,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_role_format_validation_bounds_operator_free_key_runs(self):
         script = (
             "import sys\n"

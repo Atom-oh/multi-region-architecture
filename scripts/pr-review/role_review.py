@@ -16,7 +16,7 @@ import sys
 import tempfile
 import unicodedata
 from review_format import (FORMAT_INSTRUCTIONS, format_violation,
-                           FENCE as REVIEW_FENCE, REFERENCE as REVIEW_REFERENCE)
+                           FENCE as REVIEW_FENCE, reference_allowed as review_reference_allowed)
 
 
 MAX_DIFF_BYTES = 95000
@@ -866,7 +866,7 @@ def _bare_value_span(value, match):
             r"(?<!`)(?P<ticks>`{1,2})(?P<reference>[^`\r\n]+)"
             r"(?P=ticks)(?!`)")
         for reference in citation.finditer(value, line_start, line_end):
-            if (REVIEW_REFERENCE.fullmatch(reference["reference"])
+            if (review_reference_allowed(reference["reference"])
                     and reference.start("reference") <= match.start() < reference.end("reference")
                     and reference.end("reference") < match.end()
                     and re.fullmatch(r"[`.,;:!?)]*", value[reference.end("reference"):match.end()])):

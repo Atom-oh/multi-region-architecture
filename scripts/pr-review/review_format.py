@@ -20,6 +20,7 @@ FORMAT_INSTRUCTIONS = (
 ERROR_CODE = "unsupported_review_format"
 FENCE = re.compile(r"(`{3,}|~{3,})([^\r\n]*)$")
 REFERENCE = re.compile(r"(?:[\w./:$@#*+\[\]\\-]+(?:\(\))?)\Z", re.UNICODE)
+BRACE_IDENTIFIER = re.compile(r"\w[\w.-]*", re.UNICODE)
 TICKS = re.compile(r"`+")
 ASSIGNMENT_TAIL = re.compile(r"(?P<spacing>\s*)(?P<operator>[:=])")
 RHS_WORDS = re.compile(
@@ -41,6 +42,38 @@ DEFAULT_PATTERN = re.compile(DEFAULT_SENSITIVE_KEY)
 # Mirror the default key alphabet; other alphabets require a trusted opt-in.
 KEY_TOKEN = re.compile(r"[A-Za-z0-9_.:-]+", re.I)
 QUOTED_ASSIGNMENT_TAIL = re.compile(r"""(?:\\?["'])?""" + ASSIGNMENT_TAIL.pattern)
+
+
+def reference_allowed(value):
+    """Allow flat identifier alternatives embedded in an ordinary reference."""
+    if "{" not in value and "}" not in value:
+        return bool(REFERENCE.fullmatch(value))
+    parts, literal, cursor = [], [], 0
+    while cursor < len(value):
+        opening = value.find("{", cursor)
+        if opening < 0:
+            tail = value[cursor:]
+            if "}" in tail:
+                return False
+            parts.append(tail)
+            literal.append(tail)
+            break
+        prefix = value[cursor:opening]
+        if "}" in prefix:
+            return False
+        closing = value.find("}", opening + 1)
+        if closing < 0:
+            return False
+        alternatives = value[opening + 1:closing].split(",")
+        if len(alternatives) < 2 or any(
+                not BRACE_IDENTIFIER.fullmatch(item) for item in alternatives):
+            return False
+        parts.extend((prefix, "x"))
+        literal.append(prefix)
+        cursor = closing + 1
+    # A standalone brace expression is not a path/resource reference.
+    return (any(char not in "()" for char in "".join(literal))
+            and bool(REFERENCE.fullmatch("".join(parts))))
 
 
 def uses_default_pattern(pattern):
@@ -161,7 +194,7 @@ def format_violation(text, sensitive_pattern=DEFAULT_SENSITIVE_KEY, *, key_token
             if opening[0] != closing[0]:
                 return ERROR_CODE
             reference = body[opening.end():closing.start()]
-            if not REFERENCE.fullmatch(reference):
+            if not reference_allowed(reference):
                 return ERROR_CODE
             # Formatting only the key does not make an unfenced assignment safe.
             following = ASSIGNMENT_TAIL.match(text, line_start + closing.end())
