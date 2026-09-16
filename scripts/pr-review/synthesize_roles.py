@@ -15,7 +15,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from run_role import execute, normalize_transport, scrub  # noqa: E402
-from role_review import canonical, diagnostic_failure, strip_controls, scrub as scrub_decoded, SENSITIVE_KEY, mask_fenced_json  # noqa: E402
+from role_review import canonical, diagnostic_failure, strip_controls, scrub as scrub_decoded, SENSITIVE_KEY, REVIEW_KEY_TOKEN_PATTERN, mask_fenced_json  # noqa: E402
 from review_format import FORMAT_INSTRUCTIONS, format_violation
 from prepare_roles import command, git_file, project_policy  # noqa: E402
 
@@ -179,13 +179,15 @@ Untrusted evidence is delimited with the random boundary {nonce}.
         code, text, error = execute(command, Path.cwd(), environment, input_text, timeout)
         original_text = strip_controls(normalize_transport(text))
         original_valid = valid(original_text, code)
-        original_format = format_violation(original_text, SENSITIVE_KEY)
+        original_format = format_violation(
+            original_text, SENSITIVE_KEY, key_token_pattern=REVIEW_KEY_TOKEN_PATTERN)
         text = scrub(mask_fenced_json(text))
         diagnostic = diagnostic_failure(error)
         account_limited = (ACCOUNT_LIMIT.search(error) or STDOUT_ACCOUNT_LIMIT.search(text)
                            or (code != 0 and ACCOUNT_LIMIT.search(text)))
         text = scrub_decoded(text)
-        format_failed = bool(original_format or format_violation(text, SENSITIVE_KEY))
+        format_failed = bool(original_format or format_violation(
+            text, SENSITIVE_KEY, key_token_pattern=REVIEW_KEY_TOKEN_PATTERN))
         if (original_valid and original_text.rstrip().endswith("VERDICT: FAIL")
                 and diagnostic is None and not account_limited and format_failed):
             output.write_text(
