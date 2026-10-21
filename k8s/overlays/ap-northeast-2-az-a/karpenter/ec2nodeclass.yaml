@@ -23,5 +23,6 @@ spec:
     - tags:
         karpenter.sh/discovery: mall-apne2-az-a
   tags:
+    Project: multi-region-mall
     Environment: production
     ManagedBy: karpenter
